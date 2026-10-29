@@ -1,4 +1,6 @@
-import { requireErrorBoundary } from './require-error-boundary.ts';
+// The rule moved to getff's core plugin (one plugin for every stack); the preset keeps its plugin
+// name for the validator's workspace resolution and re-exports the core rule.
+import { requireErrorBoundary } from '../../core/eslint-rules/require-error-boundary.ts';
 
 const plugin = {
   meta: {

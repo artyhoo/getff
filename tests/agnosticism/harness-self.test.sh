@@ -124,7 +124,7 @@ echo "$probe_out" | grep -qE 'no-invisible-core-rules.*CC-ONLY' \
   || bad "rule-channel-readability probe MISSED the seeded invisible rules — probe is blind (T2 harness-theatre gap)"
 rm -rf "$RCROOT"
 
-# ── ANTI-THEATRE (N-S9-c): rule-channel-readability must resolve tsx the way .husky/pre-push:28
+# ── ANTI-THEATRE (N-S9-c): rule-channel-readability must resolve tsx the way .husky/pre-push:44
 # already does, and must blame the ENVIRONMENT — not the rule channels — when tsx is genuinely
 # absent. Incident 2026-07-23: in a git worktree under .claude/worktrees/<name>/ whose node_modules
 # symlinks were never provisioned, BOTH hard-coded tsx paths missed and the probe recorded
@@ -167,7 +167,7 @@ echo "$s9a_out" | grep -q 'fallback-check-mode' \
   || ok "rule-channel-readability does NOT emit a rule-channel verdict for a missing toolchain"
 
 # c2 — seeded INSIDE the repo, reproducing the incident's shape: both hard-coded tsx paths miss,
-# but Node's own upward walk reaches the primary checkout's install (exactly what .husky/pre-push:28
+# but Node's own upward walk reaches the primary checkout's install (exactly what .husky/pre-push:44
 # relies on). Pre-fix this recorded DEGRADED:no-json-mode; post-fix it must compute a real verdict.
 S9B="$REPO_ROOT/.s9-nested-probe-$$"
 seed_s9_root "$S9B"

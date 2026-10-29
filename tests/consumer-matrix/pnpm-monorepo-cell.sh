@@ -19,7 +19,8 @@
 # This cell asserts THAT channel; the root `eslint .` crash is pinned as XFAIL #973 (S1 D2).
 #
 # Asserts (kickoff S2 (a)-(i)):
-#   (a) self-verify VERDICT LINE is the full-pass form, not install rc (S1 D5: rc=0 over dead shield)
+#   (a) self-verify VERDICT LINE is the expected honest form (fences + shields pass; the rule-less
+#       generated-rule-mutation check SKIPs), not install rc (S1 D5: rc=0 over dead shield)
 #   (b) toolchain in-fixture + placed per-workspace config load probe (D5/#976 regression guard)
 #   (c) green-on-clean: the deterministic per-workspace validation gates all pass (the monorepo
 #       enforcement channel above), plus format:check after a normalizing `npm run format`
@@ -153,10 +154,16 @@ tail -20 "$LOG"
 
 step "(a) banner honesty: assert the self-verify VERDICT LINE, not rc (S1 §4 item 1)"
 [ "$INSTALL_RC" -eq 0 ] || fail "(a) install rc=$INSTALL_RC (log tail above)"
-grep -q "✓ self-verify: 3/3 checks passed" "$LOG" \
-  || fail "(a) self-verify verdict line is not the full-pass form — rc=0 alone is NOT success (S1 D5)"
-if grep -q "⚠  self-verify" "$LOG"; then fail "(a) degraded/failed self-verify banner present"; fi
-echo "  ✓ self-verify verdict line = full pass; rc=0"
+# This fixture carries no rules-research artefacts, so there are zero generated rules and the
+# generated-rule-mutation check has nothing to test. Since critical-review wave 2 (S4-7) that is
+# SKIP, not PASS — the old «3/3 checks passed … generated tests non-vacuous» line claimed a
+# property nothing had proven. The exact expected verdict: fences + shields PASS, and the ONLY
+# skip is generated-rule-mutation for having no rule to test. Any FAIL, or any other skip, is RED.
+_VERDICT_WANT="⚠  self-verify: ✓ 2 passed · ⚠ 1 skipped (generated-rule-mutation (no rule tested)) — skipped checks are NOT proven"
+grep -qF "$_VERDICT_WANT" "$LOG" \
+  || fail "(a) self-verify verdict line is not «fences + shields pass, only the rule-less mutation check skipped» — rc=0 alone is NOT success (S1 D5)"
+if grep -q "FAILED" "$LOG"; then fail "(a) a self-verify check FAILED"; fi
+echo "  ✓ self-verify verdict line = fences + shields pass, rule-less mutation check skipped; rc=0"
 
 step "(b) toolchain substrate in-fixture + placed per-workspace config load probe (D5/#976 guard)"
 for bin in eslint tsx tsc; do

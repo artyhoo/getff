@@ -1,0 +1,9 @@
+{
+  "exitCode": 0,
+  "result": {
+    "ok": true,
+    "featureId": "deterministic-core",
+    "revision": 2,
+    "advanced": "currentSpec"
+  }
+}

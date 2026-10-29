@@ -1,0 +1,24 @@
+[
+  {
+    "name": {
+      "type": "project",
+      "dotCodexFolder": "/Users/art/.codex/worktrees/advisor-role-reminders/rules-as-tests-aif/.codex"
+    },
+    "disabledReason": null
+  },
+  {
+    "name": {
+      "type": "user",
+      "file": "/Users/art/.codex/config.toml",
+      "profile": null
+    },
+    "disabledReason": null
+  },
+  {
+    "name": {
+      "type": "system",
+      "file": "/etc/codex/config.toml"
+    },
+    "disabledReason": null
+  }
+]

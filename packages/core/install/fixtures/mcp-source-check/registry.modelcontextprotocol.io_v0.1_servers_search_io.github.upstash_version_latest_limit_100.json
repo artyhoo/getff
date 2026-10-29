@@ -1,0 +1,180 @@
+{
+  "servers": [
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.upstash/context7",
+        "description": "Up-to-date code docs for any prompt",
+        "title": "Context7",
+        "repository": {
+          "url": "https://github.com/upstash/context7",
+          "source": "github"
+        },
+        "version": "4.1.1",
+        "websiteUrl": "https://context7.com",
+        "icons": [
+          {
+            "src": "https://raw.githubusercontent.com/upstash/context7/master/public/icon.png",
+            "mimeType": "image/png"
+          }
+        ],
+        "packages": [
+          {
+            "registryType": "npm",
+            "identifier": "@upstash/context7-mcp",
+            "version": "4.1.1",
+            "transport": {
+              "type": "stdio"
+            },
+            "environmentVariables": [
+              {
+                "description": "API key for authentication",
+                "isSecret": true,
+                "name": "CONTEXT7_API_KEY"
+              }
+            ]
+          },
+          {
+            "registryType": "mcpb",
+            "identifier": "https://github.com/upstash/context7/releases/download/mcpb-v4.1.1/context7.mcpb",
+            "version": "4.1.1",
+            "fileSha256": "887f32c140ca9fa85a0363191f5ee7a443dac17649aaf1f96cdf505e4dc9d26f",
+            "transport": {
+              "type": "stdio"
+            },
+            "environmentVariables": [
+              {
+                "description": "API key for authentication",
+                "isSecret": true,
+                "name": "CONTEXT7_API_KEY"
+              }
+            ]
+          }
+        ],
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://mcp.context7.com/mcp",
+            "headers": [
+              {
+                "description": "API key for authentication. Accepts \"Bearer <key>\" or the raw key.",
+                "isSecret": true,
+                "name": "Authorization"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-09-14T14:53:08.392156Z",
+          "publishedAt": "2026-09-14T14:53:08.392156Z",
+          "updatedAt": "2026-09-14T14:53:08.392156Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.upstash/mcp-server",
+        "description": "Manage Upstash databases and resources through the Upstash Developer API.",
+        "repository": {
+          "url": "https://github.com/upstash/mcp-server",
+          "source": "github"
+        },
+        "version": "0.2.7",
+        "packages": [
+          {
+            "registryType": "npm",
+            "registryBaseUrl": "https://registry.npmjs.org",
+            "identifier": "@upstash/mcp-server",
+            "version": "0.2.7",
+            "transport": {
+              "type": "stdio"
+            },
+            "environmentVariables": [
+              {
+                "description": "Email address of your Upstash account.",
+                "isRequired": true,
+                "name": "UPSTASH_EMAIL"
+              },
+              {
+                "description": "Upstash Developer API key (create one at https://console.upstash.com/account/api).",
+                "isRequired": true,
+                "isSecret": true,
+                "name": "UPSTASH_API_KEY"
+              },
+              {
+                "description": "Upstash Box API key for Box-related tools.",
+                "isSecret": true,
+                "name": "UPSTASH_BOX_API_KEY"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-08-13T08:01:22.230295Z",
+          "publishedAt": "2026-08-13T08:01:22.230295Z",
+          "updatedAt": "2026-08-13T08:01:22.230295Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.upstash/redis-mcp",
+        "description": "Run Redis commands and look up Upstash Redis Search docs against Upstash Redis over HTTP or TCP.",
+        "repository": {
+          "url": "https://github.com/upstash/redis-mcp",
+          "source": "github"
+        },
+        "version": "0.1.1",
+        "packages": [
+          {
+            "registryType": "npm",
+            "registryBaseUrl": "https://registry.npmjs.org",
+            "identifier": "@upstash/redis-mcp",
+            "version": "0.1.1",
+            "transport": {
+              "type": "stdio"
+            },
+            "environmentVariables": [
+              {
+                "description": "Upstash Redis REST URL (HTTP transport).",
+                "name": "UPSTASH_REDIS_REST_URL"
+              },
+              {
+                "description": "Upstash Redis REST token (HTTP transport).",
+                "isSecret": true,
+                "name": "UPSTASH_REDIS_REST_TOKEN"
+              },
+              {
+                "description": "Upstash Redis rediss:// connection string (TCP transport).",
+                "isSecret": true,
+                "name": "UPSTASH_REDIS_TCP_URL"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-07-08T14:32:46.616436Z",
+          "publishedAt": "2026-07-08T14:32:46.616436Z",
+          "updatedAt": "2026-07-08T14:32:46.616436Z",
+          "isLatest": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "count": 3
+  }
+}

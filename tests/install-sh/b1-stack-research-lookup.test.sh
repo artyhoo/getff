@@ -52,31 +52,31 @@ _seed() {
 }
 
 # ── POS — react-native artefacts present, react-native install ───────────────
-P=$(mktemp -d); printf '{"name":"b1-pos","version":"0.0.0"}\n' > "$P/package.json"
+P=$(mktemp -d); printf '{"name":"b1-pos","version":"0.0.0","scripts":{"lint":"eslint ."},"devDependencies":{"eslint":"^9"}}\n' > "$P/package.json"
 _seed "$P" "react-native"
 out=$(_run_step "react-native" "$P")
-if echo "$out" | grep -q "no rules-research artefacts"; then
+if grep -q "no rules-research artefacts" <<<"$out"; then
   bad "POS: react-native install degraded despite react-native.{research,selection}.json present (B1 unfixed — hardcoded react-next lookup)"
-elif echo "$out" | grep -q "would: run rule-bootstrap LIVE"; then
+elif grep -q "would: run rule-bootstrap LIVE" <<<"$out"; then
   ok "POS: react-native artefacts FOUND (stack-keyed lookup reached the LIVE dry-run path)"
 else
   bad "POS: unexpected output (neither degrade nor dry-run-would-run): $(echo "$out" | tr '\n' '|' | head -c 200)"
 fi
 
 # ── REG — react-next still works ─────────────────────────────────────────────
-R=$(mktemp -d); printf '{"name":"b1-reg","version":"0.0.0"}\n' > "$R/package.json"
+R=$(mktemp -d); printf '{"name":"b1-reg","version":"0.0.0","scripts":{"lint":"eslint ."},"devDependencies":{"eslint":"^9"}}\n' > "$R/package.json"
 _seed "$R" "react-next"
 out=$(_run_step "react-next" "$R")
-if echo "$out" | grep -q "would: run rule-bootstrap LIVE"; then
+if grep -q "would: run rule-bootstrap LIVE" <<<"$out"; then
   ok "REG: react-next artefacts still FOUND (no regression to the validated demo stack)"
 else
   bad "REG: react-next lookup broke — $(echo "$out" | tr '\n' '|' | head -c 200)"
 fi
 
 # ── NEG — react-native install, NO artefacts ⇒ degrade still fires ───────────
-N=$(mktemp -d); printf '{"name":"b1-neg","version":"0.0.0"}\n' > "$N/package.json"
+N=$(mktemp -d); printf '{"name":"b1-neg","version":"0.0.0","scripts":{"lint":"eslint ."},"devDependencies":{"eslint":"^9"}}\n' > "$N/package.json"
 out=$(_run_step "react-native" "$N")
-if echo "$out" | grep -q "no rules-research artefacts"; then
+if grep -q "no rules-research artefacts" <<<"$out"; then
   ok "NEG: react-native install with NO artefacts degrades (the FOUND assertion is conditional, not unconditional)"
 else
   bad "NEG: degrade did not fire on absent artefacts — $(echo "$out" | tr '\n' '|' | head -c 200)"

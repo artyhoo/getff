@@ -41,7 +41,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/dispatch-from-state.sh',
+  '.agents/procedures/pipeline/helpers/dispatch-from-state.sh',
 );
 
 const sandboxes: string[] = [];

@@ -94,5 +94,37 @@ else
   bad "GATE: non-loadable config WITHOUT FENCES_FIRE_LOAD_PROBE still failed under CI-auto-strict — the #976 fix would reland the full-barrel regression (tail: $(tail -3 "$T/.gate" | tr '\n' '|'))"
 fi
 
+# ── ARM JS — the consumer's eslint.config.js is the config ESLint loads (getff adds its block to
+#    it, Q4.7): a broken one must fail the load-probe too, not read as «no placed config». ───────
+rm -f "$T/eslint.config.mjs"
+printf "export default [\n" > "$T/eslint.config.js"
+if AIF_PROJECT_ROOT="$T" FENCES_FIRE_LOAD_PROBE=1 bash "$FF" >"$T/.js" 2>&1; then
+  bad "JS: a broken eslint.config.js passed the load-probe (tail: $(tail -2 "$T/.js" | tr '\n' '|'))"
+elif grep -q 'load-probe: placed eslint.config.js failed to load' "$T/.js"; then
+  ok "JS: a broken eslint.config.js fails the load-probe (rc!=0)"
+else
+  bad "JS: rc!=0 but not via the load-probe (tail: $(tail -3 "$T/.js" | tr '\n' '|'))"
+fi
+
+# A nested eslint.config.js is the consumer's own — an example app, a fixture, a sub-project whose
+# dependencies are not installed. getff adds its block to an eslint.config.js only at the project
+# root (the per-workspace passes wire eslint.config.mjs files), so a nested one is no config getff
+# placed or wrote: one that cannot load must not turn fences-fire red (cold-review F7).
+printf "import js from '@eslint/js';\nexport default [js.configs.recommended];\n" > "$T/eslint.config.mjs"
+# The RED arm left node_modules a directory of per-entry links without @eslint/js; link the full set
+# back so the root config loads and only the nested config can fail.
+rm -f "$T/eslint.config.js"; rm -rf "$T/node_modules"; ln -sfn "$FULL_NM" "$T/node_modules"
+mkdir -p "$T/examples/demo"
+printf "import x from 'not-installed-anywhere';\nexport default [x];\n" > "$T/examples/demo/eslint.config.js"
+if AIF_PROJECT_ROOT="$T" FENCES_FIRE_LOAD_PROBE=1 bash "$FF" >"$T/.nested" 2>&1; then
+  ok "JS nested: a nested eslint.config.js getff never touched is not load-probed (rc=0)"
+else
+  bad "JS nested: a nested consumer eslint.config.js that cannot load failed fences-fire (tail: $(grep 'load-probe' "$T/.nested" | tail -2 | tr '\n' '|'))"
+fi
+grep -q 'load-probe: placed examples/demo/eslint.config.js' "$T/.nested" \
+  && bad "JS nested: the load-probe still names examples/demo/eslint.config.js" \
+  || ok "JS nested: the load-probe does not name the nested eslint.config.js"
+rm -f "$T/node_modules"
+
 rm -rf "$T"
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

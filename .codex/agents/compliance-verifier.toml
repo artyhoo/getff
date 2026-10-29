@@ -1,0 +1,4 @@
+name = "compliance-verifier"
+description = "Reviews PR description §1.7 Forward-check and Backward-check sections for substantive evidence — file:line citations, sweep completeness, exemption quality. Reports; does not fix."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/compliance-verifier.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

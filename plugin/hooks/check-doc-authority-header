@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AUTO-GENERATED from .claude/hooks/check-doc-authority-header.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# AUTO-GENERATED from .agents/hooks/check-doc-authority-header.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # check-doc-authority-header.sh — PostToolUse gate — zero-dep consumer reimplementation of the doc-authority header check
 # @cc-only-rationale: edit-time PostToolUse gate — the consumer-shippable, zero-dep reimplementation
 #   of the framework-internal check-doc-authority.sh (which delegates to tsx + packages/core and is a
@@ -24,7 +24,13 @@
 # Consumer-safe: pure bash + jq, no framework-internal dependency; degrades LOUDLY (scoped
 # JSON skip-notice) when jq is absent — a silent skip is indistinguishable from a pass, the
 # exact defect class this gate exists to prevent (aif-parity S4 §3 item 1, 2026-07-23).
+# @plugin-yield-deps: lib/hook-live.sh
 set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live check-doc-authority-header || true; fi
 
 # ── Repo-wide opt-out ─────────────────────────────────────────────────────────
 [[ "${AIF_DOC_AUTHORITY:-1}" == "0" ]] && exit 0
@@ -44,7 +50,7 @@ if ! command -v jq >/dev/null 2>&1; then
   _RAW="$(cat)"
   _RAW_PATH="$(printf '%s' "$_RAW" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
   case "$_RAW_PATH" in
-    *.claude/rules/*.md | *.claude/skills/*/SKILL.md | "")
+    *.claude/rules/*.md | *.claude/skills/*/SKILL.md | *.agents/rules/*.md | *.agents/procedures/*/SKILL.md | *.agents/roles/*.md | "")
       _SID="$(printf '%s' "$_RAW" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
       _FLAG="${TMPDIR:-/tmp}/aif-dah-jqskip-${_SID:-nosession}"
       if [ ! -f "$_FLAG" ]; then
@@ -62,7 +68,16 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
 
-ABS_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+# Parse failures must be loud, not silent skips: with `|| true` a transient jq error
+# (corrupted/truncated stdin, runner IO hiccup) yields an empty ABS_PATH and exit 0 —
+# the gate reports healthy while it checked nothing (CI not-ok-10 class, 2026-10-12:
+# status 0 + empty stderr on a runner whose jq was verified present). An
+# empty-after-SUCCESSFUL-parse stays the legitimate silent scope-exit below.
+_RAW_HOOK_INPUT="$(cat)"
+if ! ABS_PATH="$(printf '%s' "$_RAW_HOOK_INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null)"; then
+  printf '✗ doc-authority: hook input missing or unparseable (jq failed) — the check DID NOT RUN; refusing the silent skip.\n' >&2
+  exit 2
+fi
 [[ -z "$ABS_PATH" ]] && exit 0
 
 # ── Repo-root-relative path (scope patterns are repo-relative) ────────────────
@@ -72,7 +87,10 @@ REL_PATH="${ABS_PATH#"$PROJECT_DIR/"}"
 # ── Scope: consumer-authored .claude/rules/*.md OR .claude/skills/*/SKILL.md ───
 # Flat rules dir + single-level skill dir (mirrors principle 09 REQUIRED_PATH_PATTERNS core).
 if [[ ! "$REL_PATH" =~ ^\.claude/rules/[^/]+\.md$ ]] \
-   && [[ ! "$REL_PATH" =~ ^\.claude/skills/[^/]+/SKILL\.md$ ]]; then
+   && [[ ! "$REL_PATH" =~ ^\.claude/skills/[^/]+/SKILL\.md$ ]] \
+   && [[ ! "$REL_PATH" =~ ^\.agents/rules/[^/]+\.md$ ]] \
+   && [[ ! "$REL_PATH" =~ ^\.agents/procedures/[^/]+/SKILL\.md$ ]] \
+   && [[ ! "$REL_PATH" =~ ^\.agents/roles/[^/]+\.md$ ]]; then
   exit 0
 fi
 
@@ -81,7 +99,7 @@ fi
 CONTENT="$(cat "$ABS_PATH" 2>/dev/null || true)"
 
 # ── Per-file exemption escape hatch (rationale ≥20 chars, single-line HTML comment) ─
-if printf '%s\n' "$CONTENT" | grep -qE '<!--[[:space:]]*doc-authority:[[:space:]]*exempt[[:space:]]+.{20,}-->'; then
+if grep -qE '<!--[[:space:]]*doc-authority:[[:space:]]*exempt[[:space:]]+.{20,}-->' <<<"$CONTENT"; then
   exit 0
 fi
 
@@ -91,7 +109,7 @@ fi
 #    A stray *unbalanced* fence could over-strip vs the TS `stripFencedCodeBlocks` regex, but real
 #    authority headers sit above any code block, so this bound is not reachable in practice.
 STRIPPED="$(printf '%s\n' "$CONTENT" | awk '/^```/{f=!f; next} !f')"
-if printf '%s\n' "$STRIPPED" | grep -qE '^> \*\*Authoritative for:\*\*'; then
+if grep -qE '^> \*\*Authoritative for:\*\*' <<<"$STRIPPED"; then
   exit 0
 fi
 

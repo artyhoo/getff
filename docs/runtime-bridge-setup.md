@@ -7,7 +7,7 @@ The runtime bridge lets `/pipeline` kickoffs dispatch cross-session work to an a
 
 ## Quick start
 
-**One-click path:** `./setup` (framework repo root) offers this setup as its final step. Its guided-detect layer (`setup.d/bridge-guided.sh`) keys on `/health`, so detection is **runtime-agnostic** — aif-handoff may run in docker OR natively; the installer never assumes docker. If the service is unreachable, it diagnoses the run mode and prints the matching bring-up instruction (docker daemon available → `docker compose up -d` in your aif-handoff checkout; native CLI on `PATH` → start it; neither → an install pointer to this doc) — bring the service up and re-run; detection re-probes `/health` and reports reachable / not reachable explicitly, never silently.
+**One-click path:** `./setup` (framework repo root) offers this setup as its final step. Its guided-detect layer (`setup.d/bridge-guided.sh`) keys on `/health`, so detection is **runtime-agnostic** — aif-handoff may run in docker OR natively; the installer never assumes docker. If the service is unreachable, it diagnoses the run mode and reports the bridge as not wired, with the reason for that mode (docker available but aif-handoff not answering; native CLI on `PATH` but not answering; docker daemon stopped; neither docker nor the CLI present) — as a line in `./setup`'s «companion(s) NOT wired» summary, never as a bring-up instruction (operator decision Q4.7, 2026-09-28). Reachable / not reachable is reported explicitly, never silently. When aif-handoff does answer, the step wires the project being set up. For a project getff installs into — from the npm package or a getff clone used as the installer — it registers the delivered dispatch hook in that project's `.claude/settings.json` and writes `RUNTIME_BRIDGE_AIF_URL` and `RUNTIME_BRIDGE_AIF_PROJECT_ID` into its `.claude/settings.local.json` `env` (`setup.d/bridge-guided.sh:276`, `bridge_wire_project` at `:126`). Both values name this machine's aif-handoff, so they stay out of the shared, usually committed `settings.json`; the install git-ignores `settings.local.json` through `.git/info/exclude`, leaving the project's `.gitignore` unchanged. An id the project already set in its `settings.json` `env` is kept. The step never touches a shell rc, so a non-interactive `./setup -y` runs it without `--global`. The project id is the one aif-handoff project whose `rootPath` is this project; no match (a docker aif-handoff lists container paths such as `/home/www/<name>`), two matches, or an unreadable `GET /projects` is a NOT-wired line with its reason — getff does not pick a project by name (`:155`). Under `--profile factory` the install itself does all of this at install time: layer 55 delivers the dispatch hook, registers it on `PostToolUse` and `PostToolUseFailure` in the project's `.claude/settings.json`, and points it at the project (`setup.d/55-runtime-bridge-vendor.sh:135`, `bridge_register_dispatch_hook` at `setup.d/bridge-guided.sh:195`); `install.sh --refresh` does the same for a project installed before, and prints its NOT-wired lines. Only when the project being set up is the getff repository itself does the step run the wizard below (`setup.d/bridge-guided.sh:263`) — its `settings.json` is tracked, so the wizard keeps the env in the shell rc, which a non-interactive run writes only with `--global` (`:267`).
 
 **Direct path:**
 
@@ -18,84 +18,85 @@ bash packages/runtime-bridge/scripts/setup-runtime-bridge.sh
 
 The script probes `${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health` for a reachable aif-handoff coordinator (docker or native — the signal is transport-agnostic) and reports the result explicitly, then asks whether to enable the bridge:
 
-- **yes** → it writes the required `RUNTIME_BRIDGE_*` env to your shell rc, copies the PostToolUse hook into `.claude/hooks/`, and **offers to auto-write** the PostToolUse entry to `.claude/settings.json` (idempotent — skips if the entry is already present; backs up to `settings.json.bak` before writing; JSON-validates before swapping; preserves all existing hooks). Pass `--no-write-settings` or decline the prompt to fall back to printing the snippet for manual pasting. Note: the *agent* (Claude Code) is deny-listed from editing `settings.json` via its `Edit(.claude/settings.json)` / `Write(.claude/settings.json)` tool permissions — that deny-list binds the agent's tool calls, not this human-run setup script, which is why the script may write safely with backup + validation + consent.
-- **no** → it prints the per-task opt-out marker and changes nothing.
+- **yes** → it writes the required `RUNTIME_BRIDGE_*` env to your shell rc, copies the PostToolUse hook into `.claude/hooks/` (in the getff repository the hook is the tracked source, and the copy is skipped), and **auto-writes** the PostToolUse entry to `.claude/settings.json` unless you decline (idempotent — skips if the entry is already present; backs up to `settings.json.bak` before writing; JSON-validates before swapping; preserves all existing hooks). When the entry is not written — the prompt declined, `--no-write-settings`, python3 absent, or the write failed — the script says so and why; it prints no snippet to paste (operator decision Q4.7). Note: the _agent_ (Claude Code) is deny-listed from editing `settings.json` via its `Edit(.claude/settings.json)` / `Write(.claude/settings.json)` tool permissions — that deny-list binds the agent's tool calls, not this human-run setup script, which is why the script may write safely with backup + validation + consent.
+- **no** → it states the per-task opt-in marker and changes nothing.
 
-On **yes** the script prompts for your aif-handoff project UUID; leaving it empty triggers an **explicit warning** — the bridge will throw `dispatch_failed` and stay on `ManualBackend` until `RUNTIME_BRIDGE_AIF_PROJECT_ID` is set. No silent degrade at setup time (the silent fallback described under *Required config env* below is the runtime's behaviour when the env is missing, not the setup script's).
+On **yes** the script prompts for your aif-handoff project UUID; leaving it empty prints an **explicit warning** that `RUNTIME_BRIDGE_AIF_PROJECT_ID` is not written, so every dispatch ends in `dispatch_failed` and falls back to `ManualBackend`. No silent degrade at setup time (the silent fallback described under _Required config env_ below is the runtime's behaviour when the env is missing, not the setup script's).
 
-The script **detects and instructs — it never installs aif-handoff for you** (`docker compose up`, MCP server bring-up, and the `transport: "cli"` profile change are yours to run). The one path that *can* install it is the factory-profile guided install described in the next section, and only on explicit consent.
+The script **never installs or starts aif-handoff**, and it does not change aif-handoff's own config; it states the config the bridge is built for (`transport: "cli"`, `AGENT_AUTO_REVIEW_STRATEGY=closure_first`). The one path that _can_ install aif-handoff is the factory-profile guided install described in the next section, and only on explicit consent.
 
 ## Guided install under `--profile factory` (`AIF_GUIDED_INSTALL`)
 
-The Quick-start paths above only **detect** aif-handoff. Under the **factory profile** the installer additionally offers to *install* it, behind explicit consent. Line references below are to `setup.d/aif-handoff-guided-install.sh` unless prefixed with another filename.
+The Quick-start paths above only **detect** aif-handoff. Under the **factory profile** the installer additionally offers to _install_ it, behind explicit consent. Line references below are to `setup.d/aif-handoff-guided-install.sh` unless prefixed with another filename.
 
-**When it fires.** `install.sh` runs the helper after the `setup.d/` layer loop when `PROFILE=factory` **or** `WITH_AIF_SUITE` is set (`install.sh:1302`) — i.e. `./setup --profile factory`, `./setup --all`, or the legacy `--with-aif-suite`. Under `--profile core` / `--profile env` the block is skipped entirely. If the install payload does not carry the helper (a core-only checkout later refreshed with `--profile factory`), the step prints a pointer to this doc and continues (`install.sh:1304-1307`).
+**When it fires.** `install.sh` runs the helper after the `setup.d/` layer loop when `PROFILE=factory` **or** `WITH_AIF_SUITE` is set (`install.sh:1455`) — i.e. `./setup --profile factory`, `./setup --all`, or the legacy `--with-aif-suite`. Under `--profile core` / `--profile env` the block is skipped entirely. If the install payload does not carry the helper (a core-only checkout later refreshed with `--profile factory`), the step prints a NOT-wired line saying the guided install did not run, and continues (`install.sh:1457-1461`).
 
 **What it does.** The helper reuses `bridge_diagnose` — the same `/health` probe as the detect-only path (`setup.d/bridge-guided.sh:18-27`) — and branches on the state it reports:
 
-| Diagnosed state | Behaviour | Prompts? |
-|---|---|---|
-| `up` | detect-first: prints `✓ aif-handoff already running`, does nothing else (`:111-116`) | no |
-| `docker` (daemon answering) | **the only install path** — asks for consent, then clones + `docker compose up -d` (`:117-165`) | yes, unless pre-answered |
-| `native` (aif-handoff CLI on `PATH`, not responding) | prints "start it manually (e.g. `aif-handoff serve`), then re-run with `--profile factory`", then degrades (`:166-173`) | no |
-| `docker-down` (docker binary present, daemon stopped) | prints "start docker, then re-run", then degrades (`:174-184`) | no |
-| `absent` (no docker binary, no CLI) | prints "install docker, then re-run", then degrades (`:185-192`) | no |
+| Diagnosed state                                       | Behaviour                                                                                                                         | Prompts?                 |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `up`                                                  | detect-first: prints `✓ aif-handoff already running`, does nothing else (`:119-124`)                                              | no                       |
+| `docker` (daemon answering)                           | **the only install path** — asks for consent, then clones + `docker compose up -d` (`:125-173`)                                   | yes, unless pre-answered |
+| `native` (aif-handoff CLI on `PATH`, not responding)  | degrades; NOT wired: the CLI is installed but does not answer, and getff does not start a service it did not install (`:174-180`) | no                       |
+| `docker-down` (docker binary present, daemon stopped) | degrades; NOT wired: the docker daemon is not running, and getff does not start it (`:181-190`)                                   | no                       |
+| `absent` (no docker binary, no CLI)                   | degrades; NOT wired: no docker and no aif-handoff CLI, and getff installs neither (`:191-197`)                                    | no                       |
 
-On the `docker` path with consent the helper clones `$AIF_HANDOFF_REPO_URL` into `$AIF_HANDOFF_CHECKOUT` — or, when that directory already exists, runs `git -C … pull --ff-only` and tolerates a failed pull (`:131-139`); runs `docker compose up -d` in the checkout (`:142`); then polls `/health` for up to **30 seconds** (`:149-160`). A failed clone, a failed `docker compose up -d`, or a health timeout each append a line to the audit log and fall through to the same degrade path as a decline (`:134-147`, `:161-164`).
+On the `docker` path with consent the helper clones `$AIF_HANDOFF_REPO_URL` into `$AIF_HANDOFF_CHECKOUT` — or, when that directory already exists, runs `git -C … pull --ff-only` and tolerates a failed pull (`:139-147`); runs `docker compose up -d` in the checkout (`:150`); then polls `/health` for up to **30 seconds** (`:156-168`). A failed clone, a failed `docker compose up -d`, or a health timeout each append a line to the audit log and fall through to the same degrade path as a decline, with the failure as the NOT-wired reason (`:142-155`, `:169-172`).
 
-**The consent ladder** (`_aif_handoff_resolve_consent`, `:64-89`), evaluated in order:
+**The consent ladder** (`_aif_handoff_resolve_consent`, `:70-97`), evaluated in order:
 
-1. `AIF_GUIDED_INSTALL` = `1` / `y` / `Y` / `yes` / `YES` / `true` → consent granted, no prompt (`:66-71`).
-2. `AIF_GUIDED_INSTALL` = `0` / `n` / `N` / `no` / `NO` / `false` → refused, no prompt (`:72-75`). Any other value — including unset or empty — falls through.
-3. Otherwise, a non-interactive run (`-y` / `--full` / `--all`, surfaced to the helper as `GETFF_NONINTERACTIVE=1` — `install.sh:1322-1324`) **auto-declines** rather than blocking on a prompt, and prints `Set AIF_GUIDED_INSTALL=1 to opt in without a prompt` (`:77-82`). This preserves `./setup -y`'s never-prompt contract.
-4. Otherwise an interactive `Clone aif-handoff + docker compose up -d? [y/N]:` prompt; anything other than `y`/`yes` declines (`:83-88`).
+1. `AIF_GUIDED_INSTALL` = `1` / `y` / `Y` / `yes` / `YES` / `true` → consent granted, no prompt (`:74-78`).
+2. `AIF_GUIDED_INSTALL` = `0` / `n` / `N` / `no` / `NO` / `false` → refused, no prompt (`:79-82`). Any other value — including unset or empty — falls through.
+3. Otherwise, a non-interactive run (`-y` / `--full` / `--all`, surfaced to the helper as `GETFF_NONINTERACTIVE=1` — `install.sh:1475-1478`) **auto-declines** rather than blocking on a prompt; its NOT-wired line says a non-interactive run clones and starts containers only with `AIF_GUIDED_INSTALL=1` (`:84-89`). This preserves `./setup -y`'s never-prompt contract.
+4. Otherwise an interactive `Clone aif-handoff + docker compose up -d? [y/N]:` prompt; anything other than `y`/`yes` declines (`:90-96`).
 
 Consequence worth internalising: `./setup --all` on its own will **not** install aif-handoff (it is a `--full` path, so rule 3 applies). The opt-in is `AIF_GUIDED_INSTALL=1 ./setup --all <stack>`.
 
-**Declining is a designed success path.** A decline — and every failure branch above — prints that the factory profile degrades to env-level (multi-model contour placeholders only, no aif runtime) and appends `AIF_HANDOFF: degrade env-level` to the audit log (`:206-212`). `install.sh` additionally wraps the helper in `|| true` (`:1325`), so nothing in this flow can fail the install.
+**Declining is a designed success path.** A decline — and every failure branch above — prints that the factory profile degrades to env-level (multi-model contour placeholders only, no aif runtime), prints the helper's own «companion(s) NOT wired» summary with the reason (the helper runs after the install's summary, as its own process), and appends `AIF_HANDOFF: degrade env-level` to the audit log (`:212-219`). `install.sh` additionally wraps the helper in `|| true` (`install.sh:1479`), so nothing in this flow can fail the install.
 
-**Dry-run is inert twice over.** `install.sh --dry-run` does not even spawn the helper — it prints a preview instead (`install.sh:1308-1315`). A helper invoked by hand with `GETFF_DRY_RUN=--dry-run` self-gates identically: no probe, no clone, no containers, no audit-log line (`:100-106`).
+**Dry-run is inert twice over.** `install.sh --dry-run` does not even spawn the helper — it prints a preview instead (`install.sh:1462-1468`). A helper invoked by hand with `GETFF_DRY_RUN=--dry-run` self-gates identically: no probe, no clone, no containers, no audit-log line (`:108-114`).
 
-**Without Docker nothing is installed.** `docker-down` and `absent` are deliberately distinct states with opposite guidance ("start docker" vs "install docker"), and neither one prompts or clones.
+**Without Docker nothing is installed.** `docker-down` and `absent` are deliberately distinct states with different reasons (a stopped daemon vs no docker at all), and neither one prompts or clones.
 
 **Env knobs for this flow:**
 
-| Env var | Default | Purpose |
-|---|---|---|
-| `AIF_GUIDED_INSTALL` | unset | `1`/`y`/`yes`/`true` = install without prompting; `0`/`n`/`no`/`false` = never install. Unset → prompt when interactive, auto-decline when not (`:44-48`, `:66-75`). |
-| `AIF_HANDOFF_REPO_URL` | `https://github.com/lee-to/aif-handoff.git` | Clone source; override when you mirror the repo to another remote (`:26-28`). |
-| `AIF_HANDOFF_CHECKOUT` | `$HOME/code/aif-handoff` | Where the clone lands, or is `pull --ff-only`'d if already present (`:29-30`). |
-| `AIF_INSTALL_LOG` | `$HOME/.getff-factory-install.log` | Audit trail — one line per bring-up outcome, including every failure (`:31-32`, `:55-58`). |
-| `RUNTIME_BRIDGE_AIF_URL` | `http://localhost:3009` | The URL probed for `/health`; same knob as the *Required config env* table below (`:24`). |
+| Env var                  | Default                                     | Purpose                                                                                                                                                              |
+| ------------------------ | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AIF_GUIDED_INSTALL`     | unset                                       | `1`/`y`/`yes`/`true` = install without prompting; `0`/`n`/`no`/`false` = never install. Unset → prompt when interactive, auto-decline when not (`:44-48`, `:66-75`). |
+| `AIF_HANDOFF_REPO_URL`   | `https://github.com/lee-to/aif-handoff.git` | Clone source; override when you mirror the repo to another remote (`:26-28`).                                                                                        |
+| `AIF_HANDOFF_CHECKOUT`   | `$HOME/code/aif-handoff`                    | Where the clone lands, or is `pull --ff-only`'d if already present (`:29-30`).                                                                                       |
+| `AIF_INSTALL_LOG`        | `$HOME/.getff-factory-install.log`          | Audit trail — one line per bring-up outcome, including every failure (`:31-32`, `:55-58`).                                                                           |
+| `RUNTIME_BRIDGE_AIF_URL` | `http://localhost:3009`                     | The URL probed for `/health`; same knob as the _Required config env_ table below (`:24`).                                                                            |
 
 ## Required config env
 
 The bridge is **non-functional** if `RUNTIME_BRIDGE_AIF_PROJECT_ID` is unset — `AifHandoffBackend.dispatch()` throws `dispatch_failed` and silently falls back to `ManualBackend` with no obvious signal. Set all of:
 
-| Env var | Required? | Default | Purpose |
-|---|---|---|---|
-| `RUNTIME_BRIDGE_MODE` | no | `auto` | `auto` / `manual` (force ManualBackend) / `aif-handoff` (force or fail). `amux` is reserved for Phase 2 — present as an enum value but **not yet functional** (it warns and falls back to ManualBackend). |
-| `RUNTIME_BRIDGE_AIF_PROJECT_ID` | **yes** (for the bridge to dispatch) | — | Your aif-handoff project UUID. Without it the bridge cannot create tasks. |
-| `RUNTIME_BRIDGE_AIF_URL` | only for non-default deployments | `http://localhost:3009` | aif-handoff REST/WS base URL. **Dispatch + status both use this** (dispatch is REST as of 2026-05-31). Set if aif-handoff runs on another host/port. |
-| `RUNTIME_BRIDGE_AIF_MCP_URL` | no | `http://localhost:3100` | MCP (HTTP-mode) URL. **RESERVED for the MCP-target phase** — read into config but **not used by REST dispatch today**. Set now to avoid a later migration. |
+| Env var                         | Required?                            | Default                 | Purpose                                                                                                                                                                                                   |
+| ------------------------------- | ------------------------------------ | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RUNTIME_BRIDGE_MODE`           | no                                   | `auto`                  | `auto` / `manual` (force ManualBackend) / `aif-handoff` (force or fail). `amux` is reserved for Phase 2 — present as an enum value but **not yet functional** (it warns and falls back to ManualBackend). |
+| `RUNTIME_BRIDGE_AIF_PROJECT_ID` | **yes** (for the bridge to dispatch) | —                       | Your aif-handoff project UUID. Without it the bridge cannot create tasks.                                                                                                                                 |
+| `RUNTIME_BRIDGE_AIF_URL`        | only for non-default deployments     | `http://localhost:3009` | aif-handoff REST/WS base URL. **Dispatch + status both use this** (dispatch is REST as of 2026-05-31). Set if aif-handoff runs on another host/port.                                                      |
+| `RUNTIME_BRIDGE_AIF_MCP_URL`    | no                                   | `http://localhost:3100` | MCP (HTTP-mode) URL. **RESERVED for the MCP-target phase** — read into config but **not used by REST dispatch today**. Set now to avoid a later migration.                                                |
 
 ## Required aif-handoff-side config
 
 - **`transport: "cli"`** in the aif-handoff Claude runtime profile. This is **NOT** the default — the default is the metered SDK transport (`RuntimeTransport.SDK`, `packages/runtime/src/adapters/claude/index.ts:449`). The CLI transport runs through the official Claude Code CLI and is safe on a Max/Pro subscription; the SDK transport is API-metered. Verify with `aif-handoff config show`.
-- **`AGENT_AUTO_REVIEW_STRATEGY=closure_first`** — aligns aif-handoff's auto-review with the layered-review design (see *Auto-review escalation* below).
+- **`AGENT_AUTO_REVIEW_STRATEGY=closure_first`** — aligns aif-handoff's auto-review with the layered-review design (see _Auto-review escalation_ below).
 
 ## Workspace currency (avoid stale-clone no-ops)
 
-aif-handoff keeps a **per-project clone** under `<PROJECTS_HOST_ROOT>/<repo>/` (bind-mounted to `/home/www` in the agent container). By default it does **not** auto-update — it silently drifts behind your trunk and the agent works against stale code. **Incident 2026-05-31:** the clone was ~50 commits behind `staging`; a full dispatch produced **zero code** ($5.84 burned) because the agent could not see the current files/spec and *correctly* refused to guess. The fix uses aif's **own** knobs (ADOPT, per `build-first-reuse-default` — not a custom sync script):
+aif-handoff keeps a **per-project clone** under `<PROJECTS_HOST_ROOT>/<repo>/` (bind-mounted to `/home/www` in the agent container). By default it does **not** auto-update — it silently drifts behind your trunk and the agent works against stale code. **Incident 2026-05-31:** the clone was ~50 commits behind `staging`; a full dispatch produced **zero code** ($5.84 burned) because the agent could not see the current files/spec and _correctly_ refused to guess. The fix uses aif's **own** knobs (ADOPT, per `build-first-reuse-default` — not a custom sync script):
 
 `<clone>/.ai-factory/config.yaml`:
 
 ```yaml
 git:
-  base_branch: staging          # your trunk, NOT the default `main`
-  strict_base_update: true      # `git pull --ff-only origin <base>` before EACH task;
-                                # on pull failure → block the task (base_update_failed),
-                                # never silently fall back to the stale local base
+  base_branch: staging # your trunk, NOT the default `main`
+  strict_base_update:
+    true # `git pull --ff-only origin <base>` before EACH task;
+    # on pull failure → block the task (base_update_failed),
+    # never silently fall back to the stale local base
 ```
 
 With `strict_base_update: true` every dispatch starts from a freshly-pulled base; if the pull can't run, the task parks loudly instead of shipping a stale no-op. Optional: `AIF_TASK_WORKTREES_ENABLED=true` (deployment `.env`) for per-task git-worktree isolation when running tasks in parallel.
@@ -139,10 +140,10 @@ Recreate containers (`docker compose up -d`) so `env_file: .env` picks them up. 
 
 aif-handoff exposes more than one surface; they do **not** share a port:
 
-| Surface | Default port | Used by |
-|---|---|---|
-| REST + WebSocket | `3009` | **dispatch** (REST `POST /tasks` → `PUT` plan → `POST /events` → `PUT` paused) **and** status read-back (`getStatus` REST `GET /tasks/:id`, `awaitDone` WS `ws://…:3009/ws`) |
-| MCP (HTTP mode) | `3100` | **RESERVED for the MCP-target phase** — not used by REST dispatch today (MCP's default transport is **stdio**, not HTTP) |
+| Surface          | Default port | Used by                                                                                                                                                                      |
+| ---------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| REST + WebSocket | `3009`       | **dispatch** (REST `POST /tasks` → `PUT` plan → `POST /events` → `PUT` paused) **and** status read-back (`getStatus` REST `GET /tasks/:id`, `awaitDone` WS `ws://…:3009/ws`) |
+| MCP (HTTP mode)  | `3100`       | **RESERVED for the MCP-target phase** — not used by REST dispatch today (MCP's default transport is **stdio**, not HTTP)                                                     |
 
 `RUNTIME_BRIDGE_AIF_URL` points at the **REST/WS** surface (`:3009`) — both dispatch and status use it. `RUNTIME_BRIDGE_AIF_MCP_URL` (`:3100`) is read into config but **reserved** for the future MCP-target dispatch path; switching to MCP is gated on an upstream aif-handoff fix (per-session transport — see research-patch `2026-05-31-runtime-bridge-mcp-dispatch-fix.md`). The dispatch-vs-status URL split (previously a tracked follow-up) is now wired.
 
@@ -161,11 +162,24 @@ aif-handoff exposes more than one surface; they do **not** share a port:
   ```bash
   tsx packages/runtime-bridge/src/cli/await.ts <taskId>            # block until done/verified/blocked
   tsx packages/runtime-bridge/src/cli/await.ts <taskId> --once     # one-shot status snapshot
+  tsx packages/runtime-bridge/src/cli/await.ts <taskId> --until-actionable --timeout-ms 3600000
   ```
 
-  Exit code: `0` = terminal success, `1` = non-success / timeout / error.
+  Default mode exits `0` only for reconciled terminal success and `1` for non-success,
+  timeout or error. `--once` exits `0` for a successful snapshot, including pending/running;
+  it is not a completion verdict. `--until-actionable` requires an explicit deadline,
+  excludes `--once`, uses full REST detail and exits `0` only for unheld done/verified.
+  Park, pause, adverse advisory, unknown state, error and deadline exit `1`; known HTTP
+  error classes survive a hanging response body. Observation supplies no action authority.
 
-  > ⚠️ **Known bug — verify on your setup (2026-05-31):** the **blocking** `await.ts <taskId>` (WebSocket `awaitDone`) **missed the terminal `done` event and ran out the full `--timeout-ms`** on a task that actually completed in ~3 min — the WS subscription appears to start *after* a fast task has already transitioned. The `--once` REST snapshot reported `done` correctly the whole time. **Until fixed, poll with `--once` (or short `--timeout-ms` + retry); do not rely on the blocking WS mode for completion.** Tracked as a runtime-bridge read-back (#296) follow-up. To reproduce: dispatch a small task, immediately run `await.ts <id>` (blocking) and `await.ts <id> --once` in parallel — the `--once` flips to `done` while the blocking call hangs.
+  AIF subscribes before the first authoritative REST read and repeats that reconciliation on
+  reconnect. Completion before attachment no longer requires another status event. Frames are
+  invalidations, so stale terminal hints cannot replace a current rework result. The default
+  observation deadline is one hour; choose `--timeout-ms` for the task's useful wait boundary.
+  Timeout retains uncertainty and validated identity, without cancelling or retrying the task.
+  On explicit resume, use `--once` and reconcile retained pending actions before effects.
+  These source guarantees require the corresponding delivered version; an older host-installed
+  waiter is not upgraded by a source merge.
 
 > **Clean-worktree precondition (verify this before relying on autonomy):** aif-handoff refuses to advance a task to `plan_ready` while the target project worktree is dirty (a branch-isolation guard). A dirty tree surfaces as `dispatch_failed`; `dispatch()` then best-effort **deletes** the half-created task (rollback — no orphan) and the bridge falls back to `ManualBackend`. Commit/stash/gitignore the target tree, then re-run `verify-bridge.sh` to confirm a full `backlog → plan_ready` run. (The same guard applies to the MCP path — it is not REST-specific.) The REST dispatch HTTP mechanics + error mapping are unit- and live-verified; the end-to-end `plan_ready` + coordinator-pickup step is the operator's clean-worktree smoke-test check.
 
@@ -197,7 +211,7 @@ The bridge is fully optional and degrades gracefully:
 
 ## Auto-review escalation (non-blocking)
 
-With `AGENT_AUTO_REVIEW_STRATEGY=closure_first`, aif-handoff runs its own review loop on each dispatched task. When that loop cannot converge (unresolved blocking findings, or `maxReviewIterations` reached), the task is **not** left hanging in a review state — it moves to **`done`** with `manualReviewRequired: true` set, and the pipeline continues. This is **non-blocking** by design (verified in `packages/agent/src/coordinator.ts:403` `if (outcome?.status === "manual_review_required")` → `:416` `manualReviewRequired: true` → `:432` log *"Auto review gate stopped at manual review handoff"*, transition `to: "done"`; field defined in `packages/shared/src/stateMachine.ts`).
+With `AGENT_AUTO_REVIEW_STRATEGY=closure_first`, aif-handoff runs its own review loop on each dispatched task. When that loop cannot converge (unresolved blocking findings, or `maxReviewIterations` reached), the task is **not** left hanging in a review state — it moves to **`done`** with `manualReviewRequired: true` set, and the pipeline continues. This is **non-blocking** by design (verified in `packages/agent/src/coordinator.ts:403` `if (outcome?.status === "manual_review_required")` → `:416` `manualReviewRequired: true` → `:432` log _"Auto review gate stopped at manual review handoff"_, transition `to: "done"`; field defined in `packages/shared/src/stateMachine.ts`).
 
 So strategy decisions never get silently picked by the runtime — they surface as a flag for you to review in batch:
 
@@ -205,7 +219,7 @@ So strategy decisions never get silently picked by the runtime — they surface 
 - **REST:** `GET /tasks/:id` returns `manualReviewRequired` + `autoReviewState` (review strategy, iteration, findings).
 - **Batch-review pattern:** periodically open a fresh Claude Code session, walk the accumulated flagged tasks, and resolve each with aif-handoff's **Approve** / **Request changes** actions (which clear the flag). Pair this with a brainstorming pass when a flagged task needs a real decision rather than a yes/no.
 
-The flag is distinct from `blocked_external` (a runtime/resource error that stops automated processing) — `manualReviewRequired` means automated processing *completed* but wants human oversight.
+The flag is distinct from `blocked_external` (a runtime/resource error that stops automated processing) — `manualReviewRequired` means automated processing _completed_ but wants human oversight.
 
 ## Hard-fork park — when the agent cannot pick a default
 

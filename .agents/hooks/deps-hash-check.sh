@@ -1,0 +1,546 @@
+#!/usr/bin/env bash
+# deps-hash-check.sh — UserPromptSubmit hook — per-stack declared-deps staleness detector (package.json/pyproject.toml/Cargo.toml)
+# @dual-pair: deps-hash-check-dogfood
+# @plugin-yield-deps:
+#   Empty on purpose: the SELF_PATH resolution below re-derives this file's OWN invocation
+#   path via dirname "$0" — it reads no file beside itself (no sourced sibling, no lang/lib).
+# spec: packages/core/hooks/deps-hash-check.sh — packages/ copy is the SOURCE shipped by
+# install.sh (its `_HOOK_SRC=…/deps-hash-check.sh` arm); .claude/ copy is this repo's dogfood instance wired in settings.json;
+# plugin/hooks/deps-hash-check is the consumer-plugin twin (T-PLUG-A). All three are kept
+# byte-identical; drift is guarded by deps-hash-check.test.ts (#382 §6, 3-way guard).
+# Consumer-facing UserPromptSubmit hook — DH-S1/DH-S2 multistack (kickoff #1016).
+#
+# Staleness detector covering three stacks: JS (package.json + workspace member manifests —
+# npm `workspaces` globs and pnpm-workspace.yaml `packages:` globs, GH #1264), python
+# (pyproject.toml), rust (Cargo.toml — DETECTION ONLY per kickoff §DH-S2: no setup.d/NN-rust.sh
+# delivery lane is built here). At each session start it sha256-hashes the consumer's DECLARED
+# deps per present stack and compares against per-stack baselines in .ai-factory/tool-decisions.md;
+# on any mismatch it prints a one-line WARN into session context (the harness auto-injects
+# stdout) telling the agent to re-run tool-bootstrapping. Non-blocking; always exits 0.
+#
+# Two-tier extraction ladder (design §1-B):
+#   Tier-1 (default, zero deps): bash/awk table-boundary hash of the relevant TOML tables.
+#     For python the 6 non-[project] dep tables (design §4 — [project] is C-resolved to Tier-2
+#     so its own version/name metadata cannot cry-wolf on every release). For rust: dependencies
+#     / dev-dependencies / build-dependencies (+ dotted sub-tables of each), target.*.{…}, and
+#     workspace.{dependencies,dev-dependencies,build-dependencies}.
+#   Tier-2 (enrichment, only if toolchain present): python → python3 tomllib (≥3.11), which
+#     covers [project].dependencies + [project].optional-dependencies precisely (deps-only).
+#     py3.7-3.10 fall back to the `tomli` back-port if installed (DH-S3 shim — tomli IS the code
+#     that became stdlib tomllib, PEP 680, so the payload is byte-identical); tomllib AND tomli
+#     both absent → Tier-1 stands + the Tier-2 sentinel (no baseline shift). Rust → `cargo
+#     metadata --no-deps --format-version 1 --offline` (NEVER --frozen/--locked) piped through
+#     python3 to pluck packages[].dependencies[]; any failure (no cargo, no python3, non-zero
+#     exit) → empty Tier-2 contribution, Tier-1 hash stands (no sentinel trick needed — unlike
+#     python, a rust toolchain upgrade does not shift an unrelated baseline).
+#
+# Storage (design §1-C): one line per stack — deps-hash-npm / deps-hash-python / deps-hash-cargo.
+# Legacy bare deps-hash: is read backward-compat as the npm slot; if BOTH deps-hash: and
+# deps-hash-npm: exist, deps-hash-npm: wins (design §3a M1).
+#
+# Under ZCode, stdout must be strict-JSON {additionalContext} (plain is discarded); _emit_warn
+# inlines that so one byte-identical file serves both harnesses. When multiple stacks drift,
+# their messages are accumulated into ONE _emit_warn call (two JSON objects on stdout would
+# break ZCode's JSON.parse — design §3a M2).
+#
+# Documented blind spots (accepted false-negatives — this is a staleness NUDGE, not a lockfile
+# audit; design §6):
+#   - Lockfiles are NOT hashed: an in-range bump (npm/poetry/cargo update) that leaves the
+#     DECLARED manifest text unchanged does not drift the hash (design §1 hashes the manifest,
+#     not the resolved lockfile).
+#   - Workspace member manifests ARE hashed (GH #1264): npm `workspaces` globs (array or
+#     {packages:[…]}) and pnpm-workspace.yaml `packages:` globs enumerate members, enumerated
+#     up to 8 directory levels deep (the JS MAXD in _NPM_EXTRACT_JS) and WITHOUT following
+#     directory symlinks (lstat, mirroring find -P). Members deeper than 8 levels, or reached
+#     only through a symlinked directory, stay invisible. Known memo-key edge (review-proven
+#     live): a member package.json that IS a symlink pointing OUTSIDE the cwd tree is hashed
+#     by the extractor (readFileSync follows file symlinks) but never listed by _npm_memo_key's
+#     `find -P -type f`, so its content can change without memo invalidation for up to
+#     _MEMO_TTL (60s) before the forced recompute sees it. The find deliberately stays -P
+#     (symlink-following find risks loops and perf); a 60s-bounded miss is the same trade the
+#     memo already makes for cargo's above-root workspace inputs (see the memo block below) —
+#     this hook is a nudge, not a gate.
+#   - pnpm-workspace.yaml IS hashed (GH #1264, closing the old v11-overrides blind spot):
+#     `overrides:`/`catalog:`/`catalogs:` maps are parsed and hashed, `catalog:` and
+#     `catalog:<name>` dep values resolve against the catalog map BEFORE hashing (a catalog
+#     bump drifts every referencing manifest), and a raw-content digest rides along so
+#     structure the flat parser misses (e.g. nested-map overrides) still drifts — a
+#     comment-only edit drifts once, fail-safe direction for a nudge hook.
+#   - git-deps without a pinned rev (e.g. "foo":"github:org/repo") drift silently: the manifest
+#     text is stable while the upstream ref moves.
+#   - path-deps ({ path = "../local" }) — local-source changes are invisible to a manifest hash.
+#   - CRLF endings are normalised before hashing ({gsub(/\r/,"")}) so Windows checkouts do not
+#     spuriously drift (round-3.5 B1).
+#   - A pyproject WITHOUT [project] deps hashes via the Tier-2 sentinel whether tomllib/tomli is
+#     present or absent, so a python 3.10→3.11 upgrade does not shift its baseline (round-3.5 B2).
+#
+# Register in consumer's .claude/settings.json:
+#   "UserPromptSubmit": [{"hooks":[{"type":"command","command":"bash .claude/hooks/deps-hash-check.sh"}]}]
+#
+# Usage — the no-arg invocation above is the UserPromptSubmit dispatch; two explicit
+# invocations exist beside it:
+#   bash .claude/hooks/deps-hash-check.sh --print-baseline
+#       Prints the hook's CURRENT per-stack hashes as ready-to-record
+#       `deps-hash-npm:|deps-hash-python:|deps-hash-cargo: sha256-…` lines (one per
+#       present stack). This — not a hand-rolled recipe over the root manifest — is the
+#       way to record a baseline the no-arg dispatch accepts as a match: the
+#       workspace-aware npm hash (GH #1264) is reproducible only by the hook itself.
+#       Update the matching deps-hash-* lines in .ai-factory/tool-decisions.md with the
+#       printed values. Plain stdout by design (CLI arm, not a hook dispatch).
+#   LOG_LEVEL=DEBUG bash .claude/hooks/deps-hash-check.sh 2>&1 >/dev/null
+#       # ^ the live-session one-liner proving the hook DISPATCHED (GH #1705): exactly one
+#       # stderr [deps-hash-check] DEBUG line per hashed stack, naming the outcome —
+#       # "no baseline in .ai-factory/tool-decisions.md (silent by design)" or
+#       # "baseline matched". A drifted stack is visible without DEBUG via the WARN itself.
+
+set -uo pipefail
+
+# Harness-portable output: CC auto-injects plain stdout; ZCode needs JSON. Inlined (not
+# sourced from lib/) because install.sh ships this file standalone to consumers (no lib/).
+_emit_warn() {
+  if [ -n "${ZCODE_PROJECT_DIR:-}" ] && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$1" '{hookEventName:"UserPromptSubmit", additionalContext:$c}'
+  else
+    printf '⚠ %s\n' "$1"
+  fi
+}
+
+# Resolve this hook's own invocation path BEFORE the CLAUDE_PROJECT_DIR relocation below:
+# a relative $0 (the registered `.claude/hooks/deps-hash-check.sh` command) goes stale after
+# that cd, and the drift WARN's guidance names a runnable --print-baseline invocation. Falls
+# back to $0 whenever the directory cannot be re-resolved (never fails the dispatch).
+SELF_PATH="$0"
+case "$0" in
+  */*) _sp_dir=$(cd "${0%/*}" 2>/dev/null && pwd) && [ -n "$_sp_dir" ] && SELF_PATH="$_sp_dir/${0##*/}" ;;
+esac
+
+# T-PLUG-A: plugin channel sets CLAUDE_PROJECT_DIR; pin cwd there so the bare-relative
+# package.json / pyproject.toml / .ai-factory/tool-decisions.md reads below resolve to the
+# CONSUMER root (not the plugin payload dir). When CLAUDE_PROJECT_DIR is unset (dogfood /
+# install-copy / tests), rely on invocation-cwd unchanged from pre-relocation behaviour. One
+# byte-identical file serves all three instances (packages/ SSOT, .claude/ dogfood, plugin/ twin)
+# — guarded by deps-hash-check.test.ts.
+[ -n "${CLAUDE_PROJECT_DIR:-}" ] && { cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0; }
+
+DECISIONS=".ai-factory/tool-decisions.md"
+
+# If no tool-decisions.md exists yet, nothing to compare against. The explicit
+# --print-baseline arm below bypasses this guard — it prints current hashes, it does not
+# compare them, and must work on a fresh install that has not been baselined yet.
+if [ "${1:-}" != "--print-baseline" ] && [ ! -f "$DECISIONS" ]; then
+  exit 0
+fi
+
+# Read a stored per-stack baseline. Precedence: <stack-key>: wins over legacy bare deps-hash:
+# for the npm slot (design §3a M1). $1 = stack-specific key (e.g. deps-hash-npm), $2 = legacy
+# fallback key (empty for non-npm stacks). Echoes the value (possibly empty).
+_read_stored() {
+  local stack_key="$1" legacy_key="${2:-}"
+  local val
+  val=$(grep -m1 "^${stack_key}:" "$DECISIONS" 2>/dev/null | sed "s/^${stack_key}:[[:space:]]*//" || true)
+  if [ -z "$val" ] && [ -n "$legacy_key" ]; then
+    val=$(grep -m1 "^${legacy_key}:" "$DECISIONS" 2>/dev/null | sed "s/^${legacy_key}:[[:space:]]*//" || true)
+  fi
+  printf '%s' "$val"
+}
+
+# sha256 a string ($1), portable across Linux (sha256sum) and macOS (shasum). Echoes sha256-<hex>;
+# echoes empty on no hashing tool (the caller treats empty-current as "skip compare" → silent).
+_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s' "$1" | sha256sum | awk '{printf "sha256-%s", $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    printf '%s' "$1" | shasum -a 256 | awk '{printf "sha256-%s", $1}'
+  fi
+}
+
+# ── JS / npm stack (package.json + workspace member manifests, GH #1264) ─────
+# Widen to 7 fields (kickoff §1 line 30): dependencies, devDependencies, peerDependencies,
+# optionalDependencies, overrides, resolutions, pnpm.overrides. Each widened field guarded
+# typeof === 'object' (npm allows overrides/resolutions as a STRING — spreading a string
+# produces integer-indexed char keys and corrupts the hash; design §3a m1).
+#
+# Workspace enumeration (GH #1264): the old extractor read ONLY the root package.json, so a
+# dep change in apps/*/packages/*/package.json never drifted the hash (false-GREEN — Rule 5
+# of tool-bootstrapping silently never fired; the rust lane already hashes
+# [workspace.dependencies], the npm lane was the asymmetric gap). The extractor now merges:
+#   root 7 fields (unchanged key order — a non-workspace repo hashes IDENTICALLY to the
+#     pre-#1264 shape, so existing baselines stay stable),
+#   one entry per workspace member under its literal "<dir>/package.json" key (sorted by
+#     dir path; the path-keyed shape means two members both depending on "lodash" with
+#     different versions cannot overwrite each other the way a flat merge would),
+#   one "pnpm-workspace.yaml" entry (overrides/catalog/catalogs + raw digest) when present.
+# Members come from npm `workspaces` globs (array or {packages:[…]}) plus pnpm-workspace.yaml
+# `packages:` globs, matched with a minimal glob subset (`*` one segment, `**` any depth,
+# `{a,b}` braces, `!` exclusions; a leading `./` and a trailing `/` are normalised away, also
+# per `{…}` alternative — npm documents the `./packages/a` form — and a ` # comment` on a
+# pnpm-workspace.yaml line is dropped, including one right after a bare `packages:` key) over candidate dirs ≤8 levels deep, node_modules/.git/
+# dot-dirs skipped, directory symlinks not followed (lstat). Measured divergences vs
+# npm/minimatch — all false-NEGATIVE direction (a real member may go unseen; never a
+# phantom member): (a) `**` translates to a whole-pattern `.*` anchor, so globstar's
+# zero-segment form is absent — `packages/*/**` does NOT match `packages/a` itself, and
+# `**/foo` misses a top-level `foo`; (b) braces expand to the FIRST `}` only — nested
+# `{a,{b,c}}` mis-expands; (c) `!` is order-independent set subtraction, not minimatch's
+# ordered last-match-wins. Memo-key alignment caveat: lstat aligns DIRECTORY traversal
+# with _npm_memo_key's find -P, but a package.json that is itself an out-of-tree symlink
+# is read by the extractor (readFileSync follows file symlinks) yet invisible to that
+# find — enumerated in the blind-spots list above.
+#
+# _NPM_EXTRACT_JS is SINGLE-QUOTED on purpose: the program contains $ { } ` sequences that
+# bash must not touch. It also deliberately contains no single quotes.
+_NPM_EXTRACT_JS='"use strict";
+const fs=require("fs"),crypto=require("crypto");
+const MAXD=8;
+const o=(v)=>(v&&typeof v==="object")?v:{};
+const sq=(s)=>{s=String(s).trim();const a=s.charAt(0),z=s.slice(-1);return (s.length>1&&((a==="\u0022"&&z==="\u0022")||(a==="\u0027"&&z==="\u0027")))?s.slice(1,-1):s;};
+const nz=(g)=>{g=String(g).trim();while(g.slice(0,2)==="./")g=g.slice(2);while(g.length>1&&g.slice(-1)==="/")g=g.slice(0,-1);return g;};
+const unc=(s)=>{s=String(s).trim();const a=s.charAt(0);if(a==="\u0022"||a==="\u0027"){const j=s.indexOf(a,1);return j>0?s.slice(0,j+1):s;}const k=s.search(/(^|\s)#/);return k>=0?s.slice(0,k).trim():s;};
+const g2r=(g)=>new RegExp("^"+g.replace(/\*\*/g,"\u0000").replace(/[.+^${}()|[\]\\?]/g,(c)=>"\\"+c).replace(/\*/g,"[^/]*").replace(/\u0000/g,".*")+"$");
+function braces(p){const i=p.indexOf("{");if(i<0)return[p];const j=p.indexOf("}",i);if(j<0)return[p];const out=[];for(const a of p.slice(i+1,j).split(",")){for(const r of braces(p.slice(0,i)+a+p.slice(j+1)))out.push(r);}return out;}
+function dirsUnder(base,depth,acc){let ns;try{ns=fs.readdirSync(base);}catch(e){return;}for(const n of ns){if(n==="node_modules"||n===".git"||n.charAt(0)===".")continue;const rel=(base==="."?n:base+"/"+n);let st;try{st=fs.lstatSync(rel);}catch(e){continue;}if(!st.isDirectory())continue;acc.push(rel);if(depth<MAXD)dirsUnder(rel,depth+1,acc);}}
+function memberDirs(globs){const inc=[],exc=[];for(const g of globs){const neg=g.charAt(0)==="!";const body=nz(neg?g.slice(1):g);for(const p of braces(body).map(nz))(neg?exc:inc).push(g2r(p));}if(!inc.length)return[];const cand=[];dirsUnder(".",1,cand);const seen={},out=[];for(const d of cand){let ok=false;for(const r of inc)if(r.test(d)){ok=true;break;}if(!ok)continue;let bad=false;for(const r of exc)if(r.test(d)){bad=true;break;}if(bad)continue;if(seen[d])continue;seen[d]=1;if(fs.existsSync(d+"/package.json"))out.push(d);}return out.sort();}
+function parseWs(text){const ws={packages:[],overrides:{},catalog:{},catalogs:{}};let sec=null,cat=null;const kv=/^("[^"]*"|\u0027[^\u0027]*\u0027|[^:]+):(.*)$/;for(const raw of text.split(/\r?\n/)){const t=raw.trim();if(!t||t.charAt(0)==="#")continue;const ind=(raw.match(/^ */))[0].length;if(ind===0){sec=null;cat=null;const m=t.match(/^([A-Za-z0-9_-]+):(.*)$/);if(!m)continue;const rest=unc(m[2]);if(m[1]!=="packages"&&m[1]!=="overrides"&&m[1]!=="catalog"&&m[1]!=="catalogs")continue;sec=m[1];if(rest.charAt(0)==="-"){const it=sq(unc(rest.replace(/^-\s*/,"")));if(sec==="packages"&&it)ws.packages.push(it);}else if(rest.charAt(0)==="["&&rest.slice(-1)==="]"){if(sec==="packages")for(const it of rest.slice(1,-1).split(",")){const s=sq(it);if(s)ws.packages.push(s);}sec=null;}else if(rest)sec=null;continue;}if(sec==="packages"){const m=t.match(/^-(.*)$/);if(m){const s=sq(unc(m[1]));if(s)ws.packages.push(s);}}else if(sec==="overrides"||sec==="catalog"){const m=t.match(kv);if(m)ws[sec][sq(m[1])]=sq(unc(m[2]));}else if(sec==="catalogs"){const m=t.match(kv);if(!m)continue;if(ind===2&&!unc(m[2])){cat=sq(m[1]);ws.catalogs[cat]={};}else if(cat){ws.catalogs[cat][sq(m[1])]=sq(unc(m[2]));}}}return ws;}
+const root=JSON.parse(fs.readFileSync("package.json","utf8"));
+let wsText="";try{wsText=fs.readFileSync("pnpm-workspace.yaml","utf8");}catch(e){}
+const ws=wsText?parseWs(wsText):null;
+const hasCat=!!ws&&(Object.keys(ws.catalog).length>0||Object.keys(ws.catalogs).length>0);
+const globs=[];const w=root.workspaces;
+if(Array.isArray(w))for(const g of w)globs.push(g);else if(w&&typeof w==="object"&&Array.isArray(w.packages))for(const g of w.packages)globs.push(g);
+if(ws)for(const g of ws.packages)globs.push(g);
+const res=(k,v)=>{if(!hasCat||typeof v!=="string")return v;if(v==="catalog:")return (k in ws.catalog)?ws.catalog[k]:v;const m=v.match(/^catalog:(.+)$/);if(m){const c=ws.catalogs[m[1]];return (c&&k in c)?c[k]:v;}return v;};
+const rm=(mp)=>{const out={};for(const k of Object.keys(mp))out[k]=res(k,mp[k]);return out;};
+function fields(p){const m={...o(p.dependencies),...o(p.devDependencies),...o(p.peerDependencies),...o(p.optionalDependencies),...o(p.overrides),...o(p.resolutions),...o(p.pnpm&&p.pnpm.overrides)};return hasCat?rm(m):m;}
+const out=fields(root);
+for(const d of memberDirs(globs)){try{out[d+"/package.json"]=fields(JSON.parse(fs.readFileSync(d+"/package.json","utf8")));}catch(e){out[d+"/package.json"]={"__read_error__":String((e&&e.message)||e)};}}
+if(ws)out["pnpm-workspace.yaml"]={overrides:hasCat?rm(ws.overrides):ws.overrides,catalog:ws.catalog,catalogs:ws.catalogs,raw:crypto.createHash("sha256").update(wsText).digest("hex")};
+console.log(JSON.stringify(out));'
+_npm_current() {
+  [ -f package.json ] || { printf ''; return; }
+  command -v node >/dev/null 2>&1 || { printf ''; return; }
+  node -e "$_NPM_EXTRACT_JS" 2>/dev/null || printf ''
+}
+
+# npm-lane memo key (GH #1264): intended as a SUPERSET of the extractor input set — every
+# package.json and pnpm-workspace.yaml under cwd within 10 levels (find -P semantics:
+# node_modules and dot-dirs pruned, directory symlinks not followed — matching the extractor's
+# lstat walk, which is additionally bounded at 8 levels), cksum'd in sorted order. The old
+# key covered only the ROOT package.json, so a workspace-member edit inside the _MEMO_TTL
+# window served the stale cached hash even after enumeration landed (the in-issue review
+# called this the trap of the fix). One PROVEN exception to the superset (documented, not
+# fixed): a manifest FILE that is a symlink pointing outside the cwd tree is hashed by the
+# extractor (readFileSync follows it) but never listed by `find -P -type f`, so its edits
+# can ride the memo for up to _MEMO_TTL=60s before the recompute sees them — bounded
+# staleness, the same trade the memo already makes for cargo's above-root workspace inputs;
+# the find stays -P because a symlink-following find risks loops and perf. Every other
+# divergence direction is fail-safe: a non-member package.json edit over-invalidates
+# (forces one recompute, answer unchanged).
+_npm_memo_key() {
+  [ -f package.json ] || { printf ''; return; }
+  # Dot-directories are pruned like node_modules: the extractor never descends into them
+  # (dirsUnder skips any `.`-prefixed name), so they cannot hold a member and the superset
+  # holds. Without the prune the key walked every in-tree `.claude/worktrees/*` checkout —
+  # measured 3371 manifests / ~26 s per prompt on this repo's main clone (W1-B verify seat
+  # code review). ONE cksum over the sorted list (not one process per file) keeps the cost
+  # flat, and its output carries each path, so a rename that keeps bytes also re-keys.
+  find . -maxdepth 10 \( -name node_modules -o \( -type d -name '.?*' \) \) -prune -o \
+    -type f \( -name package.json -o -name pnpm-workspace.yaml \) -print 2>/dev/null \
+    | LC_ALL=C sort | tr '\n' '\0' | xargs -0 cksum 2>/dev/null | tr '\n' '|'
+}
+
+# ── Python stack (pyproject.toml) — two-tier ladder (design §4) ────────────
+# Tier-1: bash/awk table-boundary hash of the 6 non-[project] dep tables. [project] is
+# deliberately excluded (its metadata would cry-wolf on every release; covered by Tier-2).
+# The leading {gsub(/\r/,"")} strips Windows CRLF line endings before the header parse —
+# without it, substr($0,2,length($0)-2) on a `[hdr]\r` line yields `hdr]` (leaked `]`),
+# silently dropping 5/6 dep tables and producing a different hash vs LF (round-3.5 review B1).
+_PY_TIER1_AWK='{gsub(/\r/,"")}function want(h){if(h=="project.optional-dependencies")return 1;if(h=="dependency-groups")return 1;if(h=="tool.poetry.dependencies")return 1;if(h=="tool.poetry.dev-dependencies")return 1;if(h~/^tool\.poetry\.group\.[^.]+\.dependencies$/)return 1;if(h~/^tool\.hatch\.envs\.[^.]+$/)return 1;return 0}/^\[/{in_t=want(substr($0,2,length($0)-2))}in_t'
+# Tier-2: tomllib (py≥3.11) OR the `tomli` back-port (py3.7-3.10) hashes [project].dependencies
+# + [project].optional-dependencies, deps-only, deterministic compact-JSON payload (design §4).
+# The nested try is the DH-S3 tomli shim: `tomli` is the exact upstream code that became stdlib
+# `tomllib` (PEP 680), so tomli.load == tomllib.load byte-for-byte → the fallback keeps the
+# same baseline across the toolchain (verified by the PYTHON-TOMLI-SHIM byte-match test). Catch
+# ImportError (superclass of ModuleNotFoundError) so a genuinely-absent tomllib on 3.10 AND a
+# blocked-name test env both route to the fallback. Both absent → the OUTER except → empty
+# stdout → _python_current substitutes the sentinel (no baseline shift; PYTHON-UPGRADE-STABLE).
+_PY_TIER2_SCRIPT='import sys
+try:
+  import json, hashlib
+  try:
+    import tomllib
+  except ImportError:
+    import tomli as tomllib
+  d=tomllib.load(open(sys.argv[1],"rb"))
+  p=d.get("project",{})
+  deps=p.get("dependencies",[]);opt=p.get("optional-dependencies",{})
+  payload=json.dumps(sorted(deps),separators=(",",":"))+json.dumps([[k,sorted(v)] for k,v in sorted(opt.items())],separators=(",",":"))
+  print(hashlib.sha256(payload.encode()).hexdigest())
+except Exception:
+  pass'
+# Sentinel Tier-2 contribution when tomllib is unavailable (python3 <3.11, or python3 absent):
+# sha256("[][]") — the EXACT Tier-2 value tomllib produces for a pyproject with no [project]
+# deps. Using this constant (not "") means a pyproject WITHOUT [project] deps hashes IDENTICALLY
+# whether tomllib is present or absent → python 3.10→3.11 upgrade does NOT shift its baseline
+# (round-3.5 review B2). A pyproject WITH [project].deps still drifts on upgrade (real coverage
+# change → honest re-baseline), documented in design §6.
+_PY_TIER2_SENTINEL='821bf06b4dcb406ea508a4a992eadc22f29850cd208ba24aea7c29148de8ccf1'
+
+_python_current() {
+  [ -f pyproject.toml ] || { printf ''; return; }
+  local tier1_hex tier2_hex combined
+  # Tier-1 (needs awk — present on every POSIX system the framework supports).
+  if command -v awk >/dev/null 2>&1; then
+    tier1_hex=$(awk "$_PY_TIER1_AWK" pyproject.toml 2>/dev/null | _sha256_only_hex)
+  else
+    tier1_hex=""
+  fi
+  # Tier-2: real tomllib hash if python3+tomllib present; else the sentinel (NOT "") so a
+  # python-upgrade does not shift the baseline for a pyproject without [project] deps (B2).
+  if command -v python3 >/dev/null 2>&1; then
+    tier2_hex=$(python3 -c "$_PY_TIER2_SCRIPT" pyproject.toml 2>/dev/null)
+    [ -n "$tier2_hex" ] || tier2_hex="$_PY_TIER2_SENTINEL"
+  else
+    tier2_hex="$_PY_TIER2_SENTINEL"
+  fi
+  combined="${tier1_hex}${tier2_hex}"
+  # Note: an empty extraction (no recognized Tier-1 tables + Tier-2 absent/failed) still
+  # hashes to sha256("") under _sha256_only_hex — it is NOT empty here. This guard only fires
+  # when BOTH tier hashes are empty, which happens only when no hash tool is on PATH (then
+  # _sha256_only_hex emits nothing). In that all-tool-absent case, skip this stack silently.
+  [ -n "$combined" ] || { printf ''; return; }
+  _sha256 "$combined"
+}
+
+# Like _sha256 but echoes the bare hex (no sha256- prefix) — used for the tier sub-hashes
+# that get concatenated before the outer sha256.
+_sha256_only_hex() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{printf "%s", $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{printf "%s", $1}'
+  fi
+}
+
+# ── Rust stack (Cargo.toml) — two-tier ladder, DETECT-ONLY (kickoff §DH-S2) ────
+# Tier-1: bash/awk table-boundary hash. Tables: dependencies / dev-dependencies /
+# build-dependencies (+ dotted sub-tables e.g. [dependencies.serde]) / target.*.{…} (+ dotted
+# sub-tables e.g. [target.'cfg(unix)'.dependencies.baz]) / workspace.{dependencies,
+# dev-dependencies,build-dependencies} (+ dotted sub-tables e.g. [workspace.dependencies.qux]
+# — code-review fix: these two prefixes were previously exact-match/$-anchored only, silently
+# dropping the dotted long-form that Cargo treats as identical to the bare-table form). Same
+# {gsub(/\r/,"")} CRLF guard as the python awk (round-3.5 review B1).
+_CARGO_TIER1_AWK='{gsub(/\r/,"")}function want(h){if(h=="dependencies")return 1;if(h=="dev-dependencies")return 1;if(h=="build-dependencies")return 1;if(h~/^dependencies\./)return 1;if(h~/^dev-dependencies\./)return 1;if(h~/^build-dependencies\./)return 1;if(h~/^target\..+\.dependencies$/)return 1;if(h~/^target\..+\.dev-dependencies$/)return 1;if(h~/^target\..+\.build-dependencies$/)return 1;if(h~/^target\..+\.dependencies\./)return 1;if(h~/^target\..+\.dev-dependencies\./)return 1;if(h~/^target\..+\.build-dependencies\./)return 1;if(h=="workspace.dependencies")return 1;if(h=="workspace.dev-dependencies")return 1;if(h=="workspace.build-dependencies")return 1;if(h~/^workspace\.dependencies\./)return 1;if(h~/^workspace\.dev-dependencies\./)return 1;if(h~/^workspace\.build-dependencies\./)return 1;return 0}/^\[/{in_t=want(substr($0,2,length($0)-2))}in_t'
+# Tier-2: plucks packages[].dependencies[] from `cargo metadata` JSON on stdin into a
+# deterministic sorted payload. ONE try around parse+hash so any error → empty stdout.
+_CARGO_TIER2_SCRIPT='import sys,json,hashlib
+try:
+  d=json.load(sys.stdin)
+  deps=[]
+  for p in d.get("packages",[]):
+    for dep in p.get("dependencies",[]):
+      deps.append([dep.get("name",""),dep.get("req",""),dep.get("kind") or "normal",bool(dep.get("optional"))])
+  payload=json.dumps(sorted(deps),separators=(",",":"))
+  print(hashlib.sha256(payload.encode()).hexdigest())
+except Exception:
+  pass'
+
+_cargo_current() {
+  [ -f Cargo.toml ] || { printf ''; return; }
+  local tier1_hex tier2_hex combined
+  if command -v awk >/dev/null 2>&1; then
+    tier1_hex=$(awk "$_CARGO_TIER1_AWK" Cargo.toml 2>/dev/null | _sha256_only_hex)
+  else
+    tier1_hex=""
+  fi
+  # Tier-2: cargo metadata --no-deps --offline (NEVER --frozen/--locked, design §2) piped
+  # through python3. Any failure (no cargo, no python3, non-zero exit) → empty — Tier-1 stands.
+  tier2_hex=""
+  if command -v cargo >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+    tier2_hex=$(cargo metadata --no-deps --format-version 1 --offline 2>/dev/null | python3 -c "$_CARGO_TIER2_SCRIPT" 2>/dev/null)
+  fi
+  combined="${tier1_hex}${tier2_hex}"
+  [ -n "$combined" ] || { printf ''; return; }
+  _sha256 "$combined"
+}
+
+# ── Drift evaluation + WARN assembly ───────────────────────────────────────
+# Per-stack: compute current hash, compare to stored; collect one message per drifted stack.
+# Emit ONE combined _emit_warn at the end (ZCode JSON.parse breaks on two objects — §3a M2).
+WARN_MSGS=""
+_drifted() {
+  # $1 = stack label for the WARN, $2 = current hash (sha256-<hex> or empty), $3 = stored
+  local label="$1" current="$2" stored="$3"
+  [ -n "$current" ] || return 0          # no manifest/tool → this stack contributes nothing
+  if [ -z "$stored" ]; then
+    # Positive control (GH #1705): this branch is silent BY DESIGN (stack hashed, no
+    # baseline line in tool-decisions.md), which made a live session unable to tell
+    # "computed fresh, nothing to compare" from "hook never dispatched". LOG_LEVEL=DEBUG
+    # surfaces the dispatch on exactly this branch — STDERR ONLY: under ZCode stdout must
+    # stay a single strict-JSON object (header contract above; kickoff §0.5) and CC surfaces
+    # stderr harmlessly. The emit lives HERE, not in the extractors, so a TTL-window memo
+    # hit still proves dispatch (the cached path runs _drifted without spawning node).
+    [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[deps-hash-check] DEBUG: dispatched — %s stack hashed, no baseline in %s (silent by design)\n' "$label" "$DECISIONS" >&2
+    return 0
+  fi
+  if [ "$current" = "$stored" ]; then
+    # Matched-baseline dispatch is stdout-silent by design; LOG_LEVEL=DEBUG names the
+    # outcome on STDERR so a baselined steady-state session can still tell "dispatched,
+    # all fresh" from "hook never dispatched" (GH #1705 — the fresh-path emit alone left
+    # THIS branch indistinguishable from a no-op; W1-B review F2). Stderr only: under
+    # ZCode stdout stays a single strict-JSON object (§0.5).
+    [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[deps-hash-check] DEBUG: dispatched — %s stack hashed, baseline matched\n' "$label" >&2
+    return 0
+  fi
+  # Drift. Distinguish baselined (sha256-*) from unbaselined (<pending …>) for honest wording
+  # (GH #548). Accumulate into WARN_MSGS; emit once at the end.
+  local msg
+  case "$stored" in
+    sha256-*)
+      msg="${label} deps changed since last tool-bootstrap"
+      ;;
+    *)
+      msg="${label} tool decisions not yet baselined"
+      ;;
+  esac
+  if [ -z "$WARN_MSGS" ]; then
+    WARN_MSGS="$msg"
+  else
+    WARN_MSGS="${WARN_MSGS}
+${msg}"
+  fi
+}
+
+# ── Per-input memo cache (ledger F-4) ──────────────────────────────────────
+# This hook runs on EVERY UserPromptSubmit and used to re-derive all three stack hashes
+# from scratch each time: node over package.json, python3+tomllib over pyproject.toml,
+# and `cargo metadata --no-deps --offline | python3`. Measured on an npm+pyproject
+# fixture: 1.094s for 10 prompts (~0.109s each); a Rust workspace additionally pays a
+# cargo resolve per prompt, for an answer that is identical until a manifest changes.
+#
+# Memoised on (a) a cheap content signature of the manifests feeding the extraction, and
+# (b) a short TTL. The TTL is the HONEST half of the design, not belt-and-braces: for the
+# npm and python stacks the signature IS the entire input, but `cargo metadata --no-deps`
+# reads every workspace-member manifest and resolves from a workspace root that may sit
+# ABOVE this directory, so a signature taken here cannot see all of its inputs. This hook
+# emits a WARNING and is not a gate (.claude/rules/attention-is-not-a-mechanism.md keeps
+# gates elsewhere), so bounding staleness to _MEMO_TTL seconds is the right trade: nearly
+# every spawn disappears and a missed manifest change still surfaces on the next prompt a
+# minute later. A gate would not be allowed this trade.
+#
+# Fail-open everywhere: an unwritable or unreadable TMPDIR degrades to the old
+# recompute-every-time behaviour, never to a wrong answer and never to a hook failure.
+_MEMO_TTL=60
+
+# One memo file per (uid, project dir, slot) — two checkouts of the same repo, or two
+# projects with identical manifests, never read each other's entry.
+_memo_file() {
+  local tag uid
+  tag=$(printf '%s' "$PWD" | cksum 2>/dev/null | awk '{print $1}')
+  uid=$(id -u 2>/dev/null || echo 0)
+  printf '%s/.getff-deps-memo.%s.%s.%s' "${TMPDIR:-/tmp}" "$uid" "${tag:-0}" "$1"
+}
+
+# _memo_key <file>... — cheap content signature of the inputs; empty when none exist.
+# cksum is POSIX and present on both macOS and Linux (unlike `stat`, whose flags differ).
+_memo_key() {
+  local f sig=""
+  for f in "$@"; do
+    [ -f "$f" ] || continue
+    sig="${sig}$(cksum < "$f" 2>/dev/null)|"
+  done
+  printf '%s' "$sig"
+}
+
+# _memo <slot> <key> <fn> — the cached value when the key matches and the entry is
+# younger than _MEMO_TTL; otherwise run <fn>, store, and echo it.
+_memo() {
+  local slot="$1" key="$2" fn="$3" file ts ckey val now age
+  # No inputs → the extractor returns empty immediately; nothing worth caching.
+  [ -n "$key" ] || { "$fn"; return; }
+  now=$(date +%s 2>/dev/null || printf '0')
+  file=$(_memo_file "$slot")
+  if [ -r "$file" ]; then
+    IFS='	' read -r ts ckey val < "$file" 2>/dev/null || true
+    age=$((now - ${ts:-0}))
+    if [ "${ckey:-}" = "$key" ] && [ "$age" -ge 0 ] && [ "$age" -lt "$_MEMO_TTL" ]; then
+      printf '%s' "${val:-}"
+      return
+    fi
+  fi
+  val=$("$fn")
+  # Best-effort write to a private temp file; a read-only TMPDIR must not break the hook.
+  ( umask 077; printf '%s	%s	%s
+' "$now" "$key" "$val" > "$file" ) 2>/dev/null || true
+  printf '%s' "$val"
+}
+
+# The npm extractor returns the normalised deps JSON, not a hash, so the outer _sha256
+# lives here — memoising the FINAL value keeps the cached-path spawn count at zero.
+_npm_final() {
+  local c
+  c=$(_npm_current)
+  if [ -n "$c" ]; then _sha256 "$c"; else printf ''; fi
+}
+
+# ── Explicit --print-baseline arm (W1-B review F1) ──────────────────────────
+# The workspace-aware npm hash (root 7 fields + one <dir>/package.json entry per member +
+# the pnpm-workspace.yaml catalog/overrides entry, GH #1264) cannot be reproduced by
+# following the documented tool-bootstrapping recipe (root manifest only): a consumer that
+# re-ran the recipe after the WARN would record a baseline this hook never accepts and cry
+# wolf on every prompt. This arm exposes the hook's OWN current per-stack hashes in the
+# exact .ai-factory/tool-decisions.md line format, and the WARN guidance names it — the
+# consumer-side loop becomes: run this, update the matching deps-hash-* lines. Shares the
+# memoised extractor path with the dispatch, so a printed value is by construction what
+# the next dispatch compares. This is a CLI invocation, NOT a UserPromptSubmit dispatch:
+# stdout here is plain baseline lines by design (the strict-JSON contract governs the
+# no-arg dispatch path), and the drift WARN never fires in this mode.
+if [ "${1:-}" = "--print-baseline" ]; then
+  _pb_npm=$(_memo npm "$(_npm_memo_key)" _npm_final)
+  _pb_python=$(_memo python "$(_memo_key pyproject.toml)" _python_current)
+  _pb_cargo=$(_memo cargo "$(_memo_key Cargo.toml Cargo.lock)" _cargo_current)
+  [ -n "$_pb_npm" ] && printf 'deps-hash-npm: %s\n' "$_pb_npm"
+  [ -n "$_pb_python" ] && printf 'deps-hash-python: %s\n' "$_pb_python"
+  [ -n "$_pb_cargo" ] && printf 'deps-hash-cargo: %s\n' "$_pb_cargo"
+  exit 0
+fi
+
+NPM_STORED=$(_read_stored deps-hash-npm deps-hash)
+PY_STORED=$(_read_stored deps-hash-python)
+CARGO_STORED=$(_read_stored deps-hash-cargo)
+# (rust has no legacy bare key to fall back to — unlike npm's `deps-hash`, `deps-hash-cargo`
+# is new with DH-S2 and never existed in a pre-multistack form.)
+
+# Hash each stack's current deps-extraction before comparing to the stored sha256 baseline.
+# (_npm_current/_python_current return either a normalized string (npm: the deps JSON) or a
+# sha256-<hex> (python: already combined + outer-hashed); both then go through _sha256 so the
+# compare is apples-to-apples with the stored sha256-* baseline. Empty current → silent skip.)
+# npm memo key: the WORKSPACE-AWARE _npm_memo_key superset (GH #1264), not the bare root
+# manifest — see its comment for the superset/fail-safe argument.
+_drifted "package.json" "$(_memo npm "$(_npm_memo_key)" _npm_final)" "$NPM_STORED"
+# _python_current already returns sha256-<hex> (it does its own outer hash over tier1hex+tier2hex).
+_drifted "python" "$(_memo python "$(_memo_key pyproject.toml)" _python_current)" "$PY_STORED"
+# _cargo_current already returns sha256-<hex> (same tier1hex+tier2hex outer-hash shape).
+# Cargo.lock joins the key: it moves whenever the resolved graph does, which Cargo.toml alone
+# does not capture. See the _MEMO_TTL note above for the workspace-root boundary this cannot see.
+_drifted "Cargo.toml" "$(_memo cargo "$(_memo_key Cargo.toml Cargo.lock)" _cargo_current)" "$CARGO_STORED"
+
+# Conditional staleness seam (rule-tests-surface S4): if the consumer has generated
+# rules-lock artifacts under .ai-factory/synthesizer-output/, append a suffix routing the
+# agent to /rule-tests. PIGGYBACK is intended (spec §6): the suffix rides the deps-drift WARN
+# only — it is appended INSIDE the SINGLE existing _emit_warn below (never a second emission,
+# which would break ZCode's one-JSON-object-per-run contract; see §3a M2). A rules-lock present
+# with NO deps drift produces NO nudge. Portable glob: NO nullglob — an unmatched pattern stays
+# literal, and the [ -e "$f" ] guard makes that literal fallback safe. Bare-relative, resolved
+# against the consumer root by the cd "$CLAUDE_PROJECT_DIR" above (same convention as DECISIONS).
+RULES_STALE_SUFFIX=""
+for f in .ai-factory/synthesizer-output/rules-lock*.json; do
+  [ -e "$f" ] && { RULES_STALE_SUFFIX=" — generated rules may be stale — run /rule-tests to review"; break; }
+done
+
+if [ -n "$WARN_MSGS" ]; then
+  # The re-record pointer (W1-B review F1): the only reproducer of the workspace-aware hash
+  # is the hook itself, so the guidance names the --print-baseline arm — an agent following
+  # the WARN can then record a baseline this same hook accepts as a match.
+  _emit_warn "${WARN_MSGS} — run /tool-bootstrapping to re-evaluate, then update the deps-hash-* lines in ${DECISIONS} with: bash ${SELF_PATH} --print-baseline${RULES_STALE_SUFFIX}"
+fi
+
+exit 0

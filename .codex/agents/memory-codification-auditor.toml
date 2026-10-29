@@ -1,0 +1,4 @@
+name = "memory-codification-auditor"
+description = "Audits user-scope agent memory for durable conventions that live only in memory and were never codified into the repo. Flags stage-0 entries; reports candidates with a codify-or-leave verdict. Reports; does not fix."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/memory-codification-auditor.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

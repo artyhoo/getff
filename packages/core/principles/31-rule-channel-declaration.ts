@@ -32,7 +32,7 @@
  * the shipping PR body, not in a companion rule file (this principle has no `rules/*.md` of its
  * own — the channel-selection doctrine already owns the convention it gates).
  */
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 // @ts-expect-error picomatch 4.x ships no type declarations; no @types/picomatch exists.
 import picomatch from 'picomatch';
@@ -86,27 +86,29 @@ export interface RuleChannelFields {
  *  clones may carry gitignored/untracked rule copies out of scope). Falls back to filesystem
  *  enumeration when git is unavailable. */
 export function enumerateRuleFiles(repoRoot: string): string[] {
-  const rulesDir = `${repoRoot}/.claude/rules`;
+  const roots = ['.agents/rules', '.claude/rules'];
   let tracked: Set<string> | null;
   try {
-    const out = execFileSync(
-      'git',
-      ['-C', repoRoot, 'ls-files', '--', '.claude/rules'],
-      {
-        encoding: 'utf8',
-      },
-    );
+    const out = execFileSync('git', ['-C', repoRoot, 'ls-files', '--', ...roots], { encoding: 'utf8' });
     tracked = new Set(out.split('\n').filter(Boolean));
   } catch {
     tracked = null;
   }
   const found: string[] = [];
-  for (const entry of readdirSync(rulesDir, { withFileTypes: true })) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-    if (entry.name === '00-rule-index.md') continue; // ALWAYS_ON_CORE by construction, not a rule
-    const rel = `.claude/rules/${entry.name}`;
-    if (tracked && !tracked.has(rel)) continue;
-    found.push(rel);
+  const owners = new Set<string>();
+  for (const root of roots) {
+    const dir = `${repoRoot}/${root}`;
+    if (!existsSync(dir)) continue;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if ((!entry.isFile() && !entry.isSymbolicLink()) || !entry.name.endsWith('.md')) continue;
+      if (entry.name === '00-rule-index.md') continue;
+      const rel = `${root}/${entry.name}`;
+      if (tracked && !tracked.has(rel)) continue;
+      const owner = realpathSync(`${repoRoot}/${rel}`);
+      if (owners.has(owner)) continue;
+      owners.add(owner);
+      found.push(rel);
+    }
   }
   return found.sort();
 }

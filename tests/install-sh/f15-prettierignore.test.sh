@@ -324,4 +324,65 @@ else
   ok "claude-md guard-neg: consumer's custom skill slug not enumerated (only shipped slugs ignored)"
 fi
 
+# ── eslint-suppressions.json (P2 cold review M1) ──────────────────────────────────────────────
+# The install's lint baseline: ESLint writes it 2-space with no final newline, which `prettier
+# --check` flags — a prettier-clean project would read red on a file getff made, and format:check
+# would record not-armed with nothing to ever format it again.
+PRETTIER="$REPO_ROOT/node_modules/.bin/prettier"
+if [ -x "$PRETTIER" ]; then
+  printf '{\n  "src/a.ts": {\n    "prefer-const": {\n      "count": 1\n    }\n  }\n}' > "$T/eslint-suppressions.json"
+  ( cd "$T" && "$PRETTIER" --check --ignore-path "$PI" eslint-suppressions.json ) >/dev/null 2>&1 \
+    && ok "M1 pos: ESLint's eslint-suppressions.json passes prettier --check under the shipped .prettierignore" \
+    || bad "M1 pos: eslint-suppressions.json fails prettier --check under the shipped .prettierignore"
+  printf '' > "$T/empty.ignore"
+  ( cd "$T" && "$PRETTIER" --check --ignore-path empty.ignore eslint-suppressions.json ) >/dev/null 2>&1 \
+    && bad "M1 neg: the ESLint-format file passes prettier with no ignore — the pos arm proves nothing" \
+    || ok "M1 neg: without the entry prettier flags the file (non-vacuous)"
+else
+  bad "M1: prettier not installed at $PRETTIER — cannot run the arm (RED never SKIP)"
+fi
+
+# Exact portable delivery population: a shipped helper is ignored, whereas a
+# consumer same-name file and a parent override stay checked in both tools.
+_resource_result=$(
+  export PROJECT_ROOT="$T/portable-owned-fixture" PKG_ROOT="$REPO_ROOT" DRY_RUN="" FORCE=""
+  mkdir -p "$PROJECT_ROOT/.agents/roles/resources/demo" "$PROJECT_ROOT/.agents/roles/resources/override"
+  INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+  printf 'export const value={x:1};\n' > "$PROJECT_ROOT/incoming.mjs"
+  printf 'consumer-owned\n' > "$PROJECT_ROOT/.agents/roles/resources/demo/custom.mjs"
+  printf 'keep\n' > "$PROJECT_ROOT/.agents/roles/resources/override.override.md"
+  _portable_copy "$PROJECT_ROOT/incoming.mjs" "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" >/dev/null
+  _portable_copy "$PROJECT_ROOT/incoming.mjs" "$PROJECT_ROOT/.agents/roles/resources/demo/custom.mjs" >/dev/null
+  _portable_copy "$PROJECT_ROOT/incoming.mjs" "$PROJECT_ROOT/.agents/roles/resources/override/helper.mjs" >/dev/null
+  mkdir -p "$PROJECT_ROOT/.claude/skills/demo/helpers" "$PROJECT_ROOT/.zcode/skills/override"
+  printf 'native-consumer-owned\n' > "$PROJECT_ROOT/.claude/skills/demo/helpers/custom.mjs"
+  printf 'keep-native\n' > "$PROJECT_ROOT/.zcode/skills/override.override.md"
+  _portable_alias "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/.claude/skills/demo/helpers/shipped.mjs" >/dev/null
+  _portable_alias "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/.zcode/skills/demo/helpers/shipped.mjs" >/dev/null
+  _portable_alias "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/.claude/skills/demo/helpers/custom.mjs" >/dev/null
+  _portable_alias "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/.zcode/skills/override/helper.mjs" >/dev/null
+  expected=$(printf '%s\n' '.agents/roles/resources/demo/shipped.mjs' '.claude/skills/demo/helpers/shipped.mjs' '.zcode/skills/demo/helpers/shipped.mjs')
+  paths=$(getff_portable_owned_paths)
+  [ "$paths" = "$expected" ] || { echo BAD-population; exit; }
+  : > "$PROJECT_ROOT/.prettierignore"
+  ignore_shipped_configs >/dev/null
+  ignore_shipped_configs >/dev/null
+  while IFS= read -r rel; do
+    [ "$(grep -cxF "$rel" "$PROJECT_ROOT/.prettierignore")" = 1 ] || { echo BAD-prettier; exit; }
+  done <<<"$expected"
+  eval "$(sed -n '/^_own_eslint_ignores() {/,/^}/p' "$REPO_ROOT/setup.d/eslint-wire.sh")"
+  [ "$(_own_eslint_ignores)" = "$expected" ] || { echo BAD-eslint; exit; }
+  grep -qx 'consumer-owned' "$PROJECT_ROOT/.agents/roles/resources/demo/custom.mjs" || { echo BAD-customization; exit; }
+  grep -qx 'native-consumer-owned' "$PROJECT_ROOT/.claude/skills/demo/helpers/custom.mjs" || { echo BAD-native-customization; exit; }
+  [ ! -e "$PROJECT_ROOT/.zcode/skills/override/helper.mjs" ] || { echo BAD-native-override; exit; }
+  for rel in '.claude/skills/demo/helpers/shipped.mjs' '.zcode/skills/demo/helpers/shipped.mjs'; do
+    [ ! -L "$PROJECT_ROOT/$rel" ] && cmp -s "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/$rel" || { echo BAD-native-materialization; exit; }
+  done
+  [ ! -e "$PROJECT_ROOT/.agents/roles/resources/override/helper.mjs" ] || { echo BAD-override; exit; }
+  echo OK-portable-owned
+)
+[ "$_resource_result" = OK-portable-owned ] \
+  && ok "portable resources: exact shared formatter/ESLint paths, consumer ownership, override and repeat preserved" \
+  || bad "portable resource ownership failed: $_resource_result"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

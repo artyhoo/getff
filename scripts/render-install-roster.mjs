@@ -33,9 +33,9 @@
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { findRegions, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
 import { readSkillTiers } from './lib/skill-tiers.mjs';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const TARGET = 'INSTALL-FOR-AI.md';
 const SECTION_ROSTER = 'install-roster';
@@ -149,13 +149,6 @@ function run(argv) {
   return 0;
 }
 
-function isMainEntry() {
-  try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-}
-if (isMainEntry()) process.exit(run(process.argv.slice(2)));
+if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));
 
 export { shippedAgents, shippedSkills, renderAgentsBullet, renderSkillsBullet, SECTION_ROSTER };

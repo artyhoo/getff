@@ -21,7 +21,7 @@
  *
  * That predicted failure had already materialised **twice over**: `shipped-prettier` (:99) and
  * `framework-fresh-install-validate-multistack` (:1094) were both unwired on `origin/staging`
- * at 2026-08-10, and `.claude/orchestrator-prompts/launch-preannounce-track/kickoff.md:46` had
+ * at 2026-08-10, and `.claude/orchestrator-prompts/launch-preannounce-track/kickoff.md:46` had cite:historical quotes the kickoff as of 2026-08-10, order since replaced by a DONE note
  * ordered exactly this fix once before — «immediately, one line, before anything else» — after
  * which it never happened and the list drifted further. A fix without a mechanism regressed
  * once already; this file is the mechanism.
@@ -30,8 +30,8 @@
  *
  * The violation is mechanically detectable → gate, not injection (§3 step 1). Of the reachable
  * gate channels, a principle test is the earliest that actually fires: the principles suite runs
- * at **pre-push** (`principlesMetaSection`, packages/core/hooks/pre-push.ts:1267) *and* in CI
- * (`principles-meta-tests`, audit-self.yml:210) — developer-time first, CI as backstop, per the
+ * at **pre-push** (`principlesMetaSection`, packages/core/hooks/pre-push.ts:2343) *and* in CI
+ * (`principles-meta-tests`, audit-self.yml:335) — developer-time first, CI as backstop, per the
  * README "earliest reachable channel" invariant which makes CI the last resort.
  *
  * Deliberately NOT placed inside `scripts/ci-success-gate.sh`: that script is the body of the
@@ -77,10 +77,12 @@ const AGGREGATE = 'ci-success';
  *
  * A genuinely push-only job (one whose `if:` can never be true on a `pull_request` event)
  * would be the other legitimate shape, and this map is where it would be declared. There is
- * none today: the only `if:`-guarded job is `pr-commit-trailers` (audit-self.yml:803,
- * `github.event_name == 'pull_request'`), which is wired in and whose `skipped` result the
- * aggregate accepts as OK by design (scripts/ci-success-gate.sh:30). So an `if:` guard is NOT
- * a reason to leave a job out — `skipped` already counts as passing.
+ * none today. The `if:`-guarded jobs are `pr-commit-trailers` (audit-self.yml:1313,
+ * `github.event_name == 'pull_request'`), whose `skipped` result the aggregate accepts as OK
+ * by design (scripts/ci-success-gate.sh:26-27), and the install-area jobs gated on the
+ * `path-scope` output, whose `skipped` is OK only when that output said `false`
+ * (scripts/ci-success-gate.sh:30-39). Both kinds are wired in. So an `if:` guard is NOT a
+ * reason to leave a job out — the aggregate judges the skip.
  */
 const NEEDS_ALLOWLIST = new Map<string, string>([
   [
@@ -172,10 +174,90 @@ export function missingFromNeeds(
   return jobs.filter((j) => !allowlist.has(j) && !wired.has(j));
 }
 
+/** Scope is permission to skip only when both the decision and replacement checks are wired. */
+export function kickoffScopeWiringProblems(source: string): string[] {
+  const problems: string[] = [];
+  const jobs = parseJobIds(source);
+  const block = (id: string): string => {
+    const start = source.indexOf(`\n  ${id}:\n`);
+    if (start < 0) return '';
+    const rest = source.slice(start + 1);
+    const next = rest.slice(1).search(/^ {2}[A-Za-z0-9_-]+:\s*$/m);
+    return next < 0 ? rest : rest.slice(0, next + 1);
+  };
+  const aggregate = block(AGGREGATE);
+  const runtimeJobs = jobs.filter((id) =>
+    block(id).includes("if: needs.path-scope.outputs.runtime == 'true'"),
+  );
+  if (runtimeJobs.length === 0) problems.push('no runtime-scoped jobs');
+  for (const id of runtimeJobs) {
+    if (!parseAggregateNeeds(source, id)?.includes('path-scope'))
+      problems.push(`${id}: missing scope dependency`);
+    if (!aggregate.includes(`needs.${id}.result`))
+      problems.push(`${id}: result missing from aggregate validation`);
+  }
+  if (
+    !aggregate.includes(
+      'PATH_SCOPE_RUNTIME: ${{ needs.path-scope.outputs.runtime }}',
+    )
+  )
+    problems.push('runtime decision missing from aggregate');
+  const required =
+    aggregate
+      .split('KICKOFF_REQUIRED_RESULTS: >-')[1]
+      ?.split('PATH_SCOPED_RESULTS:')[0] ?? '';
+  for (const id of [
+    'kickoff-checks',
+    'mechanical',
+    'shipped-prettier',
+    'manifest-render-check',
+    'pr-commit-trailers',
+    'docs-quality',
+    'docs-refresh',
+    'citation-fullsweep',
+    'actionlint',
+    'zizmor',
+  ]) {
+    if (!required.includes(`needs.${id}.result`))
+      problems.push(`${id}: kickoff requirement missing`);
+  }
+  if (
+    !block('kickoff-checks').includes(
+      "if: needs.path-scope.outputs.runtime == 'false'",
+    )
+  )
+    problems.push('kickoff replacement does not read the scope decision');
+  return problems;
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('Principle 36 — every audit-self job is wired into ci-success.needs', () => {
   const read = (): string => readFileSync(WORKFLOW, 'utf8');
+
+  it('kickoff skips retain scope dependencies, aggregate results and required document checks', () => {
+    const source = read();
+    expect(kickoffScopeWiringProblems(source)).toEqual([]);
+    const unwired = source.replace('${{ needs.typecheck.result }}', '');
+    expect(unwired).not.toBe(source);
+    expect(kickoffScopeWiringProblems(unwired)).toContain(
+      'typecheck: result missing from aggregate validation',
+    );
+    const noDocuments = source.replace(
+      '${{ needs.kickoff-checks.result }}',
+      '',
+    );
+    expect(kickoffScopeWiringProblems(noDocuments)).toContain(
+      'kickoff-checks: kickoff requirement missing',
+    );
+    const noDecision = source.replace(
+      'PATH_SCOPE_RUNTIME: ${{ needs.path-scope.outputs.runtime }}',
+      '',
+    );
+    expect(kickoffScopeWiringProblems(noDecision)).toContain(
+      'runtime decision missing from aggregate',
+    );
+  });
 
   it('(a) real-tree: every job defined in audit-self.yml is in ci-success.needs', () => {
     expect(existsSync(WORKFLOW), `${WORKFLOW} must exist`).toBe(true);
@@ -324,6 +406,7 @@ describe('Principle 36 — every audit-self job is wired into ci-success.needs',
     const src = read();
     expect(parseAggregateNeeds(src, 'framework-self-synth')).toEqual([
       'principles-meta-tests',
+      'path-scope',
     ]);
     expect(
       (parseAggregateNeeds(src, AGGREGATE) as string[]).length,

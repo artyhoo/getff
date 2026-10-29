@@ -1,0 +1,49 @@
+name: notify-landing
+
+# R4 pin trigger (docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md
+# «Pin mechanism», :112-113): every promote that moves framework `main` fires a
+# `repository_dispatch` (`framework-main-moved`) at artyhoo/getff-landing, whose deploy then
+# re-resolves `framework.pin` and republishes. One step, one secret, exit code propagates.
+#
+# RED-BY-DESIGN (deliberate divergence from the metrics-collect skip-when-secret-absent
+# precedent): a missing or rejected `LANDING_DISPATCH_TOKEN` is a RED RUN, not a graceful
+# skip — the spec's own honesty clause is «a rejected token is a red run on the promote the
+# operator just made», and silence on a promote is exactly the missed-dispatch failure R22
+# (pin-freshness.yml) exists to catch. This workflow is therefore safe to merge but LOUD
+# until the owner action below lands.
+#
+# OWNER ACTION REQUIRED before the first promote after merge: add repo secret
+# `LANDING_DISPATCH_TOKEN` — a PAT with access to artyhoo/getff-landing granting
+# `contents:write` (fine-grained) or `repo` (classic); this is the documented minimum for
+# `POST /repos/{owner}/{repo}/dispatches` cross-repo. The default GITHUB_TOKEN cannot
+# trigger a workflow in another repository (GitHub docs, «Triggering a workflow from a
+# workflow») — that caveat IS the reason this secret exists.
+#
+# `workflow_dispatch` is a REHEARSAL arm (not in R4's own text): it lets the trigger-only
+# landing PR (repository_dispatch receiver) be rehearsed against the live site before the
+# first real promote, per the rollout spec's «before the cutover» clause (:162). No
+# checkout, no actions: the step needs nothing from the tree, so there is nothing to pin
+# (`ci-tool-pinning.md` is trivially satisfied) and nothing that can cache-poison.
+
+on:
+  push:
+    branches: [main] # promote merges only — staging never dispatches
+  workflow_dispatch: {} # rehearsal arm, flagged in the S1 report
+
+permissions: {} # the step authenticates as the PAT, never as GITHUB_TOKEN
+
+jobs:
+  dispatch:
+    name: dispatch framework-main-moved → artyhoo/getff-landing
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Repository dispatch (exit propagates — a rejected token is a red run)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.LANDING_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api repos/artyhoo/getff-landing/dispatches \
+            -f event_type=framework-main-moved
+          echo "notify-landing: dispatched framework-main-moved to artyhoo/getff-landing"

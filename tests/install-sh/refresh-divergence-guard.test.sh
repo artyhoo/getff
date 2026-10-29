@@ -22,8 +22,9 @@
 #       false-positive probe: agents/hooks are post-delivery-transformed, so a baseline hashed
 #       at copy time instead of flush time would spam here).
 #   (c) pre-manifest consumer (manifest deleted) → refresh → ZERO divergence claims
-#       (T-CRI-B: unknown != diverged, no first-refresh spam); paired-negative: after the
-#       refresh heals the manifest, the SAME mutation DOES warn.
+#       (T-CRI-B: unknown != diverged, no first-refresh spam); since critical-review wave 1
+#       (M2, D4(c)) the diverged bytes are still preserved aside, reported by ONE aggregate
+#       line; paired-negative: after the refresh heals the manifest, the SAME mutation DOES warn.
 #   (d) .override.md file → unchanged Layer-3 skip path: no conflict copy, no warning for it,
 #       while a second mutated file WITHOUT the override is guarded in the same run.
 #   (e) --dry-run lists `would-flag` for the diverged file and writes nothing (no manifest
@@ -97,8 +98,8 @@ else
   OUT_A=$( cd "$TCA" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
 
   # Output: the warning names the dst and the preserved path (ASCII substring + path probe).
-  if printf '%s\n' "$OUT_A" | grep -qF 'overwriting locally-modified file:' \
-    && printf '%s\n' "$OUT_A" | grep -qF "$PROBE_A"; then
+  if grep -qF 'overwriting locally-modified file:' <<<"$OUT_A" \
+    && grep -qF "$PROBE_A" <<<"$OUT_A"; then
     ok "arm (a): warning printed for the diverged file (names the dst and the preserved copy)"
   else
     bad "arm (a): warning NOT printed for the diverged $PROBE_REL (guard did not fire)"
@@ -141,7 +142,7 @@ rm -rf "$TCA"
 # ══════════════════════════════════════════════════════════════════════════════
 TCB=$(make_consumer)
 OUT_B=$( cd "$TCB" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_B" | grep -qF 'overwriting locally-modified file:'; then
+if grep -qF 'overwriting locally-modified file:' <<<"$OUT_B"; then
   bad "arm (b): untouched consumer got divergence claim(s) — first-refresh spam (T-CRI-B): $(printf '%s\n' "$OUT_B" | grep -cF 'overwriting locally-modified file:')"
 else
   ok "arm (b): untouched consumer, refresh → ZERO divergence claims"
@@ -153,7 +154,7 @@ else
 fi
 # neg (LOAD-BEARING): the same run must show real refresh activity — an output with no
 # refresh lines at all would make the absence-of-warning meaningless (vacuous pass).
-if printf '%s\n' "$OUT_B" | grep -qF '(refreshed)'; then
+if grep -qF '(refreshed)' <<<"$OUT_B"; then
   ok "arm (b) neg: the refresh run did deliver files ($(printf '%s\n' "$OUT_B" | grep -cF '(refreshed)') refresh lines) — the zero-warning claim is a real verdict"
 else
   bad "arm (b) neg: no refresh activity found in the output — the absence of warnings is vacuous"
@@ -161,21 +162,29 @@ fi
 rm -rf "$TCB"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ARM (c) — pre-manifest consumer: unknown ≠ diverged, zero claims
+# ARM (c) — pre-manifest consumer: unknown ≠ diverged, zero per-file claims, bytes preserved
 # ══════════════════════════════════════════════════════════════════════════════
 TCC=$(make_consumer)
 rm -f "$TCC/$MANIFEST_REL"
 printf 'CONSUMER_DIVERGENCE_MARKER_ARM_C\n' > "$TCC/$PROBE_REL"
 OUT_C=$( cd "$TCC" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_C" | grep -qF 'overwriting locally-modified file:'; then
+if grep -qF 'overwriting locally-modified file:' <<<"$OUT_C"; then
   bad "arm (c): pre-manifest consumer got divergence claim(s) — a missing entry must be unknown, not diverged"
 else
   ok "arm (c): manifest deleted → refresh makes ZERO divergence claims (unknown = today's behaviour)"
 fi
-if [ -e "$TCC/$CONFLICTS_REL" ]; then
-  bad "arm (c): $CONFLICTS_REL/ created for a pre-manifest consumer"
+# Critical-review wave 1 (M2, D4(c)) superseded RI-2's silent overwrite on this path: the
+# unbaselined diverged bytes are copied aside SILENTLY, reported by ONE aggregate line — the
+# per-file no-spam contract above still holds, only the data loss is gone.
+if grep -rqF 'CONSUMER_DIVERGENCE_MARKER_ARM_C' "$TCC/$CONFLICTS_REL" 2>/dev/null; then
+  ok "arm (c): pre-manifest consumer's diverged bytes preserved under $CONFLICTS_REL/ (D4(c), no data loss)"
 else
-  ok "arm (c): no conflicts dir for a pre-manifest consumer"
+  bad "arm (c): pre-manifest consumer's diverged bytes NOT preserved under $CONFLICTS_REL/ — silent data loss"
+fi
+if [ "$(printf '%s\n' "$OUT_C" | grep -c 'preserved [0-9]* unbaselined diverged file')" = "1" ]; then
+  ok "arm (c): exactly ONE aggregate preserve line (no per-file spam)"
+else
+  bad "arm (c): expected exactly one aggregate preserve line (got: $(printf '%s\n' "$OUT_C" | grep -c 'unbaselined diverged'))"
 fi
 # neg (LOAD-BEARING): the SAME consumer, now that the refresh healed the manifest, must warn
 # on a NEW mutation — proving arm (c)'s silence was the unknown-entry path, not a dead guard.
@@ -183,8 +192,8 @@ if [ -f "$TCC/$MANIFEST_REL" ]; then
   ok "arm (c) neg precondition: refresh re-wrote the manifest (baseline healed)"
   printf 'CONSUMER_DIVERGENCE_MARKER_ARM_C2\n' > "$TCC/$PROBE_REL"
   OUT_C2=$( cd "$TCC" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-  if printf '%s\n' "$OUT_C2" | grep -qF 'overwriting locally-modified file:' \
-    && printf '%s\n' "$OUT_C2" | grep -qF "$PROBE_REL"; then
+  if grep -qF 'overwriting locally-modified file:' <<<"$OUT_C2" \
+    && grep -qF "$PROBE_REL" <<<"$OUT_C2"; then
     ok "arm (c) neg: with a baseline present the same mutation DOES warn (arm c silence was the unknown path)"
   else
     bad "arm (c) neg: guard stayed silent even with a healed manifest — it is dead, and arm (c) proved nothing"
@@ -209,12 +218,12 @@ if grep -qF 'CONSUMER_DIVERGENCE_MARKER_ARM_D' "$PROBE_D"; then
 else
   bad "arm (d): overridden file was clobbered despite .override.md"
 fi
-if printf '%s\n' "$OUT_D" | grep -F 'overwriting locally-modified file:' | grep -qF "deps-hash-check.sh"; then
+if grep -qF "deps-hash-check.sh" <<<"$(printf '%s\n' "$OUT_D" | grep -F 'overwriting locally-modified file:')"; then
   bad "arm (d): the override skip path emitted a divergence warning for the overridden file"
 else
   ok "arm (d): no divergence warning for the overridden file (skip happens before the guard)"
 fi
-if printf '%s\n' "$OUT_D" | grep -qF '.override.md'; then
+if grep -qF '.override.md' <<<"$OUT_D"; then
   ok "arm (d): the override skip line is still announced in the output"
 else
   bad "arm (d): the .override.md skip announcement vanished from the refresh output"
@@ -230,7 +239,7 @@ else
 fi
 # neg (LOAD-BEARING): the control file — same run, same mutation, NO override — must be
 # warned + refreshed: proves the run was live and the skip is the override's doing.
-if printf '%s\n' "$OUT_D" | grep -F 'overwriting locally-modified file:' | grep -qF "end-of-turn-reminder.sh" \
+if grep -qF "end-of-turn-reminder.sh" <<<"$(printf '%s\n' "$OUT_D" | grep -F 'overwriting locally-modified file:')" \
   && ! grep -qF 'CONSUMER_DIVERGENCE_MARKER_ARM_D' "$CTRL_D"; then
   ok "arm (d) neg: the non-overridden control file WAS guarded + refreshed in the same run (skip is the override's doing)"
 else
@@ -247,7 +256,7 @@ printf 'CONSUMER_DIVERGENCE_MARKER_ARM_E\n' > "$PROBE_E"
 MAN_E_BEFORE=$(mktemp)
 cp "$TCE/$MANIFEST_REL" "$MAN_E_BEFORE"
 OUT_E=$( cd "$TCE" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_E" | grep -qF 'would-flag:' && printf '%s\n' "$OUT_E" | grep -F 'would-flag:' | grep -qF 'deps-hash-check.sh'; then
+if grep -qF 'would-flag:' <<<"$OUT_E" && grep -qF 'deps-hash-check.sh' <<<"$(printf '%s\n' "$OUT_E" | grep -F 'would-flag:')"; then
   ok "arm (e): --dry-run reports would-flag for the diverged file"
 else
   bad "arm (e): --dry-run did not report would-flag for the diverged file"
@@ -270,8 +279,8 @@ fi
 # neg (LOAD-BEARING): the real refresh right after DOES warn for the same divergence —
 # the would-flag line predicted a real divergence, not a cosmetic string.
 OUT_E2=$( cd "$TCE" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_E2" | grep -qF 'overwriting locally-modified file:' \
-  && printf '%s\n' "$OUT_E2" | grep -F 'overwriting locally-modified file:' | grep -qF 'deps-hash-check.sh'; then
+if grep -qF 'overwriting locally-modified file:' <<<"$OUT_E2" \
+  && grep -qF 'deps-hash-check.sh' <<<"$(printf '%s\n' "$OUT_E2" | grep -F 'overwriting locally-modified file:')"; then
   ok "arm (e) neg: the real refresh warns for exactly the file --dry-run would-flagged (preview is faithful)"
 else
   bad "arm (e) neg: real refresh did not warn — the would-flag predicted nothing real"

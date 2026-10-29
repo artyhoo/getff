@@ -15,7 +15,7 @@
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 GATE="$REPO_ROOT/packages/core/audit-self/check-arch-boundaries.sh"
-CFG_SRC="$REPO_ROOT/templates/ts-server/dependency-cruiser.cjs"
+CFG_SRC="$REPO_ROOT/templates/ts-server/dependency-cruiser.mjs"
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
@@ -23,7 +23,7 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 # ── shipped config carries the monorepo boundary rules and is valid JS ──
 grep -q 'no-package-to-app' "$CFG_SRC" && ok "config: no-package-to-app (packages↛apps) rule shipped" || bad "config: no-package-to-app missing"
 grep -q 'no-cross-app' "$CFG_SRC"      && ok "config: no-cross-app (apps↔apps) rule shipped"          || bad "config: no-cross-app missing"
-node -e "require('$CFG_SRC')" 2>/dev/null && ok "config: .dependency-cruiser.cjs is valid JS (require succeeds)" || bad "config: .cjs failed to require"
+node --input-type=module -e "await import('$CFG_SRC')" 2>/dev/null && ok "config: .dependency-cruiser.mjs is a valid ES module (import succeeds)" || bad "config: .mjs failed to import"
 
 # ── behavioral REGEX: the new rule reaches the #534 repro paths, inert on flat ──
 node -e 'process.exit((new RegExp("(?:^|/)packages/").test("packages/db/src/index.ts") && new RegExp("(?:^|/)apps/").test("apps/api/src/app.ts"))?0:1)' \
@@ -34,7 +34,7 @@ node -e 'process.exit(new RegExp("(?:^|/)packages/").test("src/domain/x.ts")?1:0
   || bad "behavioral-neg: packages/ pattern matched a flat path (would false-positive on single-project)"
 
 # ── detector Arm A: monorepo + config WITH the boundary rule → PASS ──
-A=$(mktemp -d); mkdir -p "$A/apps/api/src" "$A/packages/db/src"; cp "$CFG_SRC" "$A/.dependency-cruiser.cjs"
+A=$(mktemp -d); mkdir -p "$A/apps/api/src" "$A/packages/db/src"; cp "$CFG_SRC" "$A/.dependency-cruiser.mjs"
 if ( cd "$A" && bash "$GATE" ) >/tmp/g534a.$$ 2>&1; then
   ok "A: monorepo + boundary rule present → detector PASSES"
 else
@@ -57,7 +57,7 @@ fi
 grep -q 'unguarded' /tmp/g534b.$$ && ok "B: failure message explains the unguarded boundary" || bad "B: failure message unclear"
 
 # ── detector Arm C: flat repo (no apps/+packages/) → graceful skip (exit 0) ──
-C=$(mktemp -d); mkdir -p "$C/src"; cp "$CFG_SRC" "$C/.dependency-cruiser.cjs"
+C=$(mktemp -d); mkdir -p "$C/src"; cp "$CFG_SRC" "$C/.dependency-cruiser.mjs"
 if ( cd "$C" && bash "$GATE" ) >/tmp/g534c.$$ 2>&1 && grep -qi 'not an apps/+packages/ monorepo' /tmp/g534c.$$; then
   ok "C: flat repo → detector skips (exit 0, no false-fail on single-project)"
 else
@@ -74,14 +74,14 @@ fi
 DCV=$(mktemp -d)
 if ( cd "$DCV" && printf '{"name":"d","private":true}\n' > package.json \
      && npm i dependency-cruiser@16 typescript@5 --no-save --silent >/dev/null 2>&1 ); then
-  cp "$CFG_SRC" "$DCV/.dependency-cruiser.cjs"
+  cp "$CFG_SRC" "$DCV/.dependency-cruiser.mjs"
   printf '{ "compilerOptions": { "module": "esnext", "moduleResolution": "node" } }\n' > "$DCV/tsconfig.json"
   mkdir -p "$DCV/apps/api/src" "$DCV/packages/db/src"
   DC="$DCV/node_modules/.bin/depcruise"
   # CASE A — packages/* imports apps/* (the forbidden direction) → depcruise FAILS on no-package-to-app.
   printf 'export const app = 1;\n' > "$DCV/apps/api/src/app.ts"
   printf "import { app } from '../../../apps/api/src/app';\nexport const db = app;\n" > "$DCV/packages/db/src/index.ts"
-  ( cd "$DCV" && "$DC" --config .dependency-cruiser.cjs --no-progress apps packages ) >/tmp/g534d.$$ 2>&1
+  ( cd "$DCV" && "$DC" --config .dependency-cruiser.mjs --no-progress apps packages ) >/tmp/g534d.$$ 2>&1
   rcA=$?
   if [ "$rcA" -ne 0 ] && grep -q 'no-package-to-app' /tmp/g534d.$$; then
     ok "D (real depcruise): packages/→apps/ import → depcruise FAILS on no-package-to-app (rule actually fires)"
@@ -92,7 +92,7 @@ if ( cd "$DCV" && printf '{"name":"d","private":true}\n' > package.json \
   # count proves the graph was genuinely traversed (guards against a vacuous 0-modules pass).
   printf 'export const db = 1;\n' > "$DCV/packages/db/src/index.ts"
   printf "import { db } from '../../../packages/db/src/index';\nexport const app = db;\n" > "$DCV/apps/api/src/app.ts"
-  ( cd "$DCV" && "$DC" --config .dependency-cruiser.cjs --no-progress apps packages ) >/tmp/g534e.$$ 2>&1
+  ( cd "$DCV" && "$DC" --config .dependency-cruiser.mjs --no-progress apps packages ) >/tmp/g534e.$$ 2>&1
   rcB=$?
   if [ "$rcB" -eq 0 ] && grep -qE '[1-9][0-9]* dependencies cruised' /tmp/g534e.$$; then
     ok "D neg (real depcruise): legal apps/→packages/ direction → depcruise PASSES (graph cruised, no false-fail)"
@@ -103,9 +103,9 @@ else
   echo "  · Arm D skipped — could not install dependency-cruiser@16 (offline/upstream); detector Arms A/B/C still prove the alarm."
 fi
 
-# ── #807: the multi-stack monorepo branch must place a ROOT .dependency-cruiser.cjs ────────────
+# ── #807: the multi-stack monorepo branch must place a ROOT .dependency-cruiser.mjs ────────────
 # The #793/#796 multi-stack branch placed per-workspace eslint configs but no root arch config, so
-# `arch:check` (depcruise --config .dependency-cruiser.cjs) exited 1 → validate RED. depcruise is a
+# `arch:check` (depcruise --config .dependency-cruiser.cjs, as shipped then) exited 1 → validate RED. depcruise is a
 # repo-wide arch tool (crawls from src/), so a single root config is correct. Real install (deps-free
 # — </dev/null answers N), assert by PLACEMENT (can't run depcruise without deps). PAIRED-NEGATIVE:
 # the flat path (no per-workspace stacks) places it via its own branch — proven by the existing
@@ -120,14 +120,14 @@ printf '{ "name":"@m/mobile","dependencies":{"expo":"~52.0.0","react-native":"0.
 ( cd "$MS807" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force </dev/null ) >/tmp/g534ms.$$ 2>&1
 mrc=$?
 [ "$mrc" -eq 0 ] || bad "#807: multi-stack install rc=$mrc ($(tail -2 /tmp/g534ms.$$ | tr '\n' '|'))"
-[ -f "$MS807/.dependency-cruiser.cjs" ] \
-  && ok "#807: multi-stack branch places ROOT .dependency-cruiser.cjs (arch:check resolves; was MISSING)" \
-  || bad "#807: multi-stack branch did NOT place root .dependency-cruiser.cjs (arch:check exits 1)"
-# NEG (load-bearing): there must be no per-WORKSPACE .dependency-cruiser.cjs (placed once at root,
+[ -f "$MS807/.dependency-cruiser.mjs" ] \
+  && ok "#807: multi-stack branch places ROOT .dependency-cruiser.mjs (arch:check resolves; was MISSING)" \
+  || bad "#807: multi-stack branch did NOT place root .dependency-cruiser.mjs (arch:check exits 1)"
+# NEG (load-bearing): there must be no per-WORKSPACE .dependency-cruiser.mjs (placed once at root,
 # not N times inside the loop, per ⚑M2). A copy under apps/* would be the loop-placement bug.
-! [ -f "$MS807/apps/api/.dependency-cruiser.cjs" ] && ! [ -f "$MS807/apps/mobile/.dependency-cruiser.cjs" ] \
-  && ok "#807 neg: no per-workspace .dependency-cruiser.cjs (placed ONCE at root, not in the loop)" \
-  || bad "#807 neg: a per-workspace .dependency-cruiser.cjs exists — placed inside the loop (⚑M2 violation)"
+! [ -f "$MS807/apps/api/.dependency-cruiser.mjs" ] && ! [ -f "$MS807/apps/mobile/.dependency-cruiser.mjs" ] \
+  && ok "#807 neg: no per-workspace .dependency-cruiser.mjs (placed ONCE at root, not in the loop)" \
+  || bad "#807 neg: a per-workspace .dependency-cruiser.mjs exists — placed inside the loop (⚑M2 violation)"
 
 rm -f /tmp/g534a.$$ /tmp/g534b.$$ /tmp/g534c.$$ /tmp/g534d.$$ /tmp/g534e.$$ /tmp/g534ms.$$ 2>/dev/null
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -53,29 +53,63 @@ grep -qiF 'react-native' "$TMP/out_rn.txt" \
   && ok "react-native accepted by wrapper" \
   || bad "react-native not recognised by wrapper (stack glob missing?)"
 
-# ── T4: ./setup -y (no stack) fails loud — must not hang on interactive read ─────
+# ── T4: ./setup -y (no stack, no stack signal) → stack `generic`, never a hang on a read ─────
+# P2 G1 (operator log entry 26 point 2): `{}` carries no stack signal, so the install takes the
+# stack-free part as stack `generic`. --dry-run: the real run adds user-scope MCP servers (05-mcp).
+# The old form asserted a non-zero exit and passed on `timeout 5` killing the install (rc 124).
 _exit_nostack=0
-_out_nostack=$( cd "$TMP" && timeout 5 bash "$SETUP" -y 2>&1 ) || _exit_nostack=$?
-[ "$_exit_nostack" -ne 0 ] \
-  && ok "./setup -y (no stack): exits non-zero (no silent hang)" \
-  || bad "./setup -y (no stack): did not exit non-zero (may have hung)"
-echo "$_out_nostack" | grep -qiE 'stack|ts-server|react-next' \
-  && ok "./setup -y (no stack): error message mentions stack choices" \
-  || bad "./setup -y (no stack): error missing stack guidance"
+_out_nostack=$( cd "$TMP" && timeout 60 bash "$SETUP" -y --dry-run 2>&1 ) || _exit_nostack=$?
+[ "$_exit_nostack" -eq 0 ] \
+  && ok "./setup -y --dry-run (no stack): exits 0 (no hang, no exit on an unknown stack)" \
+  || bad "./setup -y --dry-run (no stack): exit $_exit_nostack (timeout = 124)"
+grep -q 'stack: generic' <<<"$_out_nostack" \
+  && ok "./setup -y --dry-run (no stack): says it installs stack generic" \
+  || bad "./setup -y --dry-run (no stack): output does not name stack generic"
 
-# ── T5: install.sh --full (no stack) fails loud ──────────────────────────────────
+# ── T5: install.sh --full (no stack, no stack signal) → stack `generic`; a wrong NAME fails loud ─
 _exit_ins=0
-_out_ins=$( cd "$TMP" && timeout 5 bash "$INSTALL_SH" --full 2>&1 ) || _exit_ins=$?
-[ "$_exit_ins" -ne 0 ] \
-  && ok "install.sh --full (no stack): exits non-zero" \
-  || bad "install.sh --full (no stack): did not exit non-zero"
-echo "$_out_ins" | grep -qiE 'stack|ts-server|react-next' \
-  && ok "install.sh --full (no stack): error message mentions stack" \
-  || bad "install.sh --full (no stack): error missing stack guidance"
+_out_ins=$( cd "$TMP" && timeout 60 bash "$INSTALL_SH" --full --dry-run 2>&1 ) || _exit_ins=$?
+[ "$_exit_ins" -eq 0 ] \
+  && ok "install.sh --full --dry-run (no stack): exits 0" \
+  || bad "install.sh --full --dry-run (no stack): exit $_exit_ins (timeout = 124)"
+grep -q 'stack: generic' <<<"$_out_ins" \
+  && ok "install.sh --full --dry-run (no stack): says it installed stack generic" \
+  || bad "install.sh --full --dry-run (no stack): output does not name stack generic"
+_exit_bad=0
+_out_bad=$( cd "$TMP" && timeout 5 bash "$INSTALL_SH" not-a-stack --full 2>&1 ) || _exit_bad=$?
+[ "$_exit_bad" -ne 0 ] && grep -q 'Unknown stack: not-a-stack' <<<"$_out_bad" \
+  && ok "install.sh not-a-stack: exits non-zero and names the stack choices" \
+  || bad "install.sh not-a-stack: exit $_exit_bad, output: ${_out_bad:0:200}"
 
 # ── T6: no self/consumer branch in setup or install.sh (S4 acceptance criterion) ─
 ! grep -qE 'SELF_INSTALL|consumer.branch|personal.branch' "$SETUP" "$INSTALL_SH" \
   && ok "no self/consumer branch code in setup or install.sh" \
   || bad "self/consumer branch pattern found — S4 must not introduce one"
+
+# ── T7-T9: the dry run previews the real run (P6 run 2 N4, one-button P3) ────────
+# The road previews with --dry-run before it installs; a preview that omits a tool sends the agent
+# probing on its own (P6 R2: it ran `claude mcp get deepwiki` because the Companions section named
+# no MCP server). companions_section = the lines between «▶ Companions» and the next «▶» header.
+companions_section() { awk '/^▶ Companions/{f=1;next} /^▶ /{f=0} f' "$1"; }
+
+# T7: --dry-run wins in any flag order. Before the fix `--dry-run -y` let -y reset MODE to «yes»:
+# install.sh still got --dry-run, but the companion and bridge steps ran for real.
+( cd "$TMP" && bash "$SETUP" --dry-run -y ts-server >out_dy.txt 2>&1 ) || true
+grep -qF 'complete (dry-run)' "$TMP/out_dy.txt" \
+  && ok "--dry-run -y ts-server: still a dry run (flag order does not matter)" \
+  || bad "--dry-run -y ts-server: -y after --dry-run turned the companion steps into a real run ($(grep -o 'complete ([a-z-]*)' "$TMP/out_dy.txt"))"
+
+# T8: with -y the Companions section names both MCP servers the real run adds and records.
+_cs_y=$(companions_section "$TMP/out_y.txt")
+grep -qF 'context7' <<<"$_cs_y" && grep -qF 'deepwiki' <<<"$_cs_y" \
+  && ok "-y --dry-run: the Companions section names context7 and deepwiki" \
+  || bad "-y --dry-run: the Companions section omits an MCP server: $(tr '\n' '|' <<<"$_cs_y")"
+
+# T9: without -y the Companions section still names them, and says this mode does not add them.
+( cd "$TMP" && bash "$SETUP" ts-server --dry-run >out_plain.txt 2>&1 ) || true
+_cs_p=$(companions_section "$TMP/out_plain.txt")
+grep -qF 'context7' <<<"$_cs_p" && grep -qF 'deepwiki' <<<"$_cs_p" && grep -qF 'only with -y' <<<"$_cs_p" \
+  && ok "--dry-run without -y: the Companions section names the MCP servers and that only -y adds them" \
+  || bad "--dry-run without -y: the Companions section does not say what happens to the MCP servers: $(tr '\n' '|' <<<"$_cs_p")"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -146,8 +146,9 @@ bash /tmp/rt/setup ts-server                 # or react-next; omit to get a stac
 
 `./setup` is the one-click orchestrator (framework + companions + runtime-bridge). Flags:
 
-- `--yes` — non-interactive consumer default: skip the prompts, install missing companions, install the dev-dependencies, run the bridge step; ships the curated consumer set only.
-- `--all` — everything: `--yes` PLUS the AIF operator suite (5 skills + 2 agents + their skill-context — presupposes the aif-handoff runtime; operator machines).
+- `--yes` — non-interactive consumer default: skip the prompts, install missing project-scope companions, install the dev-dependencies, run the bridge step; ships the curated consumer set only. Machine-global companions (user-scope plugins/MCP, `npm -g`) are skipped with a «NOT wired» notice — they need `--global`.
+- `--global` — allow machine-global companion installs under `--yes` (user-scope plugins/MCP servers, `npm -g`).
+- `--all` — everything: `--yes --global` PLUS the AIF operator suite (6 skills + 2 agents + their skill-context — presupposes the aif-handoff runtime; operator machines).
 - `--dry-run` — print the full plan, write nothing.
 
 It runs four steps:
@@ -157,7 +158,7 @@ It runs four steps:
 3. **Companions** — manifest-driven, detect-first, consent per companion — see below.
 4. **Runtime-bridge** — optional guided aif-handoff setup (`[y/N]`, default N) — see [docs/runtime-bridge-setup.md](docs/runtime-bridge-setup.md).
 
-Interactive `./setup` deploys files and **asks** before touching your dependencies. When it finishes, the installer prints the remaining wiring steps — the exact `npm install -D` dev-dependency list, the `package.json` scripts to add (`INSTALL.md §3`), and `npx husky init`. The non-interactive flags do not ask: `-y` / `--yes` / `--full` / `--all` run the dev-dependency install for you (`setup:48` sets `--full`; `setup.d/70-deps.sh:302` takes the install arm on it), so on a reviewed or offline machine pass no flag and answer the prompt.
+Interactive `./setup` deploys files and **asks** before touching your dependencies. It merges the canonical `package.json` scripts itself (non-destructively) and activates the shipped `.husky/pre-commit` + `pre-push` hooks itself — unless you already set your own `core.hooksPath`, which it leaves alone (do **not** run `npx husky init`, it would clobber the shipped hooks). It never hands you a step to do by hand: when it finishes, a «NOT wired» list names each piece it could not wire and why, and a `Checked by the install:` block reports what it verified — git hooks active (`core.hooksPath` is `.husky`, or `.husky/_` once husky 9's `prepare` script has run), the result of getff's `scripts/audit-ai-docs.sh` (a copy the project already had is its own code, and the install does not run it), and whether dependencies were installed. A companion `./setup` could not install gets a «NOT wired» line of its own at the end of the run. The non-interactive flags do not ask: `-y` / `--yes` / `--full` / `--all` run the dev-dependency install for you (`setup:53` sets `--full`; `setup.d/70-deps.sh:335` takes the install arm on it), so on a reviewed or offline machine pass no flag and answer the prompt.
 
 > The previous end-to-end wrapper `setup.sh` (`ai-factory init` + `npm install` + husky init + npm scripts via `jq`) has been **retired** (2026-07-10) — `./setup` supersedes it. It also ran an unpinned `npm install -g ai-factory`; companions now install detect-first via the manifest below. If older instructions point you at `bash setup.sh`, use `./setup` instead.
 
@@ -214,7 +215,7 @@ Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/compa
 
 - **Detect-first:** a companion that is already present is skipped.
 - **Consent per companion (interactive):** `Install <name>? [y/N]` — default is N; no companion is mandatory. When stdin is not a tty (piped / CI), prompts fall through to N automatically.
-- **Headless:** `--yes` / `--all` install every missing manifest companion without prompting (for companions the two are equivalent; `--all` additionally ships the AIF operator suite — see Installation flags above); `--dry-run` prints what would be installed.
+- **Headless:** `--yes` / `--all` install missing manifest companions without prompting — project-scope companions under both; `--yes` alone skips machine-global companions with a «NOT wired» notice, while `--all` (= `--yes --global`) allows them and additionally ships the AIF operator suite — see Installation flags above; `--dry-run` prints what would be installed.
 - **Official installers only, no version pin** — currently Superpowers via `claude plugin install superpowers@claude-plugins-official`, and ast-grep (structural code search: CLI via `npm install -g @ast-grep/cli`, then the official `ast-grep/agent-skill` plugin).
 - **External services** (manifest kind `external-service` — the aif-handoff runtime-bridge) are not plain installs; they route to the guided-detect bridge step (`./setup` step 4) instead.
 
@@ -230,7 +231,7 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 |---|---|---|
 | `.claude/skills/getff/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
 | `.claude/agents/` — 11 files (`review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`, `docplan-auditor`, `claims-conformance-auditor`, `fidelity-auditor`, `rule-test-author`) | sub-agents for `/aif-verify` (R1–R20 validation is earlier-channel: ESLint + pre-push + AIF `rules-sidecar`) | No |
-| `.ai-factory/skill-context/aif-review/SKILL.md`, `aif-rules-check/SKILL.md` | overrides injected into AIF's own sidecars (anti-tautology review + R10/test-existence residue) | No |
+| `.ai-factory/skill-context/aif-review/SKILL.md`, `aif-rules-check/SKILL.md` | overrides injected into AIF's own sidecars (anti-tautology review + R10/test-existence residue); getff owns only its fenced block, so rules `/aif-evolve` writes into the same file survive install and `--refresh` | No |
 | `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |
 | `.ai-factory/DESCRIPTION.template.md` + `.ai-factory/DESCRIPTION.md` | template with `<PLACEHOLDERS>`; the installer already materializes `DESCRIPTION.md` from it (`setup.d/30-templates.sh:77`, never clobbering an edited one) | **Yes — fill in `DESCRIPTION.md`** (no rename needed) |
 | `.ai-factory/ARCHITECTURE.ts-server.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |
@@ -242,41 +243,15 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 
 > **† Layout-honesty caveat.** The shipped audits (`scripts/audit-ai-docs.sh` / `.react-next.sh`, and the `ci.yml` that runs them) assume the canonical `src/` + DDD layout. Several layout-specific probes are hardcoded to that layout, so on a non-`src/` project (`app/`, `lib/`, `apps/*/src/`, or a flat tree) they currently report **PASS while checking zero files** — green that means "the rule could not run on your layout", not "the rule ran and found nothing wrong". Two concrete examples at current HEAD: **R4** (`packages/core/audit-self/audit-ai-docs.ts:191`, `probeR4`) returns `warn` with `(skipped: no src/domain — probe could not run)` when `src/domain` is absent; **R17** (`audit-ai-docs.react-next.sh:86`) collects no roots when `src/shared/ui` / `src/features/*/ui` don't exist and emits `warn "… (skipped: no src/shared/ui or src/features/*/ui — probe could not run)"` instead of scanning. So "works as-is" is accurate **on** the canonical layout, but a consumer on another layout must not read green from these audits as a real pass — extend or repoint the probes to your own paths first.
 
-**Manual work after install:** the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review), plus the wiring steps the installer prints — `npm install -D` dev-deps, `package.json` scripts (`INSTALL.md §3`), `npx husky init`, and `npx depcruise --init` to generate `.dependency-cruiser.cjs` (the retired `setup.sh` wrapper used to automate these). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
+**Manual work after install:** the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review). The wiring itself — dev-dependencies, `package.json` scripts, git hooks — is done by the installer or, when it cannot be, listed under «NOT wired» with the reason (`npx depcruise --init` is not needed: `.dependency-cruiser.cjs` ships with the install). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
 
 ### For AI agents — let Claude/Cursor do the install
 
-Paste this into Claude Code, Cursor, or any AI agent with file access in your project's directory:
-
-```text
-Install getff into this project.
-
-1. Detect stack — or omit it and let the installer do it. `setup.d/lib.sh`
-   `_detect_stack_from_pkg` walks package.json dependency keys in order:
-   `react-native` → react-native; `next` → react-next; `react` → **react-spa**;
-   `typescript` → ts-server; otherwise unknown. It does not look at `next.config.*`,
-   and a plain React dependency resolves react-spa, not react-next.
-2. Run: bash /path/to/getff/setup <detected>
-   (clone the repo to /tmp/rt first if not on disk; the package is at
-   github.com/artyhoo/getff — needs SSH/HTTPS access.
-   With non-tty stdin the companion/bridge prompts default to N, so this
-   deploys the framework files only.)
-3. After setup completes, do these in sequence and report results:
-   a. Read .ai-factory/DESCRIPTION.template.md, fill in <PROJECT_NAME>,
-      stack details, non-goals based on package.json + README.md +
-      existing src/ structure. Save as .ai-factory/DESCRIPTION.md.
-   b. Read .ai-factory/RULES.md (R1-R11). For each rule, decide: keep,
-      adjust, or remove based on project context. Report decisions to me.
-      Do not commit removals without asking.
-   c. Read AGENTS.md root file, adapt to this project (replace template
-      placeholders with concrete paths and conventions).
-   d. Complete the wiring steps the installer printed: `npm install -D`
-      the listed dev-deps, add the package.json scripts (INSTALL.md §3),
-      run `npx husky init` and `npx depcruise --init`.
-   e. Run `npm run validate` and report any failures.
-   f. Run `npm run audit:docs` and report results.
-4. Stop here. Do not start implementing features.
-```
+Paste the prompt from [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md#quick-install--copy-paste-prompt) into Claude Code, Cursor, or any AI
+agent with file access in your project's directory. It is the one step list: the agent previews the
+install, asks you one question (where it may install), then walks every step — install, project
+passport draft, rule research, the project's own checks — and ends with its own report, where each
+step reads «done» or «not done» with the reason.
 
 Full guide for AI-driven install: see [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md).
 
@@ -328,10 +303,10 @@ The framework is **AI-agnostic by design** — any harness with a CC-compatible 
 **Supported today:**
 - **Claude Code** — primary dogfood harness; deepest coverage (hook-by-hook census: [doctrine §2](.claude/rules/zcode-parity-doctrine.md)).
 - **ZCode** — full parity via plugin channel + `_zcode-emit` helper; consumers install from the same GitHub marketplace (see «As a ZCode plugin» above). Four CC-only events (`SubagentStart`, `SubagentStop`, `WorktreeCreate`, `PreCompact`) have documented fallbacks or accepted CC-only rationale per the doctrine §4.
+- **Codex CLI** — bounded native hook adapter: consumer installs deliver project-local `.codex/hooks.json` plus the shared adapter, its entry-point dependency and language resolver; definitions derive only from the registered, delivered framework checks, activation requires project and exact-definition trust via Codex `/hooks` (never granted by the install), and missing Node or customized definitions produce an explicit not-wired notice ([docs/codex-contributor.md](docs/codex-contributor.md)).
 - **Cursor** — high CC-overlap (native `SubagentStart`/`Stop`, lifecycle hooks). Listed based on docs-verification in the [S8 agnosticism survey](docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md); live end-to-end testing is a follow-up.
 
 **Roadmap (FEASIBLE-WITH-WORK — adapter needed):**
-- **Codex CLI** — lifecycle hooks present; per-tool matcher adapter needed.
 - **Windsurf** — Cascade Hooks present; taxonomy adapter needed.
 
 **Out-of-scope:**

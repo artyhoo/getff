@@ -10,8 +10,14 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../../..');
-const SKILL = resolve(REPO_ROOT, '.claude/skills/dispatcher/SKILL.md');
+const SKILL = resolve(REPO_ROOT, '.claude/skills/dispatcher/references/execution.md');
 const skill = readFileSync(SKILL, 'utf8');
+const card = readFileSync(resolve(REPO_ROOT, '.claude/skills/dispatcher/SKILL.md'), 'utf8');
+
+it('requires the execution procedure before each loop action', () => {
+  expect(card).toContain('[execution](references/execution.md)');
+  expect(card).toContain('before its action');
+});
 
 function section(start: string, end: string): string {
   const a = skill.indexOf(start);

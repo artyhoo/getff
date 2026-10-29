@@ -20,8 +20,7 @@
 #       (allowlist) except the single benign '*.tmp' glob, and NO delivered artefact matches '*.tmp'
 #       (the honest narrow finding from recon group C: pin the glob harmless, don't let it grow).
 #
-# Uses the REAL compute_fingerprint extracted from tests/install-sh/snapshot.sh (not a re-typed
-# copy — a drifted duplicate would judge a pipeline nobody runs).
+# Imports the real fingerprint implementation without dispatching the installation matrix.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 SNAPSHOT="$REPO_ROOT/tests/install-sh/snapshot.sh"
@@ -33,14 +32,10 @@ bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 echo "▶ Snapshot exclusion guard (adapter-jig C3) — volatile-only exclusions never mask deterministic drift"
 echo ""
 
-# ── Extract the REAL compute_fingerprint (anchored function block; refuses an empty extraction) ────
-FN_SRC=$(sed -n '/^compute_fingerprint()/,/^}/p' "$SNAPSHOT")
-if [ -z "$FN_SRC" ] || ! printf '%s' "$FN_SRC" | grep -q 'find "\$dir" -type f'; then
-  bad "could not extract compute_fingerprint from snapshot.sh (anchor moved?) — fix the extraction, do not skip"
-  echo "PASS=$PASS FAIL=$FAIL"; exit 1
-fi
-eval "$FN_SRC"
-ok "extracted the REAL compute_fingerprint from snapshot.sh (anchored, non-empty)"
+# ── Import the real API; importing must not install or prepare global execution state ──
+source "$SNAPSHOT"
+declare -F compute_fingerprint >/dev/null || { bad 'snapshot fingerprint API missing'; exit 1; }
+ok "imported the real compute_fingerprint without dispatch"
 
 # A deliberately-BROADENED variant: same pipeline + a glob-wide .getff/ exclusion. This is the
 # violating implementation the C3 negative discriminates against (never shipped — test-local only).
@@ -76,7 +71,9 @@ name = "exclusion-guard-consumer"
 version = "1.0.0"
 EOF
 ( cd "$P" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
-( cd "$P" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1 || true
+if ! ( cd "$P" && bash "$INSTALL" python --force < /dev/null ); then
+  bad 'fixture: real Python installation failed'; exit 1
+fi
 [ -f "$P/.getff/astgrep-rules/getff-no-eval.yml" ] && [ -f "$P/.getff/rules-lock.python.json" ] \
   && ok "fixture: python lane delivered (rules dir + rules-lock present)" \
   || { bad "fixture: python delivery incomplete — cannot judge the exclusions"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
@@ -110,10 +107,46 @@ FP_BROAD_2=$(compute_fingerprint_broadened "$P")
   && ok "(3) glob-wide '*/.getff/*' exclusion swallows delivered-rule drift entirely (fingerprints equal across mutations) — exactly the drift-mask C3 forbids" \
   || bad "(3) broadened exclusion did NOT swallow the mutation — discriminator fixture is broken"
 
+# ── Native compatibility link identity (canonical storage migration) ──────────────────────────
+# Fingerprint the link itself, including broken/external links, without reading
+# target bytes. Equal-content target swaps must still move native delivery state.
+L=$(mktemp -d)
+mkdir -p "$L/.agents/procedures" "$L/.claude/skills/demo"
+printf 'identical common body\n' > "$L/.agents/procedures/one.md"
+cp "$L/.agents/procedures/one.md" "$L/.agents/procedures/two.md"
+LINK_BASE=$(compute_fingerprint "$L")
+ln -s '../../../.agents/procedures/one.md' "$L/.claude/skills/demo/SKILL.md"
+LINK_FIRST=$(compute_fingerprint "$L")
+[ "$LINK_BASE" != "$LINK_FIRST" ] \
+  && ok "(5) adding a native compatibility link MOVES the fingerprint" \
+  || bad "(5) native link addition was invisible to the fingerprint"
+rm "$L/.claude/skills/demo/SKILL.md"
+ln -s '../../../.agents/procedures/two.md' "$L/.claude/skills/demo/SKILL.md"
+LINK_SECOND=$(compute_fingerprint "$L")
+[ "$LINK_FIRST" != "$LINK_SECOND" ] \
+  && ok "(5) equal-byte target swap MOVES the fingerprint (link identity is covered)" \
+  || bad "(5) equal-byte native target swap was swallowed"
+# Targets outside the consumer remain opaque. Only their link identity is recorded.
+EXTERNAL=$(mktemp)
+printf 'external version one\n' > "$EXTERNAL"
+ln -s "$EXTERNAL" "$L/external.md"
+EXTERNAL_FIRST=$(compute_fingerprint "$L")
+printf 'external version two\n' > "$EXTERNAL"
+[ "$(compute_fingerprint "$L")" = "$EXTERNAL_FIRST" ] \
+  && ok "(6) external target bytes are NOT read or fingerprinted" \
+  || bad "(6) fingerprint followed a native link outside the consumer"
+ln -s 'absent-source.md' "$L/broken.md"
+[ "$(compute_fingerprint "$L")" != "$EXTERNAL_FIRST" ] \
+  && ok "(6) broken link identity is recorded (missing targets are not skipped)" \
+  || bad "(6) broken native entry was invisible"
+rm -rf "$L"; rm -f "$EXTERNAL"
+
 # ── (4) sentinel: real exclusions are literal filenames; the sole glob is '*.tmp' and it is inert ──
 # The honest narrow finding (recon C3): '-not -name *.tmp' (snapshot.sh) is the single glob-wide
 # exclusion; benign only while NO delivered artefact matches it. Pin both facts.
-NAME_EXCLUSIONS=$(printf '%s\n' "$FN_SRC" | grep -oE -- "-not -name '[^']*'" | sed -E "s/-not -name '([^']*)'/\1/")
+if ! NAME_EXCLUSIONS=$(grep -oE -- "-not -name '[^']*'" "$SNAPSHOT" | sed -E "s/-not -name '([^']*)'/\1/") || [ -z "$NAME_EXCLUSIONS" ]; then
+  bad 'could not read the real snapshot exclusion population'; exit 1
+fi
 NON_LITERAL=$(printf '%s\n' "$NAME_EXCLUSIONS" | grep -E '[*?[]' | grep -vxF '*.tmp' || true)
 [ -z "$NON_LITERAL" ] \
   && ok "(4) every '-not -name' exclusion is a literal filename except the pinned '*.tmp' (no new glob-wide exclusion crept in)" \

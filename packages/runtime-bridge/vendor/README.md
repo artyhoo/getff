@@ -28,23 +28,25 @@ Spec A7 binds COPY (not symlink, not submodule, not npm dep). npm packaging of t
 The copy is the **complete transitive import closure of `cli/dispatch.ts`** — verified at copy
 time by tracing `import { ... } from '...'` chains:
 
-| File                               | Reached from                                                      |
-| ---------------------------------- | ----------------------------------------------------------------- |
-| `src/cli/dispatch.ts`              | entry                                                             |
-| `src/kickoff.ts`                   | dispatch → `../kickoff.js`                                        |
-| `src/idempotency.ts`               | dispatch → `../idempotency.js`; kickoff → `./idempotency.js`      |
-| `src/resolver.ts`                  | dispatch → `../resolver.js`                                       |
-| `src/ManualBackend.ts`             | dispatch → `../ManualBackend.js`; resolver → `./ManualBackend.js` |
-| `src/backend.ts`                   | dispatch → `../backend.js`; transitively from most files          |
-| `src/AifHandoffBackend.ts`         | resolver → `./AifHandoffBackend.js`                               |
-| `src/aifWsStatus.ts`               | AifHandoffBackend → `./aifWsStatus.js`                            |
-| `src/types.ts`                     | type-only; transitively from most files                           |
-| `src/cli/ensure-parallel.ts`       | AifHandoffBackend → `./cli/ensure-parallel.js`                    |
-| `src/cli/aifHttp.ts`               | cli/ensure-parallel → `./aifHttp.js`                              |
-| `src/cli/park.ts`                  | cli/ensure-parallel → `./park.js`                                 |
-| `src/cli/openQuestion.ts`          | cli/park → `./openQuestion.js`                                    |
-| `src/cli/cliEntry.ts`              | every `src/cli/*.ts` → `./cliEntry.js`                            |
-| `hooks/runtime-bridge-dispatch.sh` | bash PostToolUse hook (paired with this CLI)                      |
+| File                               | Reached from                                                                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/cli/dispatch.ts`              | entry                                                                                                                                                   |
+| `src/kickoff.ts`                   | dispatch → `../kickoff.js`                                                                                                                              |
+| `src/idempotency.ts`               | dispatch → `../idempotency.js`; kickoff → `./idempotency.js`                                                                                            |
+| `src/resolver.ts`                  | dispatch → `../resolver.js`                                                                                                                             |
+| `src/ManualBackend.ts`             | dispatch → `../ManualBackend.js`; resolver → `./ManualBackend.js`                                                                                       |
+| `src/backend.ts`                   | dispatch → `../backend.js`; transitively from most files                                                                                                |
+| `src/AifHandoffBackend.ts`         | resolver → `./AifHandoffBackend.js`                                                                                                                     |
+| `src/aifWsStatus.ts`               | AifHandoffBackend → `./aifWsStatus.js`                                                                                                                  |
+| `src/types.ts`                     | type-only; transitively from most files                                                                                                                 |
+| `src/cli/ensure-parallel.ts`       | AifHandoffBackend → `./cli/ensure-parallel.js`                                                                                                          |
+| `src/cli/aifHttp.ts`               | cli/ensure-parallel → `./aifHttp.js`                                                                                                                    |
+| `src/cli/park.ts`                  | cli/ensure-parallel → `./park.js`                                                                                                                       |
+| `src/cli/openQuestion.ts`          | cli/park → `./openQuestion.js`                                                                                                                          |
+| `src/cli/cliEntry.ts`              | every `src/cli/*.ts` → `./cliEntry.js`                                                                                                                  |
+| `src/resultReview.ts`              | dispatch/answer/ManualBackend/AifHandoffBackend → `../resultReview.js` — intent-scope adapter; forced closure when the scope branch landed (2026-10-10) |
+| `src/cli/start-reviewed.ts`        | admitted 2026-10-10 — promised command (see «Agent-loop entrypoints»)                                                                                   |
+| `hooks/runtime-bridge-dispatch.sh` | bash PostToolUse hook (paired with this CLI)                                                                                                            |
 
 ### Agent-loop entrypoints (added 2026-08-17 — P1 resolved PARTIALLY)
 
@@ -54,17 +56,24 @@ Beyond the dispatch closure, the copy carries the agent-loop entrypoints that sh
 otherwise the promise is a documented lie, which is the failure class this project exists to
 prevent ([README.md#why-this-exists](../../../README.md#why-this-exists)).
 
-| File                   | Promised by (shipped skills)           | Closure cost                         |
-| ---------------------- | -------------------------------------- | ------------------------------------ |
-| `src/cli/harvest.ts`   | `dispatcher`, `pipeline`               | + `src/harvest.ts` (0 imports)       |
-| `src/cli/answer.ts`    | `dispatcher`, `night-mode`, `pipeline` | none new (`backend.ts` already here) |
-| `src/cli/questions.ts` | `dispatcher`, `pipeline`               | none new (no sibling imports)        |
-| `src/harvest.ts`       | (closure of `cli/harvest.ts`)          | 0 imports — self-contained           |
-| `src/cli/claim.ts`     | `pipeline` (§6 Step 3 claim protocol)  | none new (kickoff/resolver/backend)  |
+| File                   | Promised by (shipped skills)           | Closure cost                                                   |
+| ---------------------- | -------------------------------------- | -------------------------------------------------------------- |
+| `src/cli/harvest.ts`   | `dispatcher`, `pipeline`               | + `src/harvest.ts` and its existing result-observation imports |
+| `src/cli/answer.ts`    | `dispatcher`, `night-mode`, `pipeline` | existing answer, HTTP and result helpers                       |
+| `src/cli/questions.ts` | `dispatcher`, `pipeline`               | existing entrypoint and question helpers                       |
+| `src/harvest.ts`       | (closure of `cli/harvest.ts`)          | existing `aifWsStatus.ts` / HTTP result types                  |
+| `src/cli/claim.ts`     | `pipeline` (§6 Step 3 claim protocol)  | none new (kickoff/resolver/backend)                            |
+| `src/cli/await.ts`     | admitted S3/S4 authoritative read-back | existing backend, observation and HTTP helpers                 |
 
-The five are mutually independent: none imports another, and their only shared sibling is
-`cli/aifHttp.ts`, already vendored for dispatch. The copy stays import-closed — every relative
-import from every vendored `.ts` resolves inside this tree (verified at copy time).
+The entrypoints reuse the existing backend, HTTP and authoritative result-observation
+modules in this copy. In particular, harvest imports `aifWsStatus.ts`; it is not a
+zero-import module. Every runtime-relative import must resolve inside the vendor tree;
+use the source-to-vendor formatter/parity check and installer consumer tests after updates.
+
+`src/cli/await.ts` now carries default subscribed observation, `--once` read-back and the
+bounded `--until-actionable --timeout-ms N` route. It reuses that existing import closure.
+This adds no action executor or automatic terminated-owner receiver; source delivery,
+installed consumption and applicable action authority remain separate.
 
 `src/cli/cliEntry.ts` was admitted 2026-09-05 as the shared entrypoint plumbing every vendored
 CLI now imports (the realpath main-module guard + strict argv parsing over node:util
@@ -79,32 +88,48 @@ file. `src/backend.ts` and `src/AifHandoffBackend.ts` were re-vendored in the sa
 claim protocol (`claim` / `release` / `cancelClaim` + the `supportsClaims` guard) lives there,
 and a vendored `claim.ts` calling into a pre-split backend would be a copy that cannot run.
 
+`src/resultReview.ts` + `src/cli/start-reviewed.ts` were admitted 2026-10-10 (intent-first-result
+S1). `resultReview.ts` is FORCED closure: the scope branch made `cli/dispatch.ts`, `cli/answer.ts`,
+`ManualBackend.ts` and `AifHandoffBackend.ts` (all already vendored) import it — a copy without it
+does not run. `start-reviewed.ts` is the claim.ts shape again: the shipped pipeline
+(`references/dispatch.md` §5) and dispatcher (`references/execution.md` §2.1) scoped-route
+contracts instruct running it, and its twin already carries half the route — the vendored
+`dispatch.ts` can CREATE an intent-scoped task (`autoMode:false`, held at `plan_ready`), so a copy
+that could not advance it past the hold would ship a route with no completion. Closure cost: one
+file (`cliEntry`/`backend`/`aifHttp` + `resultReview` already here). The helper it validates
+against ships inside the `intent` skill tree (factory delivery), not this copy.
+
 **Files NOT copied** (deliberate):
 
 - `src/AifFireBackend.ts`, `src/index.ts` — referenced only outside the dispatch closure.
-- `src/cli/await.ts` — the one agent-loop entrypoint **no shipped skill mentions** (measured
-  2026-08-17: `grep -rl 'cli/await\.ts' --include='*.md' .claude/skills/` → 0 files, versus 2-3
-  files each for harvest/answer/questions). Nothing promises it, so nothing obliges us to carry
-  it, and every vendored file is maintenance surface while **P4 (update mechanism) is still
-  parked**. Its closure is already present (`backend.ts`, `resolver.ts`, `types.ts`), so admitting
-  it later is a one-file copy. **P1 stays open for this file only.**
+  Await was previously omitted under P1. The admitted S3/S4 continuation now includes it;
+  the old measurement is historical and no longer describes this delivered tree. P4's manual
+  copy/update mechanism and the idempotency stub remain unchanged.
 
 ## Env-var contract
 
 The vendored CLIs read these env vars (same convention as the framework copy; resolution in
 `src/resolver.ts` + `src/AifHandoffBackend.ts` for dispatch, `src/cli/harvest.ts` for egress):
 
-| Env var                         | Purpose                                                                                               | Required?                |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------ |
-| `RUNTIME_BRIDGE_MODE`           | `manual` / `aif-handoff` / `auto` (auto falls back to ManualBackend if aif-handoff unreachable)       | yes (or `--mode` flag)   |
-| `RUNTIME_BRIDGE_AIF_URL`        | aif-handoff REST/WS base (default `http://localhost:3009`)                                            | for `aif-handoff`/`auto` |
-| `RUNTIME_BRIDGE_AIF_MCP_URL`    | aif-handoff MCP base (default `http://localhost:3100`)                                                | optional                 |
-| `RUNTIME_BRIDGE_AIF_PROJECT_ID` | project ID for the aif-handoff task queue                                                             | for `aif-handoff`/`auto` |
-| `RUNTIME_BRIDGE_DEDUP_PATH`     | per-project dedup-log path (see «Per-project dedup-log path» below)                                   | optional                 |
-| `RUNTIME_BRIDGE_AIF_REPO_PATH`  | this project's base clone INSIDE the aif container; overrides what aif's own project record says      | optional (`harvest.ts`)  |
-| `RUNTIME_BRIDGE_AIF_CONTAINER`  | aif container name (default `aif-handoff-agent-1`)                                                    | optional (`harvest.ts`)  |
-| `RUNTIME_BRIDGE_HOST_REPO`      | host clone the egress push runs from — where `.husky/pre-push` executes (default: the cwd's checkout) | optional (`harvest.ts`)  |
-| `AIF_HOOK_LANG`                 | operator-facing language: `ru` → Russian, anything else incl. unset → English                         | optional                 |
+| Env var                                   | Purpose                                                                                                                                                                       | Required?                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `RUNTIME_BRIDGE_MODE`                     | `manual` / `aif-handoff` / `auto` (auto falls back to ManualBackend if aif-handoff unreachable)                                                                               | yes (or `--mode` flag)   |
+| `RUNTIME_BRIDGE_AIF_URL`                  | aif-handoff REST/WS base (default `http://localhost:3009`)                                                                                                                    | for `aif-handoff`/`auto` |
+| `RUNTIME_BRIDGE_AIF_MCP_URL`              | aif-handoff MCP base (default `http://localhost:3100`)                                                                                                                        | optional                 |
+| `RUNTIME_BRIDGE_AIF_PROJECT_ID`           | project ID for the aif-handoff task queue                                                                                                                                     | for `aif-handoff`/`auto` |
+| `RUNTIME_BRIDGE_DEDUP_PATH`               | per-project dedup-log path (see «Per-project dedup-log path» below)                                                                                                           | optional                 |
+| `RUNTIME_BRIDGE_AIF_REPO_PATH`            | this project's base clone INSIDE the aif container; overrides what aif's own project record says                                                                              | optional (`harvest.ts`)  |
+| `RUNTIME_BRIDGE_AIF_CONTAINER`            | aif container name (default `aif-handoff-agent-1`)                                                                                                                            | optional (`harvest.ts`)  |
+| `RUNTIME_BRIDGE_HOST_REPO`                | host clone the egress push runs from — where `.husky/pre-push` executes (default: the cwd's checkout; refused when it is not a checkout of the repository this copy lives in) | optional (`harvest.ts`)  |
+| `AIF_HOOK_LANG`                           | operator-facing language: `ru` → Russian, anything else incl. unset → English                                                                                                 | optional                 |
+| `RUNTIME_BRIDGE_INTENT_ROOTS`             | path-list scope refs resolve inside (owner configuration, never taken from a reviewed record)                                                                                 | for intent-scoped tasks  |
+| `RUNTIME_BRIDGE_INTENT_HELPER`            | absolute path to the shipped `check-result-review.mjs` (lives in the `intent` skill tree, not this copy); unset + scoped task ⇒ `spec_invalid` — fail closed                  | for intent-scoped tasks  |
+| `RUNTIME_BRIDGE_INTENT_OBSERVED_REVISION` | current observed-input revision compared against the contract's `observedRevision` (stale ⇒ hold)                                                                             | for intent-scoped tasks  |
+
+Intent-scoped tasks are the one surface these gate: a description carrying a fenced
+` ```intent-contract ` block dispatches `autoMode:false` and holds at `plan_ready` until
+`start-reviewed.ts` posts `start_implementation` on an authorized PlanReview. Unscoped
+descriptions never read the intent env vars and behave exactly as before.
 
 `harvest.ts` needs to know which directory inside the container holds this project. It asks aif
 first — every project record carries the `rootPath` aif runs git in, filtered out of
@@ -157,12 +182,14 @@ unambiguous minimum-for-dispatch slice. Each park will be cited into the PR body
   entrypoints» (plural) without deciding the boundary. **RESOLVED PARTIALLY 2026-08-17** — the
   boundary is now stated rather than left open: _vendor what a shipped skill instructs the
   consumer to run_, per the PR #1432 `reviewer` precedent. That admits `harvest`, `answer`,
-  `questions` (see «Agent-loop entrypoints» above) and leaves `await` out — it is mentioned by no
-  shipped skill. **Still open for `await` only**; re-open the wider fork if a future skill starts
-  promising it, or if the criterion itself is rejected. Origin of the reopening: the 2026-08-17
-  shipped-path audit found `pipeline/SKILL.md` calling the `harvest.ts` egress **mandatory** after
-  `status=done` while the file reached no consumer — a park with no consumer-facing consequence
-  recorded.
+  `questions` (see «Agent-loop entrypoints» above). The S3/S4 continuation now also
+  admits `await` for authoritative result read-back and bounded actionable observation,
+  closing the remaining await omission. This does not admit every source entrypoint;
+  future additions still require their own existing promise/scope evidence. Origin of the
+  reopening: the 2026-08-17 shipped-path audit found `pipeline/SKILL.md` calling the
+  `harvest.ts` egress **mandatory** after `status=done` while the file reached no consumer —
+  a park with no consumer-facing consequence recorded.
+
 - **P2 — Vendor/framework import-coupling** (kickoff §3 sub-fork a). Self-contained snapshot
   (frozen, this copy) vs shared-types import (drifts with framework). Current choice: snapshot.
 - **P3 — Vendor/framework path-resolution** (kickoff §3 sub-fork b). Env vars vs hardcoded

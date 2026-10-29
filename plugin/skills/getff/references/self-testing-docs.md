@@ -1,56 +1,56 @@
-# Self-testing documentation — AGENTS.md правила как исполняемые тесты
+# Self-testing documentation — AGENTS.md rules as executable tests
 
-> Каждое правило в AGENTS.md, которое можно формализовать, должно иметь bash-проверку в `scripts/audit-ai-docs.sh`. Drift и code-vs-docs decay ловятся одной командой за 5-10 секунд.
+> Every AGENTS.md rule that can be formalised should have a bash check in `scripts/audit-ai-docs.sh`. Drift and code-vs-docs decay are caught by one command in 5-10 seconds.
 
-Этот документ — применение рамки «Правил как тестов» **к самой AI-документации**. Тот же принцип, что для production-кода: правило либо исполняемо, либо не правило. Только здесь объект энфорсмента — `AGENTS.md` / `CLAUDE.md` / `.claude/skills/` / `.claude/rules/`.
+This document applies the rules-as-tests framework **to the AI documentation itself**. The same principle as for production code: a rule is either executable or it is not a rule. Only here the object of enforcement is `AGENTS.md` / `CLAUDE.md` / `.claude/skills/` / `.claude/rules/`.
 
-Этот подход разработан в реальной практике (см. аудит-скрипты в проектах sisters-sphere и artyhoo-cv); здесь — обобщённая форма, которую можно переносить.
+The approach was developed in real practice (see the audit scripts in the sisters-sphere and artyhoo-cv projects); this is the generalised, portable form.
 
 > **Authoritative for:** «rules-as-tests applied to AI documentation» pattern — `audit-ai-docs.sh` design, code-vs-doc probe pairing, negative-test pairing for AGENTS.md rules.
 > **NOT authoritative for:** framework's project goal — see [README.md#why-this-exists](https://github.com/artyhoo/getff/blob/main/README.md#why-this-exists). Doc-vs-doc authority drift (separate failure mode) — see [.claude/rules/doc-authority-hierarchy.md](https://github.com/artyhoo/getff/blob/main/.claude/rules/doc-authority-hierarchy.md). AI-doc organization — see [doc-organization.md](doc-organization.md).
 
 ---
 
-## Зачем
+## Why
 
-Стандартные drift-проверки (§drift detection в `doc-organization.md`) проверяют, что **файлы существуют**: skill упомянут в AGENTS.md → есть ли соответствующая папка в `.claude/skills/`?
+The standard drift checks (§drift detection in `doc-organization.md`) check that **files exist**: a skill is mentioned in AGENTS.md → is there a matching folder in `.claude/skills/`?
 
-Этого недостаточно. Файл может существовать, но **код давно перестал соответствовать правилу**. Это — _decay_, и его не ловит ни один существующий drift-чекер.
+That is not enough. The file can exist while **the code stopped matching the rule long ago**. That is _decay_, and no existing drift checker catches it.
 
-Решение: **code-vs-docs probes**. Каждое правило AGENTS.md, которое можно формализовать через grep/awk, превращается в bash-проверку в `audit-ai-docs.sh`. Скрипт прогоняет все probes за 5-10 секунд, exit 0 (PASS) или 1 (FAIL).
+The fix: **code-vs-docs probes**. Every AGENTS.md rule that can be formalised with grep/awk becomes a bash check in `audit-ai-docs.sh`. The script runs all probes in 5-10 seconds, exit 0 (PASS) or 1 (FAIL).
 
 ```text
-AGENTS.md «Rule N: <правило>»
+AGENTS.md «Rule N: <rule>»
             ↓
-scripts/audit-ai-docs.sh §[probe N]: grep/awk проверка
+scripts/audit-ai-docs.sh §[probe N]: grep/awk check
             ↓
 exit 0 (PASS) | 1 (FAIL) | 0+WARN (decay-watch)
 ```
 
-Запускается на трёх уровнях:
+It runs at three levels:
 
-1. **`./scripts/audit-ai-docs.sh`** напрямую (или через `living-docs-auditor` sub-agent) — перед PR. Если у вас установлен внешний AI Factory, его `/aif-verify` оборачивает этот же скрипт, но сам скрипт — и есть гейт.
-2. **Pre-push hook** (`.husky/pre-push`) — до того, как код покидает машину.
-3. **CI on PR** — required check, не даёт мерджить, если не PASS.
+1. **`./scripts/audit-ai-docs.sh`** directly (or through the `living-docs-auditor` sub-agent) — before a PR. If you have an external AI Factory installed, its `/aif-verify` wraps this same script, but the script itself is the gate.
+2. **Pre-push hook** (`.husky/pre-push`) — before the code leaves the machine.
+3. **CI on PR** — a required check; it blocks the merge unless it PASSes.
 
 ---
 
-## Каталог типичных probes
+## Catalogue of typical probes
 
-Каждый probe имеет три части: **detect** (найти кандидатов), **filter** (исключить exception'ы), **assert** (PASS если пусто, FAIL иначе).
+Each probe has three parts: **detect** (find candidates), **filter** (drop exceptions), **assert** (PASS if empty, FAIL otherwise).
 
-### Probe 1: «Все Server Actions начинаются с requireUser()»
+### Probe 1: «Every Server Action starts with requireUser()»
 
 ```bash
-# Detect: все файлы с экспортом async function в actions/
-# Filter: исключить файлы, в которых первая строка функции содержит requireUser
-# Assert: пусто = PASS
+# Detect: every file exporting an async function in actions/
+# Filter: drop files where the first line of the function contains requireUser
+# Assert: empty = PASS
 
 BAD=$(grep -rn "^export async function" src/app/actions/ \
   | while read line; do
       file=$(echo "$line" | cut -d: -f1)
       lineno=$(echo "$line" | cut -d: -f2)
-      # Проверить что в первых 3 строках после объявления есть requireUser
+      # Check that requireUser appears within 3 lines after the declaration
       next3=$(awk "NR>=$lineno && NR<=$((lineno+3))" "$file")
       echo "$next3" | grep -q "await requireUser()" || echo "$line"
     done)
@@ -58,7 +58,7 @@ BAD=$(grep -rn "^export async function" src/app/actions/ \
 [ -z "$BAD" ] && echo "PASS: Rule 1" || { echo "FAIL: Rule 1: $BAD"; exit 1; }
 ```
 
-### Probe 2: «Никаких прямых вызовов supabase admin клиента вне actions/api»
+### Probe 2: «No direct calls to the supabase admin client outside actions/api»
 
 ```bash
 LEAK=$(grep -rn "from.*supabase/admin" src/ \
@@ -68,9 +68,9 @@ LEAK=$(grep -rn "from.*supabase/admin" src/ \
 [ -z "$LEAK" ] && echo "PASS: Rule 2" || { echo "FAIL: Rule 2: $LEAK"; exit 1; }
 ```
 
-### Probe 3: «redirect() не должен вызываться из try/catch»
+### Probe 3: «redirect() must not be called from try/catch»
 
-Сложнее — нужен AWK для structured-проверки function bodies:
+Harder — it needs AWK for a structured check of function bodies:
 
 ```bash
 VIOL=""
@@ -88,7 +88,7 @@ done
 [ -z "$VIOL" ] && echo "PASS: Rule 3" || { echo "FAIL: Rule 3: $VIOL"; exit 1; }
 ```
 
-### Probe 4: «Каждый action с FormData обязан вызывать isHoneypotFilled»
+### Probe 4: «Every action taking FormData must call isHoneypotFilled»
 
 ```bash
 VIOL=""
@@ -110,7 +110,7 @@ done
 [ -z "$VIOL" ] && echo "PASS: Rule 4" || { echo "FAIL: Rule 4: $VIOL"; exit 1; }
 ```
 
-### Probe 5: «Конфиг X должен содержать Y»
+### Probe 5: «Config X must contain Y»
 
 ```bash
 grep -q "dangerouslyAllowLocalIP" next.config.ts \
@@ -118,9 +118,9 @@ grep -q "dangerouslyAllowLocalIP" next.config.ts \
   || { echo "FAIL: Rule 5: missing dangerouslyAllowLocalIP in next.config.ts"; exit 1; }
 ```
 
-### Probe 6 (decay-watch): «Миграция X должна быть выполнена к дате Y»
+### Probe 6 (decay-watch): «Migration X must be done by date Y»
 
-Не блокирует CI, но выдаёт WARN:
+Does not block CI, but emits a WARN:
 
 ```bash
 if ls supabase/migrations/*role* 2>/dev/null; then
@@ -132,100 +132,100 @@ fi
 
 ---
 
-## Обязательное правило: negative test для каждого probe
+## Mandatory rule: a negative test for every probe
 
-**Probe без negative test не считается реализованным.** Если регекс случайно сломан (например, забыл escape `\$`), — probe всегда вернёт PASS, и никто не заметит.
+**A probe without a negative test does not count as implemented.** If the regex is accidentally broken (say, a forgotten `\$` escape), the probe will always return PASS, and nobody will notice.
 
-Procedure для каждого probe:
+The procedure for each probe:
 
-1. **Реализовать probe.**
-2. **Ввести искусственное нарушение** в код (закомментировать `requireUser()` в одном файле, например).
-3. **Прогнать probe.** Ожидаем `FAIL`.
-4. **Если PASS — probe сломан**, чинить.
-5. **Откатить искусственное нарушение.**
-6. **Прогнать ещё раз.** Ожидаем `PASS`.
+1. **Implement the probe.**
+2. **Introduce an artificial violation** into the code (comment out `requireUser()` in one file, for example).
+3. **Run the probe.** Expect `FAIL`.
+4. **If it PASSes, the probe is broken** — fix it.
+5. **Revert the artificial violation.**
+6. **Run it again.** Expect `PASS`.
 
-Это можно автоматизировать в test-suite самого audit-скрипта:
+This can be automated in the audit script's own test suite:
 
 ```bash
 # tests/audit-ai-docs.unit.sh
-# Проверка что каждый probe ловит специально внесённое нарушение
+# Check that each probe catches a deliberately introduced violation
 
 test_probe_R1() {
-  # Создать временное нарушение
+  # Create a temporary violation
   cp src/app/actions/example.ts /tmp/example.bak
   sed -i.bak 's/await requireUser()/\/\/ await requireUser()/' src/app/actions/example.ts
 
-  # Запустить только probe R1.
-  # Важно: имя probe — R<N>, не голое число. audit-ai-docs.sh парсит --only=R1,
-  # сравнение строкой, --only=1 не сматчится ни с одним probe и тест пройдёт ложно.
+  # Run probe R1 only.
+  # Important: the probe name is R<N>, not a bare number. audit-ai-docs.sh parses --only=R1
+  # as a string comparison; --only=1 matches no probe and the test passes falsely.
   if ./scripts/audit-ai-docs.sh --only=R1 > /dev/null 2>&1; then
     echo "FAIL: probe R1 should have caught the violation"
     cp /tmp/example.bak src/app/actions/example.ts
     return 1
   fi
 
-  # Откатить
+  # Revert
   cp /tmp/example.bak src/app/actions/example.ts
   rm /tmp/example.bak
   echo "PASS: probe R1 correctly catches violation"
 }
 ```
 
-Эти negative tests прогоняются раз в неделю или при изменении самого `audit-ai-docs.sh`. Не на каждый коммит — иначе тратят time.
+These negative tests run once a week or whenever `audit-ai-docs.sh` itself changes. Not on every commit — otherwise they waste time.
 
 ---
 
-## Гайдлайны для probes
+## Guidelines for probes
 
-- **Один probe = одно правило AGENTS.md**. Не объединять.
-- **Имя probe = имя правила** («Rule 14: verifyImageMagicBytes used», не «check 14»).
-- **AWK для structured проверок** (function bodies, blocks). Grep — для простых строк/импортов. Никаких регексов через `sed` — нечитаемо.
-- **False positives ловятся фильтрами `grep -v`** или explicit-исключениями через переменные.
-- **Когда правило имеет documented exception** («всё кроме X») — exception в скрипт явно через переменную, не зашитой строкой.
-- **Exit codes стандартные**: 0 — все PASS, 1 — хотя бы один FAIL. WARN не влияет на exit.
-- **Output формат**: `PASS: Rule N` / `FAIL: Rule N: <details>` / `WARN: Rule N: <details>`.
-- **Запускается за 5-10 секунд на типовой кодовой базе.** Если дольше — оптимизировать.
-
----
-
-## Когда правило НЕ self-testable
-
-Не каждое правило формализуемо. Эти оставляем в AGENTS.md, но **не пытаемся проверить в audit-скрипте**:
-
-- **Семантические** («код должен быть читаемым») — не формализуемо.
-- **UX правила** («показать понятную ошибку») — нужна manual QA.
-- **Правила про процесс** (Conventional Commits) — отдельным linter'ом (commitlint).
-- **Правила требующие runtime data** (RLS policy enforcement) — отдельным integration test.
-
-Для таких → пометить в AGENTS.md как **«проверяется глазами»** или **«проверяется в integration test»** — чтобы не было иллюзии автомата.
+- **One probe = one AGENTS.md rule**. Do not combine.
+- **Probe name = rule name** («Rule 14: verifyImageMagicBytes used», not «check 14»).
+- **AWK for structured checks** (function bodies, blocks). Grep for simple strings/imports. No regexes through `sed` — unreadable.
+- **False positives are caught by `grep -v` filters** or by explicit exceptions held in variables.
+- **When a rule has a documented exception** («everything except X»), put the exception in the script explicitly through a variable, not as a hard-coded string.
+- **Standard exit codes**: 0 — everything PASSes, 1 — at least one FAIL. A WARN does not affect the exit code.
+- **Output format**: `PASS: Rule N` / `FAIL: Rule N: <details>` / `WARN: Rule N: <details>`.
+- **Runs in 5-10 seconds on a typical codebase.** If it takes longer, optimise.
 
 ---
 
-## Дисциплина поддержки
+## When a rule is NOT self-testable
 
-- **Новое AGENTS.md правило** → новый probe в audit-скрипте (если formalisable).
-- **Удалили правило** → удалить probe.
-- **Правило поменялось** → обновить probe + negative test.
-- **Без negative test probe не считается реализованным** — иначе можно тихо сломать regex и думать что всё PASS.
+Not every rule can be formalised. These stay in AGENTS.md, but **we do not try to check them in the audit script**:
 
-Скрипт сам — документация. Каждый probe в нём = строка в AGENTS.md. Расхождение видно сразу при code review (PR изменил правило, не обновил probe).
+- **Semantic** («code must be readable») — cannot be formalised.
+- **UX rules** («show a clear error») — need manual QA.
+- **Process rules** (Conventional Commits) — a separate linter (commitlint).
+- **Rules that need runtime data** (RLS policy enforcement) — a separate integration test.
+
+For these → mark them in AGENTS.md as **«checked by eye»** or **«checked in an integration test»**, so there is no illusion of automation.
 
 ---
 
-## Continuous validation — три уровня
+## Maintenance discipline
 
-| Уровень                          | Кто запускает        | Когда падает                         | Защищает от                                   |
-| -------------------------------- | -------------------- | ------------------------------------ | --------------------------------------------- |
-| **Local** (`npm run audit:docs`) | Разработчик перед PR | Если забыл — drift доходит до review | Пропуск                                       |
-| **Pre-push** (`.husky/pre-push`) | `git push`           | Автор знает до создания PR           | `--no-verify` обходимо, но в среднем работает |
-| **CI on PR**                     | GitHub Actions       | reviewer видит red CI, не мерджит    | Authoritative gate, не обходимо               |
+- **A new AGENTS.md rule** → a new probe in the audit script (if it can be formalised).
+- **A rule removed** → remove the probe.
+- **A rule changed** → update the probe + its negative test.
+- **Without a negative test a probe does not count as implemented** — otherwise you can silently break a regex and believe everything PASSes.
 
-Для соло-проекта — local достаточно. Для команды → CI обязательно. **Pre-push — компромисс между скоростью и надёжностью** (~10 сек к каждому push).
+The script itself is documentation. Every probe in it = a line in AGENTS.md. A mismatch is visible right away in code review (a PR changed a rule but did not update the probe).
+
+---
+
+## Continuous validation — three levels
+
+| Level                            | Who runs it               | When it fails                               | Protects against                                     |
+| -------------------------------- | ------------------------- | ------------------------------------------- | ---------------------------------------------------- |
+| **Local** (`npm run audit:docs`) | The developer before a PR | If forgotten, drift reaches review          | Skipping it                                          |
+| **Pre-push** (`.husky/pre-push`) | `git push`                | The author knows before opening the PR      | `--no-verify` can bypass it, but on average it works |
+| **CI on PR**                     | GitHub Actions            | The reviewer sees red CI and does not merge | Authoritative gate, cannot be bypassed               |
+
+For a solo project local is enough. For a team → CI is mandatory. **Pre-push is a compromise between speed and reliability** (~10 s on every push).
 
 ### `npm run audit:docs`
 
-В `package.json`:
+In `package.json`:
 
 ```json
 "scripts": {
@@ -255,33 +255,33 @@ npm run audit:docs || {
 
 ## Sub-agent: living-docs-auditor
 
-Скрипт вызывается напрямую и является гейтом сам по себе. Дополнительно: если у вас установлен внешний AI Factory (инсталлятор его не ставит), он подключает под `/aif-verify` тот же `living-docs-auditor` sub-agent, который:
+The script is called directly and is a gate on its own. In addition, if you have an external AI Factory installed (the installer does not install it), it wires the same `living-docs-auditor` sub-agent under `/aif-verify`, which:
 
-1. Прогоняет `audit-ai-docs.sh`
-2. Парсит вывод
-3. Для каждого FAIL формулирует human-readable объяснение со ссылкой на конкретное правило в AGENTS.md
-4. Если все PASS — выдаёт «VERDICT: ALL PROBES PASSED»
+1. Runs `audit-ai-docs.sh`
+2. Parses the output
+3. For each FAIL writes a human-readable explanation linking to the specific rule in AGENTS.md
+4. If everything PASSes, outputs «VERDICT: ALL PROBES PASSED»
 
-См. `agents/living-docs-auditor.md` в этом пакете.
-
----
-
-## Антипаттерны
-
-- ❌ **Только CI без local команды** — slow feedback loop, разработчик не знает где упало.
-- ❌ **Audit с `set +e`** (продолжать после FAIL) — теряется первый красный, agent видит warnings вперемешку.
-- ❌ **Audit без negative test** — фильтр grep случайно сломан, всё PASS, никто не замечает.
-- ❌ **Probe который проверяет только «файл существует»** — это §drift detection, не code-vs-docs consistency.
-- ❌ **Regex с backreferences без тестов** — отлично работает 99% случаев, ломается на edge case.
-- ❌ **Probe в десятки строк для одного правила** — если так сложно, правило не подходит для self-testing, оставить «глазами».
-- ❌ **Comment'ы в bash вместо имён функций** — `# rule 14` не ищется через grep, function `probe_rule_14_verify_magic_bytes()` — ищется.
+See `agents/living-docs-auditor.md` in this package.
 
 ---
 
-## Связано
+## Anti-patterns
 
-- `references/doc-organization.md` — hot/cold split AGENTS.md, drift detection §5.1-5.5.
-- `agents/living-docs-auditor.md` — sub-agent, который запускает audit-скрипт и интерпретирует PASS/FAIL. Вызывается напрямую; если у вас стоит внешний AI Factory, он же подключается под `/aif-verify`.
-- `packages/core/audit-self/audit-ai-docs.sh` — эталон серверного TS.
-- `packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh` — эталон UI-стека.
-- `references/overview.md` Layer 5 — Living Documentation как принцип, частным случаем которого является self-testing AI documentation.
+- ❌ **CI only, with no local command** — a slow feedback loop; the developer does not know where it failed.
+- ❌ **An audit with `set +e`** (continuing after a FAIL) — the first red gets lost, and the agent sees warnings mixed in.
+- ❌ **An audit without a negative test** — the grep filter is accidentally broken, everything PASSes, nobody notices.
+- ❌ **A probe that only checks «the file exists»** — that is §drift detection, not code-vs-docs consistency.
+- ❌ **A regex with backreferences and no tests** — works fine 99% of the time, breaks on an edge case.
+- ❌ **A probe dozens of lines long for one rule** — if it is that hard, the rule is not a fit for self-testing; leave it «by eye».
+- ❌ **Bash comments instead of function names** — `# rule 14` cannot be found with grep; a function `probe_rule_14_verify_magic_bytes()` can.
+
+---
+
+## Related
+
+- `references/doc-organization.md` — hot/cold split of AGENTS.md, drift detection §5.1-5.5.
+- `agents/living-docs-auditor.md` — the sub-agent that runs the audit script and interprets PASS/FAIL. Called directly; if you have an external AI Factory, it is also wired under `/aif-verify`.
+- `packages/core/audit-self/audit-ai-docs.sh` — the reference for server-side TS.
+- `packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh` — the reference for the UI stack.
+- `references/overview.md` Layer 5 — Living Documentation as the principle of which self-testing AI documentation is a special case.

@@ -1,0 +1,4 @@
+// BAD: the app root renders with no error boundary — H8 (require-error-boundary) must flag this.
+export function App() {
+  return <main>Content</main>;
+}

@@ -1,0 +1,11 @@
+{
+  "mode": "mode-a-inline",
+  "reviewer_tier": "session-bound",
+  "marker": null,
+  "description": "Night-mode unattended single-session",
+  "predicates": {
+    "bundle_opt_in": false,
+    "review_required": true,
+    "parallel_safe": false
+  }
+}

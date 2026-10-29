@@ -60,7 +60,9 @@
  */
 import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { BackendError } from '../backend.js';
-import { getTask, putTask, postJson, getParticipantsModeEnabled } from './aifHttp.js';
+import { enforceAnswerScope } from '../resultReview.js';
+import { getJson, getTask, putTask, postJson, getParticipantsModeEnabled } from './aifHttp.js';
+import type { AifTaskFull } from './aifHttp.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
 
@@ -86,6 +88,23 @@ export const VALID_DECISIONS: readonly AnswerDecision[] = [
   'retry',
   'resume',
   'complete_review',
+  'request_review_changes',
+];
+
+/**
+ * The PLAN-CHANGING / RESTARTING decisions (intent-first-result kickoff §4 Task 2): each
+ * moves a task back into implementation (resume lifts the pause over a rewritten plan,
+ * request_changes / request_review_changes re-open it for rework, retry re-fires it out
+ * of blocked_external), so on a feature-scoped task — one whose PERSISTED description
+ * declares an `intent-contract` — each requires an authorized within-contract PlanReview
+ * BEFORE its write or event. `approve` and `complete_review` are status-only closers:
+ * nothing re-enters implementation, so they — and every decision on an unscoped task —
+ * keep today's behaviour exactly.
+ */
+export const SCOPE_GUARDED_DECISIONS: readonly AnswerDecision[] = [
+  'request_changes',
+  'retry',
+  'resume',
   'request_review_changes',
 ];
 
@@ -157,10 +176,13 @@ export interface AnswerArgs {
   answer?: string;
   decision: string;
   json: boolean;
+  /** Path to the authorized PlanReview record — REQUIRED for intent-scoped tasks. */
+  review?: string;
 }
 
 /**
- * Parse CLI args: --task <id>, --answer <text>, --decision <d> (default request_changes), --json.
+ * Parse CLI args: --task <id>, --answer <text>, --decision <d> (default request_changes),
+ * --review <path>, --json.
  * Throws {@link CliArgError} on a malformed invocation — see cliEntry.ts (A6-7).
  */
 export function parseAnswerArgs(argv: string[]): AnswerArgs {
@@ -169,6 +191,7 @@ export function parseAnswerArgs(argv: string[]): AnswerArgs {
       task: { type: 'string' },
       answer: { type: 'string' },
       decision: { type: 'string' },
+      review: { type: 'string' },
       json: { type: 'boolean' },
     },
   });
@@ -176,6 +199,7 @@ export function parseAnswerArgs(argv: string[]): AnswerArgs {
     taskId: values.task as string | undefined,
     answer: values.answer as string | undefined,
     decision: (values.decision as string | undefined) ?? 'request_changes',
+    review: values.review as string | undefined,
     json: values.json === true,
   };
 }
@@ -208,9 +232,9 @@ export async function postComment(baseUrl: string, taskId: string, message: stri
 }
 
 /**
- * The decisions whose events exist ONLY in aif's human-owner dispatcher
- * (`resolveHumanOwnerAction`). Every other decision targets `done` / `blocked_external`,
- * which the legacy dispatcher serves, so only these two depend on the mode probe below.
+ * The decisions that target `review`. Every other decision targets `done` / `blocked_external`,
+ * which the legacy dispatcher serves, so only these two depend on the mode probe below — and
+ * with participants mode off, only `complete_review` on a manual-review park passes it.
  */
 export const HUMAN_OWNER_ONLY_DECISIONS: readonly AnswerDecision[] = [
   'complete_review',
@@ -218,38 +242,94 @@ export const HUMAN_OWNER_ONLY_DECISIONS: readonly AnswerDecision[] = [
 ];
 
 /**
- * Refuse a review-state decision the deployment cannot serve, naming the cause and the
- * levers that DO exist.
- *
- * `resolveTaskAction` picks `resolveHumanOwnerAction` — the only dispatcher carrying
- * `complete_review` / `request_review_changes` — solely when participants mode is on. With
- * it off, every event resolves through `resolveLegacyAction`, whose cases cover `backlog`,
- * `plan_ready`, `done` and `blocked_external` and NOTHING from `review`; the request falls
- * to its `default:` and comes back as `409 {"error":"Unknown task event"}`, which names
- * neither the mode nor a way forward. Measured 2026-09-09 against two live parks, one
- * ai-owned and one human-owned — the owner is not the gate, the mode is.
+ * The first words of the comment the harvest return channel (`harvest.ts --report-merge`) posts
+ * on a task whose PR merged. Its presence is how this CLI knows the task's work has shipped.
  */
-export function reviewEventUnreachableReason(decision: string): string {
-  return (
-    `"${decision}" cannot be dispatched: this aif deployment runs with participants mode OFF ` +
-      `(GET /auth/session → participantsModeEnabled:false), so every task event resolves through ` +
-      `the legacy dispatcher, which has no event out of "review" for any owner — the API would ` +
-      `answer 409 "Unknown task event". A manual-review park has two exits here: hand it back to ` +
-      `the coordinator (POST /tasks/:id/handoff {"executionOwner":"ai"} — legal from review, and ` +
-      `the coordinator's candidate query takes ai-owned review tasks, so its auto-review re-runs ` +
-      `and can close the task itself), or DELETE the task outright (destructive, operator GO).`
-  );
+export const MERGE_REPORT_PREFIX = 'Harvested and merged: ';
+
+/** The task fields the legacy-mode review gate reads. */
+export type ReviewGateTask = Pick<AifTaskFull, 'executionOwner' | 'manualReviewRequired'>;
+
+/**
+ * A review task the auto review parked for a human: human-owned AND manualReviewRequired. With
+ * participants mode off, this is the ONE task the legacy dispatcher serves an event out of
+ * `review` for — `complete_review` only (artyhoo/aif-handoff#1).
+ */
+export function isManualReviewPark(task: ReviewGateTask): boolean {
+  return task.executionOwner === 'human' && task.manualReviewRequired === true;
 }
 
 /**
- * Throwing wrapper for the CLI path. A FAILING probe is deliberately NOT converted into a
- * refusal message — it propagates as its own BackendError, because "the deployment cannot
- * serve this" and "we could not ask" are different answers and only the first is a reason
- * to stop quietly.
+ * Why a review-state decision cannot be dispatched with participants mode off, naming the cause
+ * and the levers that DO exist.
+ *
+ * `resolveTaskAction` picks `resolveHumanOwnerAction` — the dispatcher carrying both review
+ * events — solely when participants mode is on. With it off, events resolve through
+ * `resolveLegacyAction`, which serves exactly one event out of `review`: `complete_review` for a
+ * manual-review park (artyhoo/aif-handoff#1). Anything else falls to its `default:` and comes back
+ * as `409 {"error":"Unknown task event"}`, which names neither the mode nor a way forward.
+ *
+ * A handoff to AI is suggested only while the work is NOT merged: on merged work it just re-runs
+ * a capped auto review over code that is already on the base branch.
  */
-export async function assertReviewEventReachable(baseUrl: string, decision: AnswerDecision): Promise<void> {
+export function reviewEventUnreachableReason(decision: string, task: ReviewGateTask, merged: boolean): string {
+  const head =
+    `"${decision}" cannot be dispatched: this aif deployment runs with participants mode OFF ` +
+    `(GET /auth/session → participantsModeEnabled:false), so task events resolve through the legacy ` +
+    `dispatcher, whose only event out of "review" is complete_review for a manual-review park ` +
+    `(executionOwner=human AND manualReviewRequired=true). `;
+  const mergedNote = merged ? `The task's work is already merged, so it needs no further review. ` : '';
+  if (decision === 'request_review_changes' && isManualReviewPark(task)) {
+    return (
+      head +
+      mergedNote +
+      `request_review_changes exists only with participants mode on. This task IS a manual-review ` +
+      `park, so the legacy route is two steps: --decision complete_review (review → done), then ` +
+      `--decision request_changes --answer "<feedback>" (done → implementing).`
+    );
+  }
+  if (task.executionOwner !== 'human') {
+    return (
+      head +
+      mergedNote +
+      `This task is ai-owned: the coordinator's auto review is still running on it, and no event may ` +
+      `cut it short. Re-run once it leaves "review" (approved → done, or parked for a human → ` +
+      `complete_review works).`
+    );
+  }
+  const exits = merged
+    ? `Closing it needs participants mode, or an operator decision (DELETE the task — destructive, operator GO).`
+    : `Its exits here: hand it back to the coordinator (POST /tasks/:id/handoff {"executionOwner":"ai"} — ` +
+      `legal from review; the coordinator's auto review re-runs and can close the task itself), or ` +
+      `DELETE the task outright (destructive, operator GO).`;
+  return head + mergedNote + `This task is not a manual-review park (manualReviewRequired is not true). ` + exits;
+}
+
+/** True when the harvest return channel has reported this task's PR merged (see {@link MERGE_REPORT_PREFIX}). */
+export async function isWorkMerged(baseUrl: string, taskId: string): Promise<boolean> {
+  const comments = await getJson(baseUrl, `/tasks/${taskId}/comments`);
+  if (!Array.isArray(comments)) {
+    throw new BackendError(`aif GET /tasks/${taskId}/comments did not return an array`, 'dispatch_failed', 'aif-handoff');
+  }
+  return comments.some((c: { message?: unknown }) => typeof c?.message === 'string' && c.message.startsWith(MERGE_REPORT_PREFIX));
+}
+
+/**
+ * Throwing wrapper for the CLI path: passes when participants mode is on, or when the decision is
+ * the legacy manual-review exit. A FAILING probe is deliberately NOT converted into a refusal
+ * message — it propagates as its own BackendError, because "the deployment cannot serve this"
+ * and "we could not ask" are different answers and only the first is a reason to stop quietly.
+ */
+export async function assertReviewEventReachable(
+  baseUrl: string,
+  taskId: string,
+  decision: AnswerDecision,
+): Promise<void> {
   if (await getParticipantsModeEnabled(baseUrl)) return;
-  throw new BackendError(reviewEventUnreachableReason(decision), 'dispatch_failed', 'aif-handoff');
+  const task = await getTask(baseUrl, taskId);
+  if (decision === 'complete_review' && isManualReviewPark(task)) return;
+  const merged = await isWorkMerged(baseUrl, taskId);
+  throw new BackendError(reviewEventUnreachableReason(decision, task, merged), 'dispatch_failed', 'aif-handoff');
 }
 
 /** Dispatch a forward state-machine event (POST /tasks/:id/events { event }). */
@@ -262,8 +342,14 @@ export async function postEvent(baseUrl: string, taskId: string, event: string):
  * under an OPERATOR ANSWER block, and PUT { plan, paused:false, blockedReason:null }.
  * The implementer re-reads the plan on its next tick (spec §3 resume / A).
  */
-export async function resumePark(baseUrl: string, taskId: string, answer: string): Promise<PushResult> {
-  const task = await getTask(baseUrl, taskId);
+export async function resumePark(
+  baseUrl: string,
+  taskId: string,
+  answer: string,
+  /** Task row already read by the caller (pushAnswer's standing-scope read) — spares a duplicate GET. */
+  preloaded?: AifTaskFull,
+): Promise<PushResult> {
+  const task = preloaded ?? (await getTask(baseUrl, taskId));
   // A6-6b guard (#1597 ledger, the half #1625 deferred): `resume` dispatches NO
   // state-machine event — it is a bare PUT that lifts `paused`. On a task that is not
   // paused there is nothing to lift, so the call degrades to a silent plan rewrite: the
@@ -308,35 +394,53 @@ export async function pushAnswer(
   taskId: string,
   decision: AnswerDecision,
   answer: string | undefined,
+  opts: { reviewPath?: string } = {},
 ): Promise<PushResult> {
-  if (decision === 'resume') {
-    if (!answer || !answer.trim()) {
-      throw new BackendError(`decision "resume" requires answer text`, 'dispatch_failed', 'aif-handoff');
-    }
-    return resumePark(baseUrl, taskId, answer.trim());
+  // Argument validation first: it is free (no fetch), and a caller who forgot the
+  // answer text deserves that error rather than a message about the deployment's
+  // dispatcher — the standing-scope read below must never run for a doomed call.
+  const step = decision === 'resume' ? null : resolveStep(decision);
+  if (decision === 'resume' && !answer?.trim()) {
+    throw new BackendError(`decision "resume" requires answer text`, 'dispatch_failed', 'aif-handoff');
   }
-  const step = resolveStep(decision);
-  // Argument validation first: it is free, and a caller who forgot the answer text deserves
-  // that error rather than a message about the deployment's dispatcher.
-  if (step.needsComment && !answer?.trim()) {
+  if (step?.needsComment && !answer?.trim()) {
     throw new BackendError(
       `decision "${decision}" requires answer text to attach as a comment`,
       'dispatch_failed',
       'aif-handoff',
     );
   }
+  // Standing-scope guard BEFORE any write or event (intent-first-result §4 Task 2) —
+  // for the PLAN-CHANGING / RESTARTING decisions only ({@link SCOPE_GUARDED_DECISIONS}):
+  // the task's PERSISTED description carries the durable declared scope, so a bare task
+  // ID does not erase it. A scoped task requires an authorized within-contract PlanReview
+  // binding the current plan bytes, task pre-image and proposed payload — otherwise the
+  // answer HELDs (spec_invalid) before the comment POST and before the event. Status-only
+  // decisions (approve, complete_review) and every unscoped task keep today's behaviour.
+  let scopedRow: AifTaskFull | undefined;
+  if (SCOPE_GUARDED_DECISIONS.includes(decision)) {
+    scopedRow = await getTask(baseUrl, taskId);
+    enforceAnswerScope(scopedRow, {
+      ...(answer !== undefined ? { answer: answer.trim() } : {}),
+      reviewPath: opts.reviewPath,
+      backend: 'aif-handoff',
+    });
+  }
+  if (decision === 'resume') {
+    return resumePark(baseUrl, taskId, answer!.trim(), scopedRow);
+  }
   // Probe BEFORE any write: a review-state event this deployment cannot serve must not
   // leave a comment behind as the only trace of a call that was always going to 409.
   if (HUMAN_OWNER_ONLY_DECISIONS.includes(decision)) {
-    await assertReviewEventReachable(baseUrl, decision);
+    await assertReviewEventReachable(baseUrl, taskId, decision);
   }
   let commented = false;
-  if (step.needsComment) {
+  if (step!.needsComment) {
     await postComment(baseUrl, taskId, (answer as string).trim());
     commented = true;
   }
-  await postEvent(baseUrl, taskId, step.event);
-  return { taskId, decision, event: step.event, commented };
+  await postEvent(baseUrl, taskId, step!.event);
+  return { taskId, decision, event: step!.event, commented };
 }
 
 /** Render a PushResult as a human-readable confirmation. */
@@ -369,10 +473,16 @@ async function main(): Promise<void> {
 
   let result: PushResult;
   try {
-    result = await pushAnswer(baseUrl, args.taskId!, args.decision as AnswerDecision, args.answer);
+    result = await pushAnswer(baseUrl, args.taskId!, args.decision as AnswerDecision, args.answer, {
+      reviewPath: args.review,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`[runtime-bridge] answer: failed to push answer: ${msg}\n`);
+    // A scope hold is a refusal, not a crash: BackendError (e.g. spec_invalid) exits 2 —
+    // matching dispatch.ts/start-reviewed.ts and the shipped "HOLDS (exit 2, no event)" docs
+    // (execution.md / parks.md). Cold-review M3 (2026-10-10): was exit 1 for every failure.
+    if (err instanceof BackendError) process.exit(2);
     process.exit(1);
   }
 

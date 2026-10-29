@@ -160,6 +160,17 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
       'match ctx.adapter.ecosystem — fail closed rather than silently retrying under the ' +
       'wrong adapter. allowlist-resolver.ts resolveAllowedSources tier1For.',
   },
+  FF2017: {
+    template:
+      'provenance packageName {packageName} needs the entry-level "package": "{packageName}" (Tier 1 is scope-locked to the entry\'s package)',
+    defaultSeverity: 'error',
+    explanation:
+      'The provenance names a Tier-1 package but its entry has no `package`, so Tier 1 never ' +
+      'activates and the URL would fall through to FF2005 «unknown allowlistKey», which names ' +
+      'the wrong field. The entry-level package stays the scope-lock (research-source-trust.md ' +
+      '#trust-by-name-not-scope); agents/rule-researcher.md «Tier-1 entry shape» documents it. ' +
+      'allowlist-resolver.ts validateUrlAgainstTiers (terminal fallback).',
+  },
 
   // --- FF3xxx: L4 semantic gates (validator/gate-*.ts) ---
   // One code per failure KIND per gate (DN-D1-4, spec-literal per-gate

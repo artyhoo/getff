@@ -1,0 +1,9 @@
+{
+  "name": "@sentry/react",
+  "version": "11.1.0",
+  "homepage": "https://github.com/getsentry/sentry-javascript/tree/master/packages/react",
+  "repository": {
+    "url": "git://github.com/getsentry/sentry-javascript.git",
+    "type": "git"
+  }
+}

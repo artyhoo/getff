@@ -71,7 +71,8 @@ human-run shell script. Therefore:
   - idempotency check (skip if runtime-bridge entry already present),
   - backup to `settings.json.bak` before writing,
   - JSON validation before atomic swap,
-  - print-only fallback when declined, `--no-write-settings` passed, or python3 absent.
+  - when declined, `--no-write-settings` passed, python3 absent or the write failed: a
+    «NOT written» fact with the reason, never a snippet to paste (Q4.7, 2026-09-28).
 
 **Tracked here because** the original NC-3 decision lived in
 `.claude/orchestrator-prompts/` (gitignored); this DESIGN.md is the repo-tracked

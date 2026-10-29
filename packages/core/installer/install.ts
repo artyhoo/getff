@@ -45,6 +45,14 @@ function lockNameOf(plan: SynthesisPlan): string {
     : `rules-lock.${plan.framework}.json`;
 }
 
+/**
+ * Stack slug gate (critical-review S6-1). plan.framework reaches lockNameOf() from research input;
+ * a value such as `../../package` resolved the lock path to <consumerRoot>/package.json and the
+ * install overwrote it. Same lower-kebab slug convention as rule ids (rule-bootstrap-cli.ts
+ * RULE_ID_SLUG); every shipped stack name (`next`, `react-native`, `ts-server`) matches it.
+ */
+const FRAMEWORK_SLUG = /^[a-z][a-z0-9-]*$/;
+
 function artifactsOf(plan: SynthesisPlan): string[] {
   return [...SHARED_ARTIFACTS, lockNameOf(plan)];
 }
@@ -146,6 +154,20 @@ export function install(plan: SynthesisPlan, opts: InstallOptions): InstallRepor
   const expectedArtifacts = artifactsOf(plan).map((n) => resolve(outputDir, n));
 
   const preValidation = validate(plan);
+  if (plan.framework !== null && !FRAMEWORK_SLUG.test(plan.framework)) {
+    return {
+      ok: false,
+      installed: false,
+      artifacts: [],
+      preValidation,
+      failures: [
+        {
+          stage: 'pre-validate',
+          reason: `framework ${JSON.stringify(plan.framework)} is not a stack slug (${FRAMEWORK_SLUG.source}); refusing to build a lock path from it`,
+        },
+      ],
+    };
+  }
   if (!preValidation.ok) {
     return {
       ok: false,

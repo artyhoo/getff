@@ -66,10 +66,15 @@ out1=$( cd "$A" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_
 rc1=$?
 [ "$rc1" -eq 0 ] && ok "Arm1: mixed monorepo (api zod+R2, mobile no-zod) → gate exits 0" \
   || bad "Arm1: gate exited $rc1 (expected 0) — $(echo "$out1" | tr '\n' ';')"
-echo "$out1" | grep -q "apps/mobile.*no zod boundary.*R2 N/A.*skipped" \
+grep -q "apps/mobile.*no zod boundary.*R2 N/A.*skipped" <<<"$out1" \
   && ok "Arm1: apps/mobile logged 'no zod boundary — R2 N/A (skipped)'" \
   || bad "Arm1: apps/mobile skip log line missing — $(echo "$out1" | tr '\n' ';')"
-echo "$out1" | grep -q "✓" \
+# The skip line names the file it is about, as the root scope's does: one package can hold a nested
+# package.json without zod beside code that has it (third cold review 2026-09-29).
+grep -q "apps/mobile: no zod boundary at apps/mobile/src/app/index\.tsx — R2 N/A (skipped)" <<<"$out1" \
+  && ok "Arm1: the apps/mobile skip line names the file it is about" \
+  || bad "Arm1: the apps/mobile skip line does not name its file — $(grep 'no zod' <<<"$out1" | tr '\n' ';')"
+grep -q "✓" <<<"$out1" \
   && ok "Arm1: apps/api reported R2 applied (✓ line present)" \
   || bad "Arm1: apps/api ✓ line missing — $(echo "$out1" | tr '\n' ';')"
 

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# inject-output-language.sh — SessionStart hook — injects the active output-language line into session context
+# @cc-only-rationale: CC-specific SessionStart hook — its stdout is auto-injected into the
+#   Claude Code session context by the harness, a CC-native fire-point with no portable counterpart.
+#   SHIPPED to consumer CC projects (GH #934, per-hook audit batch B): the consumer-generic slice
+#   EXTRACTED from the maintainer-only inject-session-bootstrap.sh — it emits ONLY the language
+#   signal (never the framework-self-referential goal/invariants digest, which stays INTERNAL).
+#   Consumer-safe: pure bash (no jq, no framework-internal artefact), zero-setup default (en → no-op).
+#
+# Purpose: when the operator pins a non-English human-facing language via AIF_HOOK_LANG, tell the
+# model — once per context, all skills — so chat/recaps/narration follow that language while ALL repo
+# artefacts + machinery stay English. Precisely scoped: this injects an instruction to the model,
+# not a translation of anything. See .claude/rules/language-discipline.md §2 (category 2, human-facing).
+#
+# Consumer setup: export AIF_HOOK_LANG in your shell, or add an `env` block to .claude/settings.json:
+#   { "env": { "AIF_HOOK_LANG": "ru" } }
+# Unset / "en" → nothing is injected (English is the zero-setup default).
+#
+# @plugin-yields-to: inject-session-bootstrap
+#   That hook appends this exact line to its digest (.claude/hooks/inject-session-bootstrap.sh,
+#   the AIF_HOOK_LANG case), so where the project registers it the plugin copy of this hook
+#   stays silent (plugin/hooks/run-hook.cmd). The marker line holds hook names only.
+# @plugin-yield-deps: lib/hook-live.sh
+set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-output-language || true; fi
+
+# Native output shape is an adapter; the instruction and digest remain shared.
+_emit_session_context() {
+  if [ -n "${ZCODE_PROJECT_DIR:-}" ] && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$1" '{additionalContext:$c}'
+  else
+    printf '%s\n' "$1"
+  fi
+}
+
+# @plugin-transform: identity — canonical implementation includes native output and path adaptation.
+OUT=""
+case "${AIF_HOOK_LANG:-en}" in
+  en|'') : ;;
+  ru) OUT='[output-language] Address the operator in Russian — chat explanations, recaps, narration, questions. Keep ALL repo artifacts and machinery in English: code, comments, commit/PR/issue bodies, kickoffs, specs, tool arguments, file contents. (AIF_HOOK_LANG=ru)' ;;
+  *) OUT="$(printf '[output-language] Address the operator in language "%s"; keep repo artifacts and machinery in English. (AIF_HOOK_LANG=%s)' "$AIF_HOOK_LANG" "$AIF_HOOK_LANG")" ;;
+esac
+[ -z "$OUT" ] || _emit_session_context "$OUT"
+exit 0

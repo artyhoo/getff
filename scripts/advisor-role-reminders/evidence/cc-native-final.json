@@ -1,0 +1,45 @@
+{
+  "prepare": {
+    "result": "\u041f\u0440\u0438\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442. \u0426\u0438\u0442\u0430\u0442\u0430 \u0434\u043e\u0441\u043b\u043e\u0432\u043d\u043e (SessionStart hook additional context):\n\n> Send the question, observed facts, actions, results, uncertainties and evidence. Do not prescribe the advisor's reasoning, tools, skills or verdict. Preserve failures and deviations.\n\n\u0428\u0430\u0433 \u043f\u043e\u0434\u0433\u043e\u0442\u043e\u0432\u043a\u0438 REPORT (\u043a\u043e\u0440\u043e\u0442\u043a\u043e): \u0434\u043e \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u0441\u043e\u0432\u0435\u0442\u043d\u0438\u043a\u0443 \u0441\u043e\u0431\u0435\u0440\u0438 \u0432 \u0440\u0430\u0437\u0434\u0435\u043b evidence \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u0438\u043a\u0443 \u2014 file:line \u0438 \u0432\u044b\u0432\u043e\u0434\u044b \u043a\u043e\u043c\u0430\u043d\u0434 \u2014 \u0438 \u0437\u0430\u0444\u0438\u043a\u0441\u0438\u0440\u0443\u0439 \u043d\u0435\u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0451\u043d\u043d\u043e\u0441\u0442\u0438 \u0438 \u043e\u0442\u043a\u043b\u043e\u043d\u0435\u043d\u0438\u044f \u043a\u0430\u043a \u0435\u0441\u0442\u044c, \u043d\u0435 \u043f\u043e\u0434\u044b\u0442\u043e\u0436\u0438\u0432\u0430\u044f \u0438\u0445 \u0437\u0430 \u0441\u043e\u0432\u0435\u0442\u043d\u0438\u043a\u0430.",
+    "is_error": false,
+    "modelUsage": {
+      "glm-5.3": {
+        "inputTokens": 33481,
+        "outputTokens": 1135,
+        "cacheReadInputTokens": 7232,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.15807039999999997,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000,
+        "thinkingTokens": 0,
+        "canonicalModel": "glm-5.3",
+        "provider": "firstParty",
+        "costBasis": "unknown"
+      }
+    },
+    "session_id": "bca94b76-61c8-4852-91cb-d32be286fc96"
+  },
+  "consume": {
+    "result": "> Follow the current bound senior instruction within project policy and granted permissions. If it conflicts with those boundaries or is materially ambiguous, report the exact conflict and pause dependent work.\n\nBefore acting on a bound senior decision, I will check it against project policy and my granted permissions and, on any conflict or material ambiguity, report the exact conflict and pause dependent work instead of proceeding.",
+    "is_error": false,
+    "modelUsage": {
+      "glm-5.3": {
+        "inputTokens": 5079,
+        "outputTokens": 1809,
+        "cacheReadInputTokens": 35520,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.0636,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000,
+        "thinkingTokens": 0,
+        "canonicalModel": "glm-5.3",
+        "provider": "firstParty",
+        "costBasis": "unknown"
+      }
+    },
+    "session_id": "50b4e1ce-24ac-47bf-824d-86a9aa835406"
+  },
+  "source_sha256": "8d529a56dfe3455399441c9ff21a0369dc9bb3aea6f511c86f02de40230d52a6"
+}

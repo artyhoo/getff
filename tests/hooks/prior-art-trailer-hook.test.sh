@@ -539,7 +539,7 @@ test_14_artefact_path_referent_accepted() {
   repo=$(make_test_repo)
   add_capability_commit "$repo" \
     "feat: add a new dependency" \
-    "Prior-art: REUSE — setup.d/lib.sh:359 copy_safe skip-if-exists idiom"
+    "Prior-art: REUSE — setup.d/lib.sh:359 copy_safe skip-if-exists idiom" # cite:historical fixture data, not a live pointer
   if run_hook "$repo"; then
     record pass "14 — artefact-path referent accepted → exit 0"
   else

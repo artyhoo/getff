@@ -1,0 +1,74 @@
+# Forward-check — full enumeration
+
+> **Authoritative for:** the complete forward-check layer enumeration for §1.7 «Recommendation self-discipline check» — inherits invocation scope from [SKILL.md](../SKILL.md).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). The §1.7 discipline itself — owned by [phase-research-coverage.md](../../../rules/phase-research-coverage.md).
+
+Apply each layer in order. Failure on any single layer → recommendation is **provisional**, not load-bearing.
+
+## Layer 1 — Code-level (R1-R20 lint)
+
+If the proposal includes TS / JS code (tests, principles, installer logic, sub-agents):
+
+- TypeScript strict + `noUncheckedIndexedAccess` — proposed code typechecks?
+- ESLint flat config (`eslint.config.mjs`) — passes with the project's declared and installed version? Read its package manifest and lockfile; for generated consumers, the dependency policy is owned by [setup.d/70-deps.sh](../../../../setup.d/70-deps.sh), not a copied version number in this checklist.
+- `dependency-cruiser` — no cycles, no banned imports, layer respect?
+- For UI: R12-R20 (server/client boundary, R17 Storybook stories, etc).
+
+If proposal is pure docs/process — N/A.
+
+## Layer 2 — Principle-level (`packages/core/principles/*.test.ts`)
+
+- principle 01-08 — any new TS code passes? (run `npx vitest run packages/core/principles/`)
+- principle 09 — every new authority-bearing doc carries compliant `> **Authoritative for:**` header?
+- New principle introduced? Then it has companion rule in `.claude/rules/` + bootstrap research-patch (per §1.7 self-reflexive trigger).
+
+## Layer 3 — Commit-level (capability-commit gate)
+
+For each proposed commit, read the current [CLAUDE.md `What is a capability commit`](../../../../CLAUDE.md) definition and compare with the production [prior-art detector](../../../../packages/core/hooks/checks/prior-art.ts). Those owners supply the classification and trailer grammar; this checklist does not define a second classifier.
+
+Apply the LOC carve-outs before classifying: documentation, byte-identical copies of already-tracked pre-image blobs, and test additions for existing capabilities are exempt. Files directly under `packages/core/principles/` are enforcement capabilities, so the test-material exemption does not cover them. A qualifying production addition or new explicit dependency alongside an exempt test still makes the commit a capability commit.
+
+For a capability commit, draft a substantive `Prior-art:` trailer with a resolvable referent accepted by CLAUDE.md. A `skipped` escape hatch cannot replace evidence on an actual capability commit.
+
+A non-capability commit does not require a `Prior-art:` trailer from the capability gate. Use a justified escape hatch only where an applicable mixed-PR check requires one; do not claim the pre-push detector requires it universally.
+
+## Layer 4 — Build-vs-reuse SSOT
+
+Recommendation references load-bearing external patterns? For each:
+
+- Is it already in [`prior-art-evaluations.md` §4 entry table](../../../../docs/meta-factory/prior-art-evaluations.md)? (entries #1-#10 as of 2026-05-09: rules-as-tests itself, ArchUnit, Stryker, ESLint flat config, dep-cruiser, Arc42, AGENTS.md spec, AIF Step 0, Cline Memory Bank, matklad ARCHITECTURE.md).
+- If not, new entry drafted in same commit with `Verdict`, `Rationale`, `Trigger to revisit` (per `prior-art-evaluations.md §3`)?
+- context7 query (≥3 phrasings) on the capability area run? candidates surfaced cited?
+
+## Layer 5 — Trigger sweep (§1.6)
+
+Before closing — `grep -nE "^### 13\." docs/meta-factory/open-questions.md`. For each non-cascade §13.x:
+
+- Decompose trigger condition into observable signals (file existence / config bumps / consumer evidence / version events).
+- Run verification probe; classify FIRED / STILL ARMED / CASCADE-DEPENDENT.
+- Surface FIRED entries as `research-patches/2026-MM-DD-trigger-fire-§<N>.md` patches.
+- Record STILL ARMED in retro Trigger-health table.
+
+## Layer 6 — Doc-authority on artefacts produced
+
+For every new `.md` file the proposal claims to create:
+
+- File path under `.claude/rules/`, `docs/meta-factory/*.md` (excluding filename-convention transients), `skills/*/SKILL.md`, `skills/*/references/*.md`, project-root canonical, hot operational? → `> **Authoritative for:**` header required.
+- Folder-level authority (`docs/meta-factory/retros/`, `docs/meta-factory/research-patches/`) → file inherits, no own header required.
+- Filename-convention transient (`docs/meta-factory/PHASE-*-PROMPT.md`, `phase-*-research.md`) → header optional.
+- File **exists** in repo, not just claimed in `README.md` shipping table?
+- Every cross-doc link in proposal resolves to a real file (not to a future or imagined file)?
+- **H8 sub-case (b) — meta-commentary anti-tautology**: In meta-sections that describe primary-content artefacts (counts of rules, lists of commits, enumeration of entries), use declarative forward-pointers («see §X for current list») rather than hard-coded literal counts/enumerations. Literal counts self-deprecate when primary content changes; a pointer to the authoritative section is stable. (`#discipline-application-scope-blindness` sub-case (b) — see [`.claude/rules/phase-research-coverage.md §4`](../../../rules/phase-research-coverage.md).)
+- **H8 sub-case (c) — verify before accepting collaborator claims**: For every file:line citation or factual assertion received from a collaborator, agent report, or reviewer finding: open the file and confirm the cited line's content before applying the claim as a fix or incorporating it into the commit. Do not propagate unverified claims. (`#discipline-application-scope-blindness` sub-case (c), T3 analogue for collaborator-sourced claims per [`.claude/rules/ai-laziness-traps.md §2 T3`](../../../rules/ai-laziness-traps.md).)
+
+## Layer 7 — User-value goal lens
+
+Read the current goal at [README.md#why-this-exists](../../../../README.md). Each codified rule must fail when violated at its earliest reachable enforcement channel: edit-time → pre-commit → pre-push → CI → production audit. CI is the last-resort gate.
+
+For each new rule the proposal introduces, ask:
+
+- Does it have an executable test, or is it a prose convention only?
+- If prose-only — is the prose-only state intentional and documented (e.g. «process rule, ladder of enforcement at level 4»), or is it an undocumented-rule failure mode in disguise?
+- Are claimed enforcement points actually enforced (real test, real CI gate, real pre-push), or are they aspirational?
+
+This layer catches a claimed rule without verified enforcement at its earliest reachable channel. Verify the actual violation rejection at the claimed channel; a green CI run alone does not establish that enforcement.

@@ -33,7 +33,7 @@
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,7 +82,11 @@ function runScript(
     // inherited cwd would put the debris somewhere cleanupRealWorktrees()
     // cannot predict.
     cwd: REPO_ROOT,
-    env: { ...process.env, ...env },
+    // Base the worktree on HEAD, not origin/HEAD: the created worktree is then planned by the
+    // same lock the running checkout was installed from, so the provisioning helper links it
+    // (the delivery-symlink case below asserts exactly that). Against origin/HEAD, any branch
+    // that bumps a direct dependency diverges, and the helper — correctly — installs for real.
+    env: { ...process.env, WORKTREE_BASE_REF: 'HEAD', ...env },
   });
   return {
     status: r.status ?? -1,
@@ -153,8 +157,8 @@ function cleanupRealWorktrees(): void {
 }
 
 /** Build a temp git repo with the 3 worktree helper scripts copied in. */
-function setupTempRepo(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'getff-work-test-'));
+function setupTempRepo(prefix = 'getff-work-test-'): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
   execSync('git init -q -b main', { cwd: dir });
   execSync('git config user.email test@example.com', { cwd: dir });
   execSync('git config user.name test', { cwd: dir });
@@ -213,6 +217,56 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
     rmSync(tmpRepo, { recursive: true, force: true });
   });
 
+  it.each([
+    ['thread', { CODEX_THREAD_ID: 'test-codex-thread' }],
+    ['harness', { AIF_HARNESS: 'codex' }],
+  ])('CODEX-READY-TEMP: explicit %s prefers Codex and quotes the worktree path', (_signal, signal) => {
+    // A space in the consumer root makes shell quoting observable. No root or core
+    // package/lockfile exists in this fixture, so neither provisioning leg installs.
+    rmSync(tmpRepo, { recursive: true, force: true });
+    tmpRepo = realpathSync(setupTempRepo('getff work codex-'));
+    const bin = join(tmpRepo, 'bin');
+    const launches = join(tmpRepo, 'launches.log');
+    mkdirSync(bin);
+    for (const cli of ['codex', 'zcode', 'claude']) {
+      writeFileSync(join(bin, cli), '#!/usr/bin/env bash\nprintf "%s\\n" "$0" >> "$CLI_LAUNCH_LOG"\nexit 99\n', { mode: 0o755 });
+    }
+    const env = {
+      ...process.env,
+      CLAUDE_CODE_SESSION_ID: '', CODEX_THREAD_ID: '', AIF_HARNESS: '', ZCODE_SESSION_ID: '',
+      WORKTREE_BASE_REF: 'HEAD', CLAUDE_COORDINATION_DIR: join(tmpRepo, 'coordination'),
+      PATH: `${bin}:${process.env.PATH}`, CLI_LAUNCH_LOG: launches,
+      ...signal,
+    };
+    const args = [join(tmpRepo, 'scripts/getff-work.sh'), 'codex-ready', '--no-launch'];
+    const result = spawnSync('bash', args, { cwd: tmpRepo, env, encoding: 'utf8', timeout: SPAWN_GUARD_MS });
+    const output = `${result.stdout}${result.stderr}`;
+    expect(result.status, output).toBe(0);
+    expect(existsSync(launches), output).toBe(false);
+    const command = result.stdout.split('\n').find((line) => /^\s+codex -C /.test(line));
+    expect(command, output).toBeDefined();
+    expect(result.stdout, output).not.toMatch(/^\s+(zcode|claude)\b/m);
+    // Parse the printed shell line with a function argument catcher; never invoke
+    // the installed Codex executable, even if the output selects it correctly.
+    const parsed = spawnSync('bash', ['-c', 'codex() { printf "%s\\n" "$#" "$@"; };\n' + command], {
+      cwd: tmpRepo, env, encoding: 'utf8', timeout: SPAWN_GUARD_MS,
+    });
+    expect(parsed.status, `${parsed.stdout}${parsed.stderr}`).toBe(0);
+    expect(parsed.stdout.split('\n')).toEqual(['2', '-C', join(tmpRepo, '.claude/worktrees/codex-ready'), '']);
+    expect(existsSync(launches)).toBe(false);
+
+    // Both explicit Codex signals must still defer when CC owns the session.
+    const deferred = spawnSync('bash', args, {
+      cwd: tmpRepo, env: { ...env, CLAUDE_CODE_SESSION_ID: 'test-cc-session' },
+      encoding: 'utf8', timeout: SPAWN_GUARD_MS,
+    });
+    expect(deferred.status, `${deferred.stdout}${deferred.stderr}`).toBe(0);
+    expect(deferred.stdout).toContain('done (CC deferral)');
+    expect(deferred.stdout).toContain('claude -w codex-ready');
+    expect(deferred.stdout).not.toMatch(/^\s+codex -C /m);
+    expect(existsSync(launches)).toBe(false);
+  });
+
   // ✅ CC-DEFERRAL (Park-4 binding)
   it('CC-DEFERRAL: CLAUDE_CODE_SESSION_ID set → defers, prints `claude -w` (no auto-launch)', () => {
     const name = uniqueName('smoke-cc');
@@ -243,8 +297,8 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   // ✅ NO-LAUNCH-FLAG (force print even in TTY)
   it('NO-LAUNCH-FLAG: --no-launch forces print-only path', () => {
     // CLAUDE_CODE_SESSION_ID must be cleared: the asserted "done (--no-launch /
-    // non-TTY)" line lives on the NON-CC path (getff-work.sh:153-156), and the
-    // CC check at getff-work.sh:119 exits at :129 before ever reaching it. This
+    // non-TTY)" line lives on the NON-CC path (getff-work.sh:200-203), and the
+    // CC check at getff-work.sh:160 exits at :170 before ever reaching it. This
     // test inherited the ambient env, so it passed in CI and failed inside any
     // real CC session — a latent env-dependency that the branch-collision
     // failure masked until 2026-08-12.
@@ -280,7 +334,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   it('step 2 does NOT install through the worktree node_modules delivery symlink — the primary tree survives', () => {
     // Incident 2026-08-16 (staging RED at fa8da9406c): create-worktree.sh provisions
     // <worktree>/node_modules as a symlink to the PRIMARY's tree
-    // (worktree-node-modules.sh:131), and step 2 then ran `npm ci` with that worktree as
+    // (worktree-node-modules.sh:440), and step 2 then ran `npm ci` with that worktree as
     // cwd — so npm reified the PRIMARY's real node_modules against the worktree's lock,
     // pruning 673 of 835 packages and emptying node_modules/.bin. Every vitest child
     // spawned afterwards died on
@@ -334,6 +388,47 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
     const r = runScript(['name', '--bogus']);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/unknown flag|--bogus/i);
+  });
+
+  // ✅ NO-DOUBLE-INSTALL: when the provisioning helper already installed the worktree for real
+  // (its lock diverges from the primary's installed tree), step 2 must not run a second install.
+  it('NO-DOUBLE-INSTALL: a worktree the helper installed for real is not re-installed by step 2', () => {
+    const lock = (deps: Record<string, string>): string =>
+      `${JSON.stringify({
+        lockfileVersion: 3,
+        packages: {
+          '': { devDependencies: Object.fromEntries(Object.keys(deps).map((n) => [n, '*'])) },
+          ...Object.fromEntries(Object.entries(deps).map(([n, v]) => [`node_modules/${n}`, { version: v }])),
+        },
+      })}\n`;
+    writeFileSync(join(tmpRepo, 'package-lock.json'), lock({ vitest: '4.1.8', oxlint: '1.2.3' }));
+    writeFileSync(join(tmpRepo, 'package.json'), '{"name":"fixture","private":true}\n');
+    writeFileSync(join(tmpRepo, '.gitignore'), 'node_modules\n');
+    execSync('git add -A && git commit -q -m locks', { cwd: tmpRepo });
+    // The primary's INSTALLED tree lacks oxlint, so the helper must install for real.
+    writeFileSync(join(tmpRepo, 'node_modules/.package-lock.json'), lock({ vitest: '4.1.8' }));
+    const stubDir = mkdtempSync(join(tmpdir(), 'getff-work-npm-'));
+    const npmLog = join(stubDir, 'npm.log');
+    writeFileSync(
+      join(stubDir, 'npm'),
+      `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${npmLog}"\nmkdir -p node_modules/dep\n`,
+      { mode: 0o755 },
+    );
+
+    const r = spawnSync('bash', [join(tmpRepo, 'scripts/getff-work.sh'), 'smoke-once', '--no-launch'], {
+      cwd: tmpRepo,
+      encoding: 'utf8',
+      timeout: SPAWN_GUARD_MS,
+      // PATH: step 2 calls bare `npm`; the stub stands in for it too, so a second install is logged.
+      env: { ...process.env, CLAUDE_CODE_SESSION_ID: '', WNM_NPM: join(stubDir, 'npm'), PATH: `${stubDir}:${process.env.PATH}` },
+    });
+    const out = `${r.stdout}${r.stderr}`;
+    rmSync(stubDir, { recursive: true, force: true });
+
+    expect(r.status, out).toBe(0);
+    expect(out).toMatch(/installed .* for real/);
+    expect(out).toMatch(/already installed for real by worktree-node-modules/);
+    expect(out).not.toMatch(/Dep wiring: npm/);
   });
 
   // ✅ FRESH-CONSUMER-SMOKE (R6 — §8a Park-6 BINDING): the shipped create-worktree.sh

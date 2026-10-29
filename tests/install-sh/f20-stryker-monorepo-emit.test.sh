@@ -326,7 +326,7 @@ EMPTY_OUT=$( cd "$WEMPTY" && bash scripts/run-mutation.sh 2>&1 ); EMPTY_RC=$?
 [ "$EMPTY_RC" -eq 0 ] \
   && ok "I1: no stryker/*.json configs → wrapper exits 0" \
   || bad "I1: empty-configs wrapper exit $EMPTY_RC (expected 0) — out: $(printf '%s' "$EMPTY_OUT" | tr '\n' '|')"
-printf '%s' "$EMPTY_OUT" | grep -qi 'no stryker.*configs found' \
+grep -qi 'no stryker.*configs found' <<<"$EMPTY_OUT" \
   && ok "I1: empty-configs wrapper prints the graceful no-configs message" \
   || bad "I1: empty-configs wrapper missing the graceful message (out: $(printf '%s' "$EMPTY_OUT" | tr '\n' '|'))"
 rm -rf "$WEMPTY"

@@ -5,7 +5,11 @@
 # Usage: bash scripts/worktree-doctor.sh [--fix] [<primary-dir>]
 #
 #   (no flag)  report only; exit 1 if any worktree is unprovisioned.
-#   --fix      provision every fixable worktree; exit 1 only if something could not be fixed.
+#   --fix      link every fixable worktree; exit 1 only if something could not be fixed.
+#              A LOCK-DIVERGED worktree (helper --check exit 3) is reported, never installed.
+#
+# The default <primary-dir> is the repository this script lives in, whatever the cwd
+# (REPO-ANCHOR block below); pass <primary-dir> to sweep another clone explicitly.
 #
 # This script once carried a second arm — a local-shadow `claudeMdExcludes` sweep (arch-v2
 # S-E P2b). It was removed with the rest of P2b: the client merges array settings across
@@ -30,9 +34,28 @@ FIX=0
 if [ "${1:-}" = "--fix" ]; then FIX=1; shift; fi
 
 PRIMARY_DIR="${1:-$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)}"
+# ── REPO-ANCHOR ─────────────────────────────────────────────────────────────
+# With no explicit <primary-dir>, sweep the repository this script LIVES in, not the one the
+# cwd happens to be in: `bash /abs/path/scripts/worktree-doctor.sh --fix` from a scratch
+# consumer repo otherwise symlinked node_modules into that repo's worktrees (the getff#1971
+# backward sweep; same class as scripts/link-coordination.sh's REPO-IDENTITY GUARD, #1967).
+# A primary checkout and its linked worktrees share one git common dir, so the anchor gives
+# the same answer from any checkout of this repo.
+#
+# The git env is scrubbed for the WHOLE script, not just this lookup: every later git call
+# (`worktree list`, and the helper's) names its repository with -C, so an exported GIT_DIR /
+# GIT_COMMON_DIR / GIT_WORK_TREE — a foreign repo's hook env — could only redirect the sweep
+# into that repo. CDPATH is cleared because `cd scripts/..` on a relative invocation would
+# search it (this and the HELPER lookup below).
+unset CDPATH GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE
+if [ -z "${1:-}" ]; then
+  PRIMARY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null \
+    && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || PRIMARY_DIR=""
+fi
+# ── END REPO-ANCHOR ─────────────────────────────────────────────────────────
 PRIMARY_DIR="${PRIMARY_DIR%/.git}"
 if [ -z "$PRIMARY_DIR" ] || [ ! -d "$PRIMARY_DIR" ]; then
-  printf '⚠ worktree-doctor: cannot resolve the primary checkout (run inside the repo)\n' >&2
+  printf '⚠ worktree-doctor: cannot resolve the primary checkout (run the copy inside the repo)\n' >&2
   exit 2
 fi
 
@@ -47,15 +70,26 @@ if [ ! -f "$HELPER" ]; then
   exit 2
 fi
 
-total=0; ok=0; fixed=0; broken=0
+total=0; ok=0; fixed=0; broken=0; stale=0
 
 while IFS= read -r wt; do
   [ -n "$wt" ] || continue
   [ -d "$wt" ] || continue
   total=$((total + 1))
 
-  if bash "$HELPER" --check "$wt" "$PRIMARY_DIR" >/dev/null 2>&1; then
+  bash "$HELPER" --check "$wt" "$PRIMARY_DIR" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
     ok=$((ok + 1))
+    continue
+  fi
+
+  # Exit 3 = the worktree's lock diverges from the primary's installed tree, so only a real
+  # install fixes it. A sweep never runs those: one is ~1.8 GB and minutes of network, and the
+  # 2026-09-30 census had 100 of 130 worktrees diverged. Name the per-worktree command instead.
+  if [ "$rc" -eq 3 ]; then
+    stale=$((stale + 1))
+    printf 'LOCK-DIVERGED  %s  (real install: bash %s --apply %s %s)\n' "$wt" "$HELPER" "$wt" "$PRIMARY_DIR"
     continue
   fi
 
@@ -75,10 +109,11 @@ done <<EOF
 $(git -C "$PRIMARY_DIR" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print substr($0, 10)}')
 EOF
 
-printf '\n%d worktrees: %d provisioned, %d fixed, %d outstanding\n' "$total" "$ok" "$fixed" "$broken"
+printf '\n%d worktrees: %d provisioned, %d fixed, %d outstanding, %d lock-diverged\n' "$total" "$ok" "$fixed" "$broken" "$stale"
 
-if [ "$broken" -gt 0 ]; then
-  [ "$FIX" -eq 1 ] || printf 'Run `bash scripts/worktree-doctor.sh --fix` to provision them.\n'
+if [ "$broken" -gt 0 ] || [ "$stale" -gt 0 ]; then
+  [ "$FIX" -eq 1 ] || [ "$broken" -eq 0 ] || printf 'Run `bash scripts/worktree-doctor.sh --fix` to provision them.\n'
+  [ "$stale" -eq 0 ] || printf 'LOCK-DIVERGED worktrees need a real install each (command per line above); refreshing the primary checkout'"'"'s install shrinks that list.\n'
   exit 1
 fi
 exit 0

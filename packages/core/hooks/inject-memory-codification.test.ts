@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-memory-codification.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/inject-memory-codification.sh');
 
 function hasJq(): boolean {
   try {

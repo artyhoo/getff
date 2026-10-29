@@ -15,7 +15,7 @@
  *   module is a clean no-op (no live aif-handoff server needed — §2 only gates
  *   the live E2E, not these unit tests).
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BackendError } from '../src/backend.js';
 import {
   parseAnswerArgs,
@@ -27,6 +27,8 @@ import {
   formatResult,
   VALID_DECISIONS,
   appendAnswerToPlan,
+  reviewEventUnreachableReason,
+  MERGE_REPORT_PREFIX,
 } from '../src/cli/answer.js';
 
 function okResponse(body: unknown = {}, status = 200): Response {
@@ -36,7 +38,12 @@ function okResponse(body: unknown = {}, status = 200): Response {
   });
 }
 
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -89,17 +96,21 @@ describe('review-state decisions release a manual-review park (2026-09-09)', () 
 
   it('POSITIVE — request_review_changes POSTs the comment before the event', async () => {
     // Human-owned: the ownership flip below is a no-op here, so this test stays about the
-    // comment→event ordering it was written for. The GET is the ownership read.
+    // comment→event ordering it was written for. request_review_changes is a plan-changing
+    // decision, so the FIRST call is the standing-scope read of the task row (unscoped
+    // here → ordinary flow), then the participants-mode probe, then comment, then event.
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => okResponse({}))
       .mockImplementationOnce(async () => okResponse({ participantsModeEnabled: true }))
       .mockImplementation(async () => okResponse({ ok: true }));
 
     const result = await pushAnswer('http://aif.test', 'task-rv', 'request_review_changes', 'fix the count');
 
-    expect(fetchSpy).toHaveBeenCalledTimes(3);
-    const [commentUrl, commentInit] = fetchSpy.mock.calls[1] as [string, RequestInit];
-    const [eventUrl, eventInit] = fetchSpy.mock.calls[2] as [string, RequestInit];
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    expect(String(fetchSpy.mock.calls[0][0])).toBe('http://aif.test/tasks/task-rv');
+    const [commentUrl, commentInit] = fetchSpy.mock.calls[2] as [string, RequestInit];
+    const [eventUrl, eventInit] = fetchSpy.mock.calls[3] as [string, RequestInit];
     expect(commentUrl).toBe('http://aif.test/tasks/task-rv/comments');
     expect(JSON.parse(String(commentInit.body))).toEqual({ message: 'fix the count' });
     expect(eventUrl).toBe('http://aif.test/tasks/task-rv/events');
@@ -132,19 +143,20 @@ describe('review-state decisions release a manual-review park (2026-09-09)', () 
 describe('POSITIVE — request_changes attaches the answer as a comment then re-opens', () => {
   it('POSTs /comments { message } before /events { event: request_changes }', async () => {
     // Fresh Response per call — a Response body can only be read once, and this
-    // path makes two fetches (comment, then event).
+    // path makes three fetches: the standing-scope read of the task row (unscoped
+    // here → ordinary flow), then comment, then event.
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse()));
 
     const result = await pushAnswer('http://localhost:3009', 't-9', 'request_changes', '  use Option A  ');
 
-    // Two calls, in order: comment, then event.
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    const [firstUrl, firstInit] = fetchSpy.mock.calls[0];
+    // Three calls, in order: scope read, comment, then event.
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    const [firstUrl, firstInit] = fetchSpy.mock.calls[1];
     expect(firstUrl).toBe('http://localhost:3009/tasks/t-9/comments');
     // Source: createTaskCommentSchema — the text field is `message` (NOT content/body).
     expect(JSON.parse((firstInit as RequestInit).body as string)).toEqual({ message: 'use Option A' });
 
-    const [secondUrl, secondInit] = fetchSpy.mock.calls[1];
+    const [secondUrl, secondInit] = fetchSpy.mock.calls[2];
     expect(secondUrl).toBe('http://localhost:3009/tasks/t-9/events');
     expect(JSON.parse((secondInit as RequestInit).body as string)).toEqual({ event: 'request_changes' });
 
@@ -175,12 +187,16 @@ describe('POSITIVE — approve and retry send exactly one event and no comment',
   });
 
   it('retry → only POST /events { event: retry_from_blocked }', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse());
+    // Fresh Response per call — the standing-scope read and the event POST are two
+    // fetches now, and a Response body can only be read once.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse()));
 
     await pushAnswer('http://localhost:3009', 't-2', 'retry', undefined);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string)).toEqual({
+    // retry is a restarting decision, so the standing-scope read of the task row
+    // (unscoped here → ordinary flow) precedes the single event POST.
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string)).toEqual({
       event: 'retry_from_blocked',
     });
   });
@@ -334,18 +350,22 @@ describe('NEGATIVE — resume refuses a task that is not paused (A6-6b)', () => 
   }
 });
 
-// Paired negative for A6-6b: the guard must not touch the event-driven decisions. The
+// Paired negative for A6-6b: the paused guard must not touch the event-driven decisions. The
 // `/pipeline` REVISE flow resolves a `done` task with `request_changes` (dispatcher
 // SKILL.md §2.4), and `approve`/`retry` are likewise event-only — none of the three reads
-// `paused`, none goes through resumePark. RED if the guard is ever hoisted into pushAnswer
-// ahead of the decision switch and starts blocking the flow C12 narrowed to protect.
+// `paused`, none goes through resumePark. The intent-first-result SCOPE guard (2026-10-10)
+// IS hoisted into pushAnswer, but it is decision-scoped ({@link SCOPE_GUARDED_DECISIONS})
+// and only ever refuses an intent-scoped task — it must never block these unscoped flows.
+// RED if the A6-6b guard itself is ever hoisted ahead of the decision switch, or if the
+// scope guard starts blocking the unscoped flow C12 narrowed to protect.
 describe('CONTROL — the A6-6b guard leaves the event decisions on a non-paused task alone', () => {
   it('request_changes on a done, non-paused task still comments + fires the event', async () => {
     const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse({})));
     const result = await pushAnswer('http://localhost:3009', 't-7', 'request_changes', 'auditor findings');
-    expect(spy.mock.calls).toHaveLength(2);
-    expect(String(spy.mock.calls[0][0])).toContain('/comments');
-    expect(JSON.parse((spy.mock.calls[1][1] as RequestInit).body as string).event).toBe('request_changes');
+    // The standing-scope read (unscoped task → ordinary flow) precedes the comment + event.
+    expect(spy.mock.calls).toHaveLength(3);
+    expect(String(spy.mock.calls[1][0])).toContain('/comments');
+    expect(JSON.parse((spy.mock.calls[2][1] as RequestInit).body as string).event).toBe('request_changes');
     expect(result).toMatchObject({ decision: 'request_changes', commented: true });
   });
   it('approve on a done, non-paused task still fires approve_done', async () => {
@@ -357,10 +377,25 @@ describe('CONTROL — the A6-6b guard leaves the event decisions on a non-paused
   it('retry on a blocked_external, non-paused task still fires retry_from_blocked', async () => {
     const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse({})));
     await pushAnswer('http://localhost:3009', 't-7', 'retry', undefined);
-    expect(spy.mock.calls).toHaveLength(1);
-    expect(JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).event).toBe('retry_from_blocked');
+    // Standing-scope read (unscoped → ordinary flow), then the event.
+    expect(spy.mock.calls).toHaveLength(2);
+    expect(JSON.parse((spy.mock.calls[1][1] as RequestInit).body as string).event).toBe('retry_from_blocked');
   });
 });
+
+/** A human-owned task the auto review parked for a human — the legacy `complete_review` case. */
+const PARK = { id: 't-park', status: 'review', executionOwner: 'human' as const, manualReviewRequired: true };
+
+/**
+ * A participants-mode-OFF aif: session probe, task read, comment list, and an events endpoint that
+ * accepts. `comments` defaults to none (the task's work has not been reported merged).
+ */
+function legacyAif(url: string, task: Record<string, unknown>, comments: unknown[] = []): Response {
+  if (url.endsWith('/auth/session')) return okResponse({ participantsModeEnabled: false });
+  if (url.endsWith('/comments')) return okResponse(comments);
+  if (url.endsWith('/events')) return okResponse({ ok: true });
+  return okResponse(task);
+}
 
 // ── the reachability gate the mocked-fetch tests above could not see ───────────
 // Two live falsifiers on real parks (2026-09-09) both returned
@@ -374,23 +409,21 @@ describe('CONTROL — the A6-6b guard leaves the event decisions on a non-paused
 // `default:` — the exact error observed. Firing the event anyway produces a 409 that names
 // nothing; refusing up-front names the cause and the levers.
 describe('review events are refused up-front when the deployment cannot serve them', () => {
-  it('legacy mode: no event is POSTed, and the error names the mode and the levers', async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation(async () => okResponse({ participantsModeEnabled: false }));
+  it('legacy mode, not a park: no event is POSTed, and the error names the mode', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) =>
+      legacyAif(String(url), { id: 't-legacy', status: 'review', executionOwner: 'ai' }),
+    );
 
     await expect(
       pushAnswer('http://aif.test', 't-legacy', 'complete_review', undefined),
     ).rejects.toThrow(/participants mode/i);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls.map((c) => String(c[0])).filter((u) => u.endsWith('/events'))).toEqual([]);
     expect((fetchSpy.mock.calls[0] as [string, RequestInit])[0]).toBe('http://aif.test/auth/session');
   });
 
   it('the refusal is a BackendError, so the CLI reports it like any other aif failure', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
-      okResponse({ participantsModeEnabled: false }),
-    );
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => legacyAif(String(url), PARK));
 
     await expect(
       pushAnswer('http://aif.test', 't-legacy', 'request_review_changes', 'redo it'),
@@ -418,5 +451,96 @@ describe('review events are refused up-front when the deployment cannot serve th
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect((fetchSpy.mock.calls[0] as [string, RequestInit])[0]).toBe('http://aif.test/tasks/t-ap/events');
+  });
+});
+
+// ── the legacy manual-review exit (artyhoo/aif-handoff#1) ───────────────────────
+// aif-handoff#1 gave the legacy dispatcher ONE event out of `review`: `complete_review`, and only
+// for a manual-review park (executionOwner=human AND manualReviewRequired=true). It did not add
+// `request_review_changes`. The up-front refusal above predates that exit and refused the park too.
+describe('legacy mode: complete_review releases a manual-review park', () => {
+  it('a park answering complete_review dispatches the event (no comment)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => legacyAif(String(url), PARK));
+
+    const result = await pushAnswer('http://aif.test', 't-park', 'complete_review', undefined);
+
+    expect(result).toEqual({ taskId: 't-park', decision: 'complete_review', event: 'complete_review', commented: false });
+    const posts = fetchSpy.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'POST');
+    expect(posts.map((c) => c[0])).toEqual(['http://aif.test/tasks/t-park/events']);
+    expect(JSON.parse((posts[0][1] as RequestInit).body as string)).toEqual({ event: 'complete_review' });
+  });
+
+  it('request_review_changes on a park is still refused, with no comment left behind', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => legacyAif(String(url), PARK));
+
+    await expect(
+      pushAnswer('http://aif.test', 't-park', 'request_review_changes', 'redo it'),
+    ).rejects.toThrow(/request_review_changes/);
+
+    expect(fetchSpy.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'POST')).toEqual([]);
+  });
+
+  it('a human-owned review task that is NOT parked is refused', async () => {
+    const task = { ...PARK, manualReviewRequired: false };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => legacyAif(String(url), task));
+
+    await expect(pushAnswer('http://aif.test', 't-park', 'complete_review', undefined)).rejects.toThrow(
+      /manualReviewRequired/,
+    );
+    expect(fetchSpy.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'POST')).toEqual([]);
+  });
+
+  it('an ai-owned task carrying manualReviewRequired is refused — both halves are the gate', async () => {
+    const task = { ...PARK, executionOwner: 'ai' as const };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => legacyAif(String(url), task));
+
+    await expect(pushAnswer('http://aif.test', 't-park', 'complete_review', undefined)).rejects.toBeInstanceOf(
+      BackendError,
+    );
+  });
+});
+
+describe('legacy-mode refusal text', () => {
+  it('no longer claims legacy mode has no exit out of review for any owner', () => {
+    for (const decision of ['complete_review', 'request_review_changes'] as const) {
+      for (const task of [PARK, { ...PARK, manualReviewRequired: false }, { ...PARK, executionOwner: 'ai' as const }]) {
+        const text = reviewEventUnreachableReason(decision, task, false);
+        expect(text).not.toMatch(/for any owner/);
+        expect(text).toMatch(/manual-review park/);
+      }
+    }
+  });
+
+  it('request_review_changes on a park names the two-step legacy route (complete_review, then request_changes)', () => {
+    const text = reviewEventUnreachableReason('request_review_changes', PARK, false);
+    expect(text).toMatch(/--decision complete_review/);
+    expect(text).toMatch(/--decision request_changes/);
+  });
+
+  it('recommends a handoff to AI only while the work is NOT merged', () => {
+    const task = { ...PARK, manualReviewRequired: false };
+    expect(reviewEventUnreachableReason('complete_review', task, false)).toMatch(/handoff/);
+    expect(reviewEventUnreachableReason('complete_review', task, true)).not.toMatch(/handoff/);
+    expect(reviewEventUnreachableReason('complete_review', task, true)).toMatch(/already merged/);
+  });
+
+  it('never suggests handing an ai-owned task to AI — it names the running auto review instead', () => {
+    for (const decision of ['complete_review', 'request_review_changes'] as const) {
+      const text = reviewEventUnreachableReason(decision, { ...PARK, executionOwner: 'ai' as const }, false);
+      expect(text).not.toMatch(/handoff/);
+      expect(text).toMatch(/auto review is still running/);
+    }
+  });
+
+  it('pushAnswer reads "already merged" from the harvest merge-report comment', async () => {
+    const task = { ...PARK, manualReviewRequired: false };
+    const merged = [{ message: `${MERGE_REPORT_PREFIX}https://github.com/o/r/pull/9 (merged …)` }];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => legacyAif(String(url), task, merged));
+
+    const err = await pushAnswer('http://aif.test', 't-park', 'complete_review', undefined).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(BackendError);
+    expect((err as Error).message).toMatch(/already merged/);
+    expect((err as Error).message).not.toMatch(/handoff/);
   });
 });

@@ -1,0 +1,23 @@
+{
+  "record_type": "fix_response",
+  "protocol_version": "dot-pr-review/2.0.0",
+  "assignment_id": "assign-fix-0001",
+  "claimed_by": "cc-executor/mechanism-lane",
+  "finding_ids": [
+    "F-001"
+  ],
+  "fix_revision": "0000000000000000000000000000000000000008",
+  "changed_scope": [
+    "scripts/dot-review-gate/intake.mjs"
+  ],
+  "mechanical_receipts": [
+    {
+      "context": "dot-gate suites",
+      "reference": "run 37374472348/job/intake",
+      "conclusion": "success"
+    }
+  ],
+  "change_review_receipt": null,
+  "unresolved_items": [],
+  "issued_at": "2026-10-06T12:00:00Z"
+}

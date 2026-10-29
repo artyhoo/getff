@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/worktree-setup.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/worktree-setup.sh');
 const SCRIPT = resolve(REPO_ROOT, 'scripts/create-worktree.sh');
 const LINK_COORDINATION = resolve(REPO_ROOT, 'scripts/link-coordination.sh');
 
