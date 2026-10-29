@@ -29,6 +29,8 @@ import {
   clearHolds,
   hasLiveWorker,
   hasUnconfirmedNonWorkerExternalWork,
+  seedDeliverySeenFromRetained,
+  stampLocalWorkerCessation,
   sha256Hex,
   isIso,
   ADMITTING_STATES,
@@ -398,7 +400,11 @@ function observationRouteEligible(obs, record) {
  * routing ANSWER, not an action and not an acceptance verdict.
  */
 function routeFromRecord(record) {
-  if (record.pendingIntent !== null && record.pendingIntent.state !== 'resolved') {
+  // OWNER-CQ04 (compat repair): ANY recorded intent holds the route. A legacy
+  // `state: 'resolved'` claim carries a caller-file resolution/evidence reference that
+  // does not establish the external outcome (see hasUnconfirmedNonWorkerExternalWork),
+  // so it gates the route door exactly like a live unresolved intent.
+  if (record.pendingIntent !== null) {
     return { route: 'hold', routeReason: 'intent_outcome_uncertain' };
   }
   if (record.controlState !== 'active') {
@@ -507,10 +513,18 @@ export async function reconcile(input) {
     const effects = [];
 
     // (1) An unresolved intent is an owned uncertainty — hold with a concrete recovery action.
-    if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
+    // OWNER-CQ04: a legacy `state: 'resolved'` pendingIntent is the SAME owned uncertainty —
+    // its caller-recorded `resolution`/`resolvedAt`/evidence fields are historical claims
+    // (no current stage-A subsystem reader establishes them), so the previous
+    // `state !== 'resolved'` exemption let such a record route around this hold and
+    // proceed through admission as if the external outcome were established. Any
+    // non-null pendingIntent holds.
+    if (next.pendingIntent !== null) {
       const held = addHold(next, {
         code: HISTORY_UNCERTAIN_HOLD_CODE,
-        reason: `action ${next.pendingIntent.actionId} (${next.pendingIntent.action}) was persisted at ${next.pendingIntent.recordedAt} but its external effect is unverified — outcome is unknown, not successful`,
+        reason: next.pendingIntent.state === 'resolved'
+          ? `action ${next.pendingIntent.actionId} (${next.pendingIntent.action}) was persisted at ${next.pendingIntent.recordedAt} and carries a caller-recorded resolution claim, but that historical field does not establish the external operation's outcome — outcome is unknown, not successful`
+          : `action ${next.pendingIntent.actionId} (${next.pendingIntent.action}) was persisted at ${next.pendingIntent.recordedAt} but its external effect is unverified — outcome is unknown, not successful`,
         recoveryAction: `action ${next.pendingIntent.actionId}'s outcome in the referenced subsystem is established only by an actual independent read of that subsystem — a stage-B live-read capability no stage-A input reaches (fidelity-r2 F-1: prose, a caller-supplied file, its digest or a caller-authored JSON is file integrity, not a fact about the referenced subsystem) — so this hold is the honest prerequisite until that reader exists; reporting, routing and holds keep working meanwhile`,
         now,
       });
@@ -731,7 +745,11 @@ export async function reconcile(input) {
       if (!next.grants.actions.includes(action)) {
         return rejectAfterPersist('action_not_granted', `action ${action} is not in this binding's granted actions [${next.grants.actions.join(', ')}] — the grant list is fixed at init and no flag overrides it`);
       }
-      if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
+      // OWNER-CQ04 (compat repair): ANY recorded intent blocks a new action. A legacy
+      // `resolved` claim does not establish its external outcome (its resolution has no
+      // stage-A writer since fidelity-r2 F-1), so it gates admission exactly like a live
+      // unresolved one.
+      if (next.pendingIntent !== null) {
         return rejectAfterPersist('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — resolve it before planning another action`);
       }
       const actionId = `act-${sha256Hex(canonicalJson({ action, at: now, fromRevision: next.recordRevision, candidate: next.candidate.revision, custody: next.custodyGeneration })).slice(0, 16)}`;
@@ -819,6 +837,23 @@ export async function reconcile(input) {
       const receipt = input.deliveryReceipt;
       if (typeof receipt !== 'string' || receipt.length === 0) return rejectAfterPersist('invalid_request', 'delivery-receipt must be a non-empty reference');
       if (next.deliverySeen === undefined || next.deliverySeen === null) next.deliverySeen = { bits: seenMaskEmptyHex() };
+      // CQ-S02 (compat repair): the legacy materialization above used to create an EMPTY
+      // mask without consulting the identities still retained in `delivery` and
+      // `deliveryHistory` — the first post-upgrade admission then superseded them into
+      // history, a later eviction dropped them from that bounded window, and a
+      // genuinely-delivered receipt became re-bindable as a NEWER candidate's fresh
+      // delivery. Backfill the accumulator from every retained identity BEFORE the
+      // freshness gate below can admit anything; a mask that already covers them is a
+      // no-op (identity signal — no effect, no revision). Identities forgotten before
+      // the upgrade stay forgotten (the honest documented limit — seeding only sees
+      // retained state).
+      const seeded = seedDeliverySeenFromRetained(next);
+      if (!seeded.ok) return rejectAfterPersist(seeded.code, seeded.reason);
+      if (seeded.value !== next) {
+        next = seeded.value;
+        mutated = true;
+        effects.push('delivery-seen-seeded');
+      }
       // Fidelity-r1 F-1, narrowed by fidelity-r2 F-1: a delivery is recorded as an
       // UNVERIFIED caller reference, always. The receipt string and any evidence
       // reference are both caller CLAIMS about the referenced subsystem ("the current
@@ -1001,19 +1036,29 @@ export async function reconcile(input) {
           // there — the acknowledged pause is a fact about the OLD worker, but a paused
           // record admits no successor (the gate below), so no custody advance and no new
           // worker identity may ride on the ack.
+        } else if (!hasUnconfirmedNonWorkerExternalWork(next)) {
+          // CQ-S03 (compat repair): on an ACTIVE binding with a live local worker and NO
+          // referenced external work, the composed transfer acknowledgment is a fact
+          // about the OLD worker — persist it NOW, before the succession gates below can
+          // refuse the transfer (missing --repo-root, unresolvable feature home, open
+          // authority hold). The fidelity-r2 shape wrote the stamp NOWHERE on this arm,
+          // so a refused succession DROPPED the caller's acknowledgment and a later valid
+          // transfer had to demand the same acknowledgment twice (the observed
+          // regression). The refusal still persists everything ingested this pass through
+          // rejectAfterPersist; the old worker identity and custody stay untouched; and
+          // an admitted succession still replaces the worker wholesale below. The r1
+          // blanket stamp stays dead: with referenced external work bound this arm writes
+          // NO cessation fact (the else below) — a caller assertion never fabricates a
+          // non-worker cessation (fidelity-r2 F-2, R4-02).
+          const stamped = stampLocalWorkerCessation(next, { actor: input.actor ?? 'operator:cli', now });
+          if (!stamped.ok) return rejectAfterPersist(stamped.code, stamped.reason);
+          next = stamped.value;
+          mutated = true;
+          effects.push('worker-cessation-acked:local');
         }
-        // fidelity-r2 F-2 (R4-02): on an ACTIVE binding the caller's
-        // `acknowledgeCessation` is an assertion about the old worker, collected only to
-        // open the `custody_transfer_blocked` gate above. The r1 shape stamped it onto
-        // the old worker HERE, before the succession gates — so a transfer refused for a
-        // missing authority source or an open authority hold still persisted a cessation
-        // "fact" created from the caller's word, and a later no-ack transfer reused that
-        // fabricated ack (hasLiveWorker went false on nothing). Post-repair the stamp is
-        // written NOWHERE on this arm: an admitted succession replaces the worker
-        // wholesale in the advance below (the old worker's field is gone either way), and
-        // a refused succession persists the refusal — never a cessation fact. A later
-        // valid transfer re-runs with its own explicit acknowledgeCessation; the gate
-        // above still demands it and the caller still owns the assertion.
+        // else: active binding WITH unconfirmed referenced external work — the composed
+        // transfer acknowledgment cannot settle it and writes NO cessation fact; the
+        // refusal paths below persist the pass's facts without one.
       }
       // R2-02: a successor worker may be registered ONLY on an admitting record. A paused
       // (or pause-pending) binding must not gain a new worker identity or advance custody
@@ -1119,7 +1164,10 @@ export async function reconcile(input) {
       if (!next.grants.actions.includes('complete')) {
         return rejectAfterPersist('action_not_granted', `completion requires the 'complete' action grant — [${next.grants.actions.join(', ')}] was fixed at init and no flag extends it; a delivery receipt records a fact, it does not authorize completion`);
       }
-      if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
+      // OWNER-CQ04 (compat repair): ANY recorded intent keeps completion closed — a
+      // legacy `resolved` claim does not establish the external outcome any more than a
+      // live unresolved one does.
+      if (next.pendingIntent !== null) {
         return rejectAfterPersist('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — completion would close the binding over an unverified external effect; no stage-A input resolves it (fidelity-r2 F-1: the outcome needs an actual independent read of the referenced subsystem, a stage-B live-read capability), so the binding stays open until that reader exists`);
       }
       // Fidelity-r1 F-1, narrowed by fidelity-r2 F-1: BOTH doors refuse completion for
@@ -1184,11 +1232,14 @@ export async function reconcile(input) {
         const denied = completionAdmission();
         if (denied) return denied;
       }
-      // Fidelity-r1 F-2, narrowed by fidelity-r2 F-2 (ack door): an `ack-cessation`
+      // Fidelity-r1 F-2, narrowed by fidelity-r2 F-2 and the CQ-S01/OWNER-CQ04 compat
+      // repairs (ack door): an `ack-cessation`
       // settles ONLY what it can attest. The worker arm settles on the worker's own
       // report (the ack IS the worker-side input — the one genuinely independent
-      // mechanism in stage A). The non-worker arms — a bound AIF task, recorded native
-      // attempts, an unresolved effect — are REFERENCED external work whose stop NO
+      // mechanism in stage A). The non-worker arms — a bound AIF task (its legacy
+      // cessation stamp is historical claim data, never establishment), recorded native
+      // attempts, a recorded effect (a legacy `resolved` intent claim included — its
+      // caller-file resolution establishes nothing) — are REFERENCED external work whose stop NO
       // stage-A input can establish: a bare acknowledgement (reason prose included) is a
       // caller assertion, and a caller-supplied cessation-evidence artifact is caller-
       // chosen bytes — file integrity at best, never the referenced subsystem's actual
@@ -1214,9 +1265,9 @@ export async function reconcile(input) {
         && ['pause-pending', 'cancel-pending'].includes(next.controlState)
         && hasUnconfirmedNonWorkerExternalWork(next)) {
         const unconfirmed = [
-          next.aif !== null && typeof next.aif.taskId === 'string' && next.aif.taskId.length > 0 && next.aif.cessationConfirmedAt == null ? `bound aif task ${next.aif.taskId}` : null,
+          next.aif !== null && typeof next.aif.taskId === 'string' && next.aif.taskId.length > 0 ? `bound aif task ${next.aif.taskId}` : null,
           Array.isArray(next.nativeAttempts) && next.nativeAttempts.length > 0 ? 'recorded native attempts' : null,
-          next.pendingIntent !== null && next.pendingIntent.state !== 'resolved' ? `unresolved effect ${next.pendingIntent.actionId}` : null,
+          next.pendingIntent !== null ? (next.pendingIntent.state === 'resolved' ? `legacy resolved intent claim ${next.pendingIntent.actionId}` : `unresolved effect ${next.pendingIntent.actionId}`) : null,
         ].filter(Boolean).join(', ');
         const refuseCessation = (reason, recoveryAction) => {
           const held = addHold(next, { code: CESSATION_HOLD_CODE, reason, recoveryAction, now });

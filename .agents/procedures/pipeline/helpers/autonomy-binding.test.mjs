@@ -64,7 +64,7 @@ import { productionResumeHold, reservedVerbHold, reconcile, initBinding } from '
 import {
   initialRecord, applyControlTransition, validateRecord, proposeResumeTransition,
   recordDigest, grantDigestOf, addHold, sha256Hex, ADMITTING_STATES, TERMINAL_STATES,
-  DELIVERY_HISTORY_MAX,
+  DELIVERY_HISTORY_MAX, seenMaskEmptyHex,
 } from './autonomy-binding/record.mjs';
 import {
   readRecord, writeRecordAtomic, ensureStageOwnership, resolveRecordTarget,
@@ -3290,6 +3290,310 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
     assert.equal(settled.ok, false, JSON.stringify(settled));
     assert.equal(settled.code, 'cessation_unconfirmed');
     assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'cancel-pending');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+});
+
+// ===========================================================================
+// CQ compat repairs (request_changes 7: CQ-S01 / CQ-S02 / CQ-S03 / OWNER-CQ04) —
+// in-repo regressions for the frozen owner harness shapes. Each FLIP arm names the
+// single production change that flips it (T22): CQ-S01 -> record.mjs
+// hasUnconfirmedNonWorkerExternalWork treating a bound AIF task's legacy
+// cessationEvidence/cessationConfirmedAt stamp as HISTORICAL CLAIM DATA (the former
+// aifCessationConfirmed honoring deleted); CQ-S02 -> the engine's
+// seedDeliverySeenFromRetained backfill before the delivery freshness gate;
+// CQ-S03 -> the engine's active-binding local-only stamp arm BEFORE the succession
+// gates; OWNER-CQ04 -> record.mjs's predicate widening to ANY recorded pendingIntent
+// (including `state: 'resolved'`) plus the four shared read-side doors
+// (route / step-1 hold / action admission / completion / ack). Every seed is a
+// schema-valid prior-writer state — the legacy fields stay durable and byte-identical
+// (no migration); only their READING changes. CONTROL arms pin the boundaries the
+// repairs must NOT move (truly-empty local positives; the bound-task no-stamp rule).
+// Flip evidence: the whole batch is RED against the immutable 38b pre-image (frozen
+// harness reproduces 7 RED / 1 control GREEN there); the step-1 hold arm is
+// additionally proven RED with ONLY its own hunk reverted (isolated-hunk proof).
+// ===========================================================================
+describe('cq-compat repairs — legacy claims are claim data at every consequential door', () => {
+  // Batch-local seeder: real CLI init (taskless unless extra says otherwise) + hand-shaped
+  // schema-valid legacy fields, persisted through the store's own revision-checked write —
+  // the same already-trusted-seed pattern as seedCompletedRecord (library-level unit arms).
+  const seedLegacy = (fx, change, extra = []) => {
+    const run = runCli(initArgs(fx, extra));
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    change(record);
+    const checked = validateRecord(record);
+    assert.equal(checked.ok, true, JSON.stringify(checked));
+    const lockedTarget = resolveRecordTarget(canonicalRecordPath(fx.recordPath));
+    assert.ok(lockedTarget !== null, 'the seeded record path has a resolvable canonical lock target');
+    const written = writeRecordAtomic(fx.recordPath, record, { lockedTarget, expectedRevision: record.recordRevision });
+    assert.ok(written.ok, JSON.stringify(written));
+    return record;
+  };
+  // The exact legacy AIF stamp the frozen harness seeds: caller-file evidence at its
+  // (unresolvable — never materialized) digest plus a caller-stamped confirmation time.
+  const legacyAifStamp = (record) => {
+    record.aif = { ...record.aif, taskId: 'bound-aif', cessationEvidence: { path: 'legacy-caller.json', sha256: 'a'.repeat(64) }, cessationConfirmedAt: iso() };
+    record.controlRevision = 2; // the prior pause/cancel request this record is sitting in
+  };
+  // The exact legacy resolved-intent claim the frozen harness seeds: caller-recorded
+  // resolution + resolution time + a caller-file evidence reference (durable claim data).
+  const legacyResolvedIntent = (record) => {
+    record.pendingIntent = {
+      actionId: 'legacy-work', action: 'work',
+      bound: { candidateRevision: record.candidate.revision, custodyGeneration: record.custodyGeneration, controlRevision: record.controlRevision, recordRevision: record.recordRevision },
+      recordedAt: iso(), state: 'resolved', resolution: 'not-applied', resolvedAt: iso(),
+      evidenceRef: { path: 'legacy-caller.json', sha256: 'a'.repeat(64) },
+    };
+  };
+
+  ltest('CQ-S01 FLIP: a bound task\'s legacy bytes-only cessation stamp cannot settle a pause-pending ack — pause retained, stamp preserved as claim data', async (t) => {
+    const fx = makeFixture(t);
+    const seeded = seedLegacy(fx, (record) => { legacyAifStamp(record); record.controlState = 'pause-pending'; });
+    const out = await reconcile(reconcileInput(fx, { control: { kind: 'ack-cessation', actor: 'operator:matrix' } }));
+    assert.equal(out.ok, false, JSON.stringify(out));
+    assert.equal(out.code, 'cessation_unconfirmed');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.controlState, 'pause-pending', 'legacy caller-file stamp is historical claim data, not current subsystem cessation');
+    assert.deepEqual(record.aif.cessationEvidence, seeded.aif.cessationEvidence, 'the legacy fields stay durable and untouched (no migration)');
+    assert.equal(record.aif.cessationConfirmedAt, seeded.aif.cessationConfirmedAt);
+    assert.equal(record.aif.taskId, 'bound-aif');
+    assert.ok(record.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold names the actual independent read as recovery');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('CQ-S01 FLIP: the same legacy stamp cannot settle a cancel-pending ack — cancel retained', async (t) => {
+    const fx = makeFixture(t);
+    const seeded = seedLegacy(fx, (record) => { legacyAifStamp(record); record.controlState = 'cancel-pending'; });
+    const out = await reconcile(reconcileInput(fx, { control: { kind: 'ack-cessation', actor: 'operator:matrix' } }));
+    assert.equal(out.ok, false, JSON.stringify(out));
+    assert.equal(out.code, 'cessation_unconfirmed');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.controlState, 'cancel-pending', 'the cancellation is NOT completed on a bare ack over a legacy stamp');
+    assert.deepEqual(record.aif.cessationEvidence, seeded.aif.cessationEvidence);
+    assert.equal(record.aif.cessationConfirmedAt, seeded.aif.cessationConfirmedAt);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  // CQ-S02 driver: seed a retained legacy identity, drive admissions until the bounded
+  // history window has evicted it, then replay the receipt against a NEWER candidate.
+  // Returns the replay outcome, the post-replay record and the first admission's effects
+  // so each arm asserts its own variant's contract.
+  const driveEvictionReplay = async (fx, seedChange) => {
+    let seededEffects = null;
+    seedLegacy(fx, seedChange);
+    for (let n = 2; n <= 23; n++) {
+      const advanced = await reconcile(reconcileInput(fx, { candidate: { revision: n } }));
+      assert.equal(advanced.ok, true, JSON.stringify(advanced));
+      let k = 0;
+      let out = await reconcile(reconcileInput(fx, { deliveryReceipt: `upgrade-${n}-${k++}` }));
+      while (out.ok === false && out.code === 'delivery_identity_unestablishable' && k < 12) {
+        out = await reconcile(reconcileInput(fx, { deliveryReceipt: `upgrade-${n}-${k++}` }));
+      }
+      assert.equal(out.ok, true, JSON.stringify(out));
+      if (n === 2) seededEffects = out.effects;
+    }
+    const advanced = await reconcile(reconcileInput(fx, { candidate: { revision: 24 } }));
+    assert.equal(advanced.ok, true, JSON.stringify(advanced));
+    const replay = await reconcile(reconcileInput(fx, { deliveryReceipt: 'legacy-r0' }));
+    return { replay, after: JSON.parse(readFileSync(fx.recordPath, 'utf8')), seededEffects };
+  };
+
+  ltest('CQ-S02 FLIP: retained current-delivery identity seeds the missing accumulator — after eviction the receipt cannot re-bind as a newer candidate\'s delivery', async (t) => {
+    const fx = makeFixture(t);
+    // Missing accumulator: a pre-F3 legacy record carries NO deliverySeen at all.
+    const { replay, after, seededEffects } = await driveEvictionReplay(fx, (record) => {
+      delete record.deliverySeen;
+      record.delivery = { receipt: 'legacy-r0', candidateRevision: 1, destination: 'pr:staging', at: iso(), actionId: null };
+    });
+    assert.ok(seededEffects.includes('delivery-seen-seeded'), 'the first post-upgrade admission backfilled the accumulator from the retained identity');
+    assert.equal(replay.ok, false, JSON.stringify(replay));
+    assert.equal(replay.code, 'delivery_identity_unestablishable', 'a known pre-upgrade receipt cannot become the later candidate delivery after eviction');
+    assert.ok(after.holds.some((h) => h.code === 'delivery_identity_unestablishable' && h.clearedAt === null), 'the refusal persists its actionable hold');
+    assert.ok(!(after.delivery !== null && after.delivery.receipt === 'legacy-r0' && after.delivery.candidateRevision === 24), 'the replay never took the current delivery slot');
+    assert.equal(after.delivery.receipt.startsWith('upgrade-23-'), true, 'the rev-23 delivery keeps the current slot, association untouched');
+    assert.equal(after.delivery.candidateRevision, 23);
+    assert.ok(after.deliveryHistory.length <= DELIVERY_HISTORY_MAX, 'bounded storage: the history window keeps its cap');
+    assert.equal(after.deliverySeen.bits.length, seenMaskEmptyHex().length, 'the accumulator stays fixed-size');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('CQ-S02 FLIP: a history-only retained identity seeds an existing-but-partial mask the same way; distinct fresh receipts stay admissible', async (t) => {
+    const fx = makeFixture(t);
+    // Partial mask: the accumulator EXISTS but was materialized without the retained
+    // history identity (the buggy-writer shape) — the empty init-default mask.
+    const { replay, after, seededEffects } = await driveEvictionReplay(fx, (record) => {
+      record.deliverySeen = { bits: seenMaskEmptyHex() };
+      record.deliveryHistory = [{ receipt: 'legacy-r0', candidateRevision: 1, destination: 'pr:staging', at: iso(), actionId: null }];
+    });
+    assert.ok(seededEffects.includes('delivery-seen-seeded'), 'seeding runs for an existing mask too when retained identities are uncovered');
+    assert.equal(replay.ok, false, JSON.stringify(replay));
+    assert.equal(replay.code, 'delivery_identity_unestablishable');
+    // The honest positive: a DISTINCT fresh receipt for the current candidate is still
+    // admitted — seeding only sets bits for RETAINED identities.
+    const fresh = await reconcile(reconcileInput(fx, { deliveryReceipt: 'fresh-post-upgrade-1' }));
+    assert.equal(fresh.ok, true, JSON.stringify(fresh));
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.delivery.receipt, 'fresh-post-upgrade-1', 'the distinct fresh claim took the current slot');
+    assert.equal(record.delivery.candidateRevision, 24, 'current-candidate association preserved');
+    assert.ok(record.deliveryHistory.length <= DELIVERY_HISTORY_MAX);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('CQ-S03 FLIP: a taskless local worker\'s acknowledged cessation survives a refused succession (missing --repo-root) and the later valid transfer does NOT demand it again', async (t) => {
+    const fx = makeFixture(t);
+    seedLegacy(fx, (record) => {
+      record.worker = { sessionId: 'w-old', pid: null, startedAt: iso(), host: null, cessationAckedAt: null };
+    });
+    const refused = await reconcile(reconcileInput(fx, {
+      transferCustody: { toSession: 'w-new', reason: 'cq-s03 succession', acknowledgeCessation: true },
+      repoRoot: undefined, featureHome: undefined, // no live authority source -> succession must refuse
+    }));
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.code, 'invalid_request');
+    assert.match(refused.reason, /--repo-root/, 'the refusal names the missing live-authority source');
+    // Refusal envelopes carry no effects list — the persisted record below IS the proof
+    // that the local-only acknowledgment landed before the succession gates fired.
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.notEqual(record.worker.cessationAckedAt, null, 'accepted local-only cessation persists independently of successor admission');
+    assert.equal(record.worker.sessionId, 'w-old', 'the old worker identity and custody stay untouched on refusal');
+    assert.equal(record.custodyGeneration, 1);
+    assert.equal(record.controlState, 'active', 'strictly local-only: no control transition rode the acknowledgment');
+    assert.equal(record.holds.length, 0, 'no cessation hold — nothing referenced was left unconfirmed by this local-only arm');
+    assert.ok(record.history.some((e) => /worker cessation acknowledged for w-old/.test(e.summary)), 'the acknowledgment is in the bounded history');
+    // The valid transfer reuses the persisted fact: NO acknowledgeCessation is supplied.
+    const valid = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'w-new', reason: 'cq-s03 valid succession' } }));
+    assert.equal(valid.ok, true, JSON.stringify(valid));
+    assert.equal(valid.custodyGeneration, 2);
+    assert.ok(valid.effects.includes('custody-transferred:2'));
+    assert.ok(!valid.effects.includes('worker-cessation-acked:local'), 'the acknowledged worker is not live, so no second acknowledgment was demanded or written');
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(after.worker.sessionId, 'w-new');
+    assert.equal(after.worker.cessationAckedAt, null, 'the successor starts unacked');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('CQ-S03 CONTROL (no flip): a bound AIF task is referenced external work — the composed transfer acknowledgment writes NO local stamp even on refusal', async (t) => {
+    const fx = makeFixture(t);
+    seedLegacy(fx, (record) => {
+      record.worker = { sessionId: 'w-old', pid: null, startedAt: iso(), host: null, cessationAckedAt: null };
+    }, ['--task-id', 't-1']);
+    const refused = await reconcile(reconcileInput(fx, {
+      transferCustody: { toSession: 'w-new', reason: 'cq-s03 bound-task succession', acknowledgeCessation: true },
+      repoRoot: undefined, featureHome: undefined,
+    }));
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.code, 'invalid_request');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.worker.cessationAckedAt, null, 'F-2 boundary: a caller assertion never fabricates a referenced subsystem\'s cessation');
+    assert.equal(record.custodyGeneration, 1);
+    assert.equal(record.worker.sessionId, 'w-old');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('CQ-S03 CONTROL (no flip): a genuinely empty taskless local pause still settles on its own bare ack (retained positive)', async (t) => {
+    const fx = makeFixture(t);
+    seedLegacy(fx, (record) => {
+      record.worker = { sessionId: 'w-old', pid: null, startedAt: iso(), host: null, cessationAckedAt: null };
+    });
+    const paused = await reconcile(reconcileInput(fx, { control: { kind: 'pause', actor: 'operator:matrix' } }));
+    assert.equal(paused.ok, true, JSON.stringify(paused));
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'pause-pending', 'a live local worker defers the pause to its own acknowledgment');
+    const acked = await reconcile(reconcileInput(fx, { control: { kind: 'ack-cessation', actor: 'operator:matrix' } }));
+    assert.equal(acked.ok, true, JSON.stringify(acked));
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.controlState, 'paused');
+    assert.notEqual(record.worker.cessationAckedAt, null, 'the worker-arm settlement is the one genuinely independent local mechanism — preserved');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('OWNER-CQ04 FLIP (step-1 hold): a bare reconcile holds a legacy resolved intent as an owned uncertainty — once; the second pass is a no-op', async (t) => {
+    const fx = makeFixture(t);
+    const seeded = seedLegacy(fx, legacyResolvedIntent);
+    const first = await reconcile(reconcileInput(fx, {}));
+    assert.equal(first.ok, true, JSON.stringify(first));
+    assert.equal(first.mutated, true, 'the uncertainty hold is a durable move, not a warning nobody reads');
+    assert.ok(first.holds.some((h) => h.code === 'uncertain_owner' && h.clearedAt === null), JSON.stringify(first.holds));
+    const held = first.holds.find((h) => h.code === 'uncertain_owner' && h.clearedAt === null);
+    assert.match(held.reason, /caller-recorded resolution claim/, 'the reason names WHY the resolved claim establishes nothing');
+    assert.match(held.recoveryAction, /independent read/, 'the recovery action names the stage-B live-read prerequisite');
+    let record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.recordRevision, seeded.recordRevision + 1, 'exactly one durable write for the hold');
+    assert.deepEqual(record.pendingIntent, seeded.pendingIntent, 'the legacy claim fields stay durable and untouched');
+    const second = await reconcile(reconcileInput(fx, {}));
+    assert.equal(second.ok, true, JSON.stringify(second));
+    assert.equal(second.mutated, false, 'an identical open hold is a no-op — no revision burn on re-derivation');
+    record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.recordRevision, seeded.recordRevision + 1);
+    assert.equal(record.holds.filter((h) => h.code === 'uncertain_owner' && h.clearedAt === null).length, 1, 'one open instance per derived uncertainty');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('OWNER-CQ04 FLIP (control door): a legacy resolved intent keeps pause/cancel cessation-pending — the claim cannot route a stopped disposition', async (t) => {
+    for (const kind of ['pause', 'cancel']) {
+      const fx = makeFixture(t);
+      seedLegacy(fx, legacyResolvedIntent);
+      const out = await reconcile(reconcileInput(fx, { control: { kind, actor: 'operator:matrix' } }));
+      assert.equal(out.ok, true, JSON.stringify(out));
+      const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+      assert.equal(record.controlState, `${kind}-pending`, `old file-authenticated resolution cannot establish current external outcome/cessation (${kind})`);
+      assert.equal(record.pendingIntent.state, 'resolved', 'the legacy claim is preserved, not rewritten');
+      assert.deepEqual(record.pendingIntent.evidenceRef, { path: 'legacy-caller.json', sha256: 'a'.repeat(64) });
+      rmSync(fx.base, { recursive: true, force: true });
+    }
+  });
+
+  ltest('OWNER-CQ04 FLIP (route door): a legacy resolved intent routes hold with intent_outcome_uncertain on both the reconcile and status doors', async (t) => {
+    const fx = makeFixture(t);
+    seedLegacy(fx, legacyResolvedIntent);
+    const out = await reconcile(reconcileInput(fx, {}));
+    assert.equal(out.ok, true, JSON.stringify(out));
+    assert.equal(out.route, 'hold', JSON.stringify(out));
+    assert.equal(out.routeReason, 'intent_outcome_uncertain', 'a caller-file resolution claim gates the route exactly like a live unresolved intent');
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.status, 0, st.stdout + st.stderr);
+    assert.equal(st.json.route, 'hold', 'the ONE routing function answers both doors identically (A1-CODE-02)');
+    assert.equal(st.json.routeReason, 'intent_outcome_uncertain');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('OWNER-CQ04 FLIP (action-admission door): a legacy resolved intent blocks a new action — no second intent is planned over the unverified claim', async (t) => {
+    const fx = makeFixture(t);
+    const seeded = seedLegacy(fx, legacyResolvedIntent);
+    const out = await reconcile(reconcileInput(fx, { requestAction: 'work' }));
+    assert.equal(out.ok, false, JSON.stringify(out));
+    assert.equal(out.code, 'intent_outstanding');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.pendingIntent.actionId, seeded.pendingIntent.actionId, 'the legacy intent is still THE recorded intent — nothing new was planned');
+    assert.equal(record.pendingIntent.state, 'resolved');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('OWNER-CQ04 FLIP (completion door): a legacy resolved intent keeps both completion closed even with a current delivery recorded', async (t) => {
+    const fx = makeFixture(t);
+    seedLegacy(fx, (record) => {
+      legacyResolvedIntent(record);
+      record.delivery = { receipt: 'legacy-r0', candidateRevision: record.candidate.revision, destination: record.grants.destination, at: iso(), actionId: record.pendingIntent === null ? null : 'legacy-work', verified: false, evidence: null };
+    });
+    const out = await reconcile(reconcileInput(fx, { control: { kind: 'complete', actor: 'operator:matrix' } }));
+    assert.equal(out.ok, false, JSON.stringify(out));
+    assert.equal(out.code, 'intent_outstanding', 'completion would close the binding over an unverified external effect');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.controlState, 'active', 'the binding stays open until an actual independent read exists');
+    assert.equal(record.pendingIntent.state, 'resolved');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('OWNER-CQ04 FLIP (ack door): a bare ack over a legacy resolved intent is refused by name and retains the pending state', async (t) => {
+    const fx = makeFixture(t);
+    seedLegacy(fx, (record) => { legacyResolvedIntent(record); record.controlState = 'pause-pending'; record.controlRevision = 2; });
+    const out = await reconcile(reconcileInput(fx, { control: { kind: 'ack-cessation', actor: 'operator:matrix' } }));
+    assert.equal(out.ok, false, JSON.stringify(out));
+    assert.equal(out.code, 'cessation_unconfirmed');
+    assert.match(out.reason, /legacy resolved intent claim/, 'the refusal names the exact arm that cannot be settled');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.controlState, 'pause-pending', 'the pending state is retained with admission blocked');
+    assert.ok(record.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null));
     rmSync(fx.base, { recursive: true, force: true });
   });
 });

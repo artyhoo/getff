@@ -3,11 +3,11 @@
  *
  * Verbs: init | reconcile | status | pause | cancel | resume, plus the RESERVED
  * worker | review verbs that stage B owns. `resume` is unconditionally held in A1
- * (productionResumeHold, engine.mjs:168) — no CLI argument, grant file or record
+ * (productionResumeHold, engine.mjs:170) — no CLI argument, grant file or record
  * state can clear that hold; the scoped/revision/replay grant logic lives in record.mjs
  * as fixture-tested pure logic and is deliberately unreferenced from this file. worker|review are
  * stage-B live operations and always return unsupported_pending_prerequisite
- * (reservedVerbHold, engine.mjs:178) — never a simulated live success.
+ * (reservedVerbHold, engine.mjs:180) — never a simulated live success.
  *
  * Output contract: one JSON envelope on stdout, exit code 0 (ok) / 2 (structured
  * hold, reject or unsupported) / 1 (internal error) — the helper-CLI convention of
@@ -16,19 +16,19 @@
  * internal errors ALSO go through the JSON envelope (exit 1/2 + structured code/reason),
  * never plain-text stderr — a machine-consumed helper keeps one output channel.
  *
- * Engine entry points: initBinding engine.mjs:212, reconcile engine.mjs:452,
- * status engine.mjs:1306 (lock-free durable-state read).
+ * Engine entry points: initBinding engine.mjs:214, reconcile engine.mjs:458,
+ * status engine.mjs:1357 (lock-free durable-state read).
  *
  * Test seams (test-only; never exercised by production callers):
  *   --test-crash-after prewrite|intent|commit  — real self-SIGKILL at the named
- *       durable-write window (the killSelf sites: engine.mjs:680, 683 in
- *       rejectAfterPersist and engine.mjs:1285, 1288 in the main persist; the seam
- *       itself engine.mjs:202).
+ *       durable-write window (the killSelf sites: engine.mjs:694, 697 in
+ *       rejectAfterPersist and engine.mjs:1336, 1339 in the main persist; the seam
+ *       itself engine.mjs:204).
  *   --test-hold-before-bind <waitfile>         — poll until <waitfile> exists BEFORE
  *       acquiring the bind lock, so a test can stage a competing acquirer inside the
  *       contention window.
  *   --test-hold-lock-ms <n>                    — hold the acquired lock for n ms
- *       before releasing (engine.mjs:477).
+ *       before releasing (engine.mjs:483).
  */
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';

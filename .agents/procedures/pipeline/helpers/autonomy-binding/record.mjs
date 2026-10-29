@@ -323,10 +323,14 @@ export function validateRecord(value) {
   if (!isPlainObject(value.aif)) return reject('record_invalid', 'aif must be an object');
   if (value.aif.taskId !== null && !isNonEmptyString(value.aif.taskId)) return reject('record_invalid', 'aif.taskId must be a string or null');
   if (value.aif.claimRef !== null && !isNonEmptyString(value.aif.claimRef)) return reject('record_invalid', 'aif.claimRef must be a string or null');
-  // Fidelity-r1 F-2 (ack door): the bound task's confirmed cessation is a DURABLE fact —
-  // the evidence reference that established it and when. Both fields are set and cleared
-  // together by the engine's verified establishment boundary; `undefined` is tolerated on
-  // records written before this field existed and reads as UNCONFIRMED (the same legacy
+  // Fidelity-r1 F-2 (ack door), restated by the CQ-S01 compat repair: the bound task's
+  // cessationEvidence/cessationConfirmedAt pair is HISTORICAL CLAIM DATA. The original
+  // comment called it "a DURABLE fact … established by the engine's verified establishment
+  // boundary" — no such stage-A establishment exists or ever did (the stamp's writer was
+  // withdrawn with fidelity-r2 F-2 and no stage-A subsystem reader establishes those
+  // fields), so the fields are read only as legacy claim data and never as establishment.
+  // They are still validated for shape and set/cleared-togetherness so pre-repair records
+  // stay readable (no migration); `undefined` reads as UNCONFIRMED (the same legacy
   // posture as delivery.verified), never as confirmed.
   if (value.aif.cessationEvidence !== undefined && value.aif.cessationEvidence !== null && !isContentRefShape(value.aif.cessationEvidence)) {
     return reject('record_invalid', 'aif.cessationEvidence must be a {path, sha256} content reference or null');
@@ -458,47 +462,49 @@ export function hasLiveWorker(record) {
 }
 
 /**
- * Fidelity-r1 F-2 (ack door): has the bound AIF task's cessation been ESTABLISHED rather
- * than merely asserted? Since fidelity-r2 F-2 the durable stamp is LEGACY-ONLY: it was
- * written when a caller-supplied, digest-verifying evidence reference was (wrongly)
- * accepted as the subsystem's actual stop, and no stage-A path writes it any more (no
- * stage-A input establishes an external fact — establishment needs an actual independent
- * read of the referenced subsystem, a stage-B capability). Pre-repair records keep their
- * durable fields (no migration), but the doors/routes must not honor the stamp as a
- * current fact: the engine's ack gate re-checks nothing else — it treats every
- * non-worker arm as unconfirmed precisely because this stamp no longer has a writer.
- * `undefined`/null fields read as UNCONFIRMED, never confirmed.
- */
-function aifCessationConfirmed(aif) {
-  return aif.cessationConfirmedAt !== null
-    && aif.cessationConfirmedAt !== undefined
-    && isContentRefShape(aif.cessationEvidence);
-}
-
-/**
  * Fidelity-r1 F-2: the NON-WORKER external-work arms — referenced work whose cessation
- * the local caller CANNOT assert. A bound AIF task keeps this true (its legacy cessation
- * stamp has no stage-A writer since fidelity-r2 F-2, so the arm never resolves in stage
- * A); a pendingIntent never settles (intent resolution needs the same independent read
- * since fidelity-r2 F-1); native attempts keep their arm unconfirmed until stage B
- * defines their lifecycle (they are never written in A1, so this only ever tightens an
- * unreachable shape). These are exactly the arms a bare `ack-cessation` must NOT settle:
- * the ack is the WORKER's report about the directly-bound local worker — extending it to
- * referenced external subsystems on the caller's word alone would be a synthetic
- * acknowledgment. In stage A this function therefore returns true for every record with
- * referenced external work; stage B's live readers are the boundary that may clear it.
+ * or outcome the local caller CANNOT assert and NO stage-A reader establishes.
+ *
+ * CQ-S01 (compat repair): a bound AIF task keeps this arm true UNCONDITIONALLY. Its
+ * legacy `cessationEvidence`/`cessationConfirmedAt` stamp (written pre-fidelity-r2-F-2,
+ * when a caller-supplied digest-verifying evidence reference was wrongly accepted as the
+ * subsystem's actual stop) is HISTORICAL CLAIM DATA: no current stage-A subsystem reader
+ * establishes those fields, so the stamp must never release the bound task's cessation
+ * prerequisite at any door. Pre-repair records keep their durable fields (no migration);
+ * this predicate simply stops honoring them. The former `aifCessationConfirmed` helper
+ * (stamp present ⇒ confirmed) is deleted with this repair — it encoded exactly the
+ * claim-as-fact reading the owner harness falsified (a bound task's seeded legacy stamp
+ * let a bare ack complete a pause/cancel).
+ *
+ * OWNER-CQ04 (compat repair): ANY recorded pendingIntent keeps its arm true — including
+ * a legacy `state: 'resolved'` one carrying caller-file `resolution`/`evidenceRef`
+ * fields. Those fields are preserved as historical claim data (validateRecord still
+ * reads them), but they do not independently establish the external operation's outcome:
+ * caller-chosen bytes and their matching digest say nothing about the referenced
+ * subsystem's state, and since fidelity-r2 F-1 no stage-A writer resolves an intent, no
+ * `resolved` record is engine-reachable — the widened arm changes no live-path behavior.
+ *
+ * Native attempts keep their arm unconfirmed until stage B defines their lifecycle (they
+ * are never written in A1, so this only ever tightens an unreachable shape). These are
+ * exactly the arms a bare `ack-cessation` must NOT settle: the ack is the WORKER's report
+ * about the directly-bound local worker — extending it to referenced external subsystems
+ * on the caller's word alone would be a synthetic acknowledgment. In stage A this
+ * function therefore returns true for every record with referenced external work; stage
+ * B's live readers are the boundary that may clear it.
  */
 export function hasUnconfirmedNonWorkerExternalWork(record) {
-  if (record.aif !== null && isNonEmptyString(record.aif.taskId) && !aifCessationConfirmed(record.aif)) return true;
+  if (record.aif !== null && isNonEmptyString(record.aif.taskId)) return true;
   if (Array.isArray(record.nativeAttempts) && record.nativeAttempts.length > 0) return true;
-  return record.pendingIntent !== null && record.pendingIntent.state !== 'resolved';
+  return record.pendingIntent !== null;
 }
 
 /**
  * Fidelity-r1 F-2: is any EXTERNAL work bound whose cessation or outcome is not yet
- * confirmed? A live un-acked local worker is the original case; a bound AIF task, a
- * recorded native attempt, or an unresolved effect (a pendingIntent not yet `resolved`)
- * each INDEPENDENTLY keep pause/cancel cessation-pending. A missing/expired local worker
+ * confirmed? A live un-acked local worker is the original case; a bound AIF task (legacy
+ * cessation stamp included — historical claim data, never establishment), a recorded
+ * native attempt, or a recorded effect (a pendingIntent in ANY state — a legacy
+ * `resolved` claim establishes nothing; see hasUnconfirmedNonWorkerExternalWork) each
+ * INDEPENDENTLY keep pause/cancel cessation-pending. A missing/expired local worker
  * proves nothing about referenced external work: the design pins that «direct host
  * routine disable stops future wakes but does not by itself cancel an existing AIF task»,
  * so treating worker===null as cessation asserted a stop nobody confirmed.
@@ -527,19 +533,22 @@ export function applyControlTransition(record, { kind, actor, reason, now }) {
   if (to === undefined) {
     return reject('illegal_control_transition', `${kind} is not legal from ${record.controlState}`);
   }
-  // Fidelity-r1 F-2, narrowed by fidelity-r2 F-2 (ack door): an acknowledgement settles
-  // ONLY what it can actually attest. The worker arm settles on the worker's own report
-  // (stamped below); the non-worker arms — a bound AIF task, recorded native attempts,
-  // an unresolved effect — are referenced external work whose stop NO stage-A input can
-  // prove (a caller assertion or caller-chosen bytes is not the subsystem's state), so
-  // settling them on it would persist a fake stopped disposition. They are established
+  // Fidelity-r1 F-2, narrowed by fidelity-r2 F-2 and the CQ-S01/OWNER-CQ04 compat
+  // repairs (ack door): an acknowledgement settles ONLY what it can actually attest. The
+  // worker arm settles on the worker's own report (stamped below); the non-worker arms —
+  // a bound AIF task (its legacy cessation stamp is historical claim data, never
+  // establishment), recorded native attempts, a recorded effect (a legacy `resolved`
+  // intent claim included — its caller-file resolution establishes nothing) — are
+  // referenced external work whose stop NO stage-A input can prove (a caller assertion
+  // or caller-chosen bytes is not the subsystem's state), so settling them on it would
+  // persist a fake stopped disposition. They are established
   // only by an actual independent read of the referenced subsystem — a stage-B
   // live-read capability; the engine refuses the ack before reaching here, and this
   // record-layer gate is the last-resort defense for any arm that path does not cover.
   // Until that reader exists the pending state is retained with the persisted
   // cessation_unconfirmed hold.
   if (kind === 'ack-cessation' && hasUnconfirmedNonWorkerExternalWork(record)) {
-    return reject('cessation_unconfirmed', `a bare acknowledgement cannot settle referenced external work (${[record.aif !== null && isNonEmptyString(record.aif.taskId) ? 'bound aif task' : null, Array.isArray(record.nativeAttempts) && record.nativeAttempts.length > 0 ? 'native attempts' : null, record.pendingIntent !== null && record.pendingIntent.state !== 'resolved' ? 'unresolved effect' : null].filter(Boolean).join(', ') || 'unconfirmed external work'}) — the stop is established only by an actual independent read of the referenced subsystem (a stage-B capability, fidelity-r2 F-2); ${record.controlState} is retained and admission stays blocked`);
+    return reject('cessation_unconfirmed', `a bare acknowledgement cannot settle referenced external work (${[record.aif !== null && isNonEmptyString(record.aif.taskId) ? 'bound aif task' : null, Array.isArray(record.nativeAttempts) && record.nativeAttempts.length > 0 ? 'native attempts' : null, record.pendingIntent !== null ? (record.pendingIntent.state === 'resolved' ? 'legacy resolved intent claim' : 'unresolved effect') : null].filter(Boolean).join(', ') || 'unconfirmed external work'}) — the stop is established only by an actual independent read of the referenced subsystem (a stage-B capability, fidelity-r2 F-2); ${record.controlState} is retained and admission stays blocked`);
   }
   const next = structuredClone(record);
   next.controlState = to;
@@ -552,6 +561,52 @@ export function applyControlTransition(record, { kind, actor, reason, now }) {
   }
   next.updatedAt = now;
   next.history.push({ at: now, recordRevision: record.recordRevision, controlRevision: next.controlRevision, summary: `control ${kind}: ${record.controlState} -> ${to} (${actor})` });
+  if (next.history.length > HISTORY_MAX) next.history = next.history.slice(-HISTORY_MAX);
+  const checked = validateRecord(next);
+  if (!checked.ok) return checked; // never persist a record this module cannot re-read
+  return ok(next);
+}
+
+/**
+ * CQ-S03 (compat repair): persist a DIRECTLY BOUND, LOCAL-ONLY worker cessation
+ * acknowledgment as a durable fact WITHOUT any control transition. This is the
+ * record-layer's second gated cessation stamp writer (alongside `applyControlTransition`'s
+ * worker arm above): the engine calls it on an ACTIVE binding when a composed transfer
+ * acknowledgment arrives but successor admission is about to be refused (missing
+ * authority source, unresolvable feature home, open authority hold). The acknowledgment
+ * is a fact about the OLD local worker and must survive the refusal — otherwise a later
+ * VALID transfer would have to demand the same acknowledgment twice. Restoring the
+ * r1 blanket stamp here is NOT what this does: the gates below make the writer
+ * strictly local-only, so referenced external work can never be "stopped" by it.
+ *
+ * Strictly local-only by construction: a bound AIF task, recorded native attempts or a
+ * recorded pendingIntent (any state — see hasUnconfirmedNonWorkerExternalWork) refuse
+ * with `cessation_unconfirmed`; there is no external intent, effect or transition —
+ * controlState, controlRevision and custodyGeneration are untouched, and only
+ * worker.cessationAckedAt, recordRevision, updatedAt and the bounded history move.
+ * The F-2 invariant is thereby narrowed, not dropped: BOTH cessation stamp writers are
+ * record-layer gated, and the engine never hand-writes the field.
+ *
+ * Pure: returns {ok, value: nextRecord} or a structured reject. The caller persists the
+ * returned record under the binding lock.
+ */
+export function stampLocalWorkerCessation(record, { actor, now }) {
+  if (!isNonEmptyString(actor)) return reject('control_actor_required', 'a cessation acknowledgment needs a named actor');
+  if (!isIso(now)) return reject('control_timestamp_invalid', 'now must be an ISO-8601 UTC timestamp');
+  if (TERMINAL_STATES.includes(record.controlState)) {
+    return reject('control_state_terminal', `control state ${record.controlState} is terminal; a late local acknowledgment cannot reopen it`);
+  }
+  if (!hasLiveWorker(record)) {
+    return reject('custody_transfer_blocked', `no live un-acknowledged local worker to acknowledge (${record.worker === null ? 'no worker is bound' : `worker ${record.worker.sessionId} already acknowledged cessation at ${record.worker.cessationAckedAt}`})`);
+  }
+  if (hasUnconfirmedNonWorkerExternalWork(record)) {
+    return reject('cessation_unconfirmed', 'this acknowledgment is strictly local-only: referenced external work (a bound AIF task, native attempts or a recorded effect) is still unconfirmed, and a caller assertion cannot establish its stop (fidelity-r2 F-2)');
+  }
+  const next = structuredClone(record);
+  next.worker.cessationAckedAt = now;
+  next.recordRevision += 1; // every durable mutation is monotonic
+  next.updatedAt = now;
+  next.history.push({ at: now, recordRevision: record.recordRevision, controlRevision: next.controlRevision, summary: `worker cessation acknowledged for ${next.worker.sessionId} (local-only; no control transition) (${actor})` });
   if (next.history.length > HISTORY_MAX) next.history = next.history.slice(-HISTORY_MAX);
   const checked = validateRecord(next);
   if (!checked.ok) return checked; // never persist a record this module cannot re-read
@@ -683,6 +738,57 @@ export function initialRecord(bind, { now }) {
   const checked = validateRecord(record);
   if (!checked.ok) return checked;
   return ok(record);
+}
+
+/**
+ * CQ-S02 (compat repair): backfill the fixed-size admitted-identity accumulator from
+ * EVERY receipt identity still retained in bounded local state — the current `delivery`
+ * plus each `deliveryHistory` entry — BEFORE any new admission can supersede and evict
+ * them. Records written before the accumulator existed carry no `deliverySeen` at all,
+ * and the engine's legacy materialization created an EMPTY mask at delivery time without
+ * consulting those retained identities: the very first post-upgrade admission archived
+ * the old delivery into history, a later eviction dropped it from that window, and a
+ * genuinely-delivered receipt became indistinguishable from a fresh one — re-bindable as
+ * a NEWER candidate's delivery. Seeding closes that window deterministically: for each
+ * retained receipt whose bits are not yet set, set them (pure, fixed-size, never-unset —
+ * the same no-false-negative contract admission relies on).
+ *
+ * Honest limit preserved: identities ALREADY forgotten before the upgrade (present in
+ * neither the current delivery, the history window, nor a pre-existing mask) are not
+ * reconstructible from bounded state and stay forgotten — the pre-repair eviction limit
+ * remains their documented state, never silently claimed as closed. Distinct fresh
+ * receipts stay admissible (seeding only sets bits for RETAINED identities), storage
+ * stays bounded (the mask is fixed-size; the history keeps its own cap), and a mask
+ * that already covers every retained identity is a no-op: the INPUT record is returned
+ * (identity is the engine's «nothing moved» signal, mirroring addHold/clearHolds), so a
+ * repeated delivery pass burns no revision.
+ *
+ * Pure: returns {ok, value: record} or a structured reject. No recordRevision/updatedAt
+ * movement of its own — the engine's durable-write tail bump covers the mutation,
+ * exactly like the in-place step mutations it composes with.
+ */
+export function seedDeliverySeenFromRetained(record) {
+  const retained = [];
+  if (record.delivery !== null && isNonEmptyString(record.delivery.receipt)) retained.push(record.delivery.receipt);
+  if (Array.isArray(record.deliveryHistory)) {
+    for (const superseded of record.deliveryHistory) {
+      if (superseded !== null && isNonEmptyString(superseded.receipt)) retained.push(superseded.receipt);
+    }
+  }
+  let bits = record.deliverySeen !== undefined && record.deliverySeen !== null ? record.deliverySeen.bits : seenMaskEmptyHex();
+  let changed = false;
+  for (const receipt of retained) {
+    if (!seenMaskMayHaveSeenHex(bits, receipt)) {
+      bits = seenMaskAddHex(bits, receipt);
+      changed = true;
+    }
+  }
+  if (!changed) return ok(record);
+  const next = structuredClone(record);
+  next.deliverySeen = { bits };
+  const checked = validateRecord(next);
+  if (!checked.ok) return checked; // never persist a record this module cannot re-read
+  return ok(next);
 }
 
 /** Append a hold (deduplicated on code+reason); every hold carries a concrete recovery action. */
