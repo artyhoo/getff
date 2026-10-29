@@ -34,9 +34,9 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 |---|---|
 | name | `inject-handoff-on-compact` |
 | kind | hook |
-| ships-to | not installed on any lane (no-lane) |
+| ships-to | framework: react-native, react-next, react-spa, ts-server |
 | description | SessionStart:compact hook — re-injects the model-authored handoff after compaction |
-| source | `.claude/hooks/inject-handoff-on-compact.sh:2` |
+| source | `.agents/hooks/inject-handoff-on-compact.sh:2` |
 | event | `["SessionStart"]` |
 | matcher | `["compact"]` |
 | delivery | `["@cc-only-rationale"]` |
@@ -142,8 +142,13 @@ session start must never break the session start.
 - Spec: `.claude/hooks/inject-handoff-on-compact.sh:12` names it —
   `# spec: docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md (D20)`.
 - No plugin twin exists: the plugin SessionStart slot is held by the bootstrap hook, and
-  consumers receive no residue writer, so there would be no file to inject. That is why
-  the card's delivery row carries only the CC-only marker.
+  the plugin channel ships no residue writer to pair with one. Consumers at `env` depth or
+  deeper — or any `--with-aif-suite` install — do receive the writer itself on the npm
+  lanes: `setup.d/10-skills.sh:457` copies `precompact-residue.sh` into `.claude/hooks/`,
+  and this hook ships on the same gate. The toolchain lanes never reach that gate:
+  `install.sh:733-745` runs each of them as its own lane body and exits before the skills
+  layer, delivering the curated four-skill surface instead (`setup.d/lib.sh:2107`). That
+  is why the card's delivery row carries only the CC-only marker.
 - Paired test: `packages/core/hooks/inject-handoff-on-compact.test.ts` — its opening line
   (line 2) names this hook as «the D20 injection pipe of the handoff-currency gate», and
   the header (lines 8-10) states the mirror contract: the gate makes the model maintain a

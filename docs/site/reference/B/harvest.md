@@ -6,6 +6,7 @@ generator: scripts/render-reference.mjs
 sources:
   - .claude/skills/harvest/SKILL.md
   - scripts/run-local-ci-sweep.sh
+  - install.sh
   - setup.d/10-skills.sh
   - setup.d/lib.sh
   - docs/site/reference/B.json
@@ -30,9 +31,9 @@ What each row means: [how to read a fact card](../B.md#how-to-read-a-fact-card).
 |---|---|
 | name | `harvest` |
 | kind | skill |
-| ships-to | no lane (no-lane) |
+| ships-to | factory: react-native, react-next, react-spa, ts-server |
 | description | Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invocation channel: explicit /harvest only — disable-model-invocation:true is a channel flag and not a permission (§0). |
-| source | `.claude/skills/harvest/SKILL.md:3` |
+| source | `.agents/procedures/harvest/SKILL.md:3` |
 | invocation | slash-only |
 | posture | portable |
 | operator-twin | .claude/skills/harvest/SKILL.md |
@@ -54,9 +55,17 @@ depth is built around. That runtime executes each task in a container, on a bran
 its own. "Harvest" means bringing that branch out of the container and opening the pull
 request. If you do not run that runtime, this skill has nothing to work on.
 
-The card says `ships-to: no lane`. What is true: the skill installs when you pass
-`--profile factory` or `--with-aif-suite`. The [family overview](../B.md) explains why
-the card reads otherwise.
+The card says `ships-to: factory`: the skill installs when you pass `--profile factory`
+or `--with-aif-suite` — and only on the four npm [lanes](../../terms.md#lane) the card
+names (react-native, react-next, react-spa, ts-server). The install dispatcher runs each
+toolchain lane as its own lane body and exits before the skills layer is ever reached
+(`install.sh:733-745`), so a Python, Cargo or Go project never receives this skill at any
+depth — those lanes get the curated four-skill surface instead (`setup.d/lib.sh:2107`).
+`setup.d/10-skills.sh:179` copies the whole factory roster on that gate, wherever the
+layer is reached. No captured install fingerprint is a factory-depth capture — harvest
+appears in none — so the card's stacks are measured from the residue pair, the sibling
+depth-gated member of the same layer whose fingerprints carry exactly these four stacks;
+the [family overview](../B.md) keeps the lane-by-lane reading.
 
 You start it yourself. Type `/harvest` in [Claude Code](../../terms.md#claude-code),
 followed by a task id or a branch name if you like. The agent never starts it alone,
@@ -117,6 +126,12 @@ CI-only, and the skill says so: whole-tree Markdown checks are not in the local 
 - The list of `factory` skills (six members, `intent` sixth) is line 65 of `setup.d/lib.sh`. The loop that copies
   them runs only for `factory` or `--with-aif-suite`: `setup.d/10-skills.sh`, lines 179
   to 183.
+- The npm-lane-only scope: `install.sh`, lines 733 to 745, dispatches the python, cargo
+  and go lanes to their own lane bodies and exits before the layer loop runs; the curated
+  surface those lanes get instead is `_lane_deliver_agent_surface`,
+  `setup.d/lib.sh:2107`. The card's stacks are measured from the residue-pair member
+  (`.claude/hooks/inject-handoff-on-compact.sh`), which the captured fingerprints carry in
+  exactly the four npm stacks — eight lane files, none on a toolchain stack.
 - The same block delivers `scripts/run-local-ci-sweep.sh` next to the skill:
   `setup.d/10-skills.sh`, lines 184 to 191. The usage text printed above is lines 234 to
   239 of that script.

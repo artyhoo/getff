@@ -129,6 +129,152 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     });
   }
 
+  // ── Negative controls: the ordered comparison must read the rendered bytes ───────────────
+  //
+  // The green arms above prove equality on the CURRENT bytes; these three mutate the loaded
+  // render's TEXT (not the extracted list) with the minimal drift a silent re-render or a hand
+  // edit could introduce, re-extract, and prove the SAME `renderedSteps` + ordered `key`
+  // comparison goes RED on it. If any of these ever passes, the comparison has gone vacuous —
+  // the extractor stopped matching the real markers, or equality degenerated to shape/counts.
+  it('a reordered rendered guide is detected (the comparison is not vacuous)', () => {
+    const profile = Object.keys(source.sequences)[0] as string;
+    const section = sections.get(profile) as string;
+    const markerRe = /<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->/g;
+    const marks: Array<{ start: number; end: number }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = markerRe.exec(section)) !== null) {
+      marks.push({ start: m.index, end: markerRe.lastIndex });
+    }
+    expect(marks.length).toBeGreaterThanOrEqual(2);
+    const first = marks[0] as { start: number; end: number };
+    const second = marks[1] as { start: number; end: number };
+    // Swap block A (first marker + its step prose) past block B in the raw markdown.
+    const blockA = section.slice(first.start, second.start);
+    const blockB = section.slice(second.start);
+    const mutated = `${section.slice(0, first.start)}${blockB}${blockA}`;
+    expect(mutated).not.toBe(section);
+    expect(
+      renderedSteps(mutated).map(key),
+      'extraction swallowed the swap — the ordered comparison is vacuous',
+    ).not.toEqual((source.sequences[profile] as SourceSequence).steps.map(key));
+  });
+
+  it('a renamed step id in the render is detected (marker ids are load-bearing)', () => {
+    const profile = Object.keys(source.sequences)[0] as string;
+    const section = sections.get(profile) as string;
+    const steps = renderedSteps(section);
+    expect(steps.length).toBeGreaterThan(0);
+    const firstId = (steps[0] as { id: string }).id;
+    const mutated = section.replace(
+      `<!-- step: ${firstId} -->`,
+      `<!-- step: ${firstId}-drifted -->`,
+    );
+    expect(mutated).not.toBe(section);
+    expect(
+      renderedSteps(mutated).map(key),
+      'a marker-id drift survived extraction — ids are not load-bearing',
+    ).not.toEqual((source.sequences[profile] as SourceSequence).steps.map(key));
+  });
+
+  it('a rewritten step title in the render is detected (titles are compared, not skipped)', () => {
+    const profile = Object.keys(source.sequences)[0] as string;
+    const section = sections.get(profile) as string;
+    const steps = renderedSteps(section);
+    expect(steps.length).toBeGreaterThan(0);
+    const firstTitle = (steps[0] as { title: string }).title;
+    const mutated = section.replace(
+      `**${firstTitle}**`,
+      `**${firstTitle} (draft)**`,
+    );
+    expect(mutated).not.toBe(section);
+    expect(
+      renderedSteps(mutated).map(key),
+      'a title drift survived extraction — only ids are compared',
+    ).not.toEqual((source.sequences[profile] as SourceSequence).steps.map(key));
+  });
+
+  // ── Rendered BODY payload parity (the R5 afc7faea gap) ───────────────────────────────────
+  //
+  // Every arm above compares (id, title) order or the JSON source's own tier claims. None reads
+  // the rendered step BODY, and the R5 review proved the hole with a live counterexample
+  // (afc7faea): swapping the env verify-payload's `.claude/skills/arch/` for the factory-only
+  // `.claude/skills/harvest/` — ids, titles and order untouched — left all 42 arms green. A
+  // render that rewords prose is legitimate; a render that invents or re-tiers a PAYLOAD span
+  // (path, command, flag) is exactly the drift this SSOT exists to prevent.
+  //
+  // Direction: every payload span in a rendered step body must come from THAT step's source
+  // action/evidence. Containment runs render → source: the render may reword and may omit, but
+  // every payload it still claims must be traceable to the step's canonical data.
+  const isPayloadSpan = (s: string): boolean =>
+    s.includes('/') ||
+    /^--?/.test(s) ||
+    /\s/.test(s) ||
+    /\.(?:sh|mjs|cjs|md|json|toml|ya?ml|tsx?)\b/.test(s);
+  const spanRe = /`([^`\n]+)`/g;
+  const alienSpans = (
+    section: string,
+    sequence: SourceSequence,
+  ): Array<{ step: string; span: string }> => {
+    const byId = new Map(sequence.steps.map((s) => [s.id, s] as const));
+    const blockRe =
+      /<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->\s*\n\s*\d+\.\s+\*\*.+?\*\*([\s\S]*?)(?=<!--\s*step:|^###\s)/gm;
+    const aliens: Array<{ step: string; span: string }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = blockRe.exec(section)) !== null) {
+      const src = byId.get(m[1] as string);
+      if (src === undefined) continue; // orphan markers have their own arm above
+      const haystack = `${src.action}\n${src.evidence}`;
+      let sp: RegExpExecArray | null;
+      const bodyRe = new RegExp(spanRe.source, 'g');
+      while ((sp = bodyRe.exec(m[2] as string)) !== null) {
+        const span = (sp[1] as string).trim();
+        if (
+          span.length > 0 &&
+          isPayloadSpan(span) &&
+          !haystack.includes(span)
+        ) {
+          aliens.push({ step: m[1] as string, span });
+        }
+      }
+    }
+    return aliens;
+  };
+
+  for (const profile of Object.keys(source.sequences)) {
+    it(`\`${profile}\`: every payload span in the rendered body traces to that step's source`, () => {
+      const sequence = source.sequences[profile] as SourceSequence;
+      const section = sections.get(profile) as string;
+      expect(
+        alienSpans(section, sequence),
+        "rendered payload spans not present in the step's source action/evidence",
+      ).toEqual([]);
+    });
+  }
+
+  it('the exact env arch→harvest body corruption is rejected (afc7faea regression)', () => {
+    const profile = 'env';
+    const sequence = source.sequences[profile] as SourceSequence;
+    const section = sections.get(profile) as string;
+    expect(section).toBeDefined();
+    const clean = alienSpans(section, sequence);
+    expect(clean, 'the real guide must pass the payload check first').toEqual(
+      [],
+    );
+    // The exact R5 counterexample: swap the env-tier arch skill for the factory-only
+    // harvest in the rendered verify-payload body. Ids, titles and order stay identical.
+    const corrupted = section.replace(
+      '`.claude/skills/arch/`',
+      '`.claude/skills/harvest/`',
+    );
+    expect(corrupted).not.toBe(section);
+    const aliens = alienSpans(corrupted, sequence);
+    expect(
+      aliens.map((a) => a.span),
+      'the corrupted body sailed through — payload parity is vacuous',
+    ).toContain('.claude/skills/harvest/');
+    expect(aliens.every((a) => a.step === 'verify-payload')).toBe(true);
+  });
+
   // ── Profile claims vs setup.d/lib.sh (ledger A8-3) ──────────────────────────────────────
   //
   // The arms above compare the SOURCE to its RENDER. Nothing compared either to the INSTALLER,

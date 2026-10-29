@@ -29,9 +29,10 @@ Ten minutes, nothing modified.
 ## Prerequisites
 
 - A project where getff is installed at a [depth](../terms.md#depth) that
-  ships hooks — the `ts-server`, `react-next`, `react-spa`, `react-native`,
-  and `python` [lanes](../terms.md#lane) all do. The `cargo` and `go` lanes
-  ship none of this family.
+  ships hooks. The four npm [lanes](../terms.md#lane) ship the fuller sets,
+  and every lane — `python`, `cargo` and `go` included — ships the two
+  every-lane members, `deps-hash-check` and `inject-matching-rule`, wired
+  into `.claude/settings.json` the same way.
 - `jq` on your PATH. Every hook in the family degrades safely without it, but
   the registry reads below do not.
 
@@ -117,11 +118,12 @@ Ten minutes, nothing modified.
 ## Variations
 
 - **A consumer install, not a getff checkout.** The outputs above come from a
-  checkout, where all 25 family members live. Your install ships a subset:
-  the cards' ships-to row says which — `framework:` lanes get the eight
-  user-facing hooks, `plugin` members need the getff plugin installed, and
-  anything marked `not installed on any lane` never leaves the getff team's
-  own repository.
+  checkout, where all 28 family members live. Your install ships a subset:
+  the cards' ships-to row says which — the four npm lanes get the eight
+  npm-only members plus the two every-lane members (`deps-hash-check`,
+  `inject-matching-rule`) that `python`, `cargo` and `go` receive too,
+  `plugin` members need the getff plugin installed, and anything marked
+  `not installed on any lane` never leaves the getff team's own repository.
 - **You want to see a hook say no, not just advise.** Most of this family
   injects and always exits 0. The `check-` members are
   [gates](../terms.md#gate) that can block an edit; their pages each carry a

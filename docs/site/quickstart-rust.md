@@ -3,6 +3,7 @@ title: Quick start for Rust
 description: Install getff into a Cargo project and watch clippy refuse a banned call in your own code.
 kind: face-page
 sources:
+  - AGENTS.md
   - docs/site/face-facts.json
   - docs/site/installation.md
   - docs/site/quickstart-go.md
@@ -50,9 +51,13 @@ cd /your/project
 bash /tmp/rt/setup -y cargo
 ```
 
-The installer writes four things: `clippy.toml` with the bans, `deny.toml` as a starter
-for dependency bans, a CI workflow, and a note in `.getff/` that you will use in step 3. It also leaves an
-`.ai-factory/` folder and an install log.
+The installer writes four Rust enforcement files: `clippy.toml` with the bans, `deny.toml`
+as a starter for dependency bans, a CI workflow, and a note in `.getff/` that you will use
+in step 3. It also leaves an install log. On top of those files the lane delivers the agent
+surface every lane gets: fenced `AGENTS.md`, the `.ai-factory/` passport folder (including
+`AI-USAGE-GUIDE.md`), four generic [skills](terms.md#skill) (`getff`, `tool-bootstrapping`,
+`rule-research`, `rule-tests`), two rule agents, project hooks and a project `.mcp.json`
+(context7 + deepwiki). None of that is Rust-specific.
 Then it tests itself in a temporary folder:
 
 ```text
