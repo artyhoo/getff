@@ -181,7 +181,12 @@
       "kind": "skill",
       "shipsTo": {
         "tier": "factory",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invocation channel: explicit /harvest only — disable-model-invocation:true is a channel flag and not a permission (§0).",
       "source": {

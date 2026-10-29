@@ -146,8 +146,9 @@ bash /tmp/rt/setup ts-server                 # or react-next; omit to get a stac
 
 `./setup` is the one-click orchestrator (framework + companions + runtime-bridge). Flags:
 
-- `--yes` — non-interactive consumer default: skip the prompts, install missing companions, install the dev-dependencies, run the bridge step; ships the curated consumer set only.
-- `--all` — everything: `--yes` PLUS the AIF operator suite (5 skills + 2 agents + their skill-context — presupposes the aif-handoff runtime; operator machines).
+- `--yes` — non-interactive consumer default: skip the prompts, install missing project-scope companions, install the dev-dependencies, run the bridge step; ships the curated consumer set only. Machine-global companions (user-scope plugins/MCP, `npm -g`) are skipped with a «NOT wired» notice — they need `--global`.
+- `--global` — allow machine-global companion installs under `--yes` (user-scope plugins/MCP servers, `npm -g`).
+- `--all` — everything: `--yes --global` PLUS the AIF operator suite (6 skills + 2 agents + their skill-context — presupposes the aif-handoff runtime; operator machines).
 - `--dry-run` — print the full plan, write nothing.
 
 It runs four steps:
@@ -214,7 +215,7 @@ Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/compa
 
 - **Detect-first:** a companion that is already present is skipped.
 - **Consent per companion (interactive):** `Install <name>? [y/N]` — default is N; no companion is mandatory. When stdin is not a tty (piped / CI), prompts fall through to N automatically.
-- **Headless:** `--yes` / `--all` install every missing manifest companion without prompting (for companions the two are equivalent; `--all` additionally ships the AIF operator suite — see Installation flags above); `--dry-run` prints what would be installed.
+- **Headless:** `--yes` / `--all` install missing manifest companions without prompting — project-scope companions under both; `--yes` alone skips machine-global companions with a «NOT wired» notice, while `--all` (= `--yes --global`) allows them and additionally ships the AIF operator suite — see Installation flags above; `--dry-run` prints what would be installed.
 - **Official installers only, no version pin** — currently Superpowers via `claude plugin install superpowers@claude-plugins-official`, and ast-grep (structural code search: CLI via `npm install -g @ast-grep/cli`, then the official `ast-grep/agent-skill` plugin).
 - **External services** (manifest kind `external-service` — the aif-handoff runtime-bridge) are not plain installs; they route to the guided-detect bridge step (`./setup` step 4) instead.
 
@@ -302,10 +303,10 @@ The framework is **AI-agnostic by design** — any harness with a CC-compatible 
 **Supported today:**
 - **Claude Code** — primary dogfood harness; deepest coverage (hook-by-hook census: [doctrine §2](.claude/rules/zcode-parity-doctrine.md)).
 - **ZCode** — full parity via plugin channel + `_zcode-emit` helper; consumers install from the same GitHub marketplace (see «As a ZCode plugin» above). Four CC-only events (`SubagentStart`, `SubagentStop`, `WorktreeCreate`, `PreCompact`) have documented fallbacks or accepted CC-only rationale per the doctrine §4.
+- **Codex CLI** — bounded native hook adapter: consumer installs deliver project-local `.codex/hooks.json` plus the shared adapter, its entry-point dependency and language resolver; definitions derive only from the registered, delivered framework checks, activation requires project and exact-definition trust via Codex `/hooks` (never granted by the install), and missing Node or customized definitions produce an explicit not-wired notice ([docs/codex-contributor.md](docs/codex-contributor.md)).
 - **Cursor** — high CC-overlap (native `SubagentStart`/`Stop`, lifecycle hooks). Listed based on docs-verification in the [S8 agnosticism survey](docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md); live end-to-end testing is a follow-up.
 
 **Roadmap (FEASIBLE-WITH-WORK — adapter needed):**
-- **Codex CLI** — lifecycle hooks present; per-tool matcher adapter needed.
 - **Windsurf** — Cascade Hooks present; taxonomy adapter needed.
 
 **Out-of-scope:**

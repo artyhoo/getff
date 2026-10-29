@@ -117,12 +117,16 @@
         "line": 149
       },
       {
-        "flag": "--all",
+        "flag": "--global",
         "line": 150
       },
       {
-        "flag": "--dry-run",
+        "flag": "--all",
         "line": 151
+      },
+      {
+        "flag": "--dry-run",
+        "line": 152
       }
     ]
   },
@@ -140,31 +144,31 @@
           {
             "id": "install",
             "title": "Install at core depth",
-            "action": "On npm stack layers: From your project root run `bash <getff>/setup -y --profile core <stack>` — `core` must be named, because `-y` on its own resolves to `env` (install.sh:648). (stacks: ts-server, react-next, react-spa, react-native; `python`, `cargo` and `go` are separate non-npm toolchain lanes, each an explicit positional — `./setup cargo` or `bash install.sh cargo`, the wrapper forwards lanes verbatim). Omit the stack to auto-detect.",
+            "action": "On npm stack layers: From your project root run `bash <getff>/setup -y --profile core <stack>` — `core` must be named, because `-y` on its own resolves to `env` (install.sh:648). (stacks: ts-server, react-next, react-spa, react-native; `python`, `cargo` and `go` are separate non-npm toolchain lanes, each an explicit positional — `./setup python`, `./setup cargo`, `./setup go`, or `bash install.sh <lane>`; those lanes need no `package.json`, and the wrapper forwards lanes verbatim). Omit the stack to auto-detect.",
             "evidence": "install.sh; setup.d/30-templates.sh"
           },
           {
             "id": "verify-payload",
             "title": "Verify the payload landed",
-            "action": "On npm stack layers: `ls AGENTS.md .ai-factory/ scripts/` — you should see AGENTS.md, `.ai-factory/{DESCRIPTION.md,ARCHITECTURE.md,RULES.md}` and `scripts/audit-ai-docs.sh`. These payload requirements apply to npm stacks; toolchain lanes use their native payload lists. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: `ls AGENTS.md .ai-factory/ scripts/` — you should see AGENTS.md, `.ai-factory/{DESCRIPTION.md,ARCHITECTURE.md,RULES.md}` and `scripts/audit-ai-docs.sh`. These payload requirements apply to npm stacks; toolchain lanes use their native payload lists. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "tests/install-sh/f8d-ai-factory-sot-materialized.test.sh"
           },
           {
             "id": "fill-passport",
             "title": "Fill the project passport",
-            "action": "On npm stack layers: Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md` (domain, stack, constraints, non-goals). This is the file AGENTS.md sends every future session to first, so a passport left unfilled degrades every later session. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md` (domain, stack, constraints, non-goals). This is the file AGENTS.md sends every future session to first, so a passport left unfilled degrades every later session. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "packages/core/templates/shared/DESCRIPTION.template.md"
           },
           {
             "id": "prove-rules-not-inert",
             "title": "Prove the rules are not inert on your layout",
-            "action": "On npm stack layers: `bash scripts/check-rule-globs.sh` — fails when a shipped custom rule matches ZERO files in your layout, i.e. it is installed but silently enforcing nothing. If it fires, widen `RULE_GLOBS` in `eslint.config.mjs` to cover your layout. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: `bash scripts/check-rule-globs.sh` — fails when a shipped custom rule matches ZERO files in your layout, i.e. it is installed but silently enforcing nothing. If it fires, widen `RULE_GLOBS` in `eslint.config.mjs` to cover your layout. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "scripts/check-rule-globs.sh (shipped at core; verified in a temp consumer 2026-08-08)"
           },
           {
             "id": "watch-a-rule-fire",
             "title": "Watch a rule actually fire",
-            "action": "On npm stack layers: `bash scripts/check-fences-fire.sh` — plants deliberately-bad input in a temp dir and asserts the installed ESLint rules go RED on it. This is the first-rule-fires moment: an installed rule that has never been seen to fire is an unproven claim. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: `bash scripts/check-fences-fire.sh` — plants deliberately-bad input in a temp dir and asserts the installed ESLint rules go RED on it. This is the first-rule-fires moment: an installed rule that has never been seen to fire is an unproven claim. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "scripts/check-fences-fire.sh (shipped at core; prior-art-evaluations.md#184)"
           },
           {
@@ -176,13 +180,13 @@
           {
             "id": "run-the-gate",
             "title": "Run the gate you will run every day",
-            "action": "On npm stack layers: `bash scripts/audit-ai-docs.sh` — drift + code-vs-docs probes (~10 sec). Expect findings on a fresh project; the INSTALL-FOR-AI «Expected first-run failures» table lists which ones are normal. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: `bash scripts/audit-ai-docs.sh` — drift + code-vs-docs probes (~10 sec). Expect findings on a fresh project; the INSTALL-FOR-AI «Expected first-run failures» table lists which ones are normal. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "scripts/audit-ai-docs.sh"
           },
           {
             "id": "research-your-stack",
             "title": "Continue into rule research in the same session",
-            "action": "On npm stack layers: Invoke `/rule-research` (or read `.claude/agents/rule-researcher.md` on a harness without skills). The installer delivered a curated starter set; researching stack-specific rules from live documentation is the next step of the same lifecycle, not a later project. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: Invoke `/rule-research` (or read `.claude/agents/rule-researcher.md` on a harness without skills). The installer delivered a curated starter set; researching stack-specific rules from live documentation is the next step of the same lifecycle, not a later project. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": ".claude/skills/rule-research/SKILL.md (shipped at core)"
           }
         ]
@@ -200,19 +204,19 @@
           {
             "id": "verify-payload",
             "title": "Verify the payload landed",
-            "action": "On npm stack layers: `ls AGENTS.md .ai-factory/ scripts/` plus `.ai-factory/tier-home.md` and the five skills env adds over core: `.claude/skills/arch/`, `.claude/skills/night-mode/`, `.claude/skills/orchestrator/`, `.claude/skills/pipeline/` and `.claude/skills/reviewer/`. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: `ls AGENTS.md .ai-factory/ scripts/` plus `.ai-factory/tier-home.md` and the five skills env adds over core: `.claude/skills/arch/`, `.claude/skills/night-mode/`, `.claude/skills/orchestrator/`, `.claude/skills/pipeline/` and `.claude/skills/reviewer/`. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "setup.d/30-templates.sh (tier-home at env+); verified in a temp consumer 2026-08-08"
           },
           {
             "id": "fill-passport",
             "title": "Fill the project passport",
-            "action": "On npm stack layers: Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md`. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md`. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "packages/core/templates/shared/DESCRIPTION.template.md"
           },
           {
             "id": "prove-rules-not-inert",
             "title": "Prove the rules are not inert on your layout",
-            "action": "On npm stack layers: `bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: `bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "scripts/check-rule-globs.sh; scripts/check-fences-fire.sh"
           },
           {
@@ -242,19 +246,19 @@
           {
             "id": "verify-payload",
             "title": "Verify the payload landed",
-            "action": "On npm stack layers: `ls .claude/skills/` — on top of env you should see `.claude/skills/dispatcher/`, `.claude/skills/aif-doctor/`, `.claude/skills/harvest/`, `.claude/skills/story/`, `.claude/skills/claude-glm-executor-handoff/` and `.claude/skills/intent/`. `pipeline` and `night-mode` are NOT factory additions — they arrive with env+ and are already there. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: `ls .claude/skills/` — on top of env you should see `.claude/skills/dispatcher/`, `.claude/skills/aif-doctor/`, `.claude/skills/harvest/`, `.claude/skills/story/`, `.claude/skills/claude-glm-executor-handoff/` and `.claude/skills/intent/`. `pipeline` and `night-mode` are NOT factory additions — they arrive with env+ and are already there. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "setup.d/10-skills.sh; verified in a temp consumer 2026-08-08"
           },
           {
             "id": "fill-passport",
             "title": "Fill the project passport",
-            "action": "On npm stack layers: Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md`. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md`. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "packages/core/templates/shared/DESCRIPTION.template.md"
           },
           {
             "id": "prove-rules-not-inert",
             "title": "Prove the rules are not inert on your layout",
-            "action": "On npm stack layers: `bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: `bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install the common AGENTS.md, passport, four skills and two rule agents, not the npm skill roster.",
             "evidence": "scripts/check-rule-globs.sh; scripts/check-fences-fire.sh"
           },
           {
@@ -303,6 +307,8 @@
       "cargo": {
         "verification": [
           "set -e",
+          "test -f AGENTS.md",
+          "test -f .ai-factory/DESCRIPTION.md",
           "test -f .github/workflows/getff-cargo.yml",
           "clippy_config_dir=$(mktemp -d)",
           "trap 'rm -rf \"$clippy_config_dir\"' EXIT",
@@ -318,6 +324,8 @@
       "go": {
         "verification": [
           "set -e",
+          "test -f AGENTS.md",
+          "test -f .ai-factory/DESCRIPTION.md",
           "test -f .github/workflows/getff-go.yml",
           "getff_go_config=.golangci.yml",
           "[ ! -f getff-golangci.yml ] || getff_go_config=getff-golangci.yml",

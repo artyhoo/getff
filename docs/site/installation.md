@@ -64,7 +64,7 @@ The command asks a few questions as it goes. Three flags change that:
 | Flag | What it does |
 |---|---|
 | `--dry-run` | Prints the full plan and writes nothing. |
-| `-y` (or `--yes`) | Answers yes to the prompts, installs the development dependencies, and runs the [self-check](terms.md#self-check) at the end. |
+| `-y` (or `--yes`) | Answers yes to the prompts, installs the development dependencies, and runs the [self-check](terms.md#self-check) at the end. Project-local only: machine-global companions are skipped unless `--global` is passed. |
 | `--profile core` (or `env`, `factory`) | Picks the [depth](terms.md#depth). See [What gets installed](#what-gets-installed). |
 
 ### Preview first
@@ -116,7 +116,7 @@ before: `package.json` and `src`.
 Two lines need a word. `AI Factory templates → .ai-factory/` is the folder of guidance
 files every install gets. The folder keeps `AI Factory`, a name the project used before; the glossary lists it
 under [getff](terms.md#getff). The folder works without any other tool. `Companions` are optional outside tools the wrapper offers to set up, such as
-the superpowers skills and ast-grep. It skips any you already have.
+the superpowers skills and ast-grep. It skips any you already have. A companion that installs machine-globally (user-scope plugin, user-scope MCP server) is never added by a plain `-y` run: without `--global` it is skipped and reported as not wired, not silently installed.
 
 The name `rules-as-tests-aif` in the output is the project's older name. It is the same
 tool.
@@ -196,13 +196,17 @@ The [depth](terms.md#depth) decides how much agent tooling comes on top:
 |---|---|---|
 | `core` | Six [skills](terms.md#skill) that help an agent write and test rules. | You want the rules and gates and little else. |
 | `env` | Five more skills for design, review, and multi-step work. | You work with an AI agent every day. This is the default. |
-| `factory` | Five more skills and the pieces that drive a task runtime. | You run `aif-handoff`, a separate task runtime. |
+| `factory` | Six more skills and the pieces that drive a task runtime. | You run `aif-handoff`, a separate task runtime. |
 
-The `python` [lane](terms.md#lane) gets four of the skills. The `cargo` and `go` lanes
-get none, only the rules and gates. To move an existing install to a deeper depth,
+The `python`, `cargo` and `go` [lanes](terms.md#lane) get the common agent surface on top
+of their rules and gates: fenced `AGENTS.md`, the `.ai-factory/` passport, four generic
+[skills](terms.md#skill) (`getff`, `tool-bootstrapping`, `rule-research`, `rule-tests`),
+two rule agents, hooks and a project `.mcp.json`; `python` additionally materializes
+`ARCHITECTURE.md` and `RULES.md`. The npm-only `env` and `factory` skill rosters are what
+these lanes do not get. To move an existing install to a deeper depth,
 follow [Add the design and review skills](guides/add-design-and-review-skills.md).
 
-The three depths add up to sixteen skills. The getff repository holds two more that it
+The three depths add up to seventeen skills. The getff repository holds two more that it
 uses on itself and does not install.
 
 How finished each stack is differs. The [Introduction](index.md#honest-status) shows the
