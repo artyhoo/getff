@@ -99,6 +99,31 @@ that could not advance it past the hold would ship a route with no completion. C
 file (`cliEntry`/`backend`/`aifHttp` + `resultReview` already here). The helper it validates
 against ships inside the `intent` skill tree (factory delivery), not this copy.
 
+### OCR-reuse modules (getff-ocr-reuse C1a+C1b, 2026-10-29)
+
+| File                          | Reached from                                                      |
+| ----------------------------- | ----------------------------------------------------------------- |
+| `src/ocrCoverage.ts`          | `src/cli/ocrTrustedReview.ts` → `../ocrCoverage.js`               |
+| `src/cli/ocrTrustedReview.ts` | nothing in this copy — operator/agent-run CLI, caller wiring open |
+
+`src/ocrCoverage.ts` compares a parsed public OCR (`@alibaba-group/open-code-review`
+v1.13.3 manifest shapes) result against an independent caller expectation. It is vendored
+as a source candidate; C1b's `src/cli/ocrTrustedReview.ts` imports it as its final
+coverage gate.
+
+`src/cli/ocrTrustedReview.ts` is the admitted C1b producer slice: one native OCR review
+invocation bound to a current, complete declared input set (identity/range/materials/
+criteria minting/executable binding/inspection/T0-T1 staleness holds). The caller's
+authoritative output is the machine `--json` stdout + exit code; the verdict file under
+`<repo>/.ai-factory/ocr/<uuid>/trusted-review-verdict.json` is best-effort, not
+guaranteed. It is a `cliEntry`-family entrypoint (family H in `docs/site/reference/H.json`),
+byte-identical in source and vendor, exercised by `test/ocr-trusted-review.test.ts` against
+a stub native. Nothing in this copy invokes it yet: real productive Dot/OpenMaus/getff
+callers and installed consumer delivery remain UNVERIFIED. Stub-green source compatibility
+is not a real OCR review. A `compatible` verdict attests bounded process/input/coverage
+compatibility with the pinned public contract; it is not semantic-duty acceptance and not
+a merge/integration grant.
+
 **Files NOT copied** (deliberate):
 
 - `src/AifFireBackend.ts`, `src/index.ts` — referenced only outside the dispatch closure.
