@@ -66,8 +66,12 @@ const RULES: BudgetRules = {
   populations: [
     // S-I's number, applied to what the listing actually carries: the skills the model can
     // see. (S-I summed all files, description only.) Measured 2026-09-29 after the trim:
-    // 6,775 B over 13 visible skills; 8,542 B over all 17.
-    { population: '.claude/skills', totalMaxBytes: 6800 },
+    // 6,775 B over 13 visible skills; 8,542 B over all 17. Raised 2026-10-28 under the
+    // legitimate-population-growth policy ("What a red result asks for", above): measured
+    // 6,775 B + 486 B (getff-experience, human-approved) = 7,261 B over 14 visible skills;
+    // 7,300 leaves 39 B headroom. Reviewer-CLEAN calibration for exactly this change; the
+    // failed-gate receipt is preserved in the private pilot packet.
+    { population: '.claude/skills', totalMaxBytes: 7300 },
     // What a consumer's listing receives from the plugin. Measured: 3,803 B over 8 skills.
     { population: 'plugin/skills', totalMaxBytes: 4000 },
     // The installer-delivered sources of the same skills. Measured: 1,412 B over 2 skills.

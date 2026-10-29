@@ -112,7 +112,7 @@ Checked 2026-10-11 against the working tree this batch was written in.
   `packages/core/principles/15-skill-paired-negative.test.ts` (both
   referenced from `:16`).
 - The budget pair the grep above finds:
-  `packages/core/principles/48-skill-description-budget.test.ts:86` (suite),
+  `packages/core/principles/48-skill-description-budget.test.ts:90` (suite),
   `:101` (extractor describe) — a size budget, not a quality judge.
 - The scope markers: `:3` to `:6` (`paths:` frontmatter), `:8` (`<!-- globs: -->`),
   `:9` (`<!-- inject: -->`).

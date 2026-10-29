@@ -127,7 +127,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
   break-glass rationale comment at `:7` to `:9` (both greps run at this base).
 - The live skill carrier: `.agents/procedures/harvest/SKILL.md:40` — the
   egress heading carrying the `#egress` anchor; the sweep section at `:57`.
-- Harvest delivery: `docs/site/reference/B.json:164` grades it
+- Harvest delivery: `docs/site/reference/B.json:183` grades it
   factory-tier; `setup.d/lib.sh:65` includes it in `GETFF_SKILLS_FACTORY`;
   `setup.d/10-skills.sh:170` to `:181` copies the suite and its sweep script.
   `setup.d/lib.sh:2741` to `:2752` names the consumer skill destination.
