@@ -61,7 +61,8 @@ const FIXED_SHA = 'abc1234';
 
 const sandboxes: string[] = [];
 afterEach(() => {
-  for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const d of sandboxes.splice(0))
+    rmSync(d, { recursive: true, force: true });
 });
 
 function makeSandbox(): string {
@@ -73,15 +74,20 @@ function makeSandbox(): string {
 function bootstrapDelta(ctx: Skippable, deltaPath: string): void {
   // Bootstrap a valid delta via update-delta.sh (sibling helper owns fresh-template).
   // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
-  const r = spawnBashOrSkip(ctx, 'bash', [BOOTSTRAP_HELPER, 'bootstrap', 'init'], {
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      MO_DELTA_FILE: deltaPath,
-      MO_TIMESTAMP: FIXED_TS,
-      MO_GIT_HEAD: FIXED_SHA,
+  const r = spawnBashOrSkip(
+    ctx,
+    'bash',
+    [BOOTSTRAP_HELPER, 'bootstrap', 'init'],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MO_DELTA_FILE: deltaPath,
+        MO_TIMESTAMP: FIXED_TS,
+        MO_GIT_HEAD: FIXED_SHA,
+      },
     },
-  });
+  );
   expect(r.status).toBe(0);
 }
 
@@ -125,7 +131,10 @@ describe('delta-write-from-state.sh — arrays-only writer (paired-negative cont
     expect(r.status).toBe(0);
     expect(lstatSync(wtDelta).isSymbolicLink()).toBe(true); // symlink preserved
     const obj = JSON.parse(readFileSync(canonDelta, 'utf8'));
-    expect(obj.untracked_seen.map((x: { id: string }) => x.id)).toEqual(['a', 'b']); // written through
+    expect(obj.untracked_seen.map((x: { id: string }) => x.id)).toEqual([
+      'a',
+      'b',
+    ]); // written through
   });
 
   it('HAPPY-PATH: existing delta + valid args → arrays rewritten with id/first_seen|closed_at, metadata preserved', (ctx) => {
@@ -155,7 +164,9 @@ describe('delta-write-from-state.sh — arrays-only writer (paired-negative cont
       { id: 'PR#100', first_seen: NEW_TS },
       { id: 'PR#101', first_seen: NEW_TS },
     ]);
-    expect(parsed.closed_since_last).toEqual([{ id: 'PR#42', closed_at: NEW_TS }]);
+    expect(parsed.closed_since_last).toEqual([
+      { id: 'PR#42', closed_at: NEW_TS },
+    ]);
 
     // Metadata preserved verbatim from bootstrap (sibling-helper scope contract).
     expect(parsed.last_check_ts).toBe(FIXED_TS);
@@ -188,6 +199,21 @@ describe('delta-write-from-state.sh — arrays-only writer (paired-negative cont
     expect(existsSync(deltaPath)).toBe(false);
 
     const r = runHelper(ctx, deltaPath, ['u', '[]', '[]']);
+    if (process.platform === 'win32') {
+      // C3 native capture (run 40340771916): all four negative arms die with 0xC0000005
+      // (status 3221225477) on the runner — a crash somewhere in bash/MSYS before the
+      // branch's exit 1. Dump the raw child bytes so the next windows-hooks log carries
+      // whatever the crash produced. POSIX prints nothing (guard); the assertions below
+      // are unchanged.
+      console.log(
+        'C3-CAPTURE status=',
+        r.status,
+        'stderr=',
+        JSON.stringify((r.stderr ?? '').slice(0, 1500)),
+        'stdout=',
+        JSON.stringify((r.stdout ?? '').slice(0, 500)),
+      );
+    }
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/delta file missing/);
     expect(r.stderr).toMatch(/run update-delta\.sh first/);
@@ -201,6 +227,21 @@ describe('delta-write-from-state.sh — arrays-only writer (paired-negative cont
     writeFileSync(deltaPath, '{ this is not json }', 'utf8');
 
     const r = runHelper(ctx, deltaPath, ['u', '[]', '[]']);
+    if (process.platform === 'win32') {
+      // C3 native capture (run 40340771916): all four negative arms die with 0xC0000005
+      // (status 3221225477) on the runner — a crash somewhere in bash/MSYS before the
+      // branch's exit 1. Dump the raw child bytes so the next windows-hooks log carries
+      // whatever the crash produced. POSIX prints nothing (guard); the assertions below
+      // are unchanged.
+      console.log(
+        'C3-CAPTURE status=',
+        r.status,
+        'stderr=',
+        JSON.stringify((r.stderr ?? '').slice(0, 1500)),
+        'stdout=',
+        JSON.stringify((r.stdout ?? '').slice(0, 500)),
+      );
+    }
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/delta corrupt — invalid JSON/);
     expect(r.stderr).toMatch(/renamed to .*\.broken\.[0-9T\-]+Z?\.json/);
@@ -221,8 +262,25 @@ describe('delta-write-from-state.sh — arrays-only writer (paired-negative cont
     const before = readFileSync(deltaPath, 'utf8');
 
     const r = runHelper(ctx, deltaPath, ['u', 'not-json', '[]']);
+    if (process.platform === 'win32') {
+      // C3 native capture (run 40340771916): all four negative arms die with 0xC0000005
+      // (status 3221225477) on the runner — a crash somewhere in bash/MSYS before the
+      // branch's exit 1. Dump the raw child bytes so the next windows-hooks log carries
+      // whatever the crash produced. POSIX prints nothing (guard); the assertions below
+      // are unchanged.
+      console.log(
+        'C3-CAPTURE status=',
+        r.status,
+        'stderr=',
+        JSON.stringify((r.stderr ?? '').slice(0, 1500)),
+        'stdout=',
+        JSON.stringify((r.stdout ?? '').slice(0, 500)),
+      );
+    }
     expect(r.status).toBe(1);
-    expect(r.stderr).toMatch(/<current_ids_json_array> is not a valid JSON array/);
+    expect(r.stderr).toMatch(
+      /<current_ids_json_array> is not a valid JSON array/,
+    );
 
     // Delta untouched — fail-fast before mutation.
     expect(readFileSync(deltaPath, 'utf8')).toBe(before);
@@ -237,8 +295,25 @@ describe('delta-write-from-state.sh — arrays-only writer (paired-negative cont
     const before = readFileSync(deltaPath, 'utf8');
 
     const r = runHelper(ctx, deltaPath, ['u', '[]', '{"not":"array"}']);
+    if (process.platform === 'win32') {
+      // C3 native capture (run 40340771916): all four negative arms die with 0xC0000005
+      // (status 3221225477) on the runner — a crash somewhere in bash/MSYS before the
+      // branch's exit 1. Dump the raw child bytes so the next windows-hooks log carries
+      // whatever the crash produced. POSIX prints nothing (guard); the assertions below
+      // are unchanged.
+      console.log(
+        'C3-CAPTURE status=',
+        r.status,
+        'stderr=',
+        JSON.stringify((r.stderr ?? '').slice(0, 1500)),
+        'stdout=',
+        JSON.stringify((r.stdout ?? '').slice(0, 500)),
+      );
+    }
     expect(r.status).toBe(1);
-    expect(r.stderr).toMatch(/<resolved_ids_json_array> is not a valid JSON array/);
+    expect(r.stderr).toMatch(
+      /<resolved_ids_json_array> is not a valid JSON array/,
+    );
 
     // Delta untouched — fail-fast before mutation.
     expect(readFileSync(deltaPath, 'utf8')).toBe(before);

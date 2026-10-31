@@ -29,7 +29,11 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { execFileSync, execSync } from 'node:child_process';
-import { spawnBashOrSkip, WIN_MSYS_SYMLINK_ENV, type Skippable } from './spawn-bash-or-skip.ts';
+import {
+  spawnBashOrSkip,
+  WIN_MSYS_SYMLINK_ENV,
+  type Skippable,
+} from './spawn-bash-or-skip.ts';
 import {
   existsSync,
   lstatSync,
@@ -101,9 +105,14 @@ function runHelper(
   cwd?: string,
 ): RunResult {
   // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  // WIN_MSYS_SYMLINK_ENV: the helper's `ln -s` must make NATIVE links on win32 (GH runners
+  // grant the privilege) — the default MSYS deep copy makes lstat().isSymbolicLink() false
+  // and every link-shaped assertion in the guard arms false-negatives. Empty object on
+  // POSIX, so the pass-through stays byte-identical there (same idiom as the 355/624/852
+  // sites in this file; run 40340771916 class C11).
   const r = spawnBashOrSkip(ctx, 'bash', [helper, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, ...env },
+    env: { ...process.env, ...WIN_MSYS_SYMLINK_ENV, ...env },
     cwd,
   });
   return {
@@ -141,8 +150,13 @@ function setupRepo(name: string): string {
   ].join('\n');
   writeFileSync(resolve(dir, '.gitignore'), gitignore + '\n');
 
-  mkdirSync(resolve(dir, '.claude/orchestrator-prompts/my-umbrella'), { recursive: true });
-  writeFileSync(resolve(dir, '.claude/orchestrator-prompts/README.md'), '# OPs\n');
+  mkdirSync(resolve(dir, '.claude/orchestrator-prompts/my-umbrella'), {
+    recursive: true,
+  });
+  writeFileSync(
+    resolve(dir, '.claude/orchestrator-prompts/README.md'),
+    '# OPs\n',
+  );
   writeFileSync(
     resolve(dir, '.claude/orchestrator-prompts/my-umbrella/done.md'),
     'done-from-primary\n',
@@ -167,20 +181,29 @@ function setupRepo(name: string): string {
 function setupWorktreeDir(primaryRepo: string, name: string): string {
   const wt = resolve(primaryRepo, `.claude/worktrees/${name}`);
   execSync(`git worktree add -q "${wt}" HEAD`, { cwd: primaryRepo });
-  mkdirSync(resolve(wt, '.claude/orchestrator-prompts/my-umbrella'), { recursive: true });
+  mkdirSync(resolve(wt, '.claude/orchestrator-prompts/my-umbrella'), {
+    recursive: true,
+  });
   // Write tracked done.md (real file, not symlink)
   writeFileSync(
     resolve(wt, '.claude/orchestrator-prompts/my-umbrella/done.md'),
     'done-from-worktree\n',
   );
   // Write tracked README.md (real file)
-  writeFileSync(resolve(wt, '.claude/orchestrator-prompts/README.md'), '# OPs\n');
+  writeFileSync(
+    resolve(wt, '.claude/orchestrator-prompts/README.md'),
+    '# OPs\n',
+  );
   return wt;
 }
 
 function teardown(...dirs: string[]): void {
   for (const d of dirs) {
-    try { rmSync(d, { recursive: true, force: true }); } catch { /* ignore */ }
+    try {
+      rmSync(d, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -203,129 +226,169 @@ describe('link-coordination.sh', () => {
 
   // ── (a) SYMLINK ────────────────────────────────────────────────────────────
 
-  it.skipIf(WIN_SYMLINK)('(a) SYMLINK: state.md is a symlink pointing into $CANON after helper runs', (ctx) => {
-    // SSOT #116: kickoff.md became a tracked durable doc (helper skips */kickoff.md);
-    // state.md is the per-umbrella gitignored regenerable runtime the helper manages.
-    // Pre-populate $CANON with the umbrella + state
-    mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
-    writeFileSync(
-      resolve(canon, 'my-umbrella/state.md'),
-      '# my-umbrella state\nCanonical content.\n',
-    );
+  it.skipIf(WIN_SYMLINK)(
+    '(a) SYMLINK: state.md is a symlink pointing into $CANON after helper runs',
+    (ctx) => {
+      // SSOT #116: kickoff.md became a tracked durable doc (helper skips */kickoff.md);
+      // state.md is the per-umbrella gitignored regenerable runtime the helper manages.
+      // Pre-populate $CANON with the umbrella + state
+      mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
+      writeFileSync(
+        resolve(canon, 'my-umbrella/state.md'),
+        '# my-umbrella state\nCanonical content.\n',
+      );
 
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-a');
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-a');
 
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
-    const statePath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md');
-    expect(existsSync(statePath), 'state.md must exist').toBe(true);
+      const statePath = resolve(
+        wt,
+        '.claude/orchestrator-prompts/my-umbrella/state.md',
+      );
+      expect(existsSync(statePath), 'state.md must exist').toBe(true);
 
-    const stat = lstatSync(statePath);
-    expect(stat.isSymbolicLink(), 'state.md must be a symlink').toBe(true);
+      const stat = lstatSync(statePath);
+      expect(stat.isSymbolicLink(), 'state.md must be a symlink').toBe(true);
 
-    const content = readFileSync(statePath, 'utf8');
-    expect(content).toContain('Canonical content');
-  });
+      const content = readFileSync(statePath, 'utf8');
+      expect(content).toContain('Canonical content');
+    },
+  );
 
   // ── (b) GIT-CLEAN ─────────────────────────────────────────────────────────
 
-  it.skipIf(WIN_SYMLINK)('(b) GIT-CLEAN: tracked README.md and done.md stay as real files after linking', (ctx) => {
-    // Pre-populate $CANON
-    mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
-    writeFileSync(
-      resolve(canon, 'my-umbrella/kickoff.md'),
-      '# kickoff\n',
-    );
+  it.skipIf(WIN_SYMLINK)(
+    '(b) GIT-CLEAN: tracked README.md and done.md stay as real files after linking',
+    (ctx) => {
+      // Pre-populate $CANON
+      mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
+      writeFileSync(resolve(canon, 'my-umbrella/kickoff.md'), '# kickoff\n');
 
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-b');
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-b');
 
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
-    const readmePath = resolve(wt, '.claude/orchestrator-prompts/README.md');
-    const donePath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/done.md');
+      const readmePath = resolve(wt, '.claude/orchestrator-prompts/README.md');
+      const donePath = resolve(
+        wt,
+        '.claude/orchestrator-prompts/my-umbrella/done.md',
+      );
 
-    // Both must exist as REAL files (not symlinks)
-    expect(existsSync(readmePath), 'README.md must exist').toBe(true);
-    expect(lstatSync(readmePath).isSymbolicLink(), 'README.md must NOT be a symlink').toBe(false);
+      // Both must exist as REAL files (not symlinks)
+      expect(existsSync(readmePath), 'README.md must exist').toBe(true);
+      expect(
+        lstatSync(readmePath).isSymbolicLink(),
+        'README.md must NOT be a symlink',
+      ).toBe(false);
 
-    expect(existsSync(donePath), 'done.md must exist').toBe(true);
-    expect(lstatSync(donePath).isSymbolicLink(), 'done.md must NOT be a symlink').toBe(false);
+      expect(existsSync(donePath), 'done.md must exist').toBe(true);
+      expect(
+        lstatSync(donePath).isSymbolicLink(),
+        'done.md must NOT be a symlink',
+      ).toBe(false);
 
-    // Content of done.md stays as worktree version
-    const doneContent = readFileSync(donePath, 'utf8');
-    expect(doneContent).toBe('done-from-worktree\n');
-  });
+      // Content of done.md stays as worktree version
+      const doneContent = readFileSync(donePath, 'utf8');
+      expect(doneContent).toBe('done-from-worktree\n');
+    },
+  );
 
   // ── (c) CONFLICT ──────────────────────────────────────────────────────────
 
-  it.skipIf(WIN_SYMLINK)('(c) CONFLICT: real file in both worktree and CANON → exit 1, content unchanged', (ctx) => {
-    // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
-    // Pre-populate $CANON with its version
-    mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
-    writeFileSync(
-      resolve(canon, 'my-umbrella/state.md'),
-      '# canon version\n',
-    );
+  it.skipIf(WIN_SYMLINK)(
+    '(c) CONFLICT: real file in both worktree and CANON → exit 1, content unchanged',
+    (ctx) => {
+      // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
+      // Pre-populate $CANON with its version
+      mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
+      writeFileSync(
+        resolve(canon, 'my-umbrella/state.md'),
+        '# canon version\n',
+      );
 
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-c');
-    // Also plant a REAL state.md in the worktree (not a symlink)
-    writeFileSync(
-      resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md'),
-      '# worktree version\n',
-    );
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-c');
+      // Also plant a REAL state.md in the worktree (not a symlink)
+      writeFileSync(
+        resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md'),
+        '# worktree version\n',
+      );
 
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, 'helper must exit 1 on conflict').toBe(1);
-    expect(r.stderr).toContain('CONFLICT');
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, 'helper must exit 1 on conflict').toBe(1);
+      expect(r.stderr).toContain('CONFLICT');
 
-    // Neither file changed
-    const canonContent = readFileSync(resolve(canon, 'my-umbrella/state.md'), 'utf8');
-    expect(canonContent).toBe('# canon version\n');
+      // Neither file changed
+      const canonContent = readFileSync(
+        resolve(canon, 'my-umbrella/state.md'),
+        'utf8',
+      );
+      expect(canonContent).toBe('# canon version\n');
 
-    const wtContent = readFileSync(
-      resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md'),
-      'utf8',
-    );
-    expect(wtContent).toBe('# worktree version\n');
-  });
+      const wtContent = readFileSync(
+        resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md'),
+        'utf8',
+      );
+      expect(wtContent).toBe('# worktree version\n');
+    },
+  );
 
   // ── (d) WRITE-BACK ────────────────────────────────────────────────────────
 
-  it.skipIf(WIN_SYMLINK)('(d) WRITE-BACK: edit via symlink is visible in $CANON and a second linked worktree', (ctx) => {
-    // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
-    // Pre-populate $CANON
-    mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
-    writeFileSync(
-      resolve(canon, 'my-umbrella/state.md'),
-      '# original\n',
-    );
+  it.skipIf(WIN_SYMLINK)(
+    '(d) WRITE-BACK: edit via symlink is visible in $CANON and a second linked worktree',
+    (ctx) => {
+      // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
+      // Pre-populate $CANON
+      mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
+      writeFileSync(resolve(canon, 'my-umbrella/state.md'), '# original\n');
 
-    const wt1 = setupWorktreeDir(primaryRepo, 'lnk-d1');
-    const wt2 = setupWorktreeDir(primaryRepo, 'lnk-d2');
+      const wt1 = setupWorktreeDir(primaryRepo, 'lnk-d1');
+      const wt2 = setupWorktreeDir(primaryRepo, 'lnk-d2');
 
-    const r1 = runHelper(ctx, helper, [wt1], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
+      const r1 = runHelper(ctx, helper, [wt1], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
 
-    const r2 = runHelper(ctx, helper, [wt2], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
+      const r2 = runHelper(ctx, helper, [wt2], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
 
-    // Write new content through wt1's symlink
-    const stateViaWt1 = resolve(wt1, '.claude/orchestrator-prompts/my-umbrella/state.md');
-    writeFileSync(stateViaWt1, '# updated content\n');
+      // Write new content through wt1's symlink
+      const stateViaWt1 = resolve(
+        wt1,
+        '.claude/orchestrator-prompts/my-umbrella/state.md',
+      );
+      writeFileSync(stateViaWt1, '# updated content\n');
 
-    // Visible in $CANON
-    const canonContent = readFileSync(resolve(canon, 'my-umbrella/state.md'), 'utf8');
-    expect(canonContent).toBe('# updated content\n');
+      // Visible in $CANON
+      const canonContent = readFileSync(
+        resolve(canon, 'my-umbrella/state.md'),
+        'utf8',
+      );
+      expect(canonContent).toBe('# updated content\n');
 
-    // Visible in wt2 (same inode via symlink)
-    const stateViaWt2 = resolve(wt2, '.claude/orchestrator-prompts/my-umbrella/state.md');
-    const wt2Content = readFileSync(stateViaWt2, 'utf8');
-    expect(wt2Content).toBe('# updated content\n');
+      // Visible in wt2 (same inode via symlink)
+      const stateViaWt2 = resolve(
+        wt2,
+        '.claude/orchestrator-prompts/my-umbrella/state.md',
+      );
+      const wt2Content = readFileSync(stateViaWt2, 'utf8');
+      expect(wt2Content).toBe('# updated content\n');
 
-    teardown(wt1, wt2);
-  });
+      teardown(wt1, wt2);
+    },
+  );
 
   // ── (e) PAIRED-NEGATIVE ──────────────────────────────────────────────────
 
@@ -333,31 +396,36 @@ describe('link-coordination.sh', () => {
     // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
     // Pre-populate $CANON
     mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
-    writeFileSync(
-      resolve(canon, 'my-umbrella/state.md'),
-      '# canonical\n',
-    );
+    writeFileSync(resolve(canon, 'my-umbrella/state.md'), '# canonical\n');
 
     const wt = setupWorktreeDir(primaryRepo, 'lnk-e');
 
     // Strip the LINK step (the "for each file in CANON" loop that creates symlinks)
     const src = readFileSync(HELPER, 'utf8');
     // Remove the block between "# ── LINK" comment and the final exit lines
-    const stripped = src.replace(
-      /# ── LINK[\s\S]*?# ── EXIT/,
-      '# ── EXIT',
-    );
+    const stripped = src.replace(/# ── LINK[\s\S]*?# ── EXIT/, '# ── EXIT');
 
-    const tmpHelper = installHelper(primaryRepo, stripped, 'link-coordination-stripped.sh');
+    const tmpHelper = installHelper(
+      primaryRepo,
+      stripped,
+      'link-coordination-stripped.sh',
+    );
 
     // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
     // May fail or succeed — we only care about the symlink state (spawnSync does not throw).
     spawnBashOrSkip(ctx, 'bash', [tmpHelper, wt], {
       encoding: 'utf8',
-      env: { ...process.env, ...WIN_MSYS_SYMLINK_ENV, CLAUDE_COORDINATION_DIR: canon },
+      env: {
+        ...process.env,
+        ...WIN_MSYS_SYMLINK_ENV,
+        CLAUDE_COORDINATION_DIR: canon,
+      },
     });
 
-    const statePath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md');
+    const statePath = resolve(
+      wt,
+      '.claude/orchestrator-prompts/my-umbrella/state.md',
+    );
     // Either absent or a real file — NOT a symlink
     if (existsSync(statePath)) {
       expect(
@@ -367,36 +435,54 @@ describe('link-coordination.sh', () => {
     }
     // (If absent, the test passes trivially — stripped helper didn't link anything)
 
-    try { rmSync(tmpHelper); } catch { /* ignore */ }
+    try {
+      rmSync(tmpHelper);
+    } catch {
+      /* ignore */
+    }
     teardown(wt);
   });
 
   // ── (f) ADOPT-THEN-LINK: orphan real file in worktree gets moved to $CANON ──
 
-  it.skipIf(WIN_SYMLINK)('(f) ADOPT: real gitignored file in worktree with no CANON equivalent is adopted (mv to CANON, then linked)', (ctx) => {
-    // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
-    // $CANON has NO my-umbrella yet
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-f');
-    // Place a real state.md in the worktree (not a symlink, not in CANON)
-    writeFileSync(
-      resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md'),
-      '# adopt-me\n',
-    );
+  it.skipIf(WIN_SYMLINK)(
+    '(f) ADOPT: real gitignored file in worktree with no CANON equivalent is adopted (mv to CANON, then linked)',
+    (ctx) => {
+      // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
+      // $CANON has NO my-umbrella yet
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-f');
+      // Place a real state.md in the worktree (not a symlink, not in CANON)
+      writeFileSync(
+        resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md'),
+        '# adopt-me\n',
+      );
 
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
-    // After adoption: worktree path is now a symlink
-    const statePath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md');
-    expect(existsSync(statePath)).toBe(true);
-    expect(lstatSync(statePath).isSymbolicLink(), 'state must be symlink after adoption').toBe(true);
+      // After adoption: worktree path is now a symlink
+      const statePath = resolve(
+        wt,
+        '.claude/orchestrator-prompts/my-umbrella/state.md',
+      );
+      expect(existsSync(statePath)).toBe(true);
+      expect(
+        lstatSync(statePath).isSymbolicLink(),
+        'state must be symlink after adoption',
+      ).toBe(true);
 
-    // Content is in $CANON
-    const canonContent = readFileSync(resolve(canon, 'my-umbrella/state.md'), 'utf8');
-    expect(canonContent).toBe('# adopt-me\n');
+      // Content is in $CANON
+      const canonContent = readFileSync(
+        resolve(canon, 'my-umbrella/state.md'),
+        'utf8',
+      );
+      expect(canonContent).toBe('# adopt-me\n');
 
-    teardown(wt);
-  });
+      teardown(wt);
+    },
+  );
 
   // ── (g) SEED ─────────────────────────────────────────────────────────────
 
@@ -408,16 +494,24 @@ describe('link-coordination.sh', () => {
       const wt = setupWorktreeDir(primaryRepo, 'lnk-g');
 
       // Run helper with seed-source = primaryRepo
-      const r = runHelper(ctx, helper, [wt, primaryRepo], { CLAUDE_COORDINATION_DIR: canon });
+      const r = runHelper(ctx, helper, [wt, primaryRepo], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
       expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
       // $CANON should now have the seeded kickoff
       const canonKickoff = resolve(canon, 'my-umbrella/kickoff.md');
-      expect(existsSync(canonKickoff), '$CANON/my-umbrella/kickoff.md seeded').toBe(true);
+      expect(
+        existsSync(canonKickoff),
+        '$CANON/my-umbrella/kickoff.md seeded',
+      ).toBe(true);
 
       // done.md should NOT be seeded (it's tracked — excluded via --exclude='done.md')
       const canonDone = resolve(canon, 'my-umbrella/done.md');
-      expect(existsSync(canonDone), 'done.md must NOT be seeded into $CANON').toBe(false);
+      expect(
+        existsSync(canonDone),
+        'done.md must NOT be seeded into $CANON',
+      ).toBe(false);
 
       teardown(wt);
     });
@@ -425,91 +519,152 @@ describe('link-coordination.sh', () => {
 
   // ── (h) ON-CONFLICT flag (Task A1) ─────────────────────────────────────────
 
-  it.skipIf(WIN_SYMLINK)('on-conflict=canon: canonical wins, worktree file relinked', (ctx) => {
-    mkdirSync(resolve(canon, 'u1'), { recursive: true });
-    writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-canon');
-    mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), { recursive: true });
-    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'WORKTREE');
-    const r = runHelper(ctx, helper, [wt, '', '--on-conflict=canon'], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
-    const p = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
-    expect(lstatSync(p).isSymbolicLink()).toBe(true);
-    expect(readFileSync(p, 'utf8')).toBe('CANON');
-    teardown(wt);
-  });
+  it.skipIf(WIN_SYMLINK)(
+    'on-conflict=canon: canonical wins, worktree file relinked',
+    (ctx) => {
+      mkdirSync(resolve(canon, 'u1'), { recursive: true });
+      writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-canon');
+      mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), {
+        recursive: true,
+      });
+      writeFileSync(
+        resolve(wt, '.claude/orchestrator-prompts/u1/state.md'),
+        'WORKTREE',
+      );
+      const r = runHelper(ctx, helper, [wt, '', '--on-conflict=canon'], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      const p = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
+      expect(lstatSync(p).isSymbolicLink()).toBe(true);
+      expect(readFileSync(p, 'utf8')).toBe('CANON');
+      teardown(wt);
+    },
+  );
 
-  it.skipIf(WIN_SYMLINK)('on-conflict=worktree: worktree wins, adopted into CANON', (ctx) => {
-    mkdirSync(resolve(canon, 'u1'), { recursive: true });
-    writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-worktree');
-    mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), { recursive: true });
-    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'WORKTREE');
-    const r = runHelper(ctx, helper, [wt, '', '--on-conflict=worktree'], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
-    const p = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
-    expect(lstatSync(p).isSymbolicLink()).toBe(true);
-    expect(readFileSync(resolve(canon, 'u1/state.md'), 'utf8')).toBe('WORKTREE');
-    teardown(wt);
-  });
+  it.skipIf(WIN_SYMLINK)(
+    'on-conflict=worktree: worktree wins, adopted into CANON',
+    (ctx) => {
+      mkdirSync(resolve(canon, 'u1'), { recursive: true });
+      writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-worktree');
+      mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), {
+        recursive: true,
+      });
+      writeFileSync(
+        resolve(wt, '.claude/orchestrator-prompts/u1/state.md'),
+        'WORKTREE',
+      );
+      const r = runHelper(ctx, helper, [wt, '', '--on-conflict=worktree'], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      const p = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
+      expect(lstatSync(p).isSymbolicLink()).toBe(true);
+      expect(readFileSync(resolve(canon, 'u1/state.md'), 'utf8')).toBe(
+        'WORKTREE',
+      );
+      teardown(wt);
+    },
+  );
 
-  it.skipIf(WIN_SYMLINK)('on-conflict=skip (default): exits 1, leaves both files intact', (ctx) => {
-    mkdirSync(resolve(canon, 'u1'), { recursive: true });
-    writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-skip');
-    mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), { recursive: true });
-    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'WORKTREE');
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status).toBe(1);
-    expect(
-      readFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'utf8'),
-    ).toBe('WORKTREE');
-    expect(readFileSync(resolve(canon, 'u1/state.md'), 'utf8')).toBe('CANON');
-    teardown(wt);
-  });
+  it.skipIf(WIN_SYMLINK)(
+    'on-conflict=skip (default): exits 1, leaves both files intact',
+    (ctx) => {
+      mkdirSync(resolve(canon, 'u1'), { recursive: true });
+      writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-skip');
+      mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), {
+        recursive: true,
+      });
+      writeFileSync(
+        resolve(wt, '.claude/orchestrator-prompts/u1/state.md'),
+        'WORKTREE',
+      );
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status).toBe(1);
+      expect(
+        readFileSync(
+          resolve(wt, '.claude/orchestrator-prompts/u1/state.md'),
+          'utf8',
+        ),
+      ).toBe('WORKTREE');
+      expect(readFileSync(resolve(canon, 'u1/state.md'), 'utf8')).toBe('CANON');
+      teardown(wt);
+    },
+  );
 
   it('on-conflict=bogus: exits 2 (validation)', (ctx) => {
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-bogus');
-    const r = runHelper(ctx, helper, [wt, '', '--on-conflict=bogus'], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(ctx, helper, [wt, '', '--on-conflict=bogus'], {
+      CLAUDE_COORDINATION_DIR: canon,
+    });
     expect(r.status).toBe(2);
     teardown(wt);
   });
 
   // ── (i) ROOT-FILE loop (Task A2) ───────────────────────────────────────────
 
-  it.skipIf(WIN_SYMLINK)('root-file loop: _plan-cache.md adopted into CANON root and symlinked back', (ctx) => {
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-root-cache');
-    const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
-    writeFileSync(resolve(wtPrompts, '_plan-cache.md'), 'CACHE-v1');
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
-    const p = resolve(wtPrompts, '_plan-cache.md');
-    expect(lstatSync(p).isSymbolicLink()).toBe(true);
-    expect(readFileSync(resolve(canon, '_plan-cache.md'), 'utf8')).toBe('CACHE-v1');
-    teardown(wt);
-  });
+  it.skipIf(WIN_SYMLINK)(
+    'root-file loop: _plan-cache.md adopted into CANON root and symlinked back',
+    (ctx) => {
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-root-cache');
+      const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
+      writeFileSync(resolve(wtPrompts, '_plan-cache.md'), 'CACHE-v1');
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      const p = resolve(wtPrompts, '_plan-cache.md');
+      expect(lstatSync(p).isSymbolicLink()).toBe(true);
+      expect(readFileSync(resolve(canon, '_plan-cache.md'), 'utf8')).toBe(
+        'CACHE-v1',
+      );
+      teardown(wt);
+    },
+  );
 
-  it.skipIf(WIN_SYMLINK)('root-file loop: _master-backlog-delta.json linked from CANON into a fresh worktree', (ctx) => {
-    writeFileSync(resolve(canon, '_master-backlog-delta.json'), '{"untracked_seen":[]}');
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-root-delta');
-    const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
-    expect(
-      lstatSync(resolve(wtPrompts, '_master-backlog-delta.json')).isSymbolicLink(),
-    ).toBe(true);
-    teardown(wt);
-  });
+  it.skipIf(WIN_SYMLINK)(
+    'root-file loop: _master-backlog-delta.json linked from CANON into a fresh worktree',
+    (ctx) => {
+      writeFileSync(
+        resolve(canon, '_master-backlog-delta.json'),
+        '{"untracked_seen":[]}',
+      );
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-root-delta');
+      const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      expect(
+        lstatSync(
+          resolve(wtPrompts, '_master-backlog-delta.json'),
+        ).isSymbolicLink(),
+      ).toBe(true);
+      teardown(wt);
+    },
+  );
 
-  it.skipIf(WIN_SYMLINK)('root-file loop: root README.md stays a real file (tracked-skip)', (ctx) => {
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-root-readme');
-    const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
-    writeFileSync(resolve(wtPrompts, 'README.md'), 'TRACKED');
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
-    expect(lstatSync(resolve(wtPrompts, 'README.md')).isSymbolicLink()).toBe(false);
-    teardown(wt);
-  });
+  it.skipIf(WIN_SYMLINK)(
+    'root-file loop: root README.md stays a real file (tracked-skip)',
+    (ctx) => {
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-root-readme');
+      const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
+      writeFileSync(resolve(wtPrompts, 'README.md'), 'TRACKED');
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      expect(lstatSync(resolve(wtPrompts, 'README.md')).isSymbolicLink()).toBe(
+        false,
+      );
+      teardown(wt);
+    },
+  );
 
   // ── (k) HANDOFF family (2026-09-14) ────────────────────────────────────────
   // `_handoff-*.md` sits at the ROOT of orchestrator-prompts; before this family
@@ -517,149 +672,232 @@ describe('link-coordination.sh', () => {
   // in every other checkout (incident 2026-09-14, getff-ai-site — the CC worktree
   // session's handoff 404'd for the main-clone ZCode seat).
 
-  it.skipIf(WIN_SYMLINK)('(k1) ADOPT+SHARE: worktree _handoff-*.md adopted into CANON root, then linked into a SECOND worktree that never had it', (ctx) => {
-    const wt1 = setupWorktreeDir(primaryRepo, 'lnk-ho-1');
-    const wt1Prompts = resolve(wt1, '.claude/orchestrator-prompts');
-    writeFileSync(resolve(wt1Prompts, '_handoff-sess_abc123.md'), 'HANDOFF-v1\n');
+  it.skipIf(WIN_SYMLINK)(
+    '(k1) ADOPT+SHARE: worktree _handoff-*.md adopted into CANON root, then linked into a SECOND worktree that never had it',
+    (ctx) => {
+      const wt1 = setupWorktreeDir(primaryRepo, 'lnk-ho-1');
+      const wt1Prompts = resolve(wt1, '.claude/orchestrator-prompts');
+      writeFileSync(
+        resolve(wt1Prompts, '_handoff-sess_abc123.md'),
+        'HANDOFF-v1\n',
+      );
 
-    const r1 = runHelper(ctx, helper, [wt1], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
-    // Adopted: worktree path is now a symlink; content lives in $CANON root
-    const ho1 = resolve(wt1Prompts, '_handoff-sess_abc123.md');
-    expect(lstatSync(ho1).isSymbolicLink(), 'handoff must be a symlink after adoption').toBe(true);
-    expect(readFileSync(resolve(canon, '_handoff-sess_abc123.md'), 'utf8')).toBe('HANDOFF-v1\n');
+      const r1 = runHelper(ctx, helper, [wt1], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
+      // Adopted: worktree path is now a symlink; content lives in $CANON root
+      const ho1 = resolve(wt1Prompts, '_handoff-sess_abc123.md');
+      expect(
+        lstatSync(ho1).isSymbolicLink(),
+        'handoff must be a symlink after adoption',
+      ).toBe(true);
+      expect(
+        readFileSync(resolve(canon, '_handoff-sess_abc123.md'), 'utf8'),
+      ).toBe('HANDOFF-v1\n');
 
-    // A SECOND worktree that never had the file gets it from the CANON-side glob
-    // (the LINK loop superset — the exact arm the pre-fix script lacked).
-    const wt2 = setupWorktreeDir(primaryRepo, 'lnk-ho-2');
-    const r2 = runHelper(ctx, helper, [wt2], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
-    const ho2 = resolve(wt2, '.claude/orchestrator-prompts/_handoff-sess_abc123.md');
-    expect(existsSync(ho2), 'handoff must appear in the second worktree').toBe(true);
-    expect(lstatSync(ho2).isSymbolicLink()).toBe(true);
-    expect(readFileSync(ho2, 'utf8')).toBe('HANDOFF-v1\n');
+      // A SECOND worktree that never had the file gets it from the CANON-side glob
+      // (the LINK loop superset — the exact arm the pre-fix script lacked).
+      const wt2 = setupWorktreeDir(primaryRepo, 'lnk-ho-2');
+      const r2 = runHelper(ctx, helper, [wt2], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
+      const ho2 = resolve(
+        wt2,
+        '.claude/orchestrator-prompts/_handoff-sess_abc123.md',
+      );
+      expect(
+        existsSync(ho2),
+        'handoff must appear in the second worktree',
+      ).toBe(true);
+      expect(lstatSync(ho2).isSymbolicLink()).toBe(true);
+      expect(readFileSync(ho2, 'utf8')).toBe('HANDOFF-v1\n');
 
-    teardown(wt1, wt2);
-  });
+      teardown(wt1, wt2);
+    },
+  );
 
-  it.skipIf(WIN_SYMLINK)('(k2) PAIRED-NEGATIVE CONFLICT: _handoff-*.md real in BOTH worktree and CANON → exit 1, neither clobbered', (ctx) => {
-    writeFileSync(resolve(canon, '_handoff-dupe.md'), 'CANON-version\n');
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-ho-conf');
-    writeFileSync(
-      resolve(wt, '.claude/orchestrator-prompts/_handoff-dupe.md'),
-      'WORKTREE-version\n',
-    );
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, 'default on-conflict=skip must exit 1').toBe(1);
-    expect(r.stderr).toContain('CONFLICT');
-    expect(readFileSync(resolve(canon, '_handoff-dupe.md'), 'utf8')).toBe('CANON-version\n');
-    expect(
-      readFileSync(resolve(wt, '.claude/orchestrator-prompts/_handoff-dupe.md'), 'utf8'),
-    ).toBe('WORKTREE-version\n');
-    teardown(wt);
-  });
+  it.skipIf(WIN_SYMLINK)(
+    '(k2) PAIRED-NEGATIVE CONFLICT: _handoff-*.md real in BOTH worktree and CANON → exit 1, neither clobbered',
+    (ctx) => {
+      writeFileSync(resolve(canon, '_handoff-dupe.md'), 'CANON-version\n');
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-ho-conf');
+      writeFileSync(
+        resolve(wt, '.claude/orchestrator-prompts/_handoff-dupe.md'),
+        'WORKTREE-version\n',
+      );
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, 'default on-conflict=skip must exit 1').toBe(1);
+      expect(r.stderr).toContain('CONFLICT');
+      expect(readFileSync(resolve(canon, '_handoff-dupe.md'), 'utf8')).toBe(
+        'CANON-version\n',
+      );
+      expect(
+        readFileSync(
+          resolve(wt, '.claude/orchestrator-prompts/_handoff-dupe.md'),
+          'utf8',
+        ),
+      ).toBe('WORKTREE-version\n');
+      teardown(wt);
+    },
+  );
 
-  it.skipIf(WIN_SYMLINK)('(k3) TRACKED handoff (one-off .gitignore exception) stays a REAL file — never symlinked', (ctx) => {
-    // The #canon-symlink-swallows-commit class (kickoff-staging-placement.md §5.2):
-    // a handoff tracked via a one-off exception must not be adopted. Uses a REAL
-    // git worktree so the is_tracked() guard resolves against a real index.
-    const repo = mkdtempSync(resolve(tmpdir(), 'link-coord-ho-tracked-'));
-    execSync('git init -q -b main', { cwd: repo });
-    execSync('git config user.email test@example.com', { cwd: repo });
-    execSync('git config user.name test', { cwd: repo });
-    const gitignore = [
-      'node_modules',
-      '.claude/orchestrator-prompts/*',
-      '!.claude/orchestrator-prompts/*/',
-      '!.claude/orchestrator-prompts/README.md',
-      '!.claude/orchestrator-prompts/_handoff-tracked.md',
-    ].join('\n');
-    writeFileSync(resolve(repo, '.gitignore'), gitignore + '\n');
-    writeFileSync(resolve(repo, 'README.md'), 'root\n');
-    mkdirSync(resolve(repo, '.claude/orchestrator-prompts'), { recursive: true });
-    writeFileSync(
-      resolve(repo, '.claude/orchestrator-prompts/_handoff-tracked.md'),
-      'tracked handoff\n',
-    );
-    writeFileSync(resolve(repo, '.claude/orchestrator-prompts/README.md'), '# OPs\n');
-    execSync('git add -A && git commit -q -m init', { cwd: repo });
+  it.skipIf(WIN_SYMLINK)(
+    '(k3) TRACKED handoff (one-off .gitignore exception) stays a REAL file — never symlinked',
+    (ctx) => {
+      // The #canon-symlink-swallows-commit class (kickoff-staging-placement.md §5.2):
+      // a handoff tracked via a one-off exception must not be adopted. Uses a REAL
+      // git worktree so the is_tracked() guard resolves against a real index.
+      const repo = mkdtempSync(resolve(tmpdir(), 'link-coord-ho-tracked-'));
+      execSync('git init -q -b main', { cwd: repo });
+      execSync('git config user.email test@example.com', { cwd: repo });
+      execSync('git config user.name test', { cwd: repo });
+      const gitignore = [
+        'node_modules',
+        '.claude/orchestrator-prompts/*',
+        '!.claude/orchestrator-prompts/*/',
+        '!.claude/orchestrator-prompts/README.md',
+        '!.claude/orchestrator-prompts/_handoff-tracked.md',
+      ].join('\n');
+      writeFileSync(resolve(repo, '.gitignore'), gitignore + '\n');
+      writeFileSync(resolve(repo, 'README.md'), 'root\n');
+      mkdirSync(resolve(repo, '.claude/orchestrator-prompts'), {
+        recursive: true,
+      });
+      writeFileSync(
+        resolve(repo, '.claude/orchestrator-prompts/_handoff-tracked.md'),
+        'tracked handoff\n',
+      );
+      writeFileSync(
+        resolve(repo, '.claude/orchestrator-prompts/README.md'),
+        '# OPs\n',
+      );
+      execSync('git add -A && git commit -q -m init', { cwd: repo });
 
-    const wt = resolve(repo, 'wt-ho');
-    execSync(`git worktree add -q "${wt}" HEAD`, { cwd: repo });
-    const helper = installHelper(repo);
-    // CANON carries a same-named file — the adoption temptation the guard must refuse
-    writeFileSync(resolve(canon, '_handoff-tracked.md'), 'CANON-decoy\n');
+      const wt = resolve(repo, 'wt-ho');
+      execSync(`git worktree add -q "${wt}" HEAD`, { cwd: repo });
+      const helper = installHelper(repo);
+      // CANON carries a same-named file — the adoption temptation the guard must refuse
+      writeFileSync(resolve(canon, '_handoff-tracked.md'), 'CANON-decoy\n');
 
-    const r = runHelper(ctx, helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
-    const p = resolve(wt, '.claude/orchestrator-prompts/_handoff-tracked.md');
-    expect(existsSync(p)).toBe(true);
-    expect(lstatSync(p).isSymbolicLink(), 'tracked handoff must NOT be a symlink').toBe(false);
-    expect(readFileSync(p, 'utf8')).toBe('tracked handoff\n');
+      const r = runHelper(ctx, helper, [wt], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      const p = resolve(wt, '.claude/orchestrator-prompts/_handoff-tracked.md');
+      expect(existsSync(p)).toBe(true);
+      expect(
+        lstatSync(p).isSymbolicLink(),
+        'tracked handoff must NOT be a symlink',
+      ).toBe(false);
+      expect(readFileSync(p, 'utf8')).toBe('tracked handoff\n');
 
-    try { execSync(`git worktree remove --force "${wt}"`, { cwd: repo }); } catch { /* ignore */ }
-    teardown(repo);
-  });
+      try {
+        execSync(`git worktree remove --force "${wt}"`, { cwd: repo });
+      } catch {
+        /* ignore */
+      }
+      teardown(repo);
+    },
+  );
 
-  it.skipIf(WIN_SYMLINK)('(k4) PAIRED-NEGATIVE: with the CANON-side family glob stripped, a second worktree does NOT receive the handoff', (ctx) => {
-    // Prove the CANON-glob superset is load-bearing (the exact arm the pre-fix
-    // script lacked): neuter the ROOT-FILE LINK glob build by regex; wt2 then
-    // never sees a handoff that exists only in $CANON. Same neutering convention
-    // as (e) stripped-LINK and (j-neg) neutered is_tracked.
-    writeFileSync(resolve(canon, '_handoff-sess_k4.md'), 'K4\n');
-    const src = readFileSync(HELPER, 'utf8');
-    // Strip the whole CANON-glob build block; `\n  done\n` (2-space indent) is the
-    // OUTER loop's closer — the inner one is 4-space-indented, so the lazy match
-    // cannot stop early and leave a syntactically broken script behind.
-    const stripped = src.replace(
-      /(  ROOT_LINK_FILES="\$ROOT_ADOPT_FILES"\n)  for pattern[\s\S]*?\n  done\n/,
-      '$1',
-    );
-    expect(stripped, 'the CANON-glob build block must be present to strip').not.toBe(src);
-    const tmpHelper = installHelper(primaryRepo, stripped, 'link-coordination-k4-stripped.sh');
+  it.skipIf(WIN_SYMLINK)(
+    '(k4) PAIRED-NEGATIVE: with the CANON-side family glob stripped, a second worktree does NOT receive the handoff',
+    (ctx) => {
+      // Prove the CANON-glob superset is load-bearing (the exact arm the pre-fix
+      // script lacked): neuter the ROOT-FILE LINK glob build by regex; wt2 then
+      // never sees a handoff that exists only in $CANON. Same neutering convention
+      // as (e) stripped-LINK and (j-neg) neutered is_tracked.
+      writeFileSync(resolve(canon, '_handoff-sess_k4.md'), 'K4\n');
+      const src = readFileSync(HELPER, 'utf8');
+      // Strip the whole CANON-glob build block; `\n  done\n` (2-space indent) is the
+      // OUTER loop's closer — the inner one is 4-space-indented, so the lazy match
+      // cannot stop early and leave a syntactically broken script behind.
+      const stripped = src.replace(
+        /(  ROOT_LINK_FILES="\$ROOT_ADOPT_FILES"\n)  for pattern[\s\S]*?\n  done\n/,
+        '$1',
+      );
+      expect(
+        stripped,
+        'the CANON-glob build block must be present to strip',
+      ).not.toBe(src);
+      const tmpHelper = installHelper(
+        primaryRepo,
+        stripped,
+        'link-coordination-k4-stripped.sh',
+      );
 
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-ho-k4');
-    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
-    // Exit code irrelevant — we assert the visibility state (spawnSync does not throw).
-    spawnBashOrSkip(ctx, 'bash', [tmpHelper, wt], {
-      encoding: 'utf8',
-      env: { ...process.env, ...WIN_MSYS_SYMLINK_ENV, CLAUDE_COORDINATION_DIR: canon },
-    });
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-ho-k4');
+      // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      // Exit code irrelevant — we assert the visibility state (spawnSync does not throw).
+      spawnBashOrSkip(ctx, 'bash', [tmpHelper, wt], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ...WIN_MSYS_SYMLINK_ENV,
+          CLAUDE_COORDINATION_DIR: canon,
+        },
+      });
 
-    const ho = resolve(wt, '.claude/orchestrator-prompts/_handoff-sess_k4.md');
-    expect(
-      existsSync(ho),
-      'stripped CANON-glob must leave the second worktree WITHOUT the handoff (proves the arm is load-bearing)',
-    ).toBe(false);
+      const ho = resolve(
+        wt,
+        '.claude/orchestrator-prompts/_handoff-sess_k4.md',
+      );
+      expect(
+        existsSync(ho),
+        'stripped CANON-glob must leave the second worktree WITHOUT the handoff (proves the arm is load-bearing)',
+      ).toBe(false);
 
-    try { rmSync(tmpHelper); } catch { /* ignore */ }
-    teardown(wt);
-  });
+      try {
+        rmSync(tmpHelper);
+      } catch {
+        /* ignore */
+      }
+      teardown(wt);
+    },
+  );
 
-  it.skipIf(WIN_SYMLINK)('(k5) FAMILIES: every ROOT_SHARED_FAMILIES glob (handoff, residue, morning-report) adopts and cross-links', (ctx) => {
-    const families = [
-      '_handoff-sess_k5.md',
-      '_residue-k5.md',
-      '_morning-report-k5.md',
-    ];
-    const wt1 = setupWorktreeDir(primaryRepo, 'lnk-fam-1');
-    for (const f of families) {
-      writeFileSync(resolve(wt1, '.claude/orchestrator-prompts', f), `${f}-v1\n`);
-    }
-    const r1 = runHelper(ctx, helper, [wt1], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
+  it.skipIf(WIN_SYMLINK)(
+    '(k5) FAMILIES: every ROOT_SHARED_FAMILIES glob (handoff, residue, morning-report) adopts and cross-links',
+    (ctx) => {
+      const families = [
+        '_handoff-sess_k5.md',
+        '_residue-k5.md',
+        '_morning-report-k5.md',
+      ];
+      const wt1 = setupWorktreeDir(primaryRepo, 'lnk-fam-1');
+      for (const f of families) {
+        writeFileSync(
+          resolve(wt1, '.claude/orchestrator-prompts', f),
+          `${f}-v1\n`,
+        );
+      }
+      const r1 = runHelper(ctx, helper, [wt1], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
 
-    const wt2 = setupWorktreeDir(primaryRepo, 'lnk-fam-2');
-    const r2 = runHelper(ctx, helper, [wt2], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
-    for (const f of families) {
-      const p = resolve(wt2, '.claude/orchestrator-prompts', f);
-      expect(existsSync(p), `${f} must appear in the second worktree`).toBe(true);
-      expect(lstatSync(p).isSymbolicLink(), `${f} must be a symlink`).toBe(true);
-      expect(readFileSync(p, 'utf8')).toBe(`${f}-v1\n`);
-    }
-    teardown(wt1, wt2);
-  });
+      const wt2 = setupWorktreeDir(primaryRepo, 'lnk-fam-2');
+      const r2 = runHelper(ctx, helper, [wt2], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
+      for (const f of families) {
+        const p = resolve(wt2, '.claude/orchestrator-prompts', f);
+        expect(existsSync(p), `${f} must appear in the second worktree`).toBe(
+          true,
+        );
+        expect(lstatSync(p).isSymbolicLink(), `${f} must be a symlink`).toBe(
+          true,
+        );
+        expect(readFileSync(p, 'utf8')).toBe(`${f}-v1\n`);
+      }
+      teardown(wt1, wt2);
+    },
+  );
 
   // ── (m) GIT-SPAWN BUDGET ──────────────────────────────────────────────────
   // Incident 2026-10-01: is_tracked() spawned one git process per $CANON file. Against
@@ -671,9 +909,14 @@ describe('link-coordination.sh', () => {
   /** Count git processes one helper run starts (GIT_TRACE2_EVENT, one "start" per process). */
   function gitStarts(ctx: Skippable, helperPath: string, wt: string): number {
     const trace = resolve(canon, '..', `${canon.split('/').pop()}-trace2.json`);
-    const r = runHelper(ctx, helperPath, [wt], { CLAUDE_COORDINATION_DIR: canon, GIT_TRACE2_EVENT: trace });
+    const r = runHelper(ctx, helperPath, [wt], {
+      CLAUDE_COORDINATION_DIR: canon,
+      GIT_TRACE2_EVENT: trace,
+    });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
-    const n = readFileSync(trace, 'utf8').split('\n').filter((l) => l.includes('"event":"start"')).length;
+    const n = readFileSync(trace, 'utf8')
+      .split('\n')
+      .filter((l) => l.includes('"event":"start"')).length;
     rmSync(trace, { force: true });
     return n;
   }
@@ -685,28 +928,47 @@ describe('link-coordination.sh', () => {
     }
   }
 
-  it.skipIf(WIN_SYMLINK)('(m) GIT-SPAWN BUDGET: under 15 git processes for 60 canon files (per-file would be >= 60)', (ctx) => {
-    seedCanon();
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-m');
-    const starts = gitStarts(ctx, helper, wt);
-    expect(starts, `${starts} git processes for ${CANON_FILES} canon files`).toBeLessThan(15);
-    expect(lstatSync(resolve(wt, '.claude/orchestrator-prompts/u0/state.md')).isSymbolicLink()).toBe(true);
-    teardown(wt);
-  });
+  it.skipIf(WIN_SYMLINK)(
+    '(m) GIT-SPAWN BUDGET: under 15 git processes for 60 canon files (per-file would be >= 60)',
+    (ctx) => {
+      seedCanon();
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-m');
+      const starts = gitStarts(ctx, helper, wt);
+      expect(
+        starts,
+        `${starts} git processes for ${CANON_FILES} canon files`,
+      ).toBeLessThan(15);
+      expect(
+        lstatSync(
+          resolve(wt, '.claude/orchestrator-prompts/u0/state.md'),
+        ).isSymbolicLink(),
+      ).toBe(true);
+      teardown(wt);
+    },
+  );
 
-  it.skipIf(WIN_SYMLINK)('(m-neg) PAIRED-NEGATIVE: the per-file is_tracked() spawns git once per canon file', (ctx) => {
-    seedCanon();
-    const src = readFileSync(HELPER, 'utf8');
-    const perFile = src.replace(
-      /is_tracked\(\) \{[\s\S]*?\n\}/,
-      'is_tracked() { git -C "$WT_DIR" ls-files --error-unmatch -- "$1" >/dev/null 2>&1; }',
-    );
-    expect(perFile, 'is_tracked() must be present to replace').not.toBe(src);
-    const perFileHelper = installHelper(primaryRepo, perFile, 'link-coordination-per-file.sh');
-    const wt = setupWorktreeDir(primaryRepo, 'lnk-m-neg');
-    expect(gitStarts(ctx, perFileHelper, wt)).toBeGreaterThanOrEqual(CANON_FILES);
-    teardown(wt);
-  });
+  it.skipIf(WIN_SYMLINK)(
+    '(m-neg) PAIRED-NEGATIVE: the per-file is_tracked() spawns git once per canon file',
+    (ctx) => {
+      seedCanon();
+      const src = readFileSync(HELPER, 'utf8');
+      const perFile = src.replace(
+        /is_tracked\(\) \{[\s\S]*?\n\}/,
+        'is_tracked() { git -C "$WT_DIR" ls-files --error-unmatch -- "$1" >/dev/null 2>&1; }',
+      );
+      expect(perFile, 'is_tracked() must be present to replace').not.toBe(src);
+      const perFileHelper = installHelper(
+        primaryRepo,
+        perFile,
+        'link-coordination-per-file.sh',
+      );
+      const wt = setupWorktreeDir(primaryRepo, 'lnk-m-neg');
+      expect(gitStarts(ctx, perFileHelper, wt)).toBeGreaterThanOrEqual(
+        CANON_FILES,
+      );
+      teardown(wt);
+    },
+  );
 });
 
 // ── (j) GIT-TRACKED one-off exception skip (real git worktree) ─────────────────
@@ -742,9 +1004,17 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
     ].join('\n');
     writeFileSync(resolve(dir, '.gitignore'), gitignore + '\n');
     writeFileSync(resolve(dir, 'README.md'), 'root\n');
-    mkdirSync(resolve(dir, '.claude/orchestrator-prompts/u1'), { recursive: true });
-    writeFileSync(resolve(dir, '.claude/orchestrator-prompts/u1/done.md'), 'done\n');
-    writeFileSync(resolve(dir, '.claude/orchestrator-prompts/u1/stage-4.md'), 'tracked stage-4 content\n');
+    mkdirSync(resolve(dir, '.claude/orchestrator-prompts/u1'), {
+      recursive: true,
+    });
+    writeFileSync(
+      resolve(dir, '.claude/orchestrator-prompts/u1/done.md'),
+      'done\n',
+    );
+    writeFileSync(
+      resolve(dir, '.claude/orchestrator-prompts/u1/stage-4.md'),
+      'tracked stage-4 content\n',
+    );
     execSync('git add -A && git commit -q -m init', { cwd: dir });
     return dir;
   }
@@ -762,25 +1032,46 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
   });
 
   afterEach(() => {
-    try { execSync(`git worktree remove --force "${worktree}"`, { cwd: repo }); } catch { /* ignore */ }
+    try {
+      execSync(`git worktree remove --force "${worktree}"`, { cwd: repo });
+    } catch {
+      /* ignore */
+    }
     teardown(canon, repo);
   });
 
-  it.skipIf(WIN_SYMLINK)('(j) PASS: one-off tracked stage-4.md stays a REAL file; gitignored state.md IS symlinked', (ctx) => {
-    const stage4 = resolve(worktree, '.claude/orchestrator-prompts/u1/stage-4.md');
-    const state = resolve(worktree, '.claude/orchestrator-prompts/u1/state.md');
+  it.skipIf(WIN_SYMLINK)(
+    '(j) PASS: one-off tracked stage-4.md stays a REAL file; gitignored state.md IS symlinked',
+    (ctx) => {
+      const stage4 = resolve(
+        worktree,
+        '.claude/orchestrator-prompts/u1/stage-4.md',
+      );
+      const state = resolve(
+        worktree,
+        '.claude/orchestrator-prompts/u1/state.md',
+      );
 
-    const r = runHelper(ctx, helper, [worktree], { CLAUDE_COORDINATION_DIR: canon });
-    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+      const r = runHelper(ctx, helper, [worktree], {
+        CLAUDE_COORDINATION_DIR: canon,
+      });
+      expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
-    // Tracked one-off exception: untouched real file (the fix)
-    expect(existsSync(stage4)).toBe(true);
-    expect(lstatSync(stage4).isSymbolicLink(), 'tracked stage-4.md must NOT be a symlink').toBe(false);
-    expect(readFileSync(stage4, 'utf8')).toBe('tracked stage-4 content\n');
+      // Tracked one-off exception: untouched real file (the fix)
+      expect(existsSync(stage4)).toBe(true);
+      expect(
+        lstatSync(stage4).isSymbolicLink(),
+        'tracked stage-4.md must NOT be a symlink',
+      ).toBe(false);
+      expect(readFileSync(stage4, 'utf8')).toBe('tracked stage-4 content\n');
 
-    // Gitignored content: correctly symlinked into CANON (helper still does its job)
-    expect(lstatSync(state).isSymbolicLink(), 'gitignored state.md must be a symlink').toBe(true);
-  });
+      // Gitignored content: correctly symlinked into CANON (helper still does its job)
+      expect(
+        lstatSync(state).isSymbolicLink(),
+        'gitignored state.md must be a symlink',
+      ).toBe(true);
+    },
+  );
 
   // (j2) is_tracked() reads one `git ls-files` snapshot (2026-10-01). git C-quotes `"`,
   // `\` and control characters in that output, and a non-ASCII name may differ in Unicode
@@ -790,47 +1081,64 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
     const dir = resolve(worktree, '.claude/orchestrator-prompts/u1');
     for (const n of ODD_NAMES) writeFileSync(resolve(dir, n), `tracked ${n}\n`);
     execFileSync('git', ['add', '-f', '--', ...ODD_NAMES], { cwd: dir });
-    return readdirSync(dir).filter((n) => !/^(done|stage-4)\.md$/.test(n)).map((n) => resolve(dir, n));
+    return readdirSync(dir)
+      .filter((n) => !/^(done|stage-4)\.md$/.test(n))
+      .map((n) => resolve(dir, n));
   }
 
   it('(j2) PASS: tracked files with quote, backslash and non-ASCII names stay REAL files', (ctx) => {
     if (process.platform === 'win32')
       ctx.skip(
-        'NTFS reserved characters: `"` and `\\` cannot appear in a filename on Windows '
-          + '(learn.microsoft.com file-naming reserved chars), so the odd-name fixtures '
-          + 'cannot be created — #1799 win32 platform impossibility',
+        'NTFS reserved characters: `"` and `\\` cannot appear in a filename on Windows ' +
+          '(learn.microsoft.com file-naming reserved chars), so the odd-name fixtures ' +
+          'cannot be created — #1799 win32 platform impossibility',
       );
     const paths = trackOddNames();
     expect(paths).toHaveLength(ODD_NAMES.length);
 
-    const r = runHelper(ctx, helper, [worktree], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(ctx, helper, [worktree], {
+      CLAUDE_COORDINATION_DIR: canon,
+    });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
     for (const p of paths) {
-      expect(lstatSync(p).isSymbolicLink(), `tracked ${p} must NOT be a symlink`).toBe(false);
+      expect(
+        lstatSync(p).isSymbolicLink(),
+        `tracked ${p} must NOT be a symlink`,
+      ).toBe(false);
     }
   });
 
   it('(j2-neg) PAIRED-NEGATIVE: snapshot-only is_tracked() (no per-file fallback) adopts them', (ctx) => {
     if (process.platform === 'win32')
       ctx.skip(
-        'NTFS reserved characters: `"` and `\\` cannot appear in a filename on Windows '
-          + '(learn.microsoft.com file-naming reserved chars), so the odd-name fixtures '
-          + 'cannot be created — #1799 win32 platform impossibility',
+        'NTFS reserved characters: `"` and `\\` cannot appear in a filename on Windows ' +
+          '(learn.microsoft.com file-naming reserved chars), so the odd-name fixtures ' +
+          'cannot be created — #1799 win32 platform impossibility',
       );
     const src = readFileSync(HELPER, 'utf8');
     const snapshotOnly = src.replace(
       '"$rel" == "$1" || "$rel" == *[!\\ -~]* || "$rel" == *[\\"\\\\]*',
       '"$rel" == "$1"',
     );
-    expect(snapshotOnly, 'the per-file fallback condition must be present to strip').not.toBe(src);
-    const tmpHelper = installHelper(repo, snapshotOnly, 'link-coordination-snapshot-only.sh');
+    expect(
+      snapshotOnly,
+      'the per-file fallback condition must be present to strip',
+    ).not.toBe(src);
+    const tmpHelper = installHelper(
+      repo,
+      snapshotOnly,
+      'link-coordination-snapshot-only.sh',
+    );
     const paths = trackOddNames();
 
     runHelper(ctx, tmpHelper, [worktree], { CLAUDE_COORDINATION_DIR: canon });
 
     const symlinked = paths.filter((p) => lstatSync(p).isSymbolicLink());
-    expect(symlinked.length, 'without the fallback, git-quoted names are wrongly adopted').toBeGreaterThan(0);
+    expect(
+      symlinked.length,
+      'without the fallback, git-quoted names are wrongly adopted',
+    ).toBeGreaterThan(0);
   });
 
   it('(j-neg) PAIRED-NEGATIVE: with is_tracked() neutered, stage-4.md IS wrongly symlinked', (ctx) => {
@@ -844,14 +1152,25 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
       'is_tracked() { return 1; }',
     );
     expect(neutered, 'is_tracked() must be present to neuter').not.toBe(src);
-    const tmpHelper = installHelper(repo, neutered, 'link-coordination-neutered.sh');
+    const tmpHelper = installHelper(
+      repo,
+      neutered,
+      'link-coordination-neutered.sh',
+    );
 
-    const stage4 = resolve(worktree, '.claude/orchestrator-prompts/u1/stage-4.md');
+    const stage4 = resolve(
+      worktree,
+      '.claude/orchestrator-prompts/u1/stage-4.md',
+    );
     // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
     // Adoption may still exit 0; we only assert the symlink state (spawnSync does not throw).
     spawnBashOrSkip(ctx, 'bash', [tmpHelper, worktree], {
       encoding: 'utf8',
-      env: { ...process.env, ...WIN_MSYS_SYMLINK_ENV, CLAUDE_COORDINATION_DIR: canon },
+      env: {
+        ...process.env,
+        ...WIN_MSYS_SYMLINK_ENV,
+        CLAUDE_COORDINATION_DIR: canon,
+      },
     });
 
     // Without the guard, the tracked file is wrongly turned into a symlink.
@@ -860,7 +1179,11 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
       'neutered helper SHOULD wrongly symlink the tracked file (proves guard is load-bearing)',
     ).toBe(true);
 
-    try { rmSync(tmpHelper); } catch { /* ignore */ }
+    try {
+      rmSync(tmpHelper);
+    } catch {
+      /* ignore */
+    }
   });
 });
 
@@ -889,7 +1212,8 @@ describe('link-coordination.sh — repo-identity guard (foreign cwd / target)', 
     return dir;
   }
 
-  const foreignPrompts = (): string => resolve(foreign, '.claude/orchestrator-prompts');
+  const foreignPrompts = (): string =>
+    resolve(foreign, '.claude/orchestrator-prompts');
 
   beforeEach(() => {
     canon = mkdtempSync(resolve(tmpdir(), 'link-coord-canon-guard-'));
@@ -907,10 +1231,19 @@ describe('link-coordination.sh — repo-identity guard (foreign cwd / target)', 
   });
 
   it('(l1) FOREIGN CWD, no argument: refused (exit 3), foreign repo gets NO links', (ctx) => {
-    const r = runHelper(ctx, helper, [], { CLAUDE_COORDINATION_DIR: canon }, foreign);
+    const r = runHelper(
+      ctx,
+      helper,
+      [],
+      { CLAUDE_COORDINATION_DIR: canon },
+      foreign,
+    );
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
     expect(r.stderr).toContain('not a checkout of');
-    expect(existsSync(foreignPrompts()), 'no orchestrator-prompts dir may be created').toBe(false);
+    expect(
+      existsSync(foreignPrompts()),
+      'no orchestrator-prompts dir may be created',
+    ).toBe(false);
     // CANON itself is untouched too (the guard runs before INIT).
     expect(readdirSync(canon).sort()).toEqual(['_handoff-guard.md', 'u1']);
   });
@@ -918,13 +1251,29 @@ describe('link-coordination.sh — repo-identity guard (foreign cwd / target)', 
   it('(l2) OWN WORKTREE as cwd, no argument: still linked (the guard does not over-block)', (ctx) => {
     const wt = resolve(home, 'wt-own');
     execSync(`git worktree add -q "${wt}" HEAD`, { cwd: home });
-    const r = runHelper(ctx, helper, [], { CLAUDE_COORDINATION_DIR: canon }, wt);
+    const r = runHelper(
+      ctx,
+      helper,
+      [],
+      { CLAUDE_COORDINATION_DIR: canon },
+      wt,
+    );
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
     const state = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
     const ho = resolve(wt, '.claude/orchestrator-prompts/_handoff-guard.md');
-    expect(lstatSync(state).isSymbolicLink(), 'own worktree umbrella file must be linked').toBe(true);
-    expect(lstatSync(ho).isSymbolicLink(), 'own worktree root family file must be linked').toBe(true);
-    try { execSync(`git worktree remove --force "${wt}"`, { cwd: home }); } catch { /* ignore */ }
+    expect(
+      lstatSync(state).isSymbolicLink(),
+      'own worktree umbrella file must be linked',
+    ).toBe(true);
+    expect(
+      lstatSync(ho).isSymbolicLink(),
+      'own worktree root family file must be linked',
+    ).toBe(true);
+    try {
+      execSync(`git worktree remove --force "${wt}"`, { cwd: home });
+    } catch {
+      /* ignore */
+    }
   });
 
   it('(l3) EXPLICIT foreign target (the adopt hook shape): refused, no links, no adoption', (ctx) => {
@@ -932,19 +1281,43 @@ describe('link-coordination.sh — repo-identity guard (foreign cwd / target)', 
     // so a write under a foreign repo's orchestrator-prompts reaches the helper as an arg.
     mkdirSync(resolve(foreignPrompts(), 'u2'), { recursive: true });
     writeFileSync(resolve(foreignPrompts(), 'u2/foo.md'), 'foreign content\n');
-    const r = runHelper(ctx, helper, [foreign], { CLAUDE_COORDINATION_DIR: canon }, home);
+    const r = runHelper(
+      ctx,
+      helper,
+      [foreign],
+      { CLAUDE_COORDINATION_DIR: canon },
+      home,
+    );
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
-    expect(lstatSync(resolve(foreignPrompts(), 'u2/foo.md')).isSymbolicLink(), 'foreign file must NOT be adopted').toBe(false);
-    expect(existsSync(resolve(foreignPrompts(), 'u1')), 'CANON umbrella must NOT be linked in').toBe(false);
-    expect(existsSync(resolve(canon, 'u2')), 'foreign file must NOT reach CANON').toBe(false);
+    expect(
+      lstatSync(resolve(foreignPrompts(), 'u2/foo.md')).isSymbolicLink(),
+      'foreign file must NOT be adopted',
+    ).toBe(false);
+    expect(
+      existsSync(resolve(foreignPrompts(), 'u1')),
+      'CANON umbrella must NOT be linked in',
+    ).toBe(false);
+    expect(
+      existsSync(resolve(canon, 'u2')),
+      'foreign file must NOT reach CANON',
+    ).toBe(false);
   });
 
   it('(l4) NON-GIT target: refused — identity cannot be proven, so nothing is linked', (ctx) => {
     const plain = mkdtempSync(resolve(tmpdir(), 'link-coord-nogit-'));
     extra.push(plain);
-    const r = runHelper(ctx, helper, [plain], { CLAUDE_COORDINATION_DIR: canon }, home);
+    const r = runHelper(
+      ctx,
+      helper,
+      [plain],
+      { CLAUDE_COORDINATION_DIR: canon },
+      home,
+    );
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
-    expect(existsSync(resolve(plain, '.claude')), 'nothing may be created in a non-git dir').toBe(false);
+    expect(
+      existsSync(resolve(plain, '.claude')),
+      'nothing may be created in a non-git dir',
+    ).toBe(false);
   });
 
   it('(l5) NON-GIT dir NESTED inside the repo tree: refused — a subdir is not a checkout root', (ctx) => {
@@ -953,9 +1326,18 @@ describe('link-coordination.sh — repo-identity guard (foreign cwd / target)', 
     // checkout — the incident class in a narrower placement (cold review, 2026-09-30).
     const nested = resolve(home, 'sub/scratch');
     mkdirSync(nested, { recursive: true });
-    const r = runHelper(ctx, helper, [nested], { CLAUDE_COORDINATION_DIR: canon }, home);
+    const r = runHelper(
+      ctx,
+      helper,
+      [nested],
+      { CLAUDE_COORDINATION_DIR: canon },
+      home,
+    );
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
-    expect(existsSync(resolve(nested, '.claude')), 'nothing may be created in the nested dir').toBe(false);
+    expect(
+      existsSync(resolve(nested, '.claude')),
+      'nothing may be created in the nested dir',
+    ).toBe(false);
   });
 
   it('(l-neg) PAIRED-NEGATIVE: with the guard stripped, the foreign cwd IS contaminated (the incident)', (ctx) => {
@@ -964,8 +1346,15 @@ describe('link-coordination.sh — repo-identity guard (foreign cwd / target)', 
       /# ── REPO-IDENTITY GUARD[\s\S]*?# ── TRACKED-FILE DETECTION/,
       '# ── TRACKED-FILE DETECTION',
     );
-    expect(stripped, 'the REPO-IDENTITY GUARD block must be present to strip').not.toBe(src);
-    const tmpHelper = installHelper(home, stripped, 'link-coordination-noguard.sh');
+    expect(
+      stripped,
+      'the REPO-IDENTITY GUARD block must be present to strip',
+    ).not.toBe(src);
+    const tmpHelper = installHelper(
+      home,
+      stripped,
+      'link-coordination-noguard.sh',
+    );
     runHelper(ctx, tmpHelper, [], { CLAUDE_COORDINATION_DIR: canon }, foreign);
     expect(
       lstatSync(resolve(foreignPrompts(), 'u1/state.md')).isSymbolicLink(),
@@ -995,22 +1384,39 @@ describe('link-coordination.sh — default store derived from the project', () =
 
   function makeRepo(name: string): string {
     const repo = resolve(base, name);
-    mkdirSync(resolve(repo, '.claude/orchestrator-prompts/u1'), { recursive: true });
+    mkdirSync(resolve(repo, '.claude/orchestrator-prompts/u1'), {
+      recursive: true,
+    });
     execFileSync('git', ['init', '-q', repo]);
-    writeFileSync(resolve(repo, '.claude/orchestrator-prompts/u1/state.md'), 'state\n');
+    writeFileSync(
+      resolve(repo, '.claude/orchestrator-prompts/u1/state.md'),
+      'state\n',
+    );
     return repo;
   }
 
   // The helper runs from inside the repo it links (REPO-IDENTITY GUARD, block (l)): `helperRepo` is
   // the checkout whose scripts/ holds it — the main checkout when `target` is a linked worktree.
-  function runDefault(ctx: Skippable, target: string, helperRepo: string = target): RunResult {
-    const env: Record<string, string> = { ...process.env, HOME: home } as Record<string, string>;
+  function runDefault(
+    ctx: Skippable,
+    target: string,
+    helperRepo: string = target,
+  ): RunResult {
+    const env: Record<string, string> = {
+      ...process.env,
+      HOME: home,
+    } as Record<string, string>;
     delete env.CLAUDE_COORDINATION_DIR;
     // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
-    const r = spawnBashOrSkip(ctx, 'bash', [installHelper(helperRepo), target], {
-      encoding: 'utf8',
-      env,
-    });
+    const r = spawnBashOrSkip(
+      ctx,
+      'bash',
+      [installHelper(helperRepo), target],
+      {
+        encoding: 'utf8',
+        env,
+      },
+    );
     return {
       stdout: (r.stdout ?? '').trim(),
       stderr: (r.stderr ?? '').trim(),
@@ -1018,42 +1424,74 @@ describe('link-coordination.sh — default store derived from the project', () =
     };
   }
 
-  it('(m1) a consumer repo named my-app gets ~/.claude-coordination/my-app, not getff\'s store', (ctx) => {
+  it("(m1) a consumer repo named my-app gets ~/.claude-coordination/my-app, not getff's store", (ctx) => {
     const repo = makeRepo('my-app');
     const r = runDefault(ctx, repo);
     expect(r.status, r.stderr).toBe(0);
-    expect(existsSync(resolve(home, '.claude-coordination/my-app/u1/state.md'))).toBe(true);
-    expect(existsSync(resolve(home, '.claude-coordination/rules-as-tests-aif'))).toBe(false);
+    expect(
+      existsSync(resolve(home, '.claude-coordination/my-app/u1/state.md')),
+    ).toBe(true);
+    expect(
+      existsSync(resolve(home, '.claude-coordination/rules-as-tests-aif')),
+    ).toBe(false);
   });
 
   it('(m2) a linked worktree of my-app resolves to the MAIN checkout name, not the worktree dir name', (ctx) => {
     const repo = makeRepo('my-app');
     writeFileSync(resolve(repo, 'README.md'), 'r\n');
     execFileSync('git', ['-C', repo, 'add', 'README.md']);
-    execFileSync('git', ['-C', repo, '-c', 'user.email=a@b', '-c', 'user.name=a', 'commit', '-qm', 'init']);
+    execFileSync('git', [
+      '-C',
+      repo,
+      '-c',
+      'user.email=a@b',
+      '-c',
+      'user.name=a',
+      'commit',
+      '-qm',
+      'init',
+    ]);
     const wt = resolve(base, 'wt-feature-x');
     execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', wt]);
-    mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u2'), { recursive: true });
-    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u2/state.md'), 's2\n');
+    mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u2'), {
+      recursive: true,
+    });
+    writeFileSync(
+      resolve(wt, '.claude/orchestrator-prompts/u2/state.md'),
+      's2\n',
+    );
     const r = runDefault(ctx, wt, repo);
     expect(r.status, r.stderr).toBe(0);
-    expect(existsSync(resolve(home, '.claude-coordination/my-app/u2/state.md'))).toBe(true);
-    expect(existsSync(resolve(home, '.claude-coordination/wt-feature-x'))).toBe(false);
+    expect(
+      existsSync(resolve(home, '.claude-coordination/my-app/u2/state.md')),
+    ).toBe(true);
+    expect(existsSync(resolve(home, '.claude-coordination/wt-feature-x'))).toBe(
+      false,
+    );
   });
 
-  it('(m3) getff\'s own checkout name still resolves to rules-as-tests-aif (no change for getff sessions)', (ctx) => {
+  it("(m3) getff's own checkout name still resolves to rules-as-tests-aif (no change for getff sessions)", (ctx) => {
     const repo = makeRepo('rules-as-tests-aif');
     const r = runDefault(ctx, repo);
     expect(r.status, r.stderr).toBe(0);
-    expect(existsSync(resolve(home, '.claude-coordination/rules-as-tests-aif/u1/state.md'))).toBe(true);
+    expect(
+      existsSync(
+        resolve(home, '.claude-coordination/rules-as-tests-aif/u1/state.md'),
+      ),
+    ).toBe(true);
   });
 
   it('(m4) CLAUDE_COORDINATION_DIR still wins over the derived default', (ctx) => {
     const repo = makeRepo('my-app');
     const canon = resolve(base, 'explicit-canon');
-    const r = runHelper(ctx, installHelper(repo), [repo], { CLAUDE_COORDINATION_DIR: canon, HOME: home });
+    const r = runHelper(ctx, installHelper(repo), [repo], {
+      CLAUDE_COORDINATION_DIR: canon,
+      HOME: home,
+    });
     expect(r.status, r.stderr).toBe(0);
     expect(existsSync(resolve(canon, 'u1/state.md'))).toBe(true);
-    expect(existsSync(resolve(home, '.claude-coordination/my-app'))).toBe(false);
+    expect(existsSync(resolve(home, '.claude-coordination/my-app'))).toBe(
+      false,
+    );
   });
 });

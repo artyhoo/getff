@@ -32,9 +32,21 @@
  */
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { spawnBashOrSkip, WIN_MSYS_SYMLINK_ENV, type Skippable } from './spawn-bash-or-skip.ts';
+import {
+  spawnBashOrSkip,
+  WIN_MSYS_SYMLINK_ENV,
+  type Skippable,
+} from './spawn-bash-or-skip.ts';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -91,9 +103,15 @@ const WIN_MSYS_ENV = WIN_MSYS_SYMLINK_ENV;
 function samePath(a: string, b: string): boolean {
   if (process.platform !== 'win32') return a === b;
   try {
-    return realpathSync.native(a).toLowerCase() === realpathSync.native(b).toLowerCase();
+    return (
+      realpathSync.native(a).toLowerCase() ===
+      realpathSync.native(b).toLowerCase()
+    );
   } catch {
-    return a.split('\\').join('/').toLowerCase() === b.split('\\').join('/').toLowerCase();
+    return (
+      a.split('\\').join('/').toLowerCase() ===
+      b.split('\\').join('/').toLowerCase()
+    );
   }
 }
 
@@ -153,7 +171,9 @@ function cleanupRealWorktrees(): void {
     // Ask git where the worktree landed rather than re-deriving
     // create-worktree.sh's path formula — the formula is the thing under test.
     try {
-      execSync(`git -C "${REPO_ROOT}" worktree list --porcelain`, { encoding: 'utf8' })
+      execSync(`git -C "${REPO_ROOT}" worktree list --porcelain`, {
+        encoding: 'utf8',
+      })
         .split('\n\n')
         .filter((block) => block.includes(`branch refs/heads/${branch}`))
         .map((block) =>
@@ -166,7 +186,9 @@ function cleanupRealWorktrees(): void {
         .forEach((p) => {
           if (!p) return;
           try {
-            execSync(`git -C "${REPO_ROOT}" worktree remove --force "${p}"`, { stdio: 'ignore' });
+            execSync(`git -C "${REPO_ROOT}" worktree remove --force "${p}"`, {
+              stdio: 'ignore',
+            });
           } catch {
             /* ignore */
           }
@@ -177,7 +199,9 @@ function cleanupRealWorktrees(): void {
     // -D (not -d): the branch is throwaway test debris that never receives a
     // commit, but it can read as "unmerged" whenever origin/HEAD has moved on.
     try {
-      execSync(`git -C "${REPO_ROOT}" branch -D "${branch}"`, { stdio: 'ignore' });
+      execSync(`git -C "${REPO_ROOT}" branch -D "${branch}"`, {
+        stdio: 'ignore',
+      });
     } catch {
       /* ignore */
     }
@@ -205,7 +229,9 @@ function setupTempRepo(prefix = 'getff-work-test-'): string {
     const src = join(REPO_ROOT, 'scripts', s);
     if (existsSync(src)) {
       // Use cp via execSync (copyFileSync would not preserve mode).
-      execSync(`cp "${src}" "${dir}/scripts/${s}" && chmod +x "${dir}/scripts/${s}"`);
+      execSync(
+        `cp "${src}" "${dir}/scripts/${s}" && chmod +x "${dir}/scripts/${s}"`,
+      );
     }
   }
   mkdirSync(join(dir, 'packages/core'), { recursive: true });
@@ -216,292 +242,405 @@ function setupTempRepo(prefix = 'getff-work-test-'): string {
   return dir;
 }
 
-describe('getff-work.sh — workspace one-command (AC-5)', { timeout: WIN_TIMEOUT_MS }, () => {
-  let tmpRepo: string;
-  beforeEach(() => {
-    tmpRepo = setupTempRepo();
-  });
-  afterEach(() => {
-    // Debris in the REAL repo first — leaving it behind is what turned this
-    // suite red in the first place (see uniqueName()).
-    cleanupRealWorktrees();
-    // Clean up any worktrees that were created inside the temp repo.
-    try {
-      execSync(`git -C "${tmpRepo}" worktree list --porcelain`, { encoding: 'utf8' })
+describe(
+  'getff-work.sh — workspace one-command (AC-5)',
+  { timeout: WIN_TIMEOUT_MS },
+  () => {
+    let tmpRepo: string;
+    beforeEach(() => {
+      tmpRepo = setupTempRepo();
+    });
+    afterEach(() => {
+      // Debris in the REAL repo first — leaving it behind is what turned this
+      // suite red in the first place (see uniqueName()).
+      cleanupRealWorktrees();
+      // Clean up any worktrees that were created inside the temp repo.
+      try {
+        execSync(`git -C "${tmpRepo}" worktree list --porcelain`, {
+          encoding: 'utf8',
+        })
+          .split('\n')
+          .filter((l) => l.startsWith('worktree '))
+          .map((l) => l.replace(/^worktree\s+/, '').trim())
+          .filter((p) => p && p !== tmpRepo)
+          .forEach((p) => {
+            try {
+              execSync(`git -C "${tmpRepo}" worktree remove --force "${p}"`, {
+                stdio: 'ignore',
+              });
+            } catch {
+              /* ignore */
+            }
+          });
+      } catch {
+        /* ignore */
+      }
+      rmSync(tmpRepo, { recursive: true, force: true });
+    });
+
+    it.each([
+      ['thread', { CODEX_THREAD_ID: 'test-codex-thread' }],
+      ['harness', { AIF_HARNESS: 'codex' }],
+    ])(
+      'CODEX-READY-TEMP: explicit %s prefers Codex and quotes the worktree path',
+      (_signal, signal) => {
+        // A space in the consumer root makes shell quoting observable. No root or core
+        // package/lockfile exists in this fixture, so neither provisioning leg installs.
+        rmSync(tmpRepo, { recursive: true, force: true });
+        tmpRepo = realpathSync(setupTempRepo('getff work codex-'));
+        const bin = join(tmpRepo, 'bin');
+        const launches = join(tmpRepo, 'launches.log');
+        mkdirSync(bin);
+        for (const cli of ['codex', 'zcode', 'claude']) {
+          writeFileSync(
+            join(bin, cli),
+            '#!/usr/bin/env bash\nprintf "%s\\n" "$0" >> "$CLI_LAUNCH_LOG"\nexit 99\n',
+            { mode: 0o755 },
+          );
+        }
+        const env = {
+          ...process.env,
+          CLAUDE_CODE_SESSION_ID: '',
+          CODEX_THREAD_ID: '',
+          AIF_HARNESS: '',
+          ZCODE_SESSION_ID: '',
+          WORKTREE_BASE_REF: 'HEAD',
+          CLAUDE_COORDINATION_DIR: join(tmpRepo, 'coordination'),
+          PATH: `${bin}:${process.env.PATH}`,
+          CLI_LAUNCH_LOG: launches,
+          ...WIN_MSYS_ENV,
+          ...signal,
+        };
+        const args = [
+          join(tmpRepo, 'scripts/getff-work.sh'),
+          'codex-ready',
+          '--no-launch',
+        ];
+        const result = spawnSync('bash', args, {
+          cwd: tmpRepo,
+          env,
+          encoding: 'utf8',
+          timeout: SPAWN_GUARD_MS,
+        });
+        const output = `${result.stdout}${result.stderr}`;
+        expect(result.status, output).toBe(0);
+        expect(existsSync(launches), output).toBe(false);
+        const command = result.stdout
+          .split('\n')
+          .find((line) => /^\s+codex -C /.test(line));
+        expect(command, output).toBeDefined();
+        expect(result.stdout, output).not.toMatch(/^\s+(zcode|claude)\b/m);
+        // Parse the printed shell line with a function argument catcher; never invoke
+        // the installed Codex executable, even if the output selects it correctly.
+        const parsed = spawnSync(
+          'bash',
+          ['-c', 'codex() { printf "%s\\n" "$#" "$@"; };\n' + command],
+          {
+            cwd: tmpRepo,
+            env,
+            encoding: 'utf8',
+            timeout: SPAWN_GUARD_MS,
+          },
+        );
+        expect(parsed.status, `${parsed.stdout}${parsed.stderr}`).toBe(0);
+        const printed = parsed.stdout.split('\n');
+        expect(printed.length, output).toBe(4);
+        expect(printed.slice(0, 2), output).toEqual(['2', '-C']);
+        expect(
+          samePath(
+            printed[2] ?? '',
+            join(tmpRepo, '.claude/worktrees/codex-ready'),
+          ),
+          output,
+        ).toBe(true);
+        expect(printed[3] ?? '<missing>', output).toBe('');
+        expect(existsSync(launches)).toBe(false);
+
+        // Both explicit Codex signals must still defer when CC owns the session.
+        const deferred = spawnSync('bash', args, {
+          cwd: tmpRepo,
+          env: { ...env, CLAUDE_CODE_SESSION_ID: 'test-cc-session' },
+          encoding: 'utf8',
+          timeout: SPAWN_GUARD_MS,
+        });
+        expect(deferred.status, `${deferred.stdout}${deferred.stderr}`).toBe(0);
+        expect(deferred.stdout).toContain('done (CC deferral)');
+        expect(deferred.stdout).toContain('claude -w codex-ready');
+        expect(deferred.stdout).not.toMatch(/^\s+codex -C /m);
+        expect(existsSync(launches)).toBe(false);
+      },
+    );
+
+    // ✅ CC-DEFERRAL (Park-4 binding)
+    it('CC-DEFERRAL: CLAUDE_CODE_SESSION_ID set → defers, prints `claude -w` (no auto-launch)', (ctx) => {
+      const name = uniqueName('smoke-cc');
+      const r = runScript(ctx, [name, '--no-launch'], {
+        CLAUDE_CODE_SESSION_ID: 'fake-cc-session-id',
+      });
+      expect(
+        r.status,
+        `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`,
+      ).toBe(0);
+      expect(r.stdout).toMatch(/CC deferral|deferring|CLAUDE_CODE_SESSION_ID/i);
+      expect(r.stdout).toMatch(new RegExp(`claude -w\\s+${name}`));
+      // The wrapper does NOT itself spawn a `claude` session; verify it ends with
+      // the "done (CC deferral)" line, not a session-launch log.
+      expect(r.stdout).toMatch(/done \(CC deferral\)/);
+    });
+
+    // ✅ NON-CC-PRINT
+    it('NON-CC-PRINT: no CC env → prints ready command, does NOT spawn a session', (ctx) => {
+      // Ensure CC env is unset for this test.
+      const r = runScript(ctx, [uniqueName('smoke-noncc'), '--no-launch'], {
+        CLAUDE_CODE_SESSION_ID: '',
+      });
+      expect(
+        r.status,
+        `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`,
+      ).toBe(0);
+      // Without CC env, the wrapper prints a ready command for the operator to run.
+      expect(r.stdout).toMatch(/cd\s+\S+/);
+      expect(r.stdout).not.toMatch(/CC deferral/);
+    });
+
+    // ✅ NO-LAUNCH-FLAG (force print even in TTY)
+    it('NO-LAUNCH-FLAG: --no-launch forces print-only path', (ctx) => {
+      // CLAUDE_CODE_SESSION_ID must be cleared: the asserted "done (--no-launch /
+      // non-TTY)" line lives on the NON-CC path (getff-work.sh:200-203), and the
+      // CC check at getff-work.sh:160 exits at :170 before ever reaching it. This
+      // test inherited the ambient env, so it passed in CI and failed inside any
+      // real CC session — a latent env-dependency that the branch-collision
+      // failure masked until 2026-08-12.
+      //
+      // The assertion is on `reason=flag`, not on the literal '--no-launch'. The print-only line
+      // reads '✓ done (--no-launch / non-TTY; reason=…)' and is also produced by the non-TTY
+      // auto-enable at getff-work.sh:68-71 — and spawnSync is never a TTY. So a bare
+      // toMatch(/--no-launch/) held whether or not the flag was parsed at all: breaking the
+      // `--no-launch) NO_LAUNCH=1` arm left this test green while the operator's flag was
+      // silently ignored in a real terminal. `reason` is the only observable that separates the
+      // two paths under a test runner; the paired-negative below pins the other value.
+      const r = runScript(ctx, [uniqueName('smoke-nolaunch'), '--no-launch'], {
+        CLAUDE_CODE_SESSION_ID: '',
+      });
+      expect(
+        r.status,
+        `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`,
+      ).toBe(0);
+      expect(r.stdout).toMatch(/reason=flag/);
+    });
+
+    // ✅ NO-LAUNCH-FLAG paired-negative (same run, flag withheld)
+    it('NO-LAUNCH-FLAG (neg): without --no-launch the same print-only path reports reason=non-tty', (ctx) => {
+      // Identical invocation minus the flag. Print-only is still reached (spawnSync is non-TTY),
+      // so this pins the auto-enable path to its own reason value — which is what makes the
+      // positive above falsifiable rather than a restatement of "the runner has no TTY".
+      const r = runScript(ctx, [uniqueName('smoke-nolaunch-neg')], {
+        CLAUDE_CODE_SESSION_ID: '',
+      });
+      if (process.platform === 'win32') {
+        // C4 native capture (run 40340771916): this arm died at create-worktree's
+        // `git worktree add` with the MSYS path spelled out but git's own stderr
+        // swallowed. Dump the child bytes; on failure they name git's real complaint.
+        // POSIX prints nothing; assertions unchanged.
+        console.log(
+          'C4-CAPTURE status=',
+          r.status,
+          'stdout=',
+          JSON.stringify((r.stdout ?? '').slice(0, 900)),
+          'stderr=',
+          JSON.stringify((r.stderr ?? '').slice(0, 400)),
+        );
+      }
+      expect(
+        r.status,
+        `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`,
+      ).toBe(0);
+      expect(r.stdout).toMatch(/reason=non-tty/);
+      expect(
+        r.stdout,
+        'the flag was not passed — reason must not claim it was',
+      ).not.toMatch(/reason=flag/);
+    });
+
+    // ✅ NO-INSTALL-THROUGH-DELIVERY-SYMLINK (paired-negative for the 2026-08-16 incident)
+    it('step 2 does NOT install through the worktree node_modules delivery symlink — the primary tree survives', (ctx) => {
+      // Incident 2026-08-16 (staging RED at fa8da9406c): create-worktree.sh provisions
+      // <worktree>/node_modules as a symlink to the PRIMARY's tree
+      // (worktree-node-modules.sh:440), and step 2 then ran `npm ci` with that worktree as
+      // cwd — so npm reified the PRIMARY's real node_modules against the worktree's lock,
+      // pruning 673 of 835 packages and emptying node_modules/.bin. Every vitest child
+      // spawned afterwards died on
+      // `Cannot find module '<root>/node_modules/vitest/suppress-warnings.cjs'`:
+      // 972/972 tests passed, 25 unhandled errors, exit 1 — a red no assertion explained.
+      //
+      // The assertion is the primary's own package count across a real wrapper run: it is
+      // the quantity the defect moved, and it cannot pass by construction if the install
+      // writes through the link again.
+      const primaryNodeModules = resolve(REPO_ROOT, 'node_modules');
+      const before = existsSync(primaryNodeModules)
+        ? readdirSync(primaryNodeModules).length
+        : 0;
+      expect(
+        before,
+        'precondition: the primary checkout must be installed for this case to mean anything',
+      ).toBeGreaterThan(100);
+
+      const r = runScript(ctx, [uniqueName('smoke-nmguard'), '--no-launch'], {
+        CLAUDE_CODE_SESSION_ID: '',
+      });
+      expect(
+        r.status,
+        `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`,
+      ).toBe(0);
+
+      const after = readdirSync(primaryNodeModules).length;
+      expect(
+        after,
+        `the primary's node_modules lost entries during a wrapper run (${before} → ${after}). ` +
+          `That is the delivery-symlink write-through defect, not a flake. output:\n${r.stdout}`,
+      ).toBe(before);
+      // And the skip is announced rather than silent — a silent skip would be
+      // indistinguishable from an install that did nothing.
+      expect(r.stdout).toMatch(/delivery symlink into the primary checkout/);
+    });
+
+    // ✅ HELP-FLAG
+    it('HELP-FLAG: --help exits 0 and prints usage', (ctx) => {
+      const r = runScript(ctx, ['--help']);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toMatch(/Usage|getff-work\.sh/i);
+    });
+
+    // ✅ MISSING-NAME
+    it('MISSING-NAME: no positional arg → exit 2 + usage on stderr', (ctx) => {
+      const r = runScript(ctx, []);
+      expect(r.status).toBe(2);
+      expect(r.stderr).toMatch(/usage/i);
+    });
+
+    // ✅ UNKNOWN-FLAG
+    it('UNKNOWN-FLAG: --bogus → exit 2 + error on stderr', (ctx) => {
+      const r = runScript(ctx, ['name', '--bogus']);
+      expect(r.status).toBe(2);
+      expect(r.stderr).toMatch(/unknown flag|--bogus/i);
+    });
+
+    // ✅ NO-DOUBLE-INSTALL: when the provisioning helper already installed the worktree for real
+    // (its lock diverges from the primary's installed tree), step 2 must not run a second install.
+    it('NO-DOUBLE-INSTALL: a worktree the helper installed for real is not re-installed by step 2', (ctx) => {
+      const lock = (deps: Record<string, string>): string =>
+        `${JSON.stringify({
+          lockfileVersion: 3,
+          packages: {
+            '': {
+              devDependencies: Object.fromEntries(
+                Object.keys(deps).map((n) => [n, '*']),
+              ),
+            },
+            ...Object.fromEntries(
+              Object.entries(deps).map(([n, v]) => [
+                `node_modules/${n}`,
+                { version: v },
+              ]),
+            ),
+          },
+        })}\n`;
+      writeFileSync(
+        join(tmpRepo, 'package-lock.json'),
+        lock({ vitest: '4.1.8', oxlint: '1.2.3' }),
+      );
+      writeFileSync(
+        join(tmpRepo, 'package.json'),
+        '{"name":"fixture","private":true}\n',
+      );
+      writeFileSync(join(tmpRepo, '.gitignore'), 'node_modules\n');
+      execSync('git add -A && git commit -q -m locks', { cwd: tmpRepo });
+      // The primary's INSTALLED tree lacks oxlint, so the helper must install for real.
+      writeFileSync(
+        join(tmpRepo, 'node_modules/.package-lock.json'),
+        lock({ vitest: '4.1.8' }),
+      );
+      const stubDir = mkdtempSync(join(tmpdir(), 'getff-work-npm-'));
+      const npmLog = join(stubDir, 'npm.log');
+      writeFileSync(
+        join(stubDir, 'npm'),
+        `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${npmLog}"\nmkdir -p node_modules/dep\n`,
+        { mode: 0o755 },
+      );
+
+      const r = spawnBashOrSkip(
+        ctx,
+        'bash',
+        [join(tmpRepo, 'scripts/getff-work.sh'), 'smoke-once', '--no-launch'],
+        {
+          cwd: tmpRepo,
+          encoding: 'utf8',
+          timeout: SPAWN_GUARD_MS,
+          // PATH: step 2 calls bare `npm`; the stub stands in for it too, so a second install is logged.
+          env: {
+            ...process.env,
+            CLAUDE_CODE_SESSION_ID: '',
+            WNM_NPM: join(stubDir, 'npm'),
+            PATH: `${stubDir}:${process.env.PATH}`,
+          },
+        },
+      );
+      const out = `${r.stdout}${r.stderr}`;
+      rmSync(stubDir, { recursive: true, force: true });
+
+      expect(r.status, out).toBe(0);
+      expect(out).toMatch(/installed .* for real/);
+      expect(out).toMatch(
+        /already installed for real by worktree-node-modules/,
+      );
+      expect(out).not.toMatch(/Dep wiring: npm/);
+    });
+
+    // ✅ FRESH-CONSUMER-SMOKE (R6 — §8a Park-6 BINDING): the shipped create-worktree.sh
+    // must work in a clean consumer repo with the full shipped script set. Three
+    // observables asserted: exit 0, no missing-callee warning, node_modules symlinks
+    // present in the created worktree. setupTempRepo mirrors a fresh consumer repo
+    // (clean git init + shipped scripts/ + minimal packages/core + node_modules/).
+    it('FRESH-CONSUMER-SMOKE: shipped create-worktree.sh in clean repo → exit 0, no missing-callee, node_modules present', () => {
+      // Run create-worktree.sh as a consumer would (from the repo root).
+      const r = spawnSync(
+        'bash',
+        [join(tmpRepo, 'scripts/create-worktree.sh'), 'smoke-fresh'],
+        { cwd: tmpRepo, encoding: 'utf8', timeout: SPAWN_GUARD_MS },
+      );
+      const combined = (r.stdout ?? '') + (r.stderr ?? '');
+
+      // AC-1: exit 0.
+      expect(
+        r.status,
+        `create-worktree.sh exit code. output:\n${combined}`,
+      ).toBe(0);
+
+      // AC-2: no missing-callee warning (the three callee scripts ship together).
+      expect(combined).not.toMatch(
+        /missing.*callee|worktree-node-modules.*not found|link-coordination.*not found/i,
+      );
+
+      // AC-3: node_modules symlinks present in the created worktree.
+      // Find the worktree path via `git worktree list`.
+      const wtList = execSync(`git -C "${tmpRepo}" worktree list --porcelain`, {
+        encoding: 'utf8',
+      });
+      const wtLines = wtList
         .split('\n')
         .filter((l) => l.startsWith('worktree '))
         .map((l) => l.replace(/^worktree\s+/, '').trim())
-        .filter((p) => p && p !== tmpRepo)
-        .forEach((p) => {
-          try {
-            execSync(`git -C "${tmpRepo}" worktree remove --force "${p}"`, { stdio: 'ignore' });
-          } catch {
-            /* ignore */
-          }
-        });
-    } catch {
-      /* ignore */
-    }
-    rmSync(tmpRepo, { recursive: true, force: true });
-  });
-
-  it.each([
-    ['thread', { CODEX_THREAD_ID: 'test-codex-thread' }],
-    ['harness', { AIF_HARNESS: 'codex' }],
-  ])('CODEX-READY-TEMP: explicit %s prefers Codex and quotes the worktree path', (_signal, signal) => {
-    // A space in the consumer root makes shell quoting observable. No root or core
-    // package/lockfile exists in this fixture, so neither provisioning leg installs.
-    rmSync(tmpRepo, { recursive: true, force: true });
-    tmpRepo = realpathSync(setupTempRepo('getff work codex-'));
-    const bin = join(tmpRepo, 'bin');
-    const launches = join(tmpRepo, 'launches.log');
-    mkdirSync(bin);
-    for (const cli of ['codex', 'zcode', 'claude']) {
-      writeFileSync(join(bin, cli), '#!/usr/bin/env bash\nprintf "%s\\n" "$0" >> "$CLI_LAUNCH_LOG"\nexit 99\n', { mode: 0o755 });
-    }
-    const env = {
-      ...process.env,
-      CLAUDE_CODE_SESSION_ID: '', CODEX_THREAD_ID: '', AIF_HARNESS: '', ZCODE_SESSION_ID: '',
-      WORKTREE_BASE_REF: 'HEAD', CLAUDE_COORDINATION_DIR: join(tmpRepo, 'coordination'),
-      PATH: `${bin}:${process.env.PATH}`, CLI_LAUNCH_LOG: launches,
-      ...WIN_MSYS_ENV,
-      ...signal,
-    };
-    const args = [join(tmpRepo, 'scripts/getff-work.sh'), 'codex-ready', '--no-launch'];
-    const result = spawnSync('bash', args, { cwd: tmpRepo, env, encoding: 'utf8', timeout: SPAWN_GUARD_MS });
-    const output = `${result.stdout}${result.stderr}`;
-    expect(result.status, output).toBe(0);
-    expect(existsSync(launches), output).toBe(false);
-    const command = result.stdout.split('\n').find((line) => /^\s+codex -C /.test(line));
-    expect(command, output).toBeDefined();
-    expect(result.stdout, output).not.toMatch(/^\s+(zcode|claude)\b/m);
-    // Parse the printed shell line with a function argument catcher; never invoke
-    // the installed Codex executable, even if the output selects it correctly.
-    const parsed = spawnSync('bash', ['-c', 'codex() { printf "%s\\n" "$#" "$@"; };\n' + command], {
-      cwd: tmpRepo, env, encoding: 'utf8', timeout: SPAWN_GUARD_MS,
+        .filter((p) => p && p !== tmpRepo);
+      expect(
+        wtLines.length,
+        'a worktree was created inside the temp repo',
+      ).toBeGreaterThan(0);
+      const wtPath = wtLines[0]!;
+      const nmPath = join(wtPath, 'node_modules');
+      expect(
+        existsSync(nmPath),
+        `node_modules exists in worktree at ${nmPath}`,
+      ).toBe(true);
     });
-    expect(parsed.status, `${parsed.stdout}${parsed.stderr}`).toBe(0);
-    const printed = parsed.stdout.split('\n');
-    expect(printed.length, output).toBe(4);
-    expect(printed.slice(0, 2), output).toEqual(['2', '-C']);
-    expect(samePath(printed[2] ?? '', join(tmpRepo, '.claude/worktrees/codex-ready')), output).toBe(true);
-    expect(printed[3] ?? '<missing>', output).toBe('');
-    expect(existsSync(launches)).toBe(false);
-
-    // Both explicit Codex signals must still defer when CC owns the session.
-    const deferred = spawnSync('bash', args, {
-      cwd: tmpRepo, env: { ...env, CLAUDE_CODE_SESSION_ID: 'test-cc-session' },
-      encoding: 'utf8', timeout: SPAWN_GUARD_MS,
-    });
-    expect(deferred.status, `${deferred.stdout}${deferred.stderr}`).toBe(0);
-    expect(deferred.stdout).toContain('done (CC deferral)');
-    expect(deferred.stdout).toContain('claude -w codex-ready');
-    expect(deferred.stdout).not.toMatch(/^\s+codex -C /m);
-    expect(existsSync(launches)).toBe(false);
-  });
-
-  // ✅ CC-DEFERRAL (Park-4 binding)
-  it('CC-DEFERRAL: CLAUDE_CODE_SESSION_ID set → defers, prints `claude -w` (no auto-launch)', (ctx) => {
-    const name = uniqueName('smoke-cc');
-    const r = runScript(
-      ctx,
-      [name, '--no-launch'],
-      { CLAUDE_CODE_SESSION_ID: 'fake-cc-session-id' },
-    );
-    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
-    expect(r.stdout).toMatch(/CC deferral|deferring|CLAUDE_CODE_SESSION_ID/i);
-    expect(r.stdout).toMatch(new RegExp(`claude -w\\s+${name}`));
-    // The wrapper does NOT itself spawn a `claude` session; verify it ends with
-    // the "done (CC deferral)" line, not a session-launch log.
-    expect(r.stdout).toMatch(/done \(CC deferral\)/);
-  });
-
-  // ✅ NON-CC-PRINT
-  it('NON-CC-PRINT: no CC env → prints ready command, does NOT spawn a session', (ctx) => {
-    // Ensure CC env is unset for this test.
-    const r = runScript(ctx, [uniqueName('smoke-noncc'), '--no-launch'], {
-      CLAUDE_CODE_SESSION_ID: '',
-    });
-    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
-    // Without CC env, the wrapper prints a ready command for the operator to run.
-    expect(r.stdout).toMatch(/cd\s+\S+/);
-    expect(r.stdout).not.toMatch(/CC deferral/);
-  });
-
-  // ✅ NO-LAUNCH-FLAG (force print even in TTY)
-  it('NO-LAUNCH-FLAG: --no-launch forces print-only path', (ctx) => {
-    // CLAUDE_CODE_SESSION_ID must be cleared: the asserted "done (--no-launch /
-    // non-TTY)" line lives on the NON-CC path (getff-work.sh:200-203), and the
-    // CC check at getff-work.sh:160 exits at :170 before ever reaching it. This
-    // test inherited the ambient env, so it passed in CI and failed inside any
-    // real CC session — a latent env-dependency that the branch-collision
-    // failure masked until 2026-08-12.
-    //
-    // The assertion is on `reason=flag`, not on the literal '--no-launch'. The print-only line
-    // reads '✓ done (--no-launch / non-TTY; reason=…)' and is also produced by the non-TTY
-    // auto-enable at getff-work.sh:68-71 — and spawnSync is never a TTY. So a bare
-    // toMatch(/--no-launch/) held whether or not the flag was parsed at all: breaking the
-    // `--no-launch) NO_LAUNCH=1` arm left this test green while the operator's flag was
-    // silently ignored in a real terminal. `reason` is the only observable that separates the
-    // two paths under a test runner; the paired-negative below pins the other value.
-    const r = runScript(ctx, [uniqueName('smoke-nolaunch'), '--no-launch'], {
-      CLAUDE_CODE_SESSION_ID: '',
-    });
-    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
-    expect(r.stdout).toMatch(/reason=flag/);
-  });
-
-  // ✅ NO-LAUNCH-FLAG paired-negative (same run, flag withheld)
-  it('NO-LAUNCH-FLAG (neg): without --no-launch the same print-only path reports reason=non-tty', (ctx) => {
-    // Identical invocation minus the flag. Print-only is still reached (spawnSync is non-TTY),
-    // so this pins the auto-enable path to its own reason value — which is what makes the
-    // positive above falsifiable rather than a restatement of "the runner has no TTY".
-    const r = runScript(ctx, [uniqueName('smoke-nolaunch-neg')], { CLAUDE_CODE_SESSION_ID: '' });
-    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
-    expect(r.stdout).toMatch(/reason=non-tty/);
-    expect(r.stdout, 'the flag was not passed — reason must not claim it was').not.toMatch(
-      /reason=flag/,
-    );
-  });
-
-  // ✅ NO-INSTALL-THROUGH-DELIVERY-SYMLINK (paired-negative for the 2026-08-16 incident)
-  it('step 2 does NOT install through the worktree node_modules delivery symlink — the primary tree survives', (ctx) => {
-    // Incident 2026-08-16 (staging RED at fa8da9406c): create-worktree.sh provisions
-    // <worktree>/node_modules as a symlink to the PRIMARY's tree
-    // (worktree-node-modules.sh:440), and step 2 then ran `npm ci` with that worktree as
-    // cwd — so npm reified the PRIMARY's real node_modules against the worktree's lock,
-    // pruning 673 of 835 packages and emptying node_modules/.bin. Every vitest child
-    // spawned afterwards died on
-    // `Cannot find module '<root>/node_modules/vitest/suppress-warnings.cjs'`:
-    // 972/972 tests passed, 25 unhandled errors, exit 1 — a red no assertion explained.
-    //
-    // The assertion is the primary's own package count across a real wrapper run: it is
-    // the quantity the defect moved, and it cannot pass by construction if the install
-    // writes through the link again.
-    const primaryNodeModules = resolve(REPO_ROOT, 'node_modules');
-    const before = existsSync(primaryNodeModules)
-      ? readdirSync(primaryNodeModules).length
-      : 0;
-    expect(
-      before,
-      'precondition: the primary checkout must be installed for this case to mean anything',
-    ).toBeGreaterThan(100);
-
-    const r = runScript(ctx, [uniqueName('smoke-nmguard'), '--no-launch'], {
-      CLAUDE_CODE_SESSION_ID: '',
-    });
-    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
-
-    const after = readdirSync(primaryNodeModules).length;
-    expect(
-      after,
-      `the primary's node_modules lost entries during a wrapper run (${before} → ${after}). ` +
-        `That is the delivery-symlink write-through defect, not a flake. output:\n${r.stdout}`,
-    ).toBe(before);
-    // And the skip is announced rather than silent — a silent skip would be
-    // indistinguishable from an install that did nothing.
-    expect(r.stdout).toMatch(/delivery symlink into the primary checkout/);
-  });
-
-  // ✅ HELP-FLAG
-  it('HELP-FLAG: --help exits 0 and prints usage', (ctx) => {
-    const r = runScript(ctx, ['--help']);
-    expect(r.status).toBe(0);
-    expect(r.stdout).toMatch(/Usage|getff-work\.sh/i);
-  });
-
-  // ✅ MISSING-NAME
-  it('MISSING-NAME: no positional arg → exit 2 + usage on stderr', (ctx) => {
-    const r = runScript(ctx, []);
-    expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/usage/i);
-  });
-
-  // ✅ UNKNOWN-FLAG
-  it('UNKNOWN-FLAG: --bogus → exit 2 + error on stderr', (ctx) => {
-    const r = runScript(ctx, ['name', '--bogus']);
-    expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/unknown flag|--bogus/i);
-  });
-
-  // ✅ NO-DOUBLE-INSTALL: when the provisioning helper already installed the worktree for real
-  // (its lock diverges from the primary's installed tree), step 2 must not run a second install.
-  it('NO-DOUBLE-INSTALL: a worktree the helper installed for real is not re-installed by step 2', (ctx) => {
-    const lock = (deps: Record<string, string>): string =>
-      `${JSON.stringify({
-        lockfileVersion: 3,
-        packages: {
-          '': { devDependencies: Object.fromEntries(Object.keys(deps).map((n) => [n, '*'])) },
-          ...Object.fromEntries(Object.entries(deps).map(([n, v]) => [`node_modules/${n}`, { version: v }])),
-        },
-      })}\n`;
-    writeFileSync(join(tmpRepo, 'package-lock.json'), lock({ vitest: '4.1.8', oxlint: '1.2.3' }));
-    writeFileSync(join(tmpRepo, 'package.json'), '{"name":"fixture","private":true}\n');
-    writeFileSync(join(tmpRepo, '.gitignore'), 'node_modules\n');
-    execSync('git add -A && git commit -q -m locks', { cwd: tmpRepo });
-    // The primary's INSTALLED tree lacks oxlint, so the helper must install for real.
-    writeFileSync(join(tmpRepo, 'node_modules/.package-lock.json'), lock({ vitest: '4.1.8' }));
-    const stubDir = mkdtempSync(join(tmpdir(), 'getff-work-npm-'));
-    const npmLog = join(stubDir, 'npm.log');
-    writeFileSync(
-      join(stubDir, 'npm'),
-      `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> "${npmLog}"\nmkdir -p node_modules/dep\n`,
-      { mode: 0o755 },
-    );
-
-    const r = spawnBashOrSkip(ctx, 'bash', [join(tmpRepo, 'scripts/getff-work.sh'), 'smoke-once', '--no-launch'], {
-      cwd: tmpRepo,
-      encoding: 'utf8',
-      timeout: SPAWN_GUARD_MS,
-      // PATH: step 2 calls bare `npm`; the stub stands in for it too, so a second install is logged.
-      env: { ...process.env, CLAUDE_CODE_SESSION_ID: '', WNM_NPM: join(stubDir, 'npm'), PATH: `${stubDir}:${process.env.PATH}` },
-    });
-    const out = `${r.stdout}${r.stderr}`;
-    rmSync(stubDir, { recursive: true, force: true });
-
-    expect(r.status, out).toBe(0);
-    expect(out).toMatch(/installed .* for real/);
-    expect(out).toMatch(/already installed for real by worktree-node-modules/);
-    expect(out).not.toMatch(/Dep wiring: npm/);
-  });
-
-  // ✅ FRESH-CONSUMER-SMOKE (R6 — §8a Park-6 BINDING): the shipped create-worktree.sh
-  // must work in a clean consumer repo with the full shipped script set. Three
-  // observables asserted: exit 0, no missing-callee warning, node_modules symlinks
-  // present in the created worktree. setupTempRepo mirrors a fresh consumer repo
-  // (clean git init + shipped scripts/ + minimal packages/core + node_modules/).
-  it('FRESH-CONSUMER-SMOKE: shipped create-worktree.sh in clean repo → exit 0, no missing-callee, node_modules present', () => {
-    // Run create-worktree.sh as a consumer would (from the repo root).
-    const r = spawnSync(
-      'bash',
-      [join(tmpRepo, 'scripts/create-worktree.sh'), 'smoke-fresh'],
-      { cwd: tmpRepo, encoding: 'utf8', timeout: SPAWN_GUARD_MS },
-    );
-    const combined = (r.stdout ?? '') + (r.stderr ?? '');
-
-    // AC-1: exit 0.
-    expect(r.status, `create-worktree.sh exit code. output:\n${combined}`).toBe(0);
-
-    // AC-2: no missing-callee warning (the three callee scripts ship together).
-    expect(combined).not.toMatch(/missing.*callee|worktree-node-modules.*not found|link-coordination.*not found/i);
-
-    // AC-3: node_modules symlinks present in the created worktree.
-    // Find the worktree path via `git worktree list`.
-    const wtList = execSync(
-      `git -C "${tmpRepo}" worktree list --porcelain`,
-      { encoding: 'utf8' },
-    );
-    const wtLines = wtList
-      .split('\n')
-      .filter((l) => l.startsWith('worktree '))
-      .map((l) => l.replace(/^worktree\s+/, '').trim())
-      .filter((p) => p && p !== tmpRepo);
-    expect(wtLines.length, 'a worktree was created inside the temp repo').toBeGreaterThan(0);
-    const wtPath = wtLines[0]!;
-    const nmPath = join(wtPath, 'node_modules');
-    expect(
-      existsSync(nmPath),
-      `node_modules exists in worktree at ${nmPath}`,
-    ).toBe(true);
-  });
-});
+  },
+);

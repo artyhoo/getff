@@ -63,10 +63,13 @@ import {
   type Skippable,
 } from './symlink-or-junction-or-skip.ts';
 import { spawnBashOrSkip } from './spawn-bash-or-skip.ts';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { REQUIRED_HEADER_DOCS, selectRequiredPaths } from '../principles/09-doc-authority-hierarchy.ts';
+import {
+  REQUIRED_HEADER_DOCS,
+  selectRequiredPaths,
+} from '../principles/09-doc-authority-hierarchy.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -195,7 +198,11 @@ const extraGitRepos: string[] = [];
 
 afterAll(() => {
   for (const repo of extraGitRepos.splice(0)) {
-    try { execSync(`git -C "${repo}" worktree remove --all --force 2>/dev/null`, { stdio: 'ignore' }); } catch {}
+    try {
+      execSync(`git -C "${repo}" worktree remove --all --force 2>/dev/null`, {
+        stdio: 'ignore',
+      });
+    } catch {}
     rmSync(repo, { recursive: true, force: true });
   }
   rmSync(SANDBOX, { recursive: true, force: true });
@@ -407,7 +414,9 @@ describe.skipIf(!JQ || !TSX)(
     it('sanity: FIXTURE_REQUIRED_DOC is actually in REQUIRED_HEADER_DOCS', () => {
       // T3: verify our fixture choice against the canonical list
       // (09-doc-authority-hierarchy.ts line 38: '.claude/rules/doc-authority-hierarchy.md')
-      expect(selectRequiredPaths([FIXTURE_REQUIRED_DOC])).toContain(FIXTURE_REQUIRED_DOC);
+      expect(selectRequiredPaths([FIXTURE_REQUIRED_DOC])).toContain(
+        FIXTURE_REQUIRED_DOC,
+      );
     });
 
     it('ZCODE: violation under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory)', (ctx) => {
@@ -483,31 +492,43 @@ describe('check-doc-authority.sh — dependency-missing skip is announced, not s
    * because the jq-free JSON escaper needs them — masking those too would test the
    * harness, not the hook.
    */
-  function runWithoutJq(ctx: Skippable, extraEnv: Record<string, string> = {}): {
+  function runWithoutJq(
+    ctx: Skippable,
+    extraEnv: Record<string, string> = {},
+  ): {
     status: number;
     stdout: string;
     stderr: string;
   } {
     const binDir = mkdtempSync(join(tmpdir(), 'nojq-'));
     for (const tool of ['sed', 'tr', 'cat']) {
-      const real = spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      const real = spawnBashOrSkip(ctx, '/usr/bin/which', [tool], {
+        encoding: 'utf8',
+      }).stdout?.trim();
       // tool binaries are files: junctions cannot express them → named win32 skip
       if (real) symlinkOrJunctionOrSkip(ctx, real, join(binDir, tool));
     }
-    const fullEnv: Record<string, string> = { ...process.env, PATH: binDir } as Record<
-      string,
-      string
-    >;
+    const fullEnv: Record<string, string> = {
+      ...process.env,
+      PATH: binDir,
+    } as Record<string, string>;
     delete fullEnv.ZCODE_PROJECT_DIR;
     Object.assign(fullEnv, extraEnv);
     // Absolute bash path: the masked PATH cannot resolve `bash` itself.
     const r = spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
-      input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: join(SANDBOX, 'x.md') } }),
+      input: JSON.stringify({
+        tool_name: 'Edit',
+        tool_input: { file_path: join(SANDBOX, 'x.md') },
+      }),
       encoding: 'utf8',
       cwd: SANDBOX,
       env: fullEnv,
     });
-    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+    return {
+      status: r.status ?? -1,
+      stdout: r.stdout ?? '',
+      stderr: r.stderr ?? '',
+    };
   }
 
   it('CC: jq missing → hookSpecificOutput.additionalContext states the check DID NOT RUN (exit 0)', (ctx) => {
@@ -570,18 +591,35 @@ describe.skipIf(!JQ || !TSX)(
      */
     function makeGitRepo(opts: { nodeModules: boolean }): string {
       const root = realpathSync(mkdtempSync(join(tmpdir(), 'tier-git-')));
-      execSync('git init -q && git config user.email t@t && git config user.name T', { cwd: root });
+      execSync(
+        'git init -q && git config user.email t@t && git config user.name T',
+        { cwd: root },
+      );
       mkdirSync(join(root, '.claude', 'hooks'), { recursive: true });
       mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
-      mkdirSync(join(root, 'packages', 'core', 'principles'), { recursive: true });
+      mkdirSync(join(root, 'packages', 'core', 'principles'), {
+        recursive: true,
+      });
       copyHook(join(root, '.claude', 'hooks', 'check-doc-authority.sh'));
       copyFileSync(
         REAL_BIN,
-        join(root, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
+        join(
+          root,
+          'packages',
+          'core',
+          'principles',
+          '09-doc-authority-hierarchy.bin.ts',
+        ),
       );
       copyFileSync(
         REAL_MODULE,
-        join(root, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.ts'),
+        join(
+          root,
+          'packages',
+          'core',
+          'principles',
+          '09-doc-authority-hierarchy.ts',
+        ),
       );
       writeFileSync(join(root, '.gitignore'), 'node_modules\n');
       writeFileSync(join(root, 'README'), 'init\n');
@@ -616,19 +654,35 @@ describe.skipIf(!JQ || !TSX)(
       // Fixture: required doc WITHOUT authority header
       // (mkdir: git doesn't track empty dirs → .claude/rules/ absent in worktree checkout)
       mkdirSync(join(wt, '.claude', 'rules'), { recursive: true });
-      const docPath = join(wt, '.claude', 'rules', 'doc-authority-hierarchy.md');
+      const docPath = join(
+        wt,
+        '.claude',
+        'rules',
+        'doc-authority-hierarchy.md',
+      );
       writeFileSync(docPath, MISSING_HEADER, 'utf8');
 
       // PATH stripped of tsx so tier 3 cannot rescue — tier 2 is the ONLY path
-      const fullEnv = { ...process.env, PATH: pathWithoutTsx() } as Record<string, string>;
+      const fullEnv = { ...process.env, PATH: pathWithoutTsx() } as Record<
+        string,
+        string
+      >;
       delete fullEnv.CLAUDE_PROJECT_DIR;
       delete fullEnv.ZCODE_PROJECT_DIR;
-      const r = spawnBashOrSkip(ctx, 'bash', [join(wt, '.claude', 'hooks', 'check-doc-authority.sh')], {
-        input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: docPath } }),
-        encoding: 'utf8',
-        cwd: wt,
-        env: fullEnv,
-      });
+      const r = spawnBashOrSkip(
+        ctx,
+        'bash',
+        [join(wt, '.claude', 'hooks', 'check-doc-authority.sh')],
+        {
+          input: JSON.stringify({
+            tool_name: 'Edit',
+            tool_input: { file_path: docPath },
+          }),
+          encoding: 'utf8',
+          cwd: wt,
+          env: fullEnv,
+        },
+      );
 
       expect(r.status, `stderr: ${r.stderr}`).toBe(2);
       expect(r.stderr ?? '').toMatch(/FAIL/);
@@ -638,35 +692,41 @@ describe.skipIf(!JQ || !TSX)(
     // ── Criterion 2: PRECEDENCE — tier 1 wins over PATH ──────────────────────
 
     // win32: the fake-tsx fixture needs a real exec bit (cmd.exe has no chmod) — named skip
-    it.skipIf(WIN_SUT_LINK)('tier 1 precedence: repo-local tsx used even when PATH has a different tsx', (ctx) => {
-      // Fake tsx on PATH — would produce wrong output if tier 3 were used
-      const fakeDir = mkdtempSync(join(tmpdir(), 'fake-tsx-'));
-      extraTmpDirs.push(fakeDir);
-      writeFileSync(
-        join(fakeDir, 'tsx'),
-        '#!/usr/bin/env bash\necho "FAKE_PATH_TSX_INVOKED" >&2\nexit 99\n',
-      );
-      execSync(`chmod +x "${join(fakeDir, 'tsx')}"`);
+    it.skipIf(WIN_SUT_LINK)(
+      'tier 1 precedence: repo-local tsx used even when PATH has a different tsx',
+      (ctx) => {
+        // Fake tsx on PATH — would produce wrong output if tier 3 were used
+        const fakeDir = mkdtempSync(join(tmpdir(), 'fake-tsx-'));
+        extraTmpDirs.push(fakeDir);
+        writeFileSync(
+          join(fakeDir, 'tsx'),
+          '#!/usr/bin/env bash\necho "FAKE_PATH_TSX_INVOKED" >&2\nexit 99\n',
+        );
+        execSync(`chmod +x "${join(fakeDir, 'tsx')}"`);
 
-      // SANDBOX has real node_modules → tier 1. Fake tsx placed FIRST on PATH.
-      const abs = writeFixtureDoc(MISSING_HEADER);
-      const fullEnv = {
-        ...process.env,
-        PATH: `${fakeDir}:${process.env.PATH}`,
-      } as Record<string, string>;
-      delete fullEnv.ZCODE_PROJECT_DIR;
-      const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
-        input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: abs } }),
-        encoding: 'utf8',
-        cwd: SANDBOX,
-        env: fullEnv,
-      });
+        // SANDBOX has real node_modules → tier 1. Fake tsx placed FIRST on PATH.
+        const abs = writeFixtureDoc(MISSING_HEADER);
+        const fullEnv = {
+          ...process.env,
+          PATH: `${fakeDir}:${process.env.PATH}`,
+        } as Record<string, string>;
+        delete fullEnv.ZCODE_PROJECT_DIR;
+        const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
+          input: JSON.stringify({
+            tool_name: 'Edit',
+            tool_input: { file_path: abs },
+          }),
+          encoding: 'utf8',
+          cwd: SANDBOX,
+          env: fullEnv,
+        });
 
-      // Tier 1 used → real check runs → /FAIL/.  Tier 3 used (bug) → /FAKE_PATH_TSX/.
-      expect(r.status, `stderr: ${r.stderr}`).toBe(2);
-      expect(r.stderr ?? '').toMatch(/FAIL/);
-      expect(r.stderr ?? '').not.toMatch(/FAKE_PATH_TSX_INVOKED/);
-    });
+        // Tier 1 used → real check runs → /FAIL/.  Tier 3 used (bug) → /FAKE_PATH_TSX/.
+        expect(r.status, `stderr: ${r.stderr}`).toBe(2);
+        expect(r.stderr ?? '').toMatch(/FAIL/);
+        expect(r.stderr ?? '').not.toMatch(/FAKE_PATH_TSX_INVOKED/);
+      },
+    );
 
     // ── Criterion 3: TIER 3 (PATH) works when tiers 1/2 absent ───────────────
 
@@ -676,29 +736,56 @@ describe.skipIf(!JQ || !TSX)(
       extraTmpDirs.push(box);
       mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
       mkdirSync(join(box, '.claude', 'rules'), { recursive: true });
-      mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
+      mkdirSync(join(box, 'packages', 'core', 'principles'), {
+        recursive: true,
+      });
       copyHook(join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
       copyFileSync(
         REAL_BIN,
-        join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
+        join(
+          box,
+          'packages',
+          'core',
+          'principles',
+          '09-doc-authority-hierarchy.bin.ts',
+        ),
       );
       copyFileSync(
         REAL_MODULE,
-        join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.ts'),
+        join(
+          box,
+          'packages',
+          'core',
+          'principles',
+          '09-doc-authority-hierarchy.ts',
+        ),
       );
 
-      const docPath = join(box, '.claude', 'rules', 'doc-authority-hierarchy.md');
+      const docPath = join(
+        box,
+        '.claude',
+        'rules',
+        'doc-authority-hierarchy.md',
+      );
       writeFileSync(docPath, MISSING_HEADER, 'utf8');
 
       const fullEnv = { ...process.env } as Record<string, string>;
       delete fullEnv.CLAUDE_PROJECT_DIR;
       delete fullEnv.ZCODE_PROJECT_DIR;
-      const r = spawnBashOrSkip(ctx, 'bash', [join(box, '.claude', 'hooks', 'check-doc-authority.sh')], {
-        input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: docPath } }),
-        encoding: 'utf8',
-        cwd: box,
-        env: fullEnv,
-      });
+      const r = spawnBashOrSkip(
+        ctx,
+        'bash',
+        [join(box, '.claude', 'hooks', 'check-doc-authority.sh')],
+        {
+          input: JSON.stringify({
+            tool_name: 'Edit',
+            tool_input: { file_path: docPath },
+          }),
+          encoding: 'utf8',
+          cwd: box,
+          env: fullEnv,
+        },
+      );
 
       expect(r.status, `stderr: ${r.stderr}`).toBe(2);
       expect(r.stderr ?? '').toMatch(/FAIL/);
@@ -713,29 +800,56 @@ describe.skipIf(!JQ || !TSX)(
       extraTmpDirs.push(box);
       mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
       mkdirSync(join(box, '.claude', 'rules'), { recursive: true });
-      mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
+      mkdirSync(join(box, 'packages', 'core', 'principles'), {
+        recursive: true,
+      });
       copyHook(join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
       copyFileSync(
         REAL_BIN,
-        join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
+        join(
+          box,
+          'packages',
+          'core',
+          'principles',
+          '09-doc-authority-hierarchy.bin.ts',
+        ),
       );
       copyFileSync(
         REAL_MODULE,
-        join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.ts'),
+        join(
+          box,
+          'packages',
+          'core',
+          'principles',
+          '09-doc-authority-hierarchy.ts',
+        ),
       );
 
-      const docPath = join(box, '.claude', 'rules', 'doc-authority-hierarchy.md');
+      const docPath = join(
+        box,
+        '.claude',
+        'rules',
+        'doc-authority-hierarchy.md',
+      );
       writeFileSync(docPath, MISSING_HEADER, 'utf8');
 
       const fullEnv = { ...process.env } as Record<string, string>;
       delete fullEnv.CLAUDE_PROJECT_DIR;
       delete fullEnv.ZCODE_PROJECT_DIR;
-      const r = spawnBashOrSkip(ctx, 'bash', [join(box, '.claude', 'hooks', 'check-doc-authority.sh')], {
-        input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: docPath } }),
-        encoding: 'utf8',
-        cwd: box,
-        env: fullEnv,
-      });
+      const r = spawnBashOrSkip(
+        ctx,
+        'bash',
+        [join(box, '.claude', 'hooks', 'check-doc-authority.sh')],
+        {
+          input: JSON.stringify({
+            tool_name: 'Edit',
+            tool_input: { file_path: docPath },
+          }),
+          encoding: 'utf8',
+          cwd: box,
+          env: fullEnv,
+        },
+      );
 
       // Tier 3 resolved → check ran
       expect(r.status, `stderr: ${r.stderr}`).toBe(2);
@@ -759,25 +873,64 @@ describe('check-doc-authority.sh — tsx not found (all tiers miss) → existing
     copyHook(join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
     copyFileSync(
       REAL_BIN,
-      join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
+      join(
+        box,
+        'packages',
+        'core',
+        'principles',
+        '09-doc-authority-hierarchy.bin.ts',
+      ),
     );
     copyFileSync(
       REAL_MODULE,
-      join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.ts'),
+      join(
+        box,
+        'packages',
+        'core',
+        'principles',
+        '09-doc-authority-hierarchy.ts',
+      ),
     );
 
-    const fullEnv = { ...process.env, PATH: pathWithoutTsx() } as Record<string, string>;
+    const fullEnv = { ...process.env, PATH: pathWithoutTsx() } as Record<
+      string,
+      string
+    >;
     delete fullEnv.CLAUDE_PROJECT_DIR;
     delete fullEnv.ZCODE_PROJECT_DIR;
-    const r = spawnBashOrSkip(ctx, '/bin/bash', [join(box, '.claude', 'hooks', 'check-doc-authority.sh')], {
-      input: JSON.stringify({
-        tool_name: 'Edit',
-        tool_input: { file_path: join(box, 'CLAUDE.md') },
-      }),
-      encoding: 'utf8',
-      cwd: box,
-      env: fullEnv,
-    });
+    // Payload goes out POSIX-shaped (win32 join() backslashes would never match the
+    // hook's forward-slash scope strip — run 40340771916 class C5: the arm observed
+    // status 0 with EMPTY stdout, the hook's silent `outside repo — skip` exit, which
+    // on an exit-0 PostToolUse is indistinguishable from a pass). Identity on POSIX;
+    // same payload contract as the canonical-path arms of check-hook-marker.test.ts.
+    const payloadPath = join(box, 'CLAUDE.md').split(sep).join('/');
+    const r = spawnBashOrSkip(
+      ctx,
+      '/bin/bash',
+      [join(box, '.claude', 'hooks', 'check-doc-authority.sh')],
+      {
+        input: JSON.stringify({
+          tool_name: 'Edit',
+          tool_input: { file_path: payloadPath },
+        }),
+        encoding: 'utf8',
+        cwd: box,
+        env: fullEnv,
+      },
+    );
+    if (process.platform === 'win32') {
+      // C5 native capture: if the arm is still red on the runner, these bytes name the
+      // arm that actually fired (empty stdout = a silent early exit; stderr carries the
+      // jq-miss / prelude-fallback text if either ran). POSIX prints nothing.
+      console.log(
+        'C5-CAPTURE status=',
+        r.status,
+        'stdout=',
+        JSON.stringify((r.stdout ?? '').slice(0, 400)),
+        'stderr=',
+        JSON.stringify((r.stderr ?? '').slice(0, 600)),
+      );
+    }
 
     expect(r.status).toBe(0);
     const parsed = JSON.parse(r.stdout.trim()) as {
@@ -807,106 +960,133 @@ describe('check-doc-authority.sh — tsx not found (all tiers miss) → existing
 // F-3: the tsx spawn is now guarded by an extension prefilter, so a non-markdown edit costs
 // nothing (measured 0.44-0.46 s of cold tsx per no-op edit pre-fix).
 // ═══════════════════════════════════════════════════════════════════════════════
-describe.skipIf(!hasJq())('consumer layout without packages/core (L-2, F-3)', () => {
-  /** A scratch tree shaped like a consumer install: .claude/ only, no packages/core. */
-  function consumerTree(): string {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), 'cda-consumer-')));
-    extraTmpDirs.push(root);
-    mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
-    writeFileSync(join(root, '.claude', 'rules', 'foo.md'), '# Foo\n\nNo header.\n', 'utf8');
-    writeFileSync(join(root, 'app.ts'), 'export const a = 1;\n', 'utf8');
-    return root;
-  }
+describe.skipIf(!hasJq())(
+  'consumer layout without packages/core (L-2, F-3)',
+  () => {
+    /** A scratch tree shaped like a consumer install: .claude/ only, no packages/core. */
+    function consumerTree(): string {
+      const root = realpathSync(mkdtempSync(join(tmpdir(), 'cda-consumer-')));
+      extraTmpDirs.push(root);
+      mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+      writeFileSync(
+        join(root, '.claude', 'rules', 'foo.md'),
+        '# Foo\n\nNo header.\n',
+        'utf8',
+      );
+      writeFileSync(join(root, 'app.ts'), 'export const a = 1;\n', 'utf8');
+      return root;
+    }
 
-  /**
-   * Private TMPDIR per consumer tree. `_emit_skip_once` keys its once-per-session flag on
-   * $TMPDIR + session_id; real session ids are unique per CC session, but a fixed test id
-   * plus the shared /tmp would let one run's flag silence the next run's assertion.
-   */
-  function run(ctx: Skippable, root: string, relPath: string, sessionId: string, hook = REAL_HOOK) {
-    const flags = join(root, '.flags');
-    mkdirSync(flags, { recursive: true });
-    const env = { ...process.env, CLAUDE_PROJECT_DIR: root, TMPDIR: flags } as Record<
-      string,
-      string
-    >;
-    delete env.ZCODE_PROJECT_DIR;
-    return spawnBashOrSkip(ctx, '/bin/bash', [hook], {
-      input: JSON.stringify({
-        session_id: sessionId,
-        tool_name: 'Write',
-        tool_input: { file_path: join(root, relPath) },
-      }),
-      encoding: 'utf8',
-      cwd: root,
-      env,
+    /**
+     * Private TMPDIR per consumer tree. `_emit_skip_once` keys its once-per-session flag on
+     * $TMPDIR + session_id; real session ids are unique per CC session, but a fixed test id
+     * plus the shared /tmp would let one run's flag silence the next run's assertion.
+     */
+    function run(
+      ctx: Skippable,
+      root: string,
+      relPath: string,
+      sessionId: string,
+      hook = REAL_HOOK,
+    ) {
+      const flags = join(root, '.flags');
+      mkdirSync(flags, { recursive: true });
+      const env = {
+        ...process.env,
+        CLAUDE_PROJECT_DIR: root,
+        TMPDIR: flags,
+      } as Record<string, string>;
+      delete env.ZCODE_PROJECT_DIR;
+      return spawnBashOrSkip(ctx, '/bin/bash', [hook], {
+        input: JSON.stringify({
+          session_id: sessionId,
+          tool_name: 'Write',
+          tool_input: { file_path: join(root, relPath) },
+        }),
+        encoding: 'utf8',
+        cwd: root,
+        env,
+      });
+    }
+
+    it('L-2: bin unresolvable → loud SKIP on the model channel, never a silent exit 0', (sk) => {
+      const root = consumerTree();
+      const r = run(sk, root, '.claude/rules/foo.md', 'sess-L2-a');
+      expect(r.status, 'a dependency miss is a SKIP, not a block').toBe(0);
+      expect(
+        r.stdout.trim(),
+        'empty stdout is the DEFECT shape: on an exit-0 PostToolUse the model sees only JSON',
+      ).not.toBe('');
+      const ctx = (
+        JSON.parse(r.stdout.trim()) as {
+          hookSpecificOutput: {
+            hookEventName: string;
+            additionalContext: string;
+          };
+        }
+      ).hookSpecificOutput;
+      expect(ctx.hookEventName).toBe('PostToolUse');
+      expect(ctx.additionalContext).toMatch(/DID NOT RUN/);
+      expect(ctx.additionalContext).toMatch(/not a pass/i);
+      // Names the consumer-side replacement gate, so the notice is actionable.
+      expect(ctx.additionalContext).toMatch(/check-doc-authority-header\.sh/);
     });
-  }
 
-  it('L-2: bin unresolvable → loud SKIP on the model channel, never a silent exit 0', (sk) => {
-    const root = consumerTree();
-    const r = run(sk, root, '.claude/rules/foo.md', 'sess-L2-a');
-    expect(r.status, 'a dependency miss is a SKIP, not a block').toBe(0);
-    expect(
-      r.stdout.trim(),
-      'empty stdout is the DEFECT shape: on an exit-0 PostToolUse the model sees only JSON',
-    ).not.toBe('');
-    const ctx = (
-      JSON.parse(r.stdout.trim()) as {
-        hookSpecificOutput: { hookEventName: string; additionalContext: string };
-      }
-    ).hookSpecificOutput;
-    expect(ctx.hookEventName).toBe('PostToolUse');
-    expect(ctx.additionalContext).toMatch(/DID NOT RUN/);
-    expect(ctx.additionalContext).toMatch(/not a pass/i);
-    // Names the consumer-side replacement gate, so the notice is actionable.
-    expect(ctx.additionalContext).toMatch(/check-doc-authority-header\.sh/);
-  });
-
-  it('L-2: the notice is announced once per session, not on every edit', (ctx) => {
-    const root = consumerTree();
-    const first = run(ctx, root, '.claude/rules/foo.md', 'sess-L2-b');
-    const second = run(ctx, root, '.claude/rules/foo.md', 'sess-L2-b');
-    expect(first.stdout.trim()).not.toBe('');
-    expect(second.stdout.trim(), 'second edit in the same session must stay quiet').toBe('');
-  });
-
-  it('L-2: AIF_DOC_AUTHORITY=0 is the recorded opt-out — no notice at all', (ctx) => {
-    const root = consumerTree();
-    const flags = join(root, '.flags');
-    mkdirSync(flags, { recursive: true });
-    const env = { ...process.env, CLAUDE_PROJECT_DIR: root, TMPDIR: flags, AIF_DOC_AUTHORITY: '0' } as Record<
-      string,
-      string
-    >;
-    delete env.ZCODE_PROJECT_DIR;
-    const r = spawnBashOrSkip(ctx, '/bin/bash', [REAL_HOOK], {
-      input: JSON.stringify({
-        session_id: 'sess-L2-c',
-        tool_name: 'Write',
-        tool_input: { file_path: join(root, '.claude/rules/foo.md') },
-      }),
-      encoding: 'utf8',
-      cwd: root,
-      env,
+    it('L-2: the notice is announced once per session, not on every edit', (ctx) => {
+      const root = consumerTree();
+      const first = run(ctx, root, '.claude/rules/foo.md', 'sess-L2-b');
+      const second = run(ctx, root, '.claude/rules/foo.md', 'sess-L2-b');
+      expect(first.stdout.trim()).not.toBe('');
+      expect(
+        second.stdout.trim(),
+        'second edit in the same session must stay quiet',
+      ).toBe('');
     });
-    expect(r.status).toBe(0);
-    expect(r.stdout.trim()).toBe('');
-  });
 
-  it('F-3: a non-markdown edit exits before the notice (and before any tsx spawn)', (ctx) => {
-    const root = consumerTree();
-    const r = run(ctx, root, 'app.ts', 'sess-F3-a');
-    expect(r.status).toBe(0);
-    expect(r.stdout.trim(), 'code edits must not reach the doc-authority machinery').toBe('');
-  });
+    it('L-2: AIF_DOC_AUTHORITY=0 is the recorded opt-out — no notice at all', (ctx) => {
+      const root = consumerTree();
+      const flags = join(root, '.flags');
+      mkdirSync(flags, { recursive: true });
+      const env = {
+        ...process.env,
+        CLAUDE_PROJECT_DIR: root,
+        TMPDIR: flags,
+        AIF_DOC_AUTHORITY: '0',
+      } as Record<string, string>;
+      delete env.ZCODE_PROJECT_DIR;
+      const r = spawnBashOrSkip(ctx, '/bin/bash', [REAL_HOOK], {
+        input: JSON.stringify({
+          session_id: 'sess-L2-c',
+          tool_name: 'Write',
+          tool_input: { file_path: join(root, '.claude/rules/foo.md') },
+        }),
+        encoding: 'utf8',
+        cwd: root,
+        env,
+      });
+      expect(r.status).toBe(0);
+      expect(r.stdout.trim()).toBe('');
+    });
 
-  it('F-3 (RED on old code): the pre-fix hook had no extension prefilter before the spawn', () => {
-    const src = readFileSync(REAL_HOOK, 'utf8');
-    const prefilterAt = src.indexOf('*.md | *.markdown)');
-    const spawnAt = src.indexOf('"$TSX" "$BIN"');
-    expect(prefilterAt, 'extension prefilter must exist').toBeGreaterThan(-1);
-    expect(spawnAt).toBeGreaterThan(-1);
-    expect(prefilterAt, 'prefilter must precede the tsx spawn').toBeLessThan(spawnAt);
-  });
-});
+    it('F-3: a non-markdown edit exits before the notice (and before any tsx spawn)', (ctx) => {
+      const root = consumerTree();
+      const r = run(ctx, root, 'app.ts', 'sess-F3-a');
+      expect(r.status).toBe(0);
+      expect(
+        r.stdout.trim(),
+        'code edits must not reach the doc-authority machinery',
+      ).toBe('');
+    });
+
+    it('F-3 (RED on old code): the pre-fix hook had no extension prefilter before the spawn', () => {
+      const src = readFileSync(REAL_HOOK, 'utf8');
+      const prefilterAt = src.indexOf('*.md | *.markdown)');
+      const spawnAt = src.indexOf('"$TSX" "$BIN"');
+      expect(prefilterAt, 'extension prefilter must exist').toBeGreaterThan(-1);
+      expect(spawnAt).toBeGreaterThan(-1);
+      expect(prefilterAt, 'prefilter must precede the tsx spawn').toBeLessThan(
+        spawnAt,
+      );
+    });
+  },
+);

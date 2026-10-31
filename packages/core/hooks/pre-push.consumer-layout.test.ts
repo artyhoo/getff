@@ -50,6 +50,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { spawnSync, execSync } from 'node:child_process';
 import {
   existsSync,
+  lstatSync,
   mkdtempSync,
   writeFileSync,
   mkdirSync,
@@ -81,7 +82,12 @@ import {
 // worktree rewrote the SHARED repo config to core.bare=true, because the init landed in
 // GIT_DIR instead of the fixture remote. The var list comes from git itself so it cannot
 // drift (precedent: codex-contributor.test.mjs module scrub).
-for (const key of spawnSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' }).stdout.trim().split('\n')) delete process.env[key];
+for (const key of spawnSync('git', ['rev-parse', '--local-env-vars'], {
+  encoding: 'utf8',
+})
+  .stdout.trim()
+  .split('\n'))
+  delete process.env[key];
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -305,7 +311,12 @@ function runHook(
   // win32: let the hook's OWN bash spawns (utils/run-check.ts funnel) resolve Git Bash;
   // POSIX: gitBashPathDir() is null → this PATH string is byte-identical to before.
   const bashDir = gitBashPathDir();
-  const childPath = [stubBin, resolve(REAL_NODE_MODULES, '.bin'), bashDir, process.env['PATH']]
+  const childPath = [
+    stubBin,
+    resolve(REAL_NODE_MODULES, '.bin'),
+    bashDir,
+    process.env['PATH'],
+  ]
     .filter(Boolean)
     .join(delimiter);
   const r = spawnSync('node', ['--import', TSX_LOADER_IMPORT, hook], {
@@ -809,6 +820,19 @@ describe(
 
       const r = runHook(dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
+      if (process.platform === 'win32') {
+        // C7 native capture (run 40340771916): the extensionless sh lychee stub cannot
+        // be exec'd by CreateProcess (libuv appends .exe only), so §8 sees lychee
+        // not-found and degrades — this log names the section's own skip line and the
+        // resolved stub forms. POSIX prints nothing; assertions unchanged.
+        console.log(
+          'C7-CAPTURE lychee=',
+          JSON.stringify({
+            stubPlain: existsSync(join(stubBin, 'lychee')),
+            out: (out ?? '').slice(0, 800),
+          }),
+        );
+      }
 
       // §3 binding (T-HS-A): exit code FIRST, wording second. exit 1 = gate lived.
       expect(r.status, out).toBe(1);
@@ -891,6 +915,19 @@ describe(
 
       const r = runHook(dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
+      if (process.platform === 'win32') {
+        // C7 native capture (run 40340771916): the extensionless sh lychee stub cannot
+        // be exec'd by CreateProcess (libuv appends .exe only), so §8 sees lychee
+        // not-found and degrades — this log names the section's own skip line and the
+        // resolved stub forms. POSIX prints nothing; assertions unchanged.
+        console.log(
+          'C7-CAPTURE lychee=',
+          JSON.stringify({
+            stubPlain: existsSync(join(stubBin, 'lychee')),
+            out: (out ?? '').slice(0, 800),
+          }),
+        );
+      }
 
       expect(r.status, out).toBe(1);
       expect(out, out).toMatch(/source-still-checked: agents\/source\.md/);
@@ -926,6 +963,19 @@ describe(
 
       const r = runHook(dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
+      if (process.platform === 'win32') {
+        // C7 native capture (run 40340771916): the extensionless sh lychee stub cannot
+        // be exec'd by CreateProcess (libuv appends .exe only), so §8 sees lychee
+        // not-found and degrades — this log names the section's own skip line and the
+        // resolved stub forms. POSIX prints nothing; assertions unchanged.
+        console.log(
+          'C7-CAPTURE lychee=',
+          JSON.stringify({
+            stubPlain: existsSync(join(stubBin, 'lychee')),
+            out: (out ?? '').slice(0, 800),
+          }),
+        );
+      }
 
       // Pre-fix this was exit 0: the file matched the `.claude/skills/` prefix, was
       // excluded, and lychee was never invoked at all.
@@ -1025,6 +1075,19 @@ describe(
 
       const r = runHook(dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
+      if (process.platform === 'win32') {
+        // C7 native capture (run 40340771916): the extensionless sh lychee stub cannot
+        // be exec'd by CreateProcess (libuv appends .exe only), so §8 sees lychee
+        // not-found and degrades — this log names the section's own skip line and the
+        // resolved stub forms. POSIX prints nothing; assertions unchanged.
+        console.log(
+          'C7-CAPTURE lychee=',
+          JSON.stringify({
+            stubPlain: existsSync(join(stubBin, 'lychee')),
+            out: (out ?? '').slice(0, 800),
+          }),
+        );
+      }
 
       // Pre-fix this was exit 0: the file matched the bare `.ai-factory/RULES.` prefix —
       // a stack-variant shape the installer never delivers under that name — and was
@@ -1820,10 +1883,15 @@ describe(
       // No manifest present → die() exit 2 citing the manifest path. With the fix that path is
       // INSIDE the sandbox (git root); a regression to ../../.. would cite a path two levels above.
       // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
-      const r = spawnBashOrSkip(ctx, 'bash', ['scripts/run-generated-rule-mutation.sh'], {
-        cwd: dir,
-        encoding: 'utf8',
-      });
+      const r = spawnBashOrSkip(
+        ctx,
+        'bash',
+        ['scripts/run-generated-rule-mutation.sh'],
+        {
+          cwd: dir,
+          encoding: 'utf8',
+        },
+      );
       const out = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
 
       expect(r.status, out).toBe(2); // manifest-not-found precondition (root resolved past)
@@ -1838,13 +1906,21 @@ describe(
     // and the check's own stderr (which does name the cause) follows it.
     it('S5 mutation exit 2 from run-armed — loud skip names the exit, not the runner, and prints the real cause', (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
-      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
+      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), {
+        recursive: true,
+      });
       writeFileSync(
-        join(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        join(
+          dir,
+          '.ai-factory/synthesizer-output/rules-manifest-additions.json',
+        ),
         '{"rules":[]}\n',
       );
       mkdirSync(join(dir, 'scripts'), { recursive: true });
-      writeFileSync(join(dir, 'scripts/run-generated-rule-mutation.sh'), '#!/bin/sh\nexit 0\n');
+      writeFileSync(
+        join(dir, 'scripts/run-generated-rule-mutation.sh'),
+        '#!/bin/sh\nexit 0\n',
+      );
       writeFileSync(
         join(dir, 'scripts/run-armed.sh'),
         '#!/bin/sh\necho "run-armed: no readable project-checks record - re-run the getff install to write it" >&2\nexit 2\n',
@@ -1852,10 +1928,32 @@ describe(
 
       const r = runMaterialSection(ctx, dir, hook, { strip: false });
       const out = `${r.stdout}\n${r.stderr}`;
+      if (process.platform === 'win32') {
+        // S5 native capture (run 40340771916): the section printed `tsx not resolvable`
+        // — binResolvable() checks <REPO_ROOT>/node_modules/.bin/tsx and
+        // packages/core/node_modules/.bin/tsx through the sandbox junction. These probes
+        // name which leg broke. POSIX prints nothing; assertions unchanged.
+        console.log(
+          'S5-CAPTURE tsx=',
+          JSON.stringify({
+            rootBin: existsSync(join(dir, 'node_modules/.bin/tsx')),
+            rootBinCmd: existsSync(join(dir, 'node_modules/.bin/tsx.cmd')),
+            pkgBin: existsSync(
+              join(dir, 'packages/core/node_modules/.bin/tsx'),
+            ),
+            nmIsLink: lstatSync(join(dir, 'node_modules')).isSymbolicLink(),
+            out: (out ?? '').slice(0, 400),
+          }),
+        );
+      }
 
-      expect(out, out).toMatch(/DEGRADED: generated-rule mutation check exited 2/);
+      expect(out, out).toMatch(
+        /DEGRADED: generated-rule mutation check exited 2/,
+      );
       expect(out, out).not.toMatch(/runner could not resolve its inputs/);
-      expect(out, out).toContain('run-armed: no readable project-checks record');
+      expect(out, out).toContain(
+        'run-armed: no readable project-checks record',
+      );
       expect(r.status, out).toBe(0);
     });
 
@@ -1865,22 +1963,53 @@ describe(
     // budget is its own (PREPUSH_MUTATION_TIMEOUT_MS here, so the test does not wait minutes).
     it('S5 mutation over its budget — an armed check that runs out of time blocks the push, NOT green', (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
-      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
+      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), {
+        recursive: true,
+      });
       writeFileSync(
-        join(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        join(
+          dir,
+          '.ai-factory/synthesizer-output/rules-manifest-additions.json',
+        ),
         '{"rules":[]}\n',
       );
       mkdirSync(join(dir, 'scripts'), { recursive: true });
-      writeFileSync(join(dir, 'scripts/run-generated-rule-mutation.sh'), '#!/bin/sh\nexit 0\n');
-      writeFileSync(join(dir, 'scripts/run-armed.sh'), '#!/bin/sh\nsleep 4\nexit 0\n');
+      writeFileSync(
+        join(dir, 'scripts/run-generated-rule-mutation.sh'),
+        '#!/bin/sh\nexit 0\n',
+      );
+      writeFileSync(
+        join(dir, 'scripts/run-armed.sh'),
+        '#!/bin/sh\nsleep 4\nexit 0\n',
+      );
 
       const r = runMaterialSection(ctx, dir, hook, {
         strip: false,
         env: { PREPUSH_MUTATION_TIMEOUT_MS: '1000' },
       });
       const out = `${r.stdout}\n${r.stderr}`;
+      if (process.platform === 'win32') {
+        // S5 native capture (run 40340771916): the section printed `tsx not resolvable`
+        // — binResolvable() checks <REPO_ROOT>/node_modules/.bin/tsx and
+        // packages/core/node_modules/.bin/tsx through the sandbox junction. These probes
+        // name which leg broke. POSIX prints nothing; assertions unchanged.
+        console.log(
+          'S5-CAPTURE tsx=',
+          JSON.stringify({
+            rootBin: existsSync(join(dir, 'node_modules/.bin/tsx')),
+            rootBinCmd: existsSync(join(dir, 'node_modules/.bin/tsx.cmd')),
+            pkgBin: existsSync(
+              join(dir, 'packages/core/node_modules/.bin/tsx'),
+            ),
+            nmIsLink: lstatSync(join(dir, 'node_modules')).isSymbolicLink(),
+            out: (out ?? '').slice(0, 400),
+          }),
+        );
+      }
 
-      expect(out, out).toMatch(/generated-rule mutation check ran over its budget \(1 s\) — NOT green/);
+      expect(out, out).toMatch(
+        /generated-rule mutation check ran over its budget \(1 s\) — NOT green/,
+      );
       expect(out, out).not.toMatch(/DEGRADED: generated-rule mutation/);
       expect(r.status, out).toBe(1);
     });
@@ -1918,12 +2047,31 @@ describe(
 
       const r = runSection(dir, hook, baseSha, 'audit-ai-docs');
       const out = `${r.stdout}\n${r.stderr}`;
+      if (process.platform === 'win32') {
+        // C8 native capture (run 40340771916): audit-ai-docs.ts failed with
+        // ERR_MODULE_NOT_FOUND 'remark' from the sandbox copy — ESM walks up from the
+        // copy to <sandbox>/node_modules (makeConsumerSandbox's link). These probes
+        // name the link shape the resolver actually saw. POSIX prints nothing.
+        console.log(
+          'C8-CAPTURE remark-chain=',
+          JSON.stringify({
+            nmExists: existsSync(join(dir, 'node_modules')),
+            nmIsLink: lstatSync(join(dir, 'node_modules')).isSymbolicLink(),
+            remark: existsSync(join(dir, 'node_modules/remark')),
+            out: (out ?? '').slice(0, 600),
+          }),
+        );
+      }
 
       expect(r.status, out).toBe(0);
       // Both implementations ran — a section that silently skipped the live arm would
       // also exit 0, so the pass line is what makes this positive non-vacuous.
-      expect(out, out).toMatch(/audit-ai-docs\.sh live: Audit complete: \d+ PASS, 0 FAIL/);
-      expect(out, out).toMatch(/audit-ai-docs\.ts live: Audit complete: \d+ PASS, 0 FAIL/);
+      expect(out, out).toMatch(
+        /audit-ai-docs\.sh live: Audit complete: \d+ PASS, 0 FAIL/,
+      );
+      expect(out, out).toMatch(
+        /audit-ai-docs\.ts live: Audit complete: \d+ PASS, 0 FAIL/,
+      );
     });
 
     it('audit-ai-docs live NEGATIVE — an unenrolled file restating the goal blocks the push', () => {
@@ -1961,9 +2109,26 @@ describe(
 
       const r = runSection(dir, hook, baseSha, 'audit-ai-docs');
       const out = `${r.stdout}\n${r.stderr}`;
+      if (process.platform === 'win32') {
+        // C8 native capture (run 40340771916): audit-ai-docs.ts failed with
+        // ERR_MODULE_NOT_FOUND 'remark' from the sandbox copy — ESM walks up from the
+        // copy to <sandbox>/node_modules (makeConsumerSandbox's link). These probes
+        // name the link shape the resolver actually saw. POSIX prints nothing.
+        console.log(
+          'C8-CAPTURE remark-chain=',
+          JSON.stringify({
+            nmExists: existsSync(join(dir, 'node_modules')),
+            nmIsLink: lstatSync(join(dir, 'node_modules')).isSymbolicLink(),
+            remark: existsSync(join(dir, 'node_modules/remark')),
+            out: (out ?? '').slice(0, 600),
+          }),
+        );
+      }
 
       expect(r.status, out).toBe(1);
-      expect(out, out).toMatch(/audit-ai-docs\.sh live: Audit complete: 6 PASS, 0 FAIL/);
+      expect(out, out).toMatch(
+        /audit-ai-docs\.sh live: Audit complete: 6 PASS, 0 FAIL/,
+      );
       expect(out, out).toMatch(/audit-ai-docs\.ts FAILED on this repo/);
       expect(out, out).toContain('docs/new-goal-copy.md');
     });
@@ -2120,11 +2285,18 @@ describe(
 
     it('POSITIVE — `node pre-push.bundle.mjs` in the shipped layout reaches exit 0 on a consumer push', () => {
       const { dir, baseSha } = makeShippedLayout();
-      addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+      addConsumerCommit(
+        dir,
+        'src/app.ts',
+        'export const x = 1;\n',
+        'feat: app',
+      );
 
       const r = runPlainNode(dir, SHIPPED[0], baseSha);
 
-      expect(r.out, r.out).not.toMatch(/ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION/);
+      expect(r.out, r.out).not.toMatch(
+        /ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION/,
+      );
       expect(r.out, r.out).not.toMatch(/pre-push hook crashed/);
       expect(r.status, r.out).toBe(0);
     });
@@ -2151,7 +2323,12 @@ describe(
 
     it('NEGATIVE — the same layout holds no hook source: the pre-2026-09-28 entry cannot run there', () => {
       const { dir, baseSha } = makeShippedLayout();
-      addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+      addConsumerCommit(
+        dir,
+        'src/app.ts',
+        'export const x = 1;\n',
+        'feat: app',
+      );
       // Only the entry file, as a stale partial copy would leave it; its imports are absent.
       cpSync(
         resolve(REPO_ROOT, 'packages/core/hooks/pre-push.ts'),
@@ -2171,7 +2348,8 @@ describe(
     //    composition. The ℹ line in (iii) is therefore the OWNER proof: it can only
     //    appear if the section composes on a consumer layout. And per E18 F1, the
     //    empty run is a COUNTED ZERO, never a green check.
-    const CONSUMER_MANIFEST_REL = '.ai-factory/synthesizer-output/rules-manifest-additions.json';
+    const CONSUMER_MANIFEST_REL =
+      '.ai-factory/synthesizer-output/rules-manifest-additions.json';
 
     it('S3 (i) FULL hook — a DEAD command rule in the generated manifest blocks a consumer push', () => {
       const { dir, baseSha } = makeShippedLayout();
@@ -2195,7 +2373,9 @@ describe(
 
       expect(r.status, r.out).toBe(1);
       expect(r.out, r.out).toContain('G1');
-      expect(r.out, r.out).toMatch(/did NOT exit non-zero on the violating fixture/);
+      expect(r.out, r.out).toMatch(
+        /did NOT exit non-zero on the violating fixture/,
+      );
       expect(r.out, r.out).toContain(
         `command/script checks: 1 in ${CONSUMER_MANIFEST_REL}, 1 changed in this push`,
       );
@@ -2230,13 +2410,22 @@ describe(
 
     it('S3 (iii) FULL hook — an empty consumer prints the counted 0 (owner proof) and never a green line', () => {
       const { dir, baseSha } = makeShippedLayout();
-      addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+      addConsumerCommit(
+        dir,
+        'src/app.ts',
+        'export const x = 1;\n',
+        'feat: app',
+      );
 
       const r = runPlainNode(dir, SHIPPED[0], baseSha);
 
       expect(r.status, r.out).toBe(0);
-      expect(r.out, r.out).toContain('command/script checks: 0 — nothing to check yet');
-      expect(r.out, r.out).toContain(`(no rules manifest at ${CONSUMER_MANIFEST_REL})`);
+      expect(r.out, r.out).toContain(
+        'command/script checks: 0 — nothing to check yet',
+      );
+      expect(r.out, r.out).toContain(
+        `(no rules manifest at ${CONSUMER_MANIFEST_REL})`,
+      );
       expect(r.out, r.out).not.toMatch(/✅ cmd-script-liveness/);
     });
   },

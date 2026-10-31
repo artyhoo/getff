@@ -95,7 +95,11 @@ function runHook(
     encoding: 'utf8',
     env: fullEnv,
   });
-  return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  return {
+    status: r.status ?? -1,
+    stdout: r.stdout ?? '',
+    stderr: r.stderr ?? '',
+  };
 }
 
 const CITE = 'See .claude/rules/ai-laziness-traps.md §2.';
@@ -242,30 +246,63 @@ describe.skipIf(!JQ)(
 import { mkdtempSync as _mkdtempSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
-import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
+import {
+  symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip,
+  type Skippable,
+} from './symlink-or-junction-or-skip.ts';
 
 describe('dependency-missing skip is announced on the model channel', () => {
-  function runNoJq(ctx: Skippable, filePath: string): { status: number; stdout: string; stderr: string } {
+  function runNoJq(
+    ctx: Skippable,
+    filePath: string,
+  ): { status: number; stdout: string; stderr: string } {
     const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
     // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
     // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
-    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date', 'touch']) {
-      const real = spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+    for (const tool of [
+      'sed',
+      'tr',
+      'cat',
+      'head',
+      'dirname',
+      'grep',
+      'sort',
+      'awk',
+      'stat',
+      'date',
+      'touch',
+    ]) {
+      const real = spawnBashOrSkip(ctx, '/usr/bin/which', [tool], {
+        encoding: 'utf8',
+      }).stdout?.trim();
       // tool binaries are files: junctions cannot express them → named win32 skip
       if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
     }
-    const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
+    const env: Record<string, string> = {
+      ...process.env,
+      PATH: binDir,
+    } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
     const r = spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
-      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: filePath } }),
+      input: JSON.stringify({
+        tool_name: 'Write',
+        tool_input: { file_path: filePath },
+      }),
       encoding: 'utf8',
       env,
     });
-    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+    return {
+      status: r.status ?? -1,
+      stdout: r.stdout ?? '',
+      stderr: r.stderr ?? '',
+    };
   }
 
   it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', (ctx) => {
-    const { status, stdout } = runNoJq(ctx, '/x/.claude/orchestrator-prompts/wave-1/kickoff.md');
+    const { status, stdout } = runNoJq(
+      ctx,
+      '/x/.claude/orchestrator-prompts/wave-1/kickoff.md',
+    );
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
       hookSpecificOutput: { hookEventName: string; additionalContext: string };
@@ -293,7 +330,9 @@ describe('dependency-missing skip is announced on the model channel', () => {
  */
 describe('check-kickoff-traps.sh — destination-environment contract arm', () => {
   it('PAIRED-NEGATIVE: kickoff with no contract and no opt-out → exit 2', (ctx) => {
-    const abs = writeKickoff('# Wave N kickoff\n\nA plan with no host contract.\n');
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\nA plan with no host contract.\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
@@ -313,7 +352,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
   });
 
   it('opt-out with a too-short rationale → exit 2 (no bare escape token)', (ctx) => {
-    const abs = writeKickoff('# Wave N kickoff\n<!-- host-verify: none — too short -->\n');
+    const abs = writeKickoff(
+      '# Wave N kickoff\n<!-- host-verify: none — too short -->\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/floor: 20/);
@@ -327,7 +368,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
   });
 
   it('an UNMARKED fenced block does not satisfy the contract → exit 2', (ctx) => {
-    const abs = writeKickoff('# Wave N kickoff\n\n```bash\nnpx vitest run foo\n```\n');
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\n```bash\nnpx vitest run foo\n```\n',
+    );
     expect(runHook(ctx, 'Write', abs).status).toBe(2);
   });
 
@@ -379,7 +422,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
   });
 
   it('a contract of no-ops only is rejected (cheaper bypass than the documented opt-out)', (ctx) => {
-    const abs = writeKickoff('# Wave N kickoff\n\n```bash host-verify\n:\n```\n');
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\n```bash host-verify\n:\n```\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
@@ -391,18 +436,30 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     // documented 20-char floor accepted 17 visible characters.
     const seventeen = 'x'.repeat(17); // under the floor, was wrongly accepted
     const twenty = 'y'.repeat(20); // exactly the floor
-    const r1 = runHook(ctx, 'Write', writeKickoff(`# k\n<!-- host-verify: none — ${seventeen} -->\n`));
+    const r1 = runHook(
+      ctx,
+      'Write',
+      writeKickoff(`# k\n<!-- host-verify: none — ${seventeen} -->\n`),
+    );
     expect(r1.status).toBe(2);
     expect(r1.stderr).toMatch(/kickoff host-verify:/);
     expect(
-      runHook(ctx, 'Write', writeKickoff(`# k\n<!-- host-verify: none — ${twenty} -->\n`)).status,
+      runHook(
+        ctx,
+        'Write',
+        writeKickoff(`# k\n<!-- host-verify: none — ${twenty} -->\n`),
+      ).status,
     ).toBe(0);
   });
 
   it('an ASCII-hyphen opt-out measures the same as the em-dash form (no separator drift)', (ctx) => {
     const twenty = 'z'.repeat(20);
     expect(
-      runHook(ctx, 'Write', writeKickoff(`# k\n<!-- host-verify: none - ${twenty} -->\n`)).status,
+      runHook(
+        ctx,
+        'Write',
+        writeKickoff(`# k\n<!-- host-verify: none - ${twenty} -->\n`),
+      ).status,
     ).toBe(0);
   });
 
@@ -411,7 +468,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     // never prefixed a worktree kickoff's absolute path; the anchored REL_PATH pattern then
     // missed and the hook exited 0 in silence — the very defect class arm 1 exists to close.
     const abs = writeKickoff('# Wave N kickoff\n\nNo contract at all.\n');
-    const r = runHook(ctx, 'Write', abs, { CLAUDE_PROJECT_DIR: '/nonexistent/other/checkout' });
+    const r = runHook(ctx, 'Write', abs, {
+      CLAUDE_PROJECT_DIR: '/nonexistent/other/checkout',
+    });
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
     expect(r.stderr).toMatch(/declares no/);
@@ -429,7 +488,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
   it('B1 text-fence: opt-out quoted inside a ```text fence is NOT an opt-out → exit 2', (ctx) => {
     // Rationale is ≥20 chars so that WITHOUT fence-aware parsing the opt-out would be ACCEPTED
     // (false-negative exit 0); with fence-aware parsing the token is inside a code fence → exit 2.
-    const abs = writeKickoff('# k\n\n```text\n<!-- host-verify: none — valid-looking rationale here -->\n```\n');
+    const abs = writeKickoff(
+      '# k\n\n```text\n<!-- host-verify: none — valid-looking rationale here -->\n```\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
@@ -438,7 +499,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
   it('B1 inline-code-span: opt-out inside backticks is NOT an opt-out → exit 2', (ctx) => {
     // Rationale is ≥20 chars so that WITHOUT code-span stripping the opt-out would be ACCEPTED
     // (false-negative exit 0); with code-span stripping the token is text inside backticks → exit 2.
-    const abs = writeKickoff('# k\n\nUse this: `<!-- host-verify: none — valid-looking rationale here -->` to disable.\n');
+    const abs = writeKickoff(
+      '# k\n\nUse this: `<!-- host-verify: none — valid-looking rationale here -->` to disable.\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
@@ -446,7 +509,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
 
   it('B2 greedy regex: multiple --> on one line → FIRST close used, short rationale rejected', (ctx) => {
     // The old greedy `.*` ran to the LAST `-->`, measuring a 2-char rationale as 48.
-    const abs = writeKickoff('# k\n\n<!-- host-verify: none - no --> <!-- TODO: fill in later -->\n');
+    const abs = writeKickoff(
+      '# k\n\n<!-- host-verify: none - no --> <!-- TODO: fill in later -->\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
@@ -458,7 +523,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
   // missing from the original loop and surfaced by the 2026-07-25 round-2 rework.
   for (const noop of ['true;', 'exit 00', '{ :; }', 'cd .', 'echo', ':;']) {
     it(`B3 no-op guard rejects: \`${noop}\` → exit 2`, (ctx) => {
-      const abs = writeKickoff(`# k\n\n\`\`\`bash host-verify\n${noop}\n\`\`\`\n`);
+      const abs = writeKickoff(
+        `# k\n\n\`\`\`bash host-verify\n${noop}\n\`\`\`\n`,
+      );
       const r = runHook(ctx, 'Write', abs);
       expect(r.status).toBe(2);
       expect(r.stderr).toMatch(/kickoff host-verify:/);
@@ -466,26 +533,34 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
   }
 
   it('B3 positive: `test -f package.json` is substantive (has arguments) → exit 0', (ctx) => {
-    const abs = writeKickoff('# k\n\n```bash host-verify\ntest -f package.json\n```\n');
+    const abs = writeKickoff(
+      '# k\n\n```bash host-verify\ntest -f package.json\n```\n',
+    );
     expect(runHook(ctx, 'Write', abs).status).toBe(0);
   });
 
   it('B4 tilde-fence: contract inside a ~~~~ wrapper is NOT a contract → exit 2', (ctx) => {
-    const abs = writeKickoff('# k\n\n~~~~\n```bash host-verify\nnpx vitest run nothing\n```\n~~~~\n');
+    const abs = writeKickoff(
+      '# k\n\n~~~~\n```bash host-verify\nnpx vitest run nothing\n```\n~~~~\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
 
   it('B4 four-space indent: a fence at 4+ cols indent is an indented code block → exit 2', (ctx) => {
-    const abs = writeKickoff('# k\n\n    ```bash host-verify\n    npx vitest run nothing\n    ```\n');
+    const abs = writeKickoff(
+      '# k\n\n    ```bash host-verify\n    npx vitest run nothing\n    ```\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
 
   it('B5 HTML-comment: a fence inside <!-- … --> is invisible to humans → exit 2', (ctx) => {
-    const abs = writeKickoff('# k\n\n<!--\n```bash host-verify\nnpx vitest run nothing\n```\n-->\n');
+    const abs = writeKickoff(
+      '# k\n\n<!--\n```bash host-verify\nnpx vitest run nothing\n```\n-->\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
@@ -494,27 +569,35 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
   it('B6 byte-vs-char under LC_ALL=C: 10-char Cyrillic rationale rejected (was 20 bytes ≥ floor)', (ctx) => {
     // проверкате = 10 Cyrillic chars = 20 bytes. Under byte-counting (LC_ALL=C, ${#var})
     // this measured 20 ≥ floor. The locale-independent tr-based count measures 10 < floor.
-    const abs = writeKickoff('# k\n\n<!-- host-verify: none — проверкате -->\n');
+    const abs = writeKickoff(
+      '# k\n\n<!-- host-verify: none — проверкате -->\n',
+    );
     const r = runHook(ctx, 'Write', abs, { LC_ALL: 'C' });
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
 
   it('B6 byte-vs-char under LC_ALL=C.utf8: same 10-char rationale also rejected', (ctx) => {
-    const abs = writeKickoff('# k\n\n<!-- host-verify: none — проверкате -->\n');
+    const abs = writeKickoff(
+      '# k\n\n<!-- host-verify: none — проверкате -->\n',
+    );
     const r = runHook(ctx, 'Write', abs, { LC_ALL: 'C.utf8' });
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
 
   it('PAIRED-POSITIVE: B7 validly opted-out kickoff → exit 0 (gate and runner agree)', (ctx) => {
-    const abs = writeKickoff('# k\n\n<!-- host-verify: none — prose-only kickoff, no executable deliverable -->\n');
+    const abs = writeKickoff(
+      '# k\n\n<!-- host-verify: none — prose-only kickoff, no executable deliverable -->\n',
+    );
     expect(runHook(ctx, 'Write', abs).status).toBe(0);
   });
 
   it('B8 tab-indented fence: a tab counts as 4 columns → indented code block → exit 2', (ctx) => {
     // A tab + ``` = 4 cols of indent → CommonMark indented code block, NOT a fence.
-    const abs = writeKickoff('# k\n\n\t```bash host-verify\n\tnpx vitest run nothing\n\t```\n');
+    const abs = writeKickoff(
+      '# k\n\n\t```bash host-verify\n\tnpx vitest run nothing\n\t```\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
@@ -522,7 +605,8 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
 
   it('CRLF kickoff: trailing \\r stripped, valid contract parses → exit 0', (ctx) => {
     // A CRLF-encoded kickoff must be parsed the same as LF; the parser strips \\r at the top.
-    const body = '# k\r\n\r\n```bash host-verify\r\nnpx vitest run nothing\r\n```\r\n';
+    const body =
+      '# k\r\n\r\n```bash host-verify\r\nnpx vitest run nothing\r\n```\r\n';
     const abs = writeKickoff(body);
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(0);
@@ -530,7 +614,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
 
   it('blockquote control: a fence inside > blockquote is NOT a contract (already fail-closed)', (ctx) => {
     // Verified 2026-07-25 as the known-good control — must stay fail-closed.
-    const abs = writeKickoff('# k\n\n> ```bash host-verify\n> npx vitest run nothing\n> ```\n');
+    const abs = writeKickoff(
+      '# k\n\n> ```bash host-verify\n> npx vitest run nothing\n> ```\n',
+    );
     const r = runHook(ctx, 'Write', abs);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
@@ -585,11 +671,12 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     // Runner must list the contract command and must NOT print an opt-out line.
     // On the buggy commit this fails twice: the runner prints "opt-out (N chars)"
     // and lists zero commands — exactly the silent-skip amplifier.
-    const r = spawnBashOrSkip(ctx, 'bash', [
-      resolve(REPO_ROOT, 'scripts/host-verify.sh'),
-      '--list',
-      abs,
-    ], { encoding: 'utf8' });
+    const r = spawnBashOrSkip(
+      ctx,
+      'bash',
+      [resolve(REPO_ROOT, 'scripts/host-verify.sh'), '--list', abs],
+      { encoding: 'utf8' },
+    );
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/• npx vitest run nothing/);
     expect(r.stdout).not.toMatch(/opt-out/);
@@ -604,14 +691,15 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     expect(runHook(ctx, 'Write', abs).status).toBe(0);
   });
 
-  it('B1 variant 4 (regression fixture): this repository\'s own autonomy-mechanisms-hardening kickoff.md lists 8 commands at rc=0 and does NOT print an opt-out line', (ctx) => {
+  it("B1 variant 4 (regression fixture): this repository's own autonomy-mechanisms-hardening kickoff.md lists 8 commands at rc=0 and does NOT print an opt-out line", (ctx) => {
     // The actual kickoff.md that surfaced the regression. Its line 16 contains
     // the multi-backtick + single-backtick shape exactly. A buggy parser left
     // the quoted opt-out visible and silently skipped the 8-command contract;
     // a correct parser strips the span and the contract runs. This fixture pins
     // the runner's behaviour on the real file so any future regression of the
     // parser is caught immediately rather than at operator verification time.
-    const r = spawnBashOrSkip(ctx,
+    const r = spawnBashOrSkip(
+      ctx,
       'bash',
       [
         resolve(REPO_ROOT, 'scripts/host-verify.sh'),
@@ -675,11 +763,17 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     // IS a prefix of ABS_PATH), REL_PATH becomes a relative path, and the
     // `toContain(abs)` assertion below goes RED because the absolute path no
     // longer appears in the violation text.
-    const abs = writeKickoff(`# Wave N kickoff\n${CITE}\nActive traps: T1, T3.\n`);
+    const abs = writeKickoff(
+      `# Wave N kickoff\n${CITE}\nActive traps: T1, T3.\n`,
+    );
     const foreign = '/nonexistent-env-plumbing-marker';
     const r = runHook(ctx, 'Write', abs, { CLAUDE_PROJECT_DIR: foreign });
     expect(r.status).toBe(2);
-    expect(r.stderr).toContain(abs);
+    // The hook echoes the PAYLOAD path verbatim; runHook already posix-shapes the payload
+    // (win32 join() backslashes never reach the hook), so the assertion must compare
+    // against the same shaped form — on POSIX sep is '/' and this is byte-identical to
+    // `abs` (run 40340771916 class C1).
+    expect(r.stderr).toContain(abs.split(sep).join('/'));
   });
 });
 
@@ -701,59 +795,96 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
  * pre-existing arm-1 violators `beta-delivery-ux/kickoff-s1.md` and a contract-less
  * synthetic stage kickoff both scored 0 on the old hook, 2 on the new one).
  */
-describe.skipIf(!JQ)('check-kickoff-traps.sh — stage-kickoff family scope', () => {
-  const CONTRACT = '```bash host-verify\nnpx vitest run packages/core/principles\n```';
-  const THREE_TRAPS = `${CITE}\nActive traps: T1, T3, T7.`;
+describe.skipIf(!JQ)(
+  'check-kickoff-traps.sh — stage-kickoff family scope',
+  () => {
+    const CONTRACT =
+      '```bash host-verify\nnpx vitest run packages/core/principles\n```';
+    const THREE_TRAPS = `${CITE}\nActive traps: T1, T3, T7.`;
 
-  it('PAIRED-NEGATIVE: a stage kickoff with no host contract → exit 2 (arm 1 now reaches it)', (ctx) => {
-    const abs = writeKickoffNamed('kickoff-s1.md', '# S1\n\nA plan with no host contract.\n');
-    const r = runHook(ctx, 'Write', abs);
-    expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/kickoff host-verify:/);
-  });
-
-  it('PAIRED-NEGATIVE: a stage kickoff engaging the rule with <3 T-numbers → exit 2 (arm 2 now reaches it)', (ctx) => {
-    const abs = writeKickoffNamed('kickoff-s1.md', `# S1\n${HV_OPTOUT}\n${CITE}\nOnly T1 here.\n`);
-    const r = runHook(ctx, 'Write', abs);
-    expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/floor: 3/);
-  });
-
-  it('PAIRED-POSITIVE: a compliant stage kickoff → exit 0', (ctx) => {
-    const abs = writeKickoffNamed('kickoff-s2.md', `# S2\n\n${CONTRACT}\n\n${THREE_TRAPS}\n`);
-    expect(runHook(ctx, 'Write', abs).status).toBe(0);
-  });
-
-  it.for(['kickoff-s0.md', 'kickoff-s2b.md', 'kickoff-s10.md', 'kickoff-r1.md'])(
-    'the whole stage naming family is in scope: %s',
-    (name, ctx) => {
-      // s0 (zero-indexed stages), s2b (a split stage), s10 (two-digit), r1 (a review lane)
-      // are all live shapes in .claude/orchestrator-prompts/ — none may fall through.
-      const r = runHook(ctx, 'Write', writeKickoffNamed(name, '# stage\n\nNo contract.\n'));
+    it('PAIRED-NEGATIVE: a stage kickoff with no host contract → exit 2 (arm 1 now reaches it)', (ctx) => {
+      const abs = writeKickoffNamed(
+        'kickoff-s1.md',
+        '# S1\n\nA plan with no host contract.\n',
+      );
+      const r = runHook(ctx, 'Write', abs);
       expect(r.status).toBe(2);
       expect(r.stderr).toMatch(/kickoff host-verify:/);
-    },
-  );
+    });
 
-  it.for(['kickoff-s4.decisions.md', 'kickoff-amendments.md'])(
-    'sidecars stay OUT of scope (records ABOUT a stage, not dispatch inputs): %s',
-    (name, ctx) => {
-      // `kickoff-s4.decisions.md` is an owner-fork log; `kickoff-amendments.md` is an audit
-      // trail extracted from kickoff.md §12 to clear the 600-line gate. Neither carries
-      // worker instructions, so neither arm applies. .gitignore draws the same line: the
-      // stage family is un-ignored by glob, the amendments sidecar one-off by exact name.
-      // Both fixtures are contract-less — they WOULD trip arm 1 if wrongly in scope.
-      expect(runHook(ctx, 'Write', writeKickoffNamed(name, '# sidecar\n\nNo contract.\n')).status).toBe(0);
-    },
-  );
+    it('PAIRED-NEGATIVE: a stage kickoff engaging the rule with <3 T-numbers → exit 2 (arm 2 now reaches it)', (ctx) => {
+      const abs = writeKickoffNamed(
+        'kickoff-s1.md',
+        `# S1\n${HV_OPTOUT}\n${CITE}\nOnly T1 here.\n`,
+      );
+      const r = runHook(ctx, 'Write', abs);
+      expect(r.status).toBe(2);
+      expect(r.stderr).toMatch(/floor: 3/);
+    });
 
-  it('the widening did not over-reach: a non-kickoff file in a wave dir stays off-path', (ctx) => {
-    // `report.md` / `done.md` are tracked wave-dir artefacts (see .gitignore un-ignores).
-    // A `kickoff*`-shaped glob would have swallowed neither, but a lazier `*.md` would.
-    expect(runHook(ctx, 'Write', writeKickoffNamed('report.md', '# report\n\nNo contract.\n')).status).toBe(0);
-    expect(runHook(ctx, 'Write', writeKickoffNamed('done.md', '# done\n\nNo contract.\n')).status).toBe(0);
-  });
-});
+    it('PAIRED-POSITIVE: a compliant stage kickoff → exit 0', (ctx) => {
+      const abs = writeKickoffNamed(
+        'kickoff-s2.md',
+        `# S2\n\n${CONTRACT}\n\n${THREE_TRAPS}\n`,
+      );
+      expect(runHook(ctx, 'Write', abs).status).toBe(0);
+    });
+
+    it.for([
+      'kickoff-s0.md',
+      'kickoff-s2b.md',
+      'kickoff-s10.md',
+      'kickoff-r1.md',
+    ])('the whole stage naming family is in scope: %s', (name, ctx) => {
+      // s0 (zero-indexed stages), s2b (a split stage), s10 (two-digit), r1 (a review lane)
+      // are all live shapes in .claude/orchestrator-prompts/ — none may fall through.
+      const r = runHook(
+        ctx,
+        'Write',
+        writeKickoffNamed(name, '# stage\n\nNo contract.\n'),
+      );
+      expect(r.status).toBe(2);
+      expect(r.stderr).toMatch(/kickoff host-verify:/);
+    });
+
+    it.for(['kickoff-s4.decisions.md', 'kickoff-amendments.md'])(
+      'sidecars stay OUT of scope (records ABOUT a stage, not dispatch inputs): %s',
+      (name, ctx) => {
+        // `kickoff-s4.decisions.md` is an owner-fork log; `kickoff-amendments.md` is an audit
+        // trail extracted from kickoff.md §12 to clear the 600-line gate. Neither carries
+        // worker instructions, so neither arm applies. .gitignore draws the same line: the
+        // stage family is un-ignored by glob, the amendments sidecar one-off by exact name.
+        // Both fixtures are contract-less — they WOULD trip arm 1 if wrongly in scope.
+        expect(
+          runHook(
+            ctx,
+            'Write',
+            writeKickoffNamed(name, '# sidecar\n\nNo contract.\n'),
+          ).status,
+        ).toBe(0);
+      },
+    );
+
+    it('the widening did not over-reach: a non-kickoff file in a wave dir stays off-path', (ctx) => {
+      // `report.md` / `done.md` are tracked wave-dir artefacts (see .gitignore un-ignores).
+      // A `kickoff*`-shaped glob would have swallowed neither, but a lazier `*.md` would.
+      expect(
+        runHook(
+          ctx,
+          'Write',
+          writeKickoffNamed('report.md', '# report\n\nNo contract.\n'),
+        ).status,
+      ).toBe(0);
+      expect(
+        runHook(
+          ctx,
+          'Write',
+          writeKickoffNamed('done.md', '# done\n\nNo contract.\n'),
+        ).status,
+      ).toBe(0);
+    });
+  },
+);
 
 /**
  * Arm 3 — kickoff filename recognition (`#kickoff-name-near-miss`).
@@ -768,62 +899,71 @@ describe.skipIf(!JQ)('check-kickoff-traps.sh — stage-kickoff family scope', ()
  * Falsifier for the whole block: delete the `KICKOFF_NAME_CLASS="unrecognised"` branch —
  * both negatives below flip to exit 0, which is precisely the pre-2026-09-02 behaviour.
  */
-describe.skipIf(!JQ)('check-kickoff-traps.sh — arm 3, filename recognition', () => {
-  it.for(['kickoff-bs0.md', 'kickoff-b0-notes.md', 'kickoff-stage1.md'])(
-    'PAIRED-NEGATIVE: an unrecognised kickoff-* name → exit 2: %s',
-    (name, ctx) => {
-      // All three are contract-bearing AND trap-citing, so arms 1+2 would pass them —
-      // only arm 3 can fail these fixtures. `kickoff-bs0.md` is the measured incident;
-      // `kickoff-b0-notes.md` is the name the OLD unbounded `kickoff-[a-z][0-9]*.md` glob
-      // wrongly admitted as a stage (the latent twin divergence closed here).
+describe.skipIf(!JQ)(
+  'check-kickoff-traps.sh — arm 3, filename recognition',
+  () => {
+    it.for(['kickoff-bs0.md', 'kickoff-b0-notes.md', 'kickoff-stage1.md'])(
+      'PAIRED-NEGATIVE: an unrecognised kickoff-* name → exit 2: %s',
+      (name, ctx) => {
+        // All three are contract-bearing AND trap-citing, so arms 1+2 would pass them —
+        // only arm 3 can fail these fixtures. `kickoff-bs0.md` is the measured incident;
+        // `kickoff-b0-notes.md` is the name the OLD unbounded `kickoff-[a-z][0-9]*.md` glob
+        // wrongly admitted as a stage (the latent twin divergence closed here).
+        const abs = writeKickoffNamed(
+          name,
+          '# stage\n\n```bash host-verify\nnpx vitest run packages/core/principles\n```\n\n' +
+            'Active traps: T1, T3, T7.\n',
+        );
+        const r = runHook(ctx, 'Write', abs);
+        expect(r.status).toBe(2);
+        expect(r.stderr).toMatch(/kickoff-name:/);
+        // The error must name BOTH alternatives — an unactionable error is a warning.
+        expect(r.stderr).toMatch(/stage form/);
+        expect(r.stderr).toMatch(/sidecar/);
+      },
+    );
+
+    it.for([
+      'kickoff.md',
+      'kickoff-b0.md',
+      'kickoff-s2b.md',
+      'kickoff-r1.md',
+      'kickoff-s10.md',
+      'kickoff-amendments.md',
+      'kickoff-s4.decisions.md',
+      'kickoff-stage-2-and-3.md',
+    ])(
+      'PAIRED-POSITIVE: a recognised name never trips arm 3: %s',
+      (name, ctx) => {
+        // Compliant on arms 1+2 so a non-zero exit can only come from arm 3.
+        // `kickoff-stage-2-and-3.md` is the grandfathered legacy name (see
+        // GRANDFATHERED_KICKOFF_NAMES) — amnesty must hold at this channel too.
+        const abs = writeKickoffNamed(
+          name,
+          '# k\n\n```bash host-verify\nnpx vitest run packages/core/principles\n```\n\n' +
+            'Active traps: T1, T3, T7.\n',
+        );
+        const r = runHook(ctx, 'Write', abs);
+        expect(r.status, r.stderr).toBe(0);
+      },
+    );
+
+    it('arm 3 short-circuits: an unrecognised name is not ALSO reported by arms 1-2', (ctx) => {
+      // For a name we cannot resolve we do not know whether the file is a dispatch input,
+      // so arms 1-2 have no obligation to assert against it. Piling three violations on one
+      // rename costs the author round-trips and buries the actionable one.
       const abs = writeKickoffNamed(
-        name,
-        '# stage\n\n```bash host-verify\nnpx vitest run packages/core/principles\n```\n\n' +
-          'Active traps: T1, T3, T7.\n',
+        'kickoff-bs0.md',
+        '# no contract, no traps\n',
       );
       const r = runHook(ctx, 'Write', abs);
       expect(r.status).toBe(2);
       expect(r.stderr).toMatch(/kickoff-name:/);
-      // The error must name BOTH alternatives — an unactionable error is a warning.
-      expect(r.stderr).toMatch(/stage form/);
-      expect(r.stderr).toMatch(/sidecar/);
-    },
-  );
-
-  it.for([
-    'kickoff.md',
-    'kickoff-b0.md',
-    'kickoff-s2b.md',
-    'kickoff-r1.md',
-    'kickoff-s10.md',
-    'kickoff-amendments.md',
-    'kickoff-s4.decisions.md',
-    'kickoff-stage-2-and-3.md',
-  ])('PAIRED-POSITIVE: a recognised name never trips arm 3: %s', (name, ctx) => {
-    // Compliant on arms 1+2 so a non-zero exit can only come from arm 3.
-    // `kickoff-stage-2-and-3.md` is the grandfathered legacy name (see
-    // GRANDFATHERED_KICKOFF_NAMES) — amnesty must hold at this channel too.
-    const abs = writeKickoffNamed(
-      name,
-      '# k\n\n```bash host-verify\nnpx vitest run packages/core/principles\n```\n\n' +
-        'Active traps: T1, T3, T7.\n',
-    );
-    const r = runHook(ctx, 'Write', abs);
-    expect(r.status, r.stderr).toBe(0);
-  });
-
-  it('arm 3 short-circuits: an unrecognised name is not ALSO reported by arms 1-2', (ctx) => {
-    // For a name we cannot resolve we do not know whether the file is a dispatch input,
-    // so arms 1-2 have no obligation to assert against it. Piling three violations on one
-    // rename costs the author round-trips and buries the actionable one.
-    const abs = writeKickoffNamed('kickoff-bs0.md', '# no contract, no traps\n');
-    const r = runHook(ctx, 'Write', abs);
-    expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/kickoff-name:/);
-    expect(r.stderr).not.toMatch(/host-verify:/);
-    expect(r.stderr).not.toMatch(/floor: 3/);
-  });
-});
+      expect(r.stderr).not.toMatch(/host-verify:/);
+      expect(r.stderr).not.toMatch(/floor: 3/);
+    });
+  },
+);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // A3-6 (#1597 review ledger) — the host-verify runner miss is scoped, not permanent noise.
@@ -840,69 +980,93 @@ describe.skipIf(!JQ)('check-kickoff-traps.sh — arm 3, filename recognition', (
 // ═══════════════════════════════════════════════════════════════════════════════
 import { copyFileSync as _copyFileSync2 } from 'node:fs';
 
-describe.skipIf(!JQ)('host-verify runner miss is applicability-scoped (A3-6)', () => {
-  /** A tree with a kickoff and NO scripts/host-verify.sh; `withRule` picks the fork. */
-  function tree(withRule: boolean): { root: string; kickoff: string } {
-    const root = mkdtempSync(join(tmpdir(), 'kt-hv-'));
-    tmpDirs.push(root);
-    const dir = join(root, '.claude', 'orchestrator-prompts', 'u1');
-    mkdirSync(dir, { recursive: true });
-    const kickoff = join(dir, 'kickoff.md');
-    writeFileSync(kickoff, '# Kickoff\n\nA plan with no host-verification contract.\n', 'utf8');
-    if (withRule) {
-      mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+describe.skipIf(!JQ)(
+  'host-verify runner miss is applicability-scoped (A3-6)',
+  () => {
+    /** A tree with a kickoff and NO scripts/host-verify.sh; `withRule` picks the fork. */
+    function tree(withRule: boolean): { root: string; kickoff: string } {
+      const root = mkdtempSync(join(tmpdir(), 'kt-hv-'));
+      tmpDirs.push(root);
+      const dir = join(root, '.claude', 'orchestrator-prompts', 'u1');
+      mkdirSync(dir, { recursive: true });
+      const kickoff = join(dir, 'kickoff.md');
       writeFileSync(
-        join(root, '.claude', 'rules', 'destination-environment-verification.md'),
-        '# Destination-environment verification (stand-in)\n',
+        kickoff,
+        '# Kickoff\n\nA plan with no host-verification contract.\n',
         'utf8',
       );
+      if (withRule) {
+        mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+        writeFileSync(
+          join(
+            root,
+            '.claude',
+            'rules',
+            'destination-environment-verification.md',
+          ),
+          '# Destination-environment verification (stand-in)\n',
+          'utf8',
+        );
+      }
+      // The gate resolves the runner relative to CLAUDE_PROJECT_DIR first and to its own
+      // checkout second, so the hook must run from a COPY inside the tree — otherwise tier 2
+      // finds the framework's real scripts/host-verify.sh and the miss never happens.
+      const hooksDir = join(root, '.claude', 'hooks');
+      mkdirSync(join(hooksDir, 'lib'), { recursive: true });
+      _copyFileSync2(HOOK, join(hooksDir, 'check-kickoff-traps.sh'));
+      _copyFileSync2(
+        resolve(REPO_ROOT, '.agents/hooks/lib/hook-emit.sh'),
+        join(hooksDir, 'lib', 'hook-emit.sh'),
+      );
+      return { root, kickoff };
     }
-    // The gate resolves the runner relative to CLAUDE_PROJECT_DIR first and to its own
-    // checkout second, so the hook must run from a COPY inside the tree — otherwise tier 2
-    // finds the framework's real scripts/host-verify.sh and the miss never happens.
-    const hooksDir = join(root, '.claude', 'hooks');
-    mkdirSync(join(hooksDir, 'lib'), { recursive: true });
-    _copyFileSync2(HOOK, join(hooksDir, 'check-kickoff-traps.sh'));
-    _copyFileSync2(
-      resolve(REPO_ROOT, '.agents/hooks/lib/hook-emit.sh'),
-      join(hooksDir, 'lib', 'hook-emit.sh'),
-    );
-    return { root, kickoff };
-  }
 
-  function run(ctx: Skippable, root: string, kickoff: string) {
-    const env = { ...process.env, CLAUDE_PROJECT_DIR: root } as Record<string, string>;
-    delete env.ZCODE_PROJECT_DIR;
-    const r = spawnBashOrSkip(ctx, '/bin/bash', [join(root, '.claude', 'hooks', 'check-kickoff-traps.sh')], {
-      input: JSON.stringify({
-        tool_name: 'Write',
-        tool_input: { file_path: kickoff },
-      }),
-      encoding: 'utf8',
-      cwd: root,
-      env,
+    function run(ctx: Skippable, root: string, kickoff: string) {
+      const env = { ...process.env, CLAUDE_PROJECT_DIR: root } as Record<
+        string,
+        string
+      >;
+      delete env.ZCODE_PROJECT_DIR;
+      const r = spawnBashOrSkip(
+        ctx,
+        '/bin/bash',
+        [join(root, '.claude', 'hooks', 'check-kickoff-traps.sh')],
+        {
+          input: JSON.stringify({
+            tool_name: 'Write',
+            tool_input: { file_path: kickoff },
+          }),
+          encoding: 'utf8',
+          cwd: root,
+          env,
+        },
+      );
+      return {
+        status: r.status ?? -1,
+        stdout: r.stdout ?? '',
+        stderr: r.stderr ?? '',
+      };
+    }
+
+    it('a consumer without the rule is not nagged about a runner it can never install', (ctx) => {
+      const { root, kickoff } = tree(false);
+      const r = run(ctx, root, kickoff);
+      expect(r.status, 'the arm must never block the write').toBe(0);
+      expect(
+        r.stdout,
+        'pre-fix EVERY kickoff write emitted an unsatisfiable "install the runner" skip',
+      ).not.toMatch(/host-verify\.sh not found/);
     });
-    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
-  }
 
-  it('a consumer without the rule is not nagged about a runner it can never install', (ctx) => {
-    const { root, kickoff } = tree(false);
-    const r = run(ctx, root, kickoff);
-    expect(r.status, 'the arm must never block the write').toBe(0);
-    expect(
-      r.stdout,
-      'pre-fix EVERY kickoff write emitted an unsatisfiable "install the runner" skip',
-    ).not.toMatch(/host-verify\.sh not found/);
-  });
-
-  it('a project that DOES carry the rule still gets the loud DID-NOT-RUN skip', (ctx) => {
-    // The other half: where the contract exists, a missing runner is a real regression and
-    // must stay announced on the model channel.
-    const { root, kickoff } = tree(true);
-    const r = run(ctx, root, kickoff);
-    expect(r.status).toBe(0);
-    expect(r.stdout).toMatch(/host-verify\.sh not found/);
-    expect(r.stdout).toMatch(/DID NOT RUN/);
-    expect(r.stdout).toMatch(/not a pass/i);
-  });
-});
+    it('a project that DOES carry the rule still gets the loud DID-NOT-RUN skip', (ctx) => {
+      // The other half: where the contract exists, a missing runner is a real regression and
+      // must stay announced on the model channel.
+      const { root, kickoff } = tree(true);
+      const r = run(ctx, root, kickoff);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toMatch(/host-verify\.sh not found/);
+      expect(r.stdout).toMatch(/DID NOT RUN/);
+      expect(r.stdout).toMatch(/not a pass/i);
+    });
+  },
+);
