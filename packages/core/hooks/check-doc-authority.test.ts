@@ -916,6 +916,7 @@ describe('check-doc-authority.sh — tsx not found (all tiers miss) → existing
         }),
         encoding: 'utf8',
         cwd: box,
+        timeout: 120_000,
         env: fullEnv,
       },
     );

@@ -138,6 +138,17 @@ const skipIfWin32LycheeStub = (ctx: Skippable): void => {
 // principles hook tests (e.g. 20-bundle-classification.test.ts).
 const SLOW_SHELL_MS = 30_000;
 
+// Hard ceiling on every hook-spawning `spawnSync` in this file. Run 41192324018
+// (windows-hooks cell, cancelled): once the sandbox node_modules junction became a
+// REAL directory link (slice-2 S5/C8 fix), the four arms that previously died
+// fast on the dangling junction proceeded into deep spawned legs, one of which
+// never exited on win32 — and because the OUTER spawnSync carried no `timeout`,
+// the synchronous call blocked the vitest worker for 1h43m (baseline suite:
+// 8m46s) until the run was cancelled. spawnSync timeouts are POSIX-inert here
+// (every POSIX leg finishes in seconds); on a hang the child is terminated, the
+// arm fails WITH its name and captured bytes instead of eating the runner.
+const HOOK_SPAWN_TIMEOUT_MS = 300_000;
+
 /**
  * Fixture teardown budget. A recursive rm removes the children `readdir` returned and
  * then `rmdir`s the parent; if ANY entry appears in between, `rmdir` fails ENOTEMPTY.
@@ -347,6 +358,7 @@ function runHook(
   const r = spawnSync('node', ['--import', TSX_LOADER_IMPORT, hook], {
     encoding: 'utf8',
     cwd: dir,
+    timeout: HOOK_SPAWN_TIMEOUT_MS,
     env: {
       ...process.env,
       NODE_PATH: REAL_NODE_MODULES,
@@ -395,6 +407,7 @@ function runHookStrippedTools(
   const r = spawnSync('node', ['--import', TSX_LOADER_IMPORT, hook], {
     encoding: 'utf8',
     cwd: dir,
+    timeout: HOOK_SPAWN_TIMEOUT_MS,
     env: {
       ...process.env,
       NODE_PATH: REAL_NODE_MODULES,
@@ -1093,6 +1106,7 @@ describe(
         encoding: 'utf8',
         cwd: dir,
         input: '',
+        timeout: HOOK_SPAWN_TIMEOUT_MS,
         env: {
           ...process.env,
           NODE_PATH: REAL_NODE_MODULES,
@@ -1254,6 +1268,7 @@ describe(
       const r = spawnBashOrSkip(ctx, 'bash', [script, '--list-payload'], {
         encoding: 'utf8',
         cwd: REPO_ROOT,
+        timeout: HOOK_SPAWN_TIMEOUT_MS,
       });
       const out = `${r.stdout}\n${r.stderr}`;
       expect(r.status, out).toBe(0);
@@ -1471,6 +1486,7 @@ describe(
         encoding: 'utf8',
         cwd: dir,
         input: '',
+        timeout: HOOK_SPAWN_TIMEOUT_MS,
         env: {
           ...process.env,
           NODE_PATH: REAL_NODE_MODULES,
@@ -1561,6 +1577,7 @@ describe(
         encoding: 'utf8',
         cwd: dir,
         input: '',
+        timeout: HOOK_SPAWN_TIMEOUT_MS,
         env: {
           ...process.env,
           NODE_PATH: REAL_NODE_MODULES,
@@ -1870,6 +1887,7 @@ describe(
         {
           cwd: dir,
           encoding: 'utf8',
+          timeout: HOOK_SPAWN_TIMEOUT_MS,
         },
       );
       const out = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
@@ -2255,6 +2273,7 @@ describe(
       const r = spawnSync('node', [join(dir, entry)], {
         encoding: 'utf8',
         cwd: dir,
+        timeout: HOOK_SPAWN_TIMEOUT_MS,
         env,
       });
       return {

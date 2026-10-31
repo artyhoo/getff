@@ -849,7 +849,7 @@ e7b7cae01a8cb0b4f6aa8796fc7a588cc748c68aa0d65f0c3c2403e92ce5643e  packages/core/
 2c768f8393c2bea91fcd1bc4f4d6933cb6ee5e70fbe850922ee50481bce9c8ab  packages/core/hooks/apply-doc-fixes.test.ts
 c6412f2a0c2511b44415803a7e7215ea79d0726fc3fc12d5d1b5b90fe2e02517  packages/core/hooks/ask-question-reminder.test.ts
 b54ebe4810d07d31953c88e59bfdab26ea94acc018e092ff98e6ac57919f725b  packages/core/hooks/check-doc-authority-header.test.ts
-7ce658f5ed4f07d8373bb92fd80eddb0bc081a935d0c0e8ceeb79820a6b58335  packages/core/hooks/check-doc-authority.test.ts
+ee969d0c4ffebabe99b01a9f0917f233887a123ba30f24b6ce26315204156d20  packages/core/hooks/check-doc-authority.test.ts
 efae8625a870d289e7de0b847fdb568fb0c34881dd60a88cfa36748e1af79b38  packages/core/hooks/check-docs-refresh.test.ts
 0c469cc007e8cd1aca73f731beceee5310bd88a99dda78fc1dff5e613eabc698  packages/core/hooks/check-hook-marker.test.ts
 fde36da94974e629af0d67d9b0dd2afde8f490e6698099fe693f1854fe4f55c3  packages/core/hooks/check-kickoff-portability.test.ts
@@ -907,7 +907,7 @@ f9bb7ae2b033979021cf888b95a32eb5e1d1ed0e33a04761bdfaefb1d0511d13  packages/core/
 bf2ef722bc43524772e4173bd1415291199cc3970052405d42183b290cd8cd71  packages/core/hooks/env-hermeticity.test.ts
 a7809a7c70c2a19a1356c4bdd4c4248ba75ddd9508d55d23d1e4dd4de1ce8816  packages/core/hooks/format-shipped-anchor.test.ts
 10e9e7cca695db64a9ba13a005b26141c88f603dd53b04f81adfed0127ae4dc9  packages/core/hooks/frontier.test.ts
-4365c09c0a319f19acda2699cb8801ec0c381ee8c88c5647f6af59ad6ecd305c  packages/core/hooks/getff-work.test.ts
+47a01076e875f2625dbe8e13dbcd2a6b0c5a5950e6059f6fbbb81239ad98c04b  packages/core/hooks/getff-work.test.ts
 5859fcb33520399a4155afe8cc188b338f342e5fbe722d5362e5a6c755addf36  packages/core/hooks/glossary-counters.test.ts
 438cb376e27daa60b1c636dec962339323a75999e25f3ff0ad4ec2691b7acb6b  packages/core/hooks/harness-config-drift.test.ts
 dcb50466e6298faf6aad8f3ae674ac14228eb428adbdc901c7c2f2850c177f93  packages/core/hooks/hook-emit-prelude.test.ts
@@ -929,7 +929,7 @@ facbb703c6ee12b817a397508639d10d56608674ecdd025b65a602a13865e473  packages/core/
 b068c9324da122e70e126239eb45632376288d995b3d2d7418c8ac7d3bc9931a  packages/core/hooks/parse-preset.test.ts
 c718331b1f183d8aa4f7731dbafbf2765ae0709c12b1f3493537d9f19ba18c0e  packages/core/hooks/pin-parity.test.ts
 f33a7b661b53c4812e8866332c286e80a94e5aadebfd62effe5a08024d66e301  packages/core/hooks/pre-push.bundle.mjs
-7a7fe0f957bb3f4a8277395da867d3af276a26185f6719e1bce5d822cd0d5823  packages/core/hooks/pre-push.consumer-layout.test.ts
+17ba8049431efd00acd5591be0d770f1ba1419f7bf21570af13f5353d4e26531  packages/core/hooks/pre-push.consumer-layout.test.ts
 d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
 29f7a509e23388250f7083bd6700b44dfd8fdf3a1a7e0f146f0e144c66f1d30b  packages/core/hooks/pre-push.fallback.test.ts
 38049d591106aa4748efed67e0fe6a0a087ff576281e0ef3c86babb16a7b1f96  packages/core/hooks/pre-push.heavy-runner.test.ts

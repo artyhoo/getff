@@ -452,6 +452,7 @@ describe(
           gitWorktrees = execSync('git worktree list --porcelain', {
             cwd: REPO_ROOT,
             encoding: 'utf8',
+            timeout: 15_000,
           }).slice(0, 1200);
         } catch (e) {
           gitWorktrees = `probe-failed: ${(e as Error).message.slice(0, 200)}`;
