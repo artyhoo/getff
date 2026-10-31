@@ -4,6 +4,21 @@ import { exactNativeKeys, validateNativeReview, verifyNativeOriginal } from './n
 import { digest } from './contract.mjs';
 const reject = code => { throw Object.assign(new Error(code), { code }); };
 const captureDigest = report => digest(['execution_id', 'session_id', 'solution_sha256', 'artifact_sha256', 'source_tree_digest', 'head_sha', 'pr_url'].map(k => report[k]));
+// Review IDs and originals remain immutable history. A verified finding
+// binds the whole request; another GO cannot resolve it by arrival order
+// or by a later timestamp. A fix needs a separately qualified request.
+// Shared by the native store and the GLM intake store — one implementation,
+// never duplicated, so the two review namespaces cannot drift.
+export function recordReview(db, api, review, sourceSha256) {
+  const prior = db.prepare('SELECT * FROM native_reviews WHERE review_id=?').get(review.review_id);
+  if (prior) {
+    if (prior.request_id !== review.request_id || prior.source_sha256 !== sourceSha256) reject('DOT_REVIEW_IMMUTABLE');
+    return { replay: true };
+  }
+  db.prepare('INSERT INTO native_reviews VALUES (?,?,?,?,?)').run(review.review_id, review.request_id, sourceSha256, review.decision, JSON.stringify(review));
+  api._audit('DOT_REVIEW_SOURCE_VERIFIED', review.review_id, { head_sha: review.head_sha, decision: review.decision });
+  return { replay: false };
+}
 export function nativeSourceStore(db, api) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS native_source_binding (
@@ -25,19 +40,6 @@ export function nativeSourceStore(db, api) {
       source_sha256 TEXT NOT NULL, decision TEXT NOT NULL, review_json TEXT NOT NULL
     );
   `);
-  // Review IDs and originals remain immutable history. A verified finding
-  // binds the whole request; another GO cannot resolve it by arrival order
-  // or by a later timestamp. A fix needs a separately qualified request.
-  const recordReview = (review, sourceSha256) => {
-    const prior = db.prepare('SELECT * FROM native_reviews WHERE review_id=?').get(review.review_id);
-    if (prior) {
-      if (prior.request_id !== review.request_id || prior.source_sha256 !== sourceSha256) reject('DOT_REVIEW_IMMUTABLE');
-      return { replay: true };
-    }
-    db.prepare('INSERT INTO native_reviews VALUES (?,?,?,?,?)').run(review.review_id, review.request_id, sourceSha256, review.decision, JSON.stringify(review));
-    api._audit('DOT_REVIEW_SOURCE_VERIFIED', review.review_id, { head_sha: review.head_sha, decision: review.decision });
-    return { replay: false };
-  };
   return {
     getBinding() {
       const r = db.prepare('SELECT * FROM native_source_binding WHERE singleton=1').get();
@@ -132,7 +134,7 @@ export function nativeSourceStore(db, api) {
         || report.head_sha !== request.head_sha || report.pr_url !== `https://github.com/${request.repository}/pull/${request.pr}`) reject('DOT_APPROVAL_UNPROVEN');
       const review = validateNativeReview(stored.original_bytes.toString('utf8'), { binding, request, currentHead });
       const result = api._tx(() => {
-        return { ...recordReview(review, receipt.source.sha256), blocking: this.blockingReview(request.request_id) };
+        return { ...recordReview(db, api, review, receipt.source.sha256), blocking: this.blockingReview(request.request_id) };
       });
       // This internal v2 normalization is reachable only after the exact v1
       // native GO source was verified. The legacy CLI still cannot import v2.
@@ -156,7 +158,7 @@ export function nativeSourceStore(db, api) {
           if (!request) reject('DOT_REVIEW_REQUEST_UNPROVEN');
           const review = validateNativeReview(bytes.toString('utf8'), { binding, request, currentHead: request.head_sha });
           if (generation !== review.review_id) reject('DOT_REVIEW_IMMUTABLE');
-          recordReview(review, descriptor.sha256);
+          recordReview(db, api, review, descriptor.sha256);
         }
         const old = this.getSource(descriptor.sha256);
         if (old) {
