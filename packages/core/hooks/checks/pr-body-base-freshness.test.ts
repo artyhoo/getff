@@ -3,13 +3,15 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 const { load } = createRequire(import.meta.url)('js-yaml') as { load: (source: string) => unknown };
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
-const LOADER = join(ROOT, 'node_modules/tsx/dist/loader.mjs');
+// file-URL form: `--import` treats a drive-letter absolute path as a URL scheme
+// (protocol 'd:') on Windows and dies at loader load. Valid on every platform.
+const LOADER = pathToFileURL(join(ROOT, 'node_modules/tsx/dist/loader.mjs')).href;
 const CASES = [
   ['pr-body-prior-art.yml', 'pr-body-prior-art-bin.ts'],
   ['pr-stale-revert.yml', 'pr-body-removal-consumers-bin.ts'],

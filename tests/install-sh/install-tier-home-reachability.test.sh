@@ -13,7 +13,11 @@ for key in ['PROFILE','GETFF_PROFILE','GETFF_TOOLCHAIN','GETFF_TOOLCHAIN_REFRESH
 for profile in ['env','factory']:
  consumer=tmp/profile;consumer.mkdir();(consumer/'package.json').write_text('{"name":"tier-walk","version":"0.0.0"}\n')
  subprocess.run(['git','init','-q'],cwd=consumer,check=True)
- result=subprocess.run(['bash',str(root/'install.sh'),'ts-server','--profile',profile],cwd=consumer,stdin=subprocess.DEVNULL,env=env,text=True,capture_output=True,timeout=180)
+ # timeout=600: install.sh measures 41-52s RC=0 on this host even at load avg 9-13 (2026-10-28),
+ # but inside the suite's 12-parallel install battery it exceeded BOTH 180s and 240s (fs-bound
+ # contention; passes at 180s in lighter windows — run-to-run variance is the norm). 600s = 10x
+ # the standalone floor, still bounds a hang; same loaded-host class as f8b3b9ff64f.
+ result=subprocess.run(['bash',str(root/'install.sh'),'ts-server','--profile',profile],cwd=consumer,stdin=subprocess.DEVNULL,env=env,text=True,capture_output=True,timeout=600)
  (tmp/(profile+'.log')).write_text(result.stdout+result.stderr)
  assert result.returncode==0,result.stdout[-2000:]+result.stderr[-1000:]
  delivered=consumer/'.ai-factory/tier-home.md';assert delivered.read_bytes()==(root/'packages/core/templates/shared/tier-home.md').read_bytes()

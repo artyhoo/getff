@@ -76,7 +76,8 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { existsSync, mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -121,11 +122,13 @@ function writeKickoff(sandboxRoot: string, umbrella: string, content: string): v
  * (script line 15: UMBRELLA="${1:-}").
  */
 function run(
+  ctx: Skippable,
   sandboxRoot: string,
   umbrella?: string,
 ): { status: number; stdout: string; stderr: string } {
   const args = umbrella !== undefined ? [SCRIPT, umbrella] : [SCRIPT];
-  const r = spawnSync('bash', args, {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', args, {
     cwd: sandboxRoot,
     encoding: 'utf8',
     env: { ...process.env, REPO_ROOT: sandboxRoot },
@@ -144,23 +147,23 @@ const TABLE_HEADER =
 // Case 1 — No-arg quiet skip
 // ---------------------------------------------------------------------------
 describe('Case 1 — no-arg quiet skip (script lines 20-26)', () => {
-  it('POSITIVE: no umbrella arg → stdout contains quiet-skip message, exit 0', () => {
+  it('POSITIVE: no umbrella arg → stdout contains quiet-skip message, exit 0', (ctx) => {
     // Targets script lines 20-26:
     //   if [[ -z "${UMBRELLA}" ]]; then
     //     echo "(launch-table-generator: no umbrella — ...)"
     //     exit 0
     //   fi
     const sandbox = makeSandbox();
-    const r = run(sandbox /* no umbrella arg */);
+    const r = run(ctx, sandbox /* no umbrella arg */);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('(launch-table-generator: no umbrella');
   });
 
-  it('NEGATIVE: call WITH umbrella arg → quiet-skip message NOT present', () => {
+  it('NEGATIVE: call WITH umbrella arg → quiet-skip message NOT present', (ctx) => {
     // Paired-negative: when umbrella is provided, lines 20-26 are skipped.
     // Script proceeds to the missing-kickoff check (lines 30-34).
     const sandbox = makeSandbox();
-    const r = run(sandbox, 'some-umbrella');
+    const r = run(ctx, sandbox, 'some-umbrella');
     expect(r.stdout).not.toContain('(launch-table-generator: no umbrella');
   });
 });
@@ -169,7 +172,7 @@ describe('Case 1 — no-arg quiet skip (script lines 20-26)', () => {
 // Case 2 — Missing kickoff
 // ---------------------------------------------------------------------------
 describe('Case 2 — missing kickoff detection (script lines 30-34)', () => {
-  it('POSITIVE: umbrella arg given, no kickoff.md → stdout contains "MISSING kickoff:", exit 1', () => {
+  it('POSITIVE: umbrella arg given, no kickoff.md → stdout contains "MISSING kickoff:", exit 1', (ctx) => {
     // Targets script lines 30-34:
     //   if [[ ! -f "${KICKOFF}" ]]; then
     //     echo "MISSING kickoff: $(resolve_orch_home_rel)/${UMBRELLA}/kickoff.md"
@@ -181,20 +184,20 @@ describe('Case 2 — missing kickoff detection (script lines 30-34)', () => {
     // message that named a directory the script had not looked in and that did not exist.
     const sandbox = makeSandbox();
     // No kickoff.md written for 'my-umbrella'
-    const r = run(sandbox, 'my-umbrella');
+    const r = run(ctx, sandbox, 'my-umbrella');
     expect(r.status).toBe(1);
     expect(r.stdout).toContain(
       'MISSING kickoff: .ai-factory/orchestrator-prompts/my-umbrella/kickoff.md',
     );
   });
 
-  it('POSITIVE (framework layout): message names .claude/ when that home exists', () => {
+  it('POSITIVE (framework layout): message names .claude/ when that home exists', (ctx) => {
     // Paired arm for the one above: the message must TRACK resolve_orch_home(), not be
     // pinned to either literal. A sibling umbrella's kickoff makes .claude/orchestrator-prompts
     // exist, flipping the resolver to the framework branch — while 'my-umbrella' stays absent.
     const sandbox = makeSandbox();
     writeKickoff(sandbox, 'other-umbrella', '# Other\n');
-    const r = run(sandbox, 'my-umbrella');
+    const r = run(ctx, sandbox, 'my-umbrella');
     expect(r.status).toBe(1);
     expect(r.stdout).toContain(
       'MISSING kickoff: .claude/orchestrator-prompts/my-umbrella/kickoff.md',
@@ -202,11 +205,11 @@ describe('Case 2 — missing kickoff detection (script lines 30-34)', () => {
     expect(r.stdout).not.toContain('.ai-factory');
   });
 
-  it('NEGATIVE: umbrella arg given and kickoff EXISTS → stdout does NOT contain "MISSING kickoff"', () => {
+  it('NEGATIVE: umbrella arg given and kickoff EXISTS → stdout does NOT contain "MISSING kickoff"', (ctx) => {
     // Paired-negative: when kickoff.md is present, the lines 30-34 branch is not entered.
     const sandbox = makeSandbox();
     writeKickoff(sandbox, 'my-umbrella', '# My Umbrella\n\n## §0 Context\n- placeholder\n');
-    const r = run(sandbox, 'my-umbrella');
+    const r = run(ctx, sandbox, 'my-umbrella');
     expect(r.stdout).not.toContain('MISSING kickoff');
   });
 });
@@ -215,7 +218,7 @@ describe('Case 2 — missing kickoff detection (script lines 30-34)', () => {
 // Case 3 — Primary path (B5 section-scoped awk)
 // ---------------------------------------------------------------------------
 describe('Case 3 — B5 primary path: section-scoped awk (detect_subwaves lines 93-113)', () => {
-  it('POSITIVE: kickoff with "## §2 Sub-wave decomposition" section and rows A, B → sub-waves A and B detected', () => {
+  it('POSITIVE: kickoff with "## §2 Sub-wave decomposition" section and rows A, B → sub-waves A and B detected', (ctx) => {
     // Targets detect_subwaves() primary path (script lines 93-113):
     //   grep -qE '^## §[0-9]+ [Ss]ub-wave' fires (line 83) → awk state machine extracts
     //   pipe-delimited rows within the section. Row "| A | ..." → "  sub-wave: A".
@@ -237,7 +240,7 @@ describe('Case 3 — B5 primary path: section-scoped awk (detect_subwaves lines 
       '- content',
     ].join('\n');
     writeKickoff(sandbox, 'test-umbrella', kickoffContent);
-    const r = run(sandbox, 'test-umbrella');
+    const r = run(ctx, sandbox, 'test-umbrella');
     expect(r.status).toBe(0);
     // Script line 171: the captured rows are prefixed —
     //   printf '%s\n' "${_sw_rows}" | sed 's/^/  sub-wave: /'
@@ -246,7 +249,7 @@ describe('Case 3 — B5 primary path: section-scoped awk (detect_subwaves lines 
     expect(r.stdout).toContain('  sub-wave: B');
   });
 
-  it('NEGATIVE: kickoff WITH "## §N Sub-wave" heading but section ends immediately → DEGRADE: + non-zero exit (#1518)', () => {
+  it('NEGATIVE: kickoff WITH "## §N Sub-wave" heading but section ends immediately → DEGRADE: + non-zero exit (#1518)', (ctx) => {
     // Paired-negative for Case 3 (primary awk path), updated to the #1518 loud-degrade
     // contract: the Sub-wave section exists (triggers primary awk at line 83) but is
     // immediately followed by a new ## heading before any data rows — awk enters
@@ -275,7 +278,7 @@ describe('Case 3 — B5 primary path: section-scoped awk (detect_subwaves lines 
       '- Some content here',
     ].join('\n');
     writeKickoff(sandbox, 'test-umbrella', kickoffContent);
-    const r = run(sandbox, 'test-umbrella');
+    const r = run(ctx, sandbox, 'test-umbrella');
     // Primary awk: in_section=1 from §2, then immediately in_section=0 at §3
     // → zero rows parsed → the DEGRADE contract (script lines 166-170)
     expect(
@@ -295,7 +298,7 @@ describe('Case 3 — B5 primary path: section-scoped awk (detect_subwaves lines 
 // Case 4 — Table skeleton emitted iff kickoff present
 // ---------------------------------------------------------------------------
 describe('Case 4 — table skeleton emitted iff kickoff present and rows parsed (script lines 180-188)', () => {
-  it('POSITIVE: valid kickoff with parseable rows → table header + one skeleton row emitted, exit 0', () => {
+  it('POSITIVE: valid kickoff with parseable rows → table header + one skeleton row emitted, exit 0', (ctx) => {
     // Targets script lines 180-188 (table skeleton emission) — reachable only when at
     // least one row parsed: since the #1518 contract the zero-row gate at lines 167-170
     // DEGRADE-exits 1 BEFORE the skeleton prints, so "skeleton still emitted when rows
@@ -321,19 +324,19 @@ describe('Case 4 — table skeleton emitted iff kickoff present and rows parsed 
         '',
       ].join('\n'),
     );
-    const r = run(sandbox, 'test-umbrella');
+    const r = run(ctx, sandbox, 'test-umbrella');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain(TABLE_HEADER);
     // One skeleton row per parsed id (script lines 186-188).
     expect(r.stdout).toContain('| A | ? | ? | ? | ? | ? | ? |');
   });
 
-  it('NEGATIVE: missing kickoff → table header NOT emitted', () => {
+  it('NEGATIVE: missing kickoff → table header NOT emitted', (ctx) => {
     // Paired-negative: script exits early at lines 30-34 (MISSING kickoff)
     // before reaching table skeleton emission at lines 180-188.
     const sandbox = makeSandbox();
     // No kickoff written for 'missing-umbrella'
-    const r = run(sandbox, 'missing-umbrella');
+    const r = run(ctx, sandbox, 'missing-umbrella');
     expect(r.status).toBe(1);
     expect(r.stdout).not.toContain(TABLE_HEADER);
   });
@@ -343,7 +346,7 @@ describe('Case 4 — table skeleton emitted iff kickoff present and rows parsed 
 // Case 5 — Fallback path (keyword filter)
 // ---------------------------------------------------------------------------
 describe('Case 5 — B5 fallback path: keyword filter (script lines 114-136)', () => {
-  it('POSITIVE: no Sub-wave heading but rows contain orchestration keywords → sub-waves detected', () => {
+  it('POSITIVE: no Sub-wave heading but rows contain orchestration keywords → sub-waves detected', (ctx) => {
     // Targets fallback path (script lines 114-136):
     //   strip_table_headers <"${KICKOFF}"        (line 123 — structural header drop)
     //   | grep -E '^\| *(\*\*)?([A-Za-z][A-Za-z0-9-]*|[0-9]+)(\*\*)? *\|'   (shape, :124)
@@ -367,13 +370,13 @@ describe('Case 5 — B5 fallback path: keyword filter (script lines 114-136)', (
       '| B | execution |',
     ].join('\n');
     writeKickoff(sandbox, 'test-umbrella', kickoffContent);
-    const r = run(sandbox, 'test-umbrella');
+    const r = run(ctx, sandbox, 'test-umbrella');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('  sub-wave: A');
     expect(r.stdout).toContain('  sub-wave: B');
   });
 
-  it('NEGATIVE: heading present but only a header row + non-id data rows → header dropped, zero rows parse, DEGRADE exits', () => {
+  it('NEGATIVE: heading present but only a header row + non-id data rows → header dropped, zero rows parse, DEGRADE exits', (ctx) => {
     // Paired-negative for Case 5's primary-arm cousin: the fixture has a "## §2 Sub-wave
     // decomposition" heading (triggers the primary awk, lines 93-113) whose table carries
     // a header row and multi-word description cells. BOTH exclusion layers are exercised:
@@ -402,7 +405,7 @@ describe('Case 5 — B5 fallback path: keyword filter (script lines 114-136)', (
       '| Another description | also no match |',
     ].join('\n');
     writeKickoff(sandbox, 'test-umbrella', kickoffContent);
-    const r = run(sandbox, 'test-umbrella');
+    const r = run(ctx, sandbox, 'test-umbrella');
     // The header cell must NOT surface as an id (structural drop, lines 98-101), and the
     // multi-word rows fail the shape — zero parsed rows → DEGRADE + non-zero exit.
     expect(
@@ -420,7 +423,7 @@ describe('Case 5 — B5 fallback path: keyword filter (script lines 114-136)', (
 // Case 6 — Structural header drop over parseable rows (rework round 3, item 1)
 // ---------------------------------------------------------------------------
 describe('Case 6 — structural header drop: a |---|-followed row is a header on BOTH paths', () => {
-  it('PRIMARY: | Stage | Sub-waves | … | header over S-rows yields only the S-rows', () => {
+  it('PRIMARY: | Stage | Sub-waves | … | header over S-rows yields only the S-rows', (ctx) => {
     // Regression for the recorded silent false-green (consumer-install-hardening class):
     // under the widened grammar the header's first cell `Stage` is shape-legal, so the
     // pre-item-1 primary awk (lines 93-113) emitted `sub-wave: Stage` + a garbage
@@ -446,7 +449,7 @@ describe('Case 6 — structural header drop: a |---|-followed row is a header on
         '',
       ].join('\n'),
     );
-    const r = run(sandbox, 'test-umbrella');
+    const r = run(ctx, sandbox, 'test-umbrella');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('  sub-wave: S1');
     expect(r.stdout).toContain('  sub-wave: S2');
@@ -458,7 +461,7 @@ describe('Case 6 — structural header drop: a |---|-followed row is a header on
     expect(r.stdout).toContain('| S2 | ? | ? | ? | ? | ? | ? |');
   });
 
-  it('FALLBACK: the same header carries the Sub-wave keyword — strip_table_headers drops it before the keyword filter', () => {
+  it('FALLBACK: the same header carries the Sub-wave keyword — strip_table_headers drops it before the keyword filter', (ctx) => {
     // The exact recorded shape: without a Sub-wave SECTION heading the fallback chain
     // (lines 114-136) runs, and the header `| Stage | Sub-waves | … |` itself contains
     // the keyword `Sub-waves` — so pre-item-1 it PASSED the keyword grep (line 126) and
@@ -483,7 +486,7 @@ describe('Case 6 — structural header drop: a |---|-followed row is a header on
         '',
       ].join('\n'),
     );
-    const r = run(sandbox, 'test-umbrella');
+    const r = run(ctx, sandbox, 'test-umbrella');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('  sub-wave: S1');
     expect(r.stdout).toContain('  sub-wave: S2');
@@ -498,9 +501,9 @@ describe('Case 6 — structural header drop: a |---|-followed row is a header on
 describe('T15 self-application: script wiring sanity', () => {
   it('SCRIPT constant points to an existing file', () => {
     // T3 compliance: verifies test is wired to the actual script path, not a phantom.
-    // Uses spawnSync('test', ['-f', SCRIPT]) rather than importing fs to keep the
-    // pattern consistent with how the other tests invoke shell commands.
-    const check = spawnSync('test', ['-f', SCRIPT], { encoding: 'utf8' });
-    expect(check.status).toBe(0);
+    // existsSync keeps the same assertion outcome on every OS; the old spawnSync('test',…)
+    // relied on coreutils' /usr/bin/test, which does not resolve under CreateProcess on
+    // win32 (#1799) — `test` is a shell builtin, not a Windows binary.
+    expect(existsSync(SCRIPT)).toBe(true);
   });
 });

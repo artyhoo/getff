@@ -28,11 +28,12 @@
  * (ABS_PATH#$REPO_ROOT/, hook:54) resolves to the scoped star-slash-kickoff.md matcher (hook:59).
  *
  * Skips gracefully when jq or tsx are unavailable (the hook itself no-ops without them).
- * Precedent: check-kickoff-traps.test.ts (sandbox pattern), deps-hash-check.test.ts:402
+ * Precedent: check-kickoff-traps.test.ts (sandbox pattern), deps-hash-check.test.ts:421
  * (ZCode schema arm).
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
+import { spawnBashOrSkip } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -41,6 +42,10 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.agents/hooks/check-worker-dispatch-channel.sh');
+// win32: the C2 fixture's exec-bit sentinels are made executable via `chmod +x`, which has
+// no cmd.exe form (ENOENT) and no MSYS stand-in reachable from Node's execSync — so that
+// case cannot hold off-Windows and skips under this named arm (wave-A precedent, #1799).
+const WIN_SUT_LINK = process.platform === 'win32';
 
 function hasJq(): boolean {
   try {
@@ -104,7 +109,7 @@ afterEach(() => {
  * REPO_ROOT, so the hook's REL_PATH = ABS_PATH#$REPO_ROOT/ (hook:54) yields the scoped
  * `.claude/orchestrator-prompts/<umbrella>/kickoff.md` matcher (hook:59) against a REAL
  * on-disk file. Returns the absolute path. The temp wave dir is removed in afterEach.
- * (Mirrors check-kickoff-traps.test.ts:53 — writing under REPO_ROOT is load-bearing.)
+ * (Mirrors check-kickoff-traps.test.ts:54 — writing under REPO_ROOT is load-bearing.)
  */
 function writeKickoff(body: string): string {
   const waveDir = mkdtempSync(
@@ -118,11 +123,12 @@ function writeKickoff(body: string): string {
 
 /** Run the hook with a PostToolUse payload. Returns status + stdout. env merged onto
  *  process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms stay in the exit-code branch
- *  (mirrors deps-hash-check.test.ts:339). cwd is forced to REPO_ROOT because the hook delegates
+ *  (mirrors deps-hash-check.test.ts:357). cwd is forced to REPO_ROOT because the hook delegates
  *  to bin.ts via tsx WITHOUT setting cwd, and bin.ts resolves its argv (a repo-relative path)
  *  against process.cwd() via existsSync(). CC's PostToolUse runs hooks with cwd=project root;
  *  vitest runs from packages/core/, which would break the rel-path lookup. */
 function runHook(
+  ctx: Skippable,
   tool: string,
   absPath: string,
   env: Record<string, string> = {},
@@ -130,7 +136,9 @@ function runHook(
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical pass-through to spawnSync('bash', …); win32: resolves Git
+  // Bash (runners expose only Git\cmd on PATH) or skips with a named reason (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify({
       tool_name: tool,
       tool_input: { file_path: absPath },
@@ -156,9 +164,9 @@ const VIOLATION_LINE =
 describe.skipIf(!JQ || !TSX)(
   'check-worker-dispatch-channel.sh — PostToolUse worker-dispatch gate',
   () => {
-    it('PAIRED-NEGATIVE: kickoff instructs Agent-tool write-Worker dispatch → exit 2', () => {
+    it('PAIRED-NEGATIVE: kickoff instructs Agent-tool write-Worker dispatch → exit 2', (ctx) => {
       const abs = writeKickoff(`# Wave N kickoff\n\n${VIOLATION_LINE}\n`);
-      const r = runHook('Write', abs);
+      const r = runHook(ctx, 'Write', abs);
       // D-1 (#1597 review ledger): the hook converts the matcher's exit 1 to exit 2. Only
       // exit 2 routes PostToolUse stderr to the MODEL; exit 1 reaches the operator transcript
       // alone, so the model never learned of the violation and kept going. Siblings
@@ -167,36 +175,36 @@ describe.skipIf(!JQ || !TSX)(
       expect(r.stderr).toContain('worker-dispatch-channel');
     });
 
-    it('PAIRED-POSITIVE: kickoff with no Agent-tool write-dispatch → exit 0, silent', () => {
+    it('PAIRED-POSITIVE: kickoff with no Agent-tool write-dispatch → exit 0, silent', (ctx) => {
       const abs = writeKickoff(
         '# Wave N kickoff\n\nA plan with no worker-dispatch instruction.\n',
       );
-      const r = runHook('Write', abs);
+      const r = runHook(ctx, 'Write', abs);
       expect(r.status).toBe(0);
     });
 
-    it('exemption: per-line escape token `<!-- channel-discipline: allow -->` → exit 0', () => {
+    it('exemption: per-line escape token `<!-- channel-discipline: allow -->` → exit 0', (ctx) => {
       // ESCAPE_TOKEN_RE @ 29-worker-dispatch-channel.ts:81 — a same-line exemption suppresses
       // the violation. The reason in the token is the documented carve-out for prose that
       // teaches/quotes the anti-pattern.
       const abs = writeKickoff(
         `# Wave N kickoff\n\n${VIOLATION_LINE} <!-- channel-discipline: allow teaches the anti-pattern -->\n`,
       );
-      const r = runHook('Write', abs);
+      const r = runHook(ctx, 'Write', abs);
       expect(r.status).toBe(0);
     });
 
-    it('read-only Agent context is NOT a violation (READONLY_CONTEXT_RE carve-out)', () => {
+    it('read-only Agent context is NOT a violation (READONLY_CONTEXT_RE carve-out)', (ctx) => {
       // A read-only reviewer/research Agent dispatch is the LEGITIMATE use (pipeline SKILL §5).
       // findViolations @ :85 short-circuits when READONLY_CONTEXT_RE matches the same line.
       const abs = writeKickoff(
         `# Wave N kickoff\n\nDispatch the read-only reviewer via the Agent tool.\n`,
       );
-      const r = runHook('Write', abs);
+      const r = runHook(ctx, 'Write', abs);
       expect(r.status).toBe(0);
     });
 
-    it('off-path: a non-kickoff .md under orchestrator-prompts → exit 0', () => {
+    it('off-path: a non-kickoff .md under orchestrator-prompts → exit 0', (ctx) => {
       // Matcher is `.claude/orchestrator-prompts/*/kickoff.md` (hook:59) — notes.md is out of scope.
       const waveDir = mkdtempSync(
         join(REPO_ROOT, '.claude/orchestrator-prompts/wdc-test-'),
@@ -204,10 +212,10 @@ describe.skipIf(!JQ || !TSX)(
       tmpDirs.push(waveDir);
       const abs = join(waveDir, 'notes.md');
       writeFileSync(abs, `${VIOLATION_LINE}\n`, 'utf8');
-      expect(runHook('Write', abs).status).toBe(0);
+      expect(runHook(ctx, 'Write', abs).status).toBe(0);
     });
 
-    it('off-path: kickoff.md outside REPO_ROOT → exit 0 (REL_PATH guard, hook:55)', () => {
+    it('off-path: kickoff.md outside REPO_ROOT → exit 0 (REL_PATH guard, hook:55)', (ctx) => {
       // ABS_PATH#$REPO_ROOT/ leaves the path unchanged when it's not under REPO_ROOT →
       // `[[ "$REL_PATH" = "$ABS_PATH" ]]` → exit 0.
       const dir = mkdtempSync(join(tmpdir(), 'wdc-offpath-'));
@@ -217,16 +225,16 @@ describe.skipIf(!JQ || !TSX)(
       });
       const abs = join(dir, '.claude', 'orchestrator-prompts', 'x', 'kickoff.md');
       writeFileSync(abs, `${VIOLATION_LINE}\n`, 'utf8');
-      expect(runHook('Write', abs).status).toBe(0);
+      expect(runHook(ctx, 'Write', abs).status).toBe(0);
     });
 
-    it('wrong tool (Read) → exit 0 even on a violating kickoff', () => {
+    it('wrong tool (Read) → exit 0 even on a violating kickoff', (ctx) => {
       // case Edit|Write|MultiEdit only (hook:51); a Read tool call must not be gated.
       const abs = writeKickoff(`# Wave N kickoff\n\n${VIOLATION_LINE}\n`);
-      expect(runHook('Read', abs).status).toBe(0);
+      expect(runHook(ctx, 'Read', abs).status).toBe(0);
     });
 
-    it('ZCODE: violating kickoff under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory, not gate)', () => {
+    it('ZCODE: violating kickoff under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory, not gate)', (ctx) => {
       // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
       // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
       // discarded). PostToolUse cannot block on ZCode (schema Uan rejects permissionDecision;
@@ -234,7 +242,7 @@ describe.skipIf(!JQ || !TSX)(
       // schema-valid `{additionalContext}` and exits 0 — advisory. Regression guard: catches
       // the prior shape that emitted `{hookEventName, additionalContext}` at top level.
       const abs = writeKickoff(`# Wave N kickoff\n\n${VIOLATION_LINE}\n`);
-      const r = runHook('Write', abs, { ZCODE_PROJECT_DIR: REPO_ROOT });
+      const r = runHook(ctx, 'Write', abs, { ZCODE_PROJECT_DIR: REPO_ROOT });
       expect(r.status, 'ZCode path exits 0 (advisory, non-blocking)').toBe(0);
       expect(r.stdout.trim(), 'ZCode path emits non-empty JSON').not.toBe('');
       const allowedTopLevel = new Set([
@@ -284,9 +292,10 @@ import {
   mkdirSync as _mkdirSync,
   mkdtempSync as _mkdtempSync,
   rmSync as _rmSync,
-  symlinkSync as _symlinkSync,
   writeFileSync as _writeFileSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
+import { spawnBashOrSkip as _spawnBashOrSkip } from './spawn-bash-or-skip.ts';
 import { execSync as _execSync, spawnSync as _spawnSync } from 'node:child_process';
 import { join as _join } from 'node:path';
 import { tmpdir as _osTmpdir } from 'node:os';
@@ -322,11 +331,12 @@ afterEach(() => {
 });
 
 /** Scrub tsx from PATH so tier 3 deterministically misses (isolates tier-1/tier-2). */
-function scrubbedPathBin(): string {
+function scrubbedPathBin(ctx: Skippable): string {
   const binDir = _mkdtempSync(_join(_osTmpdir(), 'wdc-scrubbed-bin-'));
   for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'git', 'jq', 'printf', 'bash', 'sh', 'node']) {
-    const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-    if (real) _symlinkSync(real, _join(binDir, tool));
+    const real = _spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+    // tool binaries are files: junctions cannot express them → named win32 skip
+    if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
   }
   return binDir;
 }
@@ -364,7 +374,7 @@ function stubBin(repoRoot: string): void {
 // default closes that gap for every case, present and future; the per-test values
 // below are now redundant-but-harmless restatements of it.
 describe('tier-based tsx resolution (paired-negative for the worktree defect class)', { timeout: 30_000 }, () => {
-  it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check', () => {
+  it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check', (ctx) => {
     const wt = _mkdtempSync(_join(_osTmpdir(), 'wdc-c1-wt-'));
     _rmSync(wt, { recursive: true, force: true });
     // `core.hooksPath=/dev/null`: the fixture needs a checkout, not this repo's hooks. The
@@ -376,7 +386,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     // Overwrite worktree's checked-out hook with the FIXED working-tree version.
     copyHook(_join(wt, '.claude/hooks/check-worker-dispatch-channel.sh'));
 
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     const abs = writeKickoffAt(wt, `# C1 kickoff\n\n${VIOLATION_LINE}\n`);
     const env: Record<string, string> = {
       ...process.env,
@@ -384,7 +394,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [_join(wt, '.claude/hooks/check-worker-dispatch-channel.sh')], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [_join(wt, '.claude/hooks/check-worker-dispatch-channel.sh')], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -403,7 +413,9 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(out).not.toMatch(/tsx not found/i);
   });
 
-  it('C2: precedence held — repo-local tsx wins (structural)', () => {
+  // win32 (WIN_SUT_LINK arm): the fixture marks all three tsx sentinels executable with
+  // `chmod +x`, which has no cmd.exe form — the case cannot hold off-POSIX (#1799).
+  it.skipIf(WIN_SUT_LINK)('C2: precedence held — repo-local tsx wins (structural)', (ctx) => {
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-c2-'));
     const nmBin = _join(dir, 'node_modules', '.bin');
     _mkdirSync(nmBin, { recursive: true });
@@ -420,7 +432,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
 
     const abs = writeKickoffAt(dir, `# C2 kickoff\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     _writeFileSync(_join(binDir, 'tsx'), '#!/bin/sh\necho "TIER3_INVOKED_WRONG" >&2\n', 'utf8');
     _execSync(`chmod +x "${binDir}/tsx"`);
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
@@ -430,7 +442,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -445,13 +457,14 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(r.stderr).not.toContain('TIER3_INVOKED_WRONG');
   });
 
-  it('C3: non-git REPO_ROOT, tsx on PATH → tier 3 resolves → hook runs check', () => {
+  it('C3: non-git REPO_ROOT, tsx on PATH → tier 3 resolves → hook runs check', (ctx) => {
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-c3-'));
     const abs = writeKickoffAt(dir, `# C3 kickoff\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
-    const binDir = scrubbedPathBin();
-    const realTsx = _spawnSync('/usr/bin/which', ['tsx'], { encoding: 'utf8' }).stdout?.trim();
-    if (realTsx) _symlinkSync(realTsx, _join(binDir, 'tsx'));
+    const binDir = scrubbedPathBin(ctx);
+    // tsx is a binary FILE: junctions cannot express it → named win32 skip.
+    const realTsx = _spawnBashOrSkip(ctx, '/usr/bin/which', ['tsx'], { encoding: 'utf8' }).stdout?.trim();
+    if (realTsx) _symlinkOrJunctionOrSkip(ctx, realTsx, _join(binDir, 'tsx'));
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
@@ -459,7 +472,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -478,10 +491,10 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(out).not.toMatch(/tsx not found/i);
   });
 
-  it('C4: non-git REPO_ROOT, no tier resolves → no crash, no git error leaked', () => {
+  it('C4: non-git REPO_ROOT, no tier resolves → no crash, no git error leaked', (ctx) => {
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-c4-'));
     const abs = writeKickoffAt(dir, `# C4 kickoff\n\n${VIOLATION_LINE}\n`);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
@@ -489,7 +502,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -504,11 +517,11 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     ).not.toMatch(/fatal: not a git repository|fatal: this operation must be run in a work tree/i);
   });
 
-  it('C5: no tier resolves → skip notice fires on model channel + exit 0', () => {
+  it('C5: no tier resolves → skip notice fires on model channel + exit 0', (sk) => {
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-c5-'));
     const abs = writeKickoffAt(dir, `# C5 kickoff\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(sk);
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
@@ -516,7 +529,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
+    const r = _spawnBashOrSkip(sk, '/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -542,14 +555,14 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
 // Post-fix: _emit_skip fires → stdout has hookSpecificOutput JSON; model sees the skip.
 // ═══════════════════════════════════════════════════════════════════════════════
 describe('PAIRED-NEGATIVE: tsx-missing skip is announced on the model channel (silence is gone)', () => {
-  it('pre-fix silent-exit-0 NO LONGER HOLDS — stdout is non-empty + carries the skip notice', () => {
+  it('pre-fix silent-exit-0 NO LONGER HOLDS — stdout is non-empty + carries the skip notice', (ctx) => {
     // Setup mirrors C5: non-git temp dir, no tsx anywhere, scrubbed PATH. Feed a
     // kickoff.md with a VIOLATION_LINE so the path filter passes and the only thing
     // standing between the edit and the matcher is tsx resolution.
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-silent-'));
     const abs = writeKickoffAt(dir, `# silence-test\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
@@ -557,7 +570,7 @@ describe('PAIRED-NEGATIVE: tsx-missing skip is announced on the model channel (s
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [_join(dir, 'check-worker-dispatch-channel.sh')], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -591,9 +604,9 @@ describe('PAIRED-NEGATIVE: tsx-missing skip is announced on the model channel (s
 describe.skipIf(!JQ || !TSX)(
   'PAIRED-POSITIVE: violation path unchanged by the loud-skip addition',
  () => {
-    it('status 2 + stderr contains "worker-dispatch-channel" (the model-visible block channel)', () => {
+    it('status 2 + stderr contains "worker-dispatch-channel" (the model-visible block channel)', (ctx) => {
       const abs = writeKickoff(`# Wave N kickoff\n\n${VIOLATION_LINE}\n`);
-      const r = runHook('Write', abs);
+      const r = runHook(ctx, 'Write', abs);
       expect(r.status).toBe(2);
       expect(r.stderr).toContain('worker-dispatch-channel');
       // The violation path emits NOTHING on stdout (no JSON). The new _emit_skip lives
@@ -637,6 +650,7 @@ describe('consumer layout + dependency-skip contract (L-2, E-6)', () => {
 
   /** `pathDirs` overrides PATH — used to hide jq for the E-6 arm. */
   function run(
+    ctx: Skippable,
     t: { root: string; flags: string },
     filePath: string,
     sessionId: string,
@@ -649,7 +663,7 @@ describe('consumer layout + dependency-skip contract (L-2, E-6)', () => {
     } as Record<string, string>;
     if (pathDirs) env['PATH'] = pathDirs;
     delete env.ZCODE_PROJECT_DIR;
-    return _spawnSync('/bin/bash', [HOOK], {
+    return _spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
       input: JSON.stringify({
         session_id: sessionId,
         tool_name: 'Write',
@@ -669,9 +683,9 @@ describe('consumer layout + dependency-skip contract (L-2, E-6)', () => {
     return parsed.hookSpecificOutput.additionalContext;
   }
 
-  it.skipIf(!JQ)('L-2: bin unresolvable → loud SKIP on the model channel, not silent exit 0', () => {
+  it.skipIf(!JQ)('L-2: bin unresolvable → loud SKIP on the model channel, not silent exit 0', (sk) => {
     const t = consumerTree();
-    const r = run(t, t.kickoff, 'sess-wdc-L2-a');
+    const r = run(sk, t, t.kickoff, 'sess-wdc-L2-a');
     expect(r.status, 'a dependency miss is a SKIP, not a block').toBe(0);
     expect(r.stdout.trim(), 'empty stdout is the DEFECT shape').not.toBe('');
     const ctx = ctxOf(r.stdout);
@@ -681,11 +695,11 @@ describe('consumer layout + dependency-skip contract (L-2, E-6)', () => {
     expect(ctx).toMatch(/principle 29/i);
   });
 
-  it.skipIf(!JQ)('L-2: announced once per session, and AIF_WORKER_DISPATCH_CHANNEL=0 opts out', () => {
+  it.skipIf(!JQ)('L-2: announced once per session, and AIF_WORKER_DISPATCH_CHANNEL=0 opts out', (sk) => {
     const t = consumerTree();
-    expect(run(t, t.kickoff, 'sess-wdc-L2-b').stdout.trim()).not.toBe('');
+    expect(run(sk, t, t.kickoff, 'sess-wdc-L2-b').stdout.trim()).not.toBe('');
     expect(
-      run(t, t.kickoff, 'sess-wdc-L2-b').stdout.trim(),
+      run(sk, t, t.kickoff, 'sess-wdc-L2-b').stdout.trim(),
       'second kickoff edit in the same session must stay quiet',
     ).toBe('');
 
@@ -697,7 +711,7 @@ describe('consumer layout + dependency-skip contract (L-2, E-6)', () => {
       AIF_WORKER_DISPATCH_CHANNEL: '0',
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [HOOK], {
+    const r = _spawnBashOrSkip(sk, '/bin/bash', [HOOK], {
       input: JSON.stringify({
         session_id: 'sess-wdc-L2-c',
         tool_name: 'Write',
@@ -711,15 +725,17 @@ describe('consumer layout + dependency-skip contract (L-2, E-6)', () => {
     expect(r.stdout.trim()).toBe('');
   });
 
-  it('E-6: jq absent + kickoff edit → loud SKIP (pre-fix: bare `|| exit 0`, silent)', () => {
+  it('E-6: jq absent + kickoff edit → loud SKIP (pre-fix: bare `|| exit 0`, silent)', (sk) => {
     const t = consumerTree();
     const binDir = _mkdtempSync(_join(_osTmpdir(), 'wdc-nojq-'));
     tierWorktrees.push(binDir);
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'git']) {
-      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      const real = _spawnBashOrSkip(sk, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      // (`sk`: this test already uses the local name `ctx` for the parsed hook output)
+      if (real) _symlinkOrJunctionOrSkip(sk, real, _join(binDir, tool));
     }
-    const r = run(t, t.kickoff, 'sess-wdc-E6-a', binDir);
+    const r = run(sk, t, t.kickoff, 'sess-wdc-E6-a', binDir);
     expect(r.status).toBe(0);
     expect(r.stdout.trim(), 'silent exit 0 is the pre-fix defect').not.toBe('');
     const ctx = ctxOf(r.stdout);
@@ -728,7 +744,7 @@ describe('consumer layout + dependency-skip contract (L-2, E-6)', () => {
 
     // Scoping: without jq the hook cannot parse the payload, so the notice must still be
     // narrowed to the population this gate covers — an off-path edit stays silent.
-    const off = run(t, _join(t.root, 'src', 'app.ts'), 'sess-wdc-E6-b', binDir);
+    const off = run(sk, t, _join(t.root, 'src', 'app.ts'), 'sess-wdc-E6-b', binDir);
     expect(off.status).toBe(0);
     expect(off.stdout.trim(), 'off-path edits must not be announced').toBe('');
   });

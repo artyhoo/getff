@@ -16,7 +16,13 @@ import type { SectionCtx, PrePushSection } from './pre-push.ts';
 
 const root = resolve(import.meta.dirname, '../../..');
 const selector = readFileSync(join(root, 'scripts/ci-path-scope.sh'), 'utf8');
-const loader = createRequire(import.meta.url).resolve('tsx/esm');
+// `--import` resolves its specifier as a URL: an absolute POSIX path is accepted, but a
+// drive-letter Windows path is not (ERR_UNSUPPORTED_ESM_URL_SCHEME, protocol 'd:' — the
+// whole child never starts; run 40340771916 class C9). The file-URL form is valid on
+// every platform — same idiom as pre-push.consumer-layout.test.ts TSX_LOADER_IMPORT.
+const loader = pathToFileURL(
+  createRequire(import.meta.url).resolve('tsx/esm'),
+).href;
 const gitEnv = { ...process.env };
 for (const key of execFileSync('git', ['rev-parse', '--local-env-vars'], {
   encoding: 'utf8',

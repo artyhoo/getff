@@ -21,16 +21,19 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
+  mkdirSync,
   writeFileSync,
   readFileSync,
   chmodSync,
   rmSync,
   realpathSync,
   existsSync,
+  copyFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fromMsysPath } from './spawn-bash-or-skip.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = resolve(HERE, 'pre-push.ts');
@@ -70,15 +73,24 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function hook(section: string, env: Record<string, string>) {
+function hook(section: string, env: Record<string, string>, exec = process.execPath) {
   rmSync(record, { force: true });
-  return spawnSync(process.execPath, ['--import', 'tsx/esm', HOOK], {
+  return spawnSync(exec, ['--import', 'tsx/esm', HOOK], {
     cwd: CORE,
     input: '',
     encoding: 'utf8',
     env: { ...process.env, PREPUSH_ONLY: section, ...env },
     timeout: 60_000,
   });
+}
+
+/** win32 runs the runner under Git Bash (resolveShRunnerOnWindows in
+ *  run-check.ts), so `pwd -P` reports the MSYS spelling of packages/core —
+ *  compare separator- and case-insensitively after fromMsysPath; POSIX keeps
+ *  the exact string. */
+function sameDir(recorded: string): boolean {
+  const norm = (p: string) => p.replace(/[\\/]/g, '/').toLowerCase();
+  return norm(fromMsysPath(recorded)) === norm(CORE_REAL);
 }
 
 describe('PREPUSH_HEAVY_RUNNER', { timeout: SLOW_SHELL_MS }, () => {
@@ -94,7 +106,11 @@ describe('PREPUSH_HEAVY_RUNNER', { timeout: SLOW_SHELL_MS }, () => {
       const r = hook(section, { PREPUSH_HEAVY_RUNNER: runner, FAKE_RC: '0' });
       expect(r.status, r.stderr).toBe(0);
       const [cwd, ...argv] = readFileSync(record, 'utf8').trim().split('\n');
-      expect(cwd).toBe(CORE_REAL);
+      if (process.platform === 'win32') {
+        expect(sameDir(cwd), `${fromMsysPath(cwd)} vs ${CORE_REAL}`).toBe(true);
+      } else {
+        expect(cwd).toBe(CORE_REAL);
+      }
       expect(argv).toEqual(['npm', 'run', script]);
       expect(argv.some((a) => a.startsWith('/'))).toBe(false);
     });
@@ -115,7 +131,14 @@ describe('PREPUSH_HEAVY_RUNNER', { timeout: SLOW_SHELL_MS }, () => {
     expect(existsRecord()).toBe(false);
   });
 
-  it('a runner that is not executable fails loudly and names the variable', () => {
+  it('a runner that is not executable fails loudly and names the variable', (ctx) => {
+    if (process.platform === 'win32')
+      ctx.skip(
+        'NTFS has no executable bit (stat mode is always 0o666; chmodSync is a no-op '
+          + 'there — learn.microsoft.com fs file permissions), so a mode-0644 .sh cannot be '
+          + 'distinguished from a runnable one and the win32 dispatch runs it via Git Bash '
+          + 'regardless — #1799 win32 platform impossibility',
+      );
     const plain = join(dir, 'not-executable.sh');
     writeFileSync(plain, '#!/bin/sh\nexit 0\n');
     chmodSync(plain, 0o644);
@@ -126,9 +149,42 @@ describe('PREPUSH_HEAVY_RUNNER', { timeout: SLOW_SHELL_MS }, () => {
   });
 
   it('empty value = unset: the suite does not go through the runner', () => {
+    if (process.platform === 'win32') {
+      // resolveNodeToolShim (run-check.ts) deliberately bypasses PATH for npm on
+      // win32 — Node refuses to spawn the .cmd shim without a shell
+      // (CVE-2024-27980) — so the PATH fake below can never intercept there.
+      // Same interception at the seam the rewrite actually dispatches to: run the
+      // hook under a copied node.exe whose sibling node_modules/npm/bin/npm-cli.js
+      // is a recorder, proving argv + "no runner" with the real rewrite live.
+      const fakeRoot = join(dir, 'fake-node');
+      const fakeBin = join(fakeRoot, 'node_modules', 'npm', 'bin');
+      mkdirSync(fakeBin, { recursive: true });
+      copyFileSync(process.execPath, join(fakeRoot, 'node.exe'));
+      writeFileSync(
+        join(fakeBin, 'npm-cli.js'),
+        'const { appendFileSync } = require("node:fs");\n' +
+          'appendFileSync(process.env.FAKE_NPM_RECORD, process.argv.slice(2).join("\\n") + "\\n");\n',
+      );
+      const npmRecord = join(dir, 'npm-record.txt');
+      const r = hook(
+        'ir-meta',
+        { PREPUSH_HEAVY_RUNNER: '', FAKE_NPM_RECORD: npmRecord },
+        join(fakeRoot, 'node.exe'),
+      );
+      expect(r.status, r.stderr).toBe(0);
+      expect(existsRecord()).toBe(false);
+      expect(readFileSync(npmRecord, 'utf8').trim().split('\n')).toEqual([
+        '--prefix',
+        CORE,
+        'run',
+        'test:ir',
+      ]);
+      return;
+    }
     // Fake npm first on PATH proves which path ran without running a real suite.
     const bin = join(dir, 'bin');
-    spawnSync('mkdir', ['-p', bin]);
+    // mkdirSync, not spawnSync('mkdir'): cmd.exe has no mkdir.exe on win32 (#1799).
+    mkdirSync(bin, { recursive: true });
     const npmRecord = join(dir, 'npm-record.txt');
     writeFileSync(
       join(bin, 'npm'),

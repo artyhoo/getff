@@ -47,7 +47,11 @@ import { fileURLToPath } from 'node:url';
 // the bundle's `external` list. Since trigger build S3 that list is ONE module long:
 // cmd-script-liveness ships to consumers (owner `both`), so it is statically
 // imported and INLINED into the bundle like every other consumer-visible check.
-import { runCheck, type CheckResult } from './utils/run-check.ts';
+import {
+  runCheck,
+  resolveShRunnerOnWindows,
+  type CheckResult,
+} from './utils/run-check.ts';
 import {
   runPriorArtCheck,
   loadSsotIds,
@@ -2287,7 +2291,11 @@ function runCoreSuite(script: string): CheckResult {
   // GIT_DIR from the invoking worktree would re-target those into THIS checkout
   // (D2081-S01). The object-directory vars the heavy-runner contract relies on are
   // NOT in the scrub table (see HOOK_LEAKED_DISCOVERY_VARS above).
-  const r = runCheck(runner, ['npm', 'run', script], {
+  // win32: CreateProcess cannot run a `.sh` image, so a POSIX-shaped runner is
+  // dispatched through Git Bash (resolveShRunnerOnWindows) — argv stays a real
+  // array, POSIX behaviour byte-identical (the rewrite is a win32 no-op there).
+  const dispatch = resolveShRunnerOnWindows(runner, ['npm', 'run', script]);
+  const r = runCheck(dispatch.cmd, dispatch.args, {
     cwd: CORE,
     timeoutMs: HEAVY_RUNNER_TIMEOUT_MS,
     env: scrubbedHookEnv(),

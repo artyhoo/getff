@@ -23,8 +23,10 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 : > "$WORK/gitconfig"; mkdir -p "$WORK/home/.claude"
 export GIT_CONFIG_GLOBAL="$WORK/gitconfig" XDG_CONFIG_HOME="$WORK/xdg"
 # Neither may the calling shell's own hook knobs (an operator machine may export
-# AIF_HANDOFF_GATE=1 machine-wide): every hook below gets only what the arm passes.
-CLEAN=(-u AIF_HANDOFF_GATE -u AIF_CTX_WINDOW -u AIF_RESIDUE_DIR -u AIF_HANDOFF_BAND_PCT -u CLAUDE_CODE_AUTO_COMPACT_WINDOW -u AIF_HANDOFF_MAX_LINES)
+# AIF_HANDOFF_GATE=1 machine-wide; a sweep launched from an Agent-SDK session exports
+# CLAUDE_CODE_ENTRYPOINT=sdk-*, whose guard exits 0 before the handoff block): every hook
+# below gets only what the arm passes.
+CLEAN=(-u AIF_HANDOFF_GATE -u AIF_CTX_WINDOW -u AIF_RESIDUE_DIR -u AIF_HANDOFF_BAND_PCT -u CLAUDE_CODE_AUTO_COMPACT_WINDOW -u AIF_HANDOFF_MAX_LINES -u CLAUDE_CODE_ENTRYPOINT)
 
 install_into() { # install_into DIR PROFILE [consent]
   mkdir -p "$1"; git -C "$1" init -q

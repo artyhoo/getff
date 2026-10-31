@@ -56,7 +56,10 @@ out=$( load; PROJECT_ROOT="$P"
 grep -q '^DEVDEPS=eslint@^9$' <<<"$out" && ok "(B) only the undeclared eslint@^9 stays in DEVDEPS" || bad "(B) DEVDEPS: $(grep '^DEVDEPS' <<<"$out")"
 grep -q '^RT_COUNT=0$' <<<"$out" && ok "(B) the declared zod leaves RUNTIME_DEPS empty" || bad "(B) RUNTIME_DEPS: $(grep '^RUNTIME_DEPS' <<<"$out")"
 for k in 'typescript ~6.0.2' '@types/node ^24.13.3' 'vite ^6.0.0' 'react ^19' 'fsevents ^2' 'zod ^4.1.0'; do
-  grep -qF "kept your $k" <<<"$out" && ok "(B) says «kept your $k»" || bad "(B) no «kept your $k» line"
+  # ${k} braces are load-bearing on /bin/bash 3.2 (the suite runner's shell): a « directly
+  # after $k makes 3.2 parse the guillemet bytes as part of the NAME (k\xc2\xbb), which is
+  # unset under `set -u` — the arm aborts with `k…: unbound variable` before it can report.
+  grep -qF "kept your ${k}" <<<"$out" && ok "(B) says «kept your ${k}»" || bad "(B) no «kept your ${k}» line"
 done
 
 # ── (C-E) the ERESOLVE parser on recorded npm output ─────────────────────────────────────────────

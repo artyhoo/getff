@@ -28,11 +28,10 @@
  * T-M4-B compliance: asserts both exit code AND stderr diagnostic / stdout marker.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   mkdirSync,
-  symlinkSync,
   lstatSync,
   writeFileSync,
   readFileSync,
@@ -40,6 +39,7 @@ import {
   existsSync,
   readdirSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -61,7 +61,8 @@ const FIXED_SHA = 'abc1234';
 
 const sandboxes: string[] = [];
 afterEach(() => {
-  for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const d of sandboxes.splice(0))
+    rmSync(d, { recursive: true, force: true });
 });
 
 function makeSandbox(): string {
@@ -70,26 +71,34 @@ function makeSandbox(): string {
   return d;
 }
 
-function bootstrapDelta(deltaPath: string): void {
+function bootstrapDelta(ctx: Skippable, deltaPath: string): void {
   // Bootstrap a valid delta via update-delta.sh (sibling helper owns fresh-template).
-  const r = spawnSync('bash', [BOOTSTRAP_HELPER, 'bootstrap', 'init'], {
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      MO_DELTA_FILE: deltaPath,
-      MO_TIMESTAMP: FIXED_TS,
-      MO_GIT_HEAD: FIXED_SHA,
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(
+    ctx,
+    'bash',
+    [BOOTSTRAP_HELPER, 'bootstrap', 'init'],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MO_DELTA_FILE: deltaPath,
+        MO_TIMESTAMP: FIXED_TS,
+        MO_GIT_HEAD: FIXED_SHA,
+      },
     },
-  });
+  );
   expect(r.status).toBe(0);
 }
 
 function runHelper(
+  ctx: Skippable,
   deltaPath: string,
   args: string[],
   envOverrides: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER, ...args], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER, ...args], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -102,18 +111,19 @@ function runHelper(
 }
 
 describe('delta-write-from-state.sh — arrays-only writer (paired-negative contract)', () => {
-  it('SYMLINK-AWARE: delta symlinked into CANON survives array rewrite — share preserved (would FAIL on plain mv)', () => {
+  it('SYMLINK-AWARE: delta symlinked into CANON survives array rewrite — share preserved (would FAIL on plain mv)', (ctx) => {
     const sandbox = makeSandbox();
     const canonDir = join(sandbox, 'canon');
     const wtDir = join(sandbox, 'wt');
     mkdirSync(canonDir, { recursive: true });
     mkdirSync(wtDir, { recursive: true });
     const canonDelta = join(canonDir, '_master-backlog-delta.json');
-    bootstrapDelta(canonDelta); // valid delta into canon
+    bootstrapDelta(ctx, canonDelta); // valid delta into canon
     const wtDelta = join(wtDir, '_master-backlog-delta.json');
-    symlinkSync(canonDelta, wtDelta);
+    // file target: junctions cannot express it → named win32 skip (POSIX unchanged)
+    symlinkOrJunctionOrSkip(ctx, canonDelta, wtDelta);
 
-    const r = runHelper(wtDelta, [
+    const r = runHelper(ctx, wtDelta, [
       'umbrella-x',
       JSON.stringify(['a', 'b']),
       JSON.stringify(['c']),
@@ -121,17 +131,20 @@ describe('delta-write-from-state.sh — arrays-only writer (paired-negative cont
     expect(r.status).toBe(0);
     expect(lstatSync(wtDelta).isSymbolicLink()).toBe(true); // symlink preserved
     const obj = JSON.parse(readFileSync(canonDelta, 'utf8'));
-    expect(obj.untracked_seen.map((x: { id: string }) => x.id)).toEqual(['a', 'b']); // written through
+    expect(obj.untracked_seen.map((x: { id: string }) => x.id)).toEqual([
+      'a',
+      'b',
+    ]); // written through
   });
 
-  it('HAPPY-PATH: existing delta + valid args → arrays rewritten with id/first_seen|closed_at, metadata preserved', () => {
+  it('HAPPY-PATH: existing delta + valid args → arrays rewritten with id/first_seen|closed_at, metadata preserved', (ctx) => {
     // Targets helper jq rewrite branch (delta-write-from-state.sh §jq block):
     // `.untracked_seen = ($current | map({id: ., first_seen: $now}))` etc.
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
-    bootstrapDelta(deltaPath);
+    bootstrapDelta(ctx, deltaPath);
 
-    const r = runHelper(deltaPath, [
+    const r = runHelper(ctx, deltaPath, [
       'test-umbrella',
       JSON.stringify(['PR#100', 'PR#101']),
       JSON.stringify(['PR#42']),
@@ -151,52 +164,84 @@ describe('delta-write-from-state.sh — arrays-only writer (paired-negative cont
       { id: 'PR#100', first_seen: NEW_TS },
       { id: 'PR#101', first_seen: NEW_TS },
     ]);
-    expect(parsed.closed_since_last).toEqual([{ id: 'PR#42', closed_at: NEW_TS }]);
+    expect(parsed.closed_since_last).toEqual([
+      { id: 'PR#42', closed_at: NEW_TS },
+    ]);
 
     // Metadata preserved verbatim from bootstrap (sibling-helper scope contract).
     expect(parsed.last_check_ts).toBe(FIXED_TS);
     expect(parsed.last_check_git_head).toBe(FIXED_SHA);
   });
 
-  it('IDEMPOTENT: second invocation with same args reproduces identical file content', () => {
+  it('IDEMPOTENT: second invocation with same args reproduces identical file content', (ctx) => {
     // Targets idempotency of the jq rewrite (atomic write via mktemp + mv).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
-    bootstrapDelta(deltaPath);
+    bootstrapDelta(ctx, deltaPath);
 
     const args = ['u', JSON.stringify(['A', 'B']), JSON.stringify(['C'])];
-    const r1 = runHelper(deltaPath, args);
+    const r1 = runHelper(ctx, deltaPath, args);
     expect(r1.status).toBe(0);
     const after1 = readFileSync(deltaPath, 'utf8');
 
-    const r2 = runHelper(deltaPath, args);
+    const r2 = runHelper(ctx, deltaPath, args);
     expect(r2.status).toBe(0);
     const after2 = readFileSync(deltaPath, 'utf8');
 
     expect(after2).toBe(after1);
   });
 
-  it('MISSING-DELTA: delta file missing → exit 1 + stderr diagnostic', () => {
+  it('MISSING-DELTA: delta file missing → exit 1 + stderr diagnostic', (ctx) => {
     // Targets helper missing-file branch (delta-write-from-state.sh:
     // `if [ ! -f "${DELTA_FILE}" ]; then ... exit 1`).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
     expect(existsSync(deltaPath)).toBe(false);
 
-    const r = runHelper(deltaPath, ['u', '[]', '[]']);
+    const r = runHelper(ctx, deltaPath, ['u', '[]', '[]']);
+    if (process.platform === 'win32') {
+      // C3 native capture (run 40340771916): all four negative arms die with 0xC0000005
+      // (status 3221225477) on the runner — a crash somewhere in bash/MSYS before the
+      // branch's exit 1. Dump the raw child bytes so the next windows-hooks log carries
+      // whatever the crash produced. POSIX prints nothing (guard); the assertions below
+      // are unchanged.
+      console.log(
+        'C3-CAPTURE status=',
+        r.status,
+        'stderr=',
+        JSON.stringify((r.stderr ?? '').slice(0, 1500)),
+        'stdout=',
+        JSON.stringify((r.stdout ?? '').slice(0, 500)),
+      );
+    }
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/delta file missing/);
     expect(r.stderr).toMatch(/run update-delta\.sh first/);
   });
 
-  it('CORRUPT-DELTA: existing delta is invalid JSON → exit 1 + .broken rename + stderr diagnostic', () => {
+  it('CORRUPT-DELTA: existing delta is invalid JSON → exit 1 + .broken rename + stderr diagnostic', (ctx) => {
     // Targets helper malformed-delta branch (delta-write-from-state.sh:
     // `if ! jq empty "${DELTA_FILE}" 2>/dev/null; then ... rename + exit 1`).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
     writeFileSync(deltaPath, '{ this is not json }', 'utf8');
 
-    const r = runHelper(deltaPath, ['u', '[]', '[]']);
+    const r = runHelper(ctx, deltaPath, ['u', '[]', '[]']);
+    if (process.platform === 'win32') {
+      // C3 native capture (run 40340771916): all four negative arms die with 0xC0000005
+      // (status 3221225477) on the runner — a crash somewhere in bash/MSYS before the
+      // branch's exit 1. Dump the raw child bytes so the next windows-hooks log carries
+      // whatever the crash produced. POSIX prints nothing (guard); the assertions below
+      // are unchanged.
+      console.log(
+        'C3-CAPTURE status=',
+        r.status,
+        'stderr=',
+        JSON.stringify((r.stderr ?? '').slice(0, 1500)),
+        'stdout=',
+        JSON.stringify((r.stdout ?? '').slice(0, 500)),
+      );
+    }
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/delta corrupt — invalid JSON/);
     expect(r.stderr).toMatch(/renamed to .*\.broken\.[0-9T\-]+Z?\.json/);
@@ -208,47 +253,81 @@ describe('delta-write-from-state.sh — arrays-only writer (paired-negative cont
     expect(brokenFiles).toHaveLength(1);
   });
 
-  it('INVALID-CURRENT-JSON: current_ids arg is not a JSON array → exit 1 + stderr diagnostic, delta untouched', () => {
+  it('INVALID-CURRENT-JSON: current_ids arg is not a JSON array → exit 1 + stderr diagnostic, delta untouched', (ctx) => {
     // Targets helper input-validation branch (delta-write-from-state.sh:
     // `if ! echo "${CURRENT_JSON}" | jq -e 'type == "array"' ...; then exit 1`).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
-    bootstrapDelta(deltaPath);
+    bootstrapDelta(ctx, deltaPath);
     const before = readFileSync(deltaPath, 'utf8');
 
-    const r = runHelper(deltaPath, ['u', 'not-json', '[]']);
+    const r = runHelper(ctx, deltaPath, ['u', 'not-json', '[]']);
+    if (process.platform === 'win32') {
+      // C3 native capture (run 40340771916): all four negative arms die with 0xC0000005
+      // (status 3221225477) on the runner — a crash somewhere in bash/MSYS before the
+      // branch's exit 1. Dump the raw child bytes so the next windows-hooks log carries
+      // whatever the crash produced. POSIX prints nothing (guard); the assertions below
+      // are unchanged.
+      console.log(
+        'C3-CAPTURE status=',
+        r.status,
+        'stderr=',
+        JSON.stringify((r.stderr ?? '').slice(0, 1500)),
+        'stdout=',
+        JSON.stringify((r.stdout ?? '').slice(0, 500)),
+      );
+    }
     expect(r.status).toBe(1);
-    expect(r.stderr).toMatch(/<current_ids_json_array> is not a valid JSON array/);
+    expect(r.stderr).toMatch(
+      /<current_ids_json_array> is not a valid JSON array/,
+    );
 
     // Delta untouched — fail-fast before mutation.
     expect(readFileSync(deltaPath, 'utf8')).toBe(before);
   });
 
-  it('INVALID-RESOLVED-JSON: resolved_ids arg is not a JSON array → exit 1 + stderr diagnostic, delta untouched', () => {
+  it('INVALID-RESOLVED-JSON: resolved_ids arg is not a JSON array → exit 1 + stderr diagnostic, delta untouched', (ctx) => {
     // Targets helper input-validation second branch (delta-write-from-state.sh:
     // `if ! echo "${RESOLVED_JSON}" | jq -e 'type == "array"' ...; then exit 1`).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
-    bootstrapDelta(deltaPath);
+    bootstrapDelta(ctx, deltaPath);
     const before = readFileSync(deltaPath, 'utf8');
 
-    const r = runHelper(deltaPath, ['u', '[]', '{"not":"array"}']);
+    const r = runHelper(ctx, deltaPath, ['u', '[]', '{"not":"array"}']);
+    if (process.platform === 'win32') {
+      // C3 native capture (run 40340771916): all four negative arms die with 0xC0000005
+      // (status 3221225477) on the runner — a crash somewhere in bash/MSYS before the
+      // branch's exit 1. Dump the raw child bytes so the next windows-hooks log carries
+      // whatever the crash produced. POSIX prints nothing (guard); the assertions below
+      // are unchanged.
+      console.log(
+        'C3-CAPTURE status=',
+        r.status,
+        'stderr=',
+        JSON.stringify((r.stderr ?? '').slice(0, 1500)),
+        'stdout=',
+        JSON.stringify((r.stdout ?? '').slice(0, 500)),
+      );
+    }
     expect(r.status).toBe(1);
-    expect(r.stderr).toMatch(/<resolved_ids_json_array> is not a valid JSON array/);
+    expect(r.stderr).toMatch(
+      /<resolved_ids_json_array> is not a valid JSON array/,
+    );
 
     // Delta untouched — fail-fast before mutation.
     expect(readFileSync(deltaPath, 'utf8')).toBe(before);
   });
 
-  it('BOUNDARY: wrong arg count → exit 2 + usage diagnostic, no file mutated', () => {
+  it('BOUNDARY: wrong arg count → exit 2 + usage diagnostic, no file mutated', (ctx) => {
     // Targets helper arg-count check (delta-write-from-state.sh:
     // `if [ "$#" -ne 3 ]; then ... exit 2`).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
-    bootstrapDelta(deltaPath);
+    bootstrapDelta(ctx, deltaPath);
     const before = readFileSync(deltaPath, 'utf8');
 
-    const r = runHelper(deltaPath, ['only-one-arg']);
+    const r = runHelper(ctx, deltaPath, ['only-one-arg']);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/usage:/);
     expect(readFileSync(deltaPath, 'utf8')).toBe(before);

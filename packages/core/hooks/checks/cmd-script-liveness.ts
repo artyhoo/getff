@@ -48,7 +48,7 @@
  */
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve, dirname, join, basename, normalize, isAbsolute, relative } from 'node:path';
+import { resolve, dirname, join, basename, normalize, isAbsolute, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { runCheck, type CheckResult } from '../utils/run-check.ts';
@@ -285,7 +285,11 @@ function refuseOutsideProject(repoRoot: string, token: string): string | null {
  * visibly with the consumer wording.
  */
 function resolveTrackedAsWritten(repoRoot: string, token: string): string | null {
-  const rel = normalize(token);
+  // POSIX-form the token before comparing: `normalize()` is separator-native
+  // (backslashes on win32) while `git ls-files` always emits forward slashes, so
+  // a plain normalize() makes every consumer-layout token unresolvable on
+  // Windows and the rule silently SKIPs as "not tracked" (#1799).
+  const rel = normalize(token).split(sep).join('/');
   const found = trackedPaths(repoRoot).find((p) => p === rel);
   return found ? join(repoRoot, found) : null;
 }

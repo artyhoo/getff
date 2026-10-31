@@ -48,7 +48,7 @@ export const SPAWN_FAILURE_EXIT_CODE = 127;
  * (EINVAL, surfaced here as ENOENT). Measured on Windows 11 / Node 24.19.0:
  * `node`, `git`, `bash`, `python3`, `ruff` and `actionlint` all spawn bare and
  * only `npm` + `npx` fail — so this rewrite covers the whole failing set. The
- * user-visible symptom was `pre-push.ts:1109` announcing "npx not found — install
+ * user-visible symptom was `pre-push.ts:1113` announcing "npx not found — install
  * Node.js" on a machine running the hook *under* Node.
  *
  * `shell: true` is deliberately NOT the fix: runCheck is the single funnel for
@@ -83,6 +83,73 @@ export function resolveNodeToolShim(
   );
   if (!exists(cli)) return { cmd, args };
   return { cmd: execPath, args: [cli, ...args] };
+}
+
+/**
+ * Locate bash.exe on win32: PATH first (a user/tooling install wins), then
+ * GitHub's documented `shell: bash` roots (docs.github.com workflow syntax) —
+ * CI images expose only Git\cmd on PATH, so the roots arm is load-bearing there.
+ * Production twin of the test seam's resolver (spawn-bash-or-skip.ts); the seam
+ * is test material and cannot be imported from shipped code.
+ */
+export function findGitBashExe(
+  env: NodeJS.ProcessEnv = process.env,
+  exists: (p: string) => boolean = existsSync,
+): string | null {
+  const roots = [
+    ...(env.PATH ?? '').split(pathWin32.delimiter).filter(Boolean),
+    pathWin32.join(env['ProgramFiles'] ?? 'C:\\Program Files', 'Git', 'bin'),
+    pathWin32.join(
+      env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)',
+      'Git',
+      'bin',
+    ),
+    pathWin32.join(
+      env['LOCALAPPDATA'] ??
+        pathWin32.join(env['USERPROFILE'] ?? '', 'AppData', 'Local'),
+      'Programs',
+      'Git',
+      'bin',
+    ),
+  ];
+  for (const dir of roots) {
+    const candidate = pathWin32.join(dir, 'bash.exe');
+    if (exists(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Drive-letter-absolute path -> MSYS form (`D:\a\x` or `D:/a/x` -> `/d/a/x`).
+ *  Cygwin accepts the Windows spelling too, but the MSYS form is unambiguous for
+ *  a script argument (no backslash-escape reinterpretation anywhere downstream). */
+const toMsysPath = (p: string): string =>
+  /^[A-Za-z]:[\\/]/.test(p)
+    ? `/${p[0]!.toLowerCase()}${p.slice(2).replace(/\\/g, '/')}`
+    : p;
+
+/**
+ * Windows-only rewrite of a `.sh` runner command into `bash.exe <runner> …`.
+ *
+ * CreateProcess runs PE images only, so `spawnSync('C:\\…\\runner.sh', …)` fails
+ * before the script exists to bash (EFTYPE/EACCES — the #1799 windows-hooks cell
+ * lost all eight executing arms of pre-push.heavy-runner.test.ts this way).
+ * PREPUSH_HEAVY_RUNNER names "an executable"; on POSIX a +x `.sh` IS one via its
+ * shebang, so the same contract is honoured on win32 by spawning Git Bash on the
+ * script. Mirrors resolveNodeToolShim's shape (win32-only rewrite, argv stays a
+ * real array, no shell); when no bash resolves the command passes through
+ * unchanged and fails exactly as before — loud, never silently skipped.
+ */
+export function resolveShRunnerOnWindows(
+  cmd: string,
+  args: readonly string[],
+  platform: NodeJS.Platform = process.platform,
+  findBash: () => string | null = findGitBashExe,
+): { cmd: string; args: readonly string[] } {
+  if (platform !== 'win32') return { cmd, args };
+  if (!/\.sh$/i.test(cmd)) return { cmd, args };
+  const bashExe = findBash();
+  if (!bashExe) return { cmd, args };
+  return { cmd: bashExe, args: [toMsysPath(cmd), ...args] };
 }
 
 /**

@@ -15,7 +15,8 @@
  * Skips gracefully when `jq` is unavailable (the hook itself no-ops without jq).
  */
 import { describe, it, expect } from 'vitest';
-import { execSync, execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,12 +35,18 @@ function hasJq(): boolean {
 }
 const JQ = hasJq();
 
-/** Run the hook with a SubagentStart stdin payload; return trimmed stdout. */
-function runHook(input: Record<string, unknown>): string {
-  return execFileSync('bash', [HOOK], {
+/** Run the hook with a SubagentStart stdin payload; return the raw spawn result.
+ *  POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799). */
+function runHookRaw(ctx: Skippable, input: Record<string, unknown>) {
+  return spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify(input),
     encoding: 'utf8',
-  }).trim();
+  });
+}
+
+/** Run the hook with a SubagentStart stdin payload; return trimmed stdout. */
+function runHook(ctx: Skippable, input: Record<string, unknown>): string {
+  return (runHookRaw(ctx, input).stdout ?? '').trim();
 }
 
 const subagentStartPayload = (agentType: string) => ({
@@ -49,16 +56,16 @@ const subagentStartPayload = (agentType: string) => ({
 });
 
 describe.skipIf(!JQ)('inject-subagent-digest.sh — SubagentStart digest injection', () => {
-  it('emits valid JSON with hookEventName "SubagentStart" (NOT plain stdout — T-108-A)', () => {
-    const out = runHook(subagentStartPayload('general-purpose'));
+  it('emits valid JSON with hookEventName "SubagentStart" (NOT plain stdout — T-108-A)', (ctx) => {
+    const out = runHook(ctx, subagentStartPayload('general-purpose'));
     const json = JSON.parse(out); // throws if it emitted plain stdout instead of JSON
     expect(json.hookSpecificOutput.hookEventName).toBe('SubagentStart');
     expect(typeof json.hookSpecificOutput.additionalContext).toBe('string');
     expect(json.hookSpecificOutput.additionalContext.length).toBeGreaterThan(0);
   });
 
-  it('additionalContext carries the session-bootstrap digest (project anchor)', () => {
-    const out = runHook(subagentStartPayload('Explore'));
+  it('additionalContext carries the session-bootstrap digest (project anchor)', (sk) => {
+    const out = runHook(sk, subagentStartPayload('Explore'));
     const ctx = JSON.parse(out).hookSpecificOutput.additionalContext as string;
     // Anchor content the digest is supposed to deliver to juniors.
     expect(ctx).toContain('session-bootstrap digest');
@@ -66,28 +73,32 @@ describe.skipIf(!JQ)('inject-subagent-digest.sh — SubagentStart digest injecti
     expect(ctx).toContain('Recommendation discipline (H1)');
   });
 
-  it('single source of truth: digest === inject-session-bootstrap.sh output verbatim (no drift)', () => {
-    const injected = JSON.parse(runHook(subagentStartPayload('claude')))
+  it('single source of truth: digest === inject-session-bootstrap.sh output verbatim (no drift)', (ctx) => {
+    const injected = JSON.parse(runHook(ctx, subagentStartPayload('claude')))
       .hookSpecificOutput.additionalContext as string;
-    const source = execFileSync('bash', [SOURCE_DIGEST], { encoding: 'utf8' }).trim();
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const source = (
+      spawnBashOrSkip(ctx, 'bash', [SOURCE_DIGEST], { encoding: 'utf8' }).stdout ?? ''
+    ).trim();
     expect(injected.trim()).toBe(source);
   });
 
-  it('output is non-blocking (exit 0) — execFileSync would throw on non-zero', () => {
-    expect(() => runHook(subagentStartPayload('general-purpose'))).not.toThrow();
+  it('output is non-blocking (exit 0) — execFileSync would throw on non-zero', (ctx) => {
+    // exit 0 ⇔ the old execFileSync form did not throw
+    expect(runHookRaw(ctx, subagentStartPayload('general-purpose')).status).toBe(0);
   });
 
-  it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', () => {
+  it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', (ctx) => {
     // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
     // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
     // discarded). This hook uses the valid `{hookSpecificOutput:{hookEventName:"SubagentStart",
     // additionalContext}}` shape (hookEventName INSIDE hookSpecificOutput is allowed by the
     // discriminated union Uan; top-level hookEventName is NOT). Regression guard: catches anyone
     // flattening the wrapper or leaking hookEventName to top level (a prior shape emitted it
-    // top-level and was silently rejected by ZCode). Precedent: inject-matching-rule.test.ts:99.
+    // top-level and was silently rejected by ZCode). Precedent: inject-matching-rule.test.ts:108.
     // NOTE: this hook ships CC-only (SubagentStart has no ZCode event — emitZcode skips it),
     // but its JSON output must still be schema-valid for any future harness or manual replay.
-    const json = JSON.parse(runHook(subagentStartPayload('general-purpose')));
+    const json = JSON.parse(runHook(ctx, subagentStartPayload('general-purpose')));
     const allowedTopLevel = new Set([
       'additionalContext',
       'additional_context',

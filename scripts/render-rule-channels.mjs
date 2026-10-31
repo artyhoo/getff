@@ -44,7 +44,7 @@
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // ajv is a `packages/core` dep, NOT root. This script lives in scripts/, so a bare
 // `import 'ajv'` resolves from scripts/ up to ROOT node_modules — absent in the CI
@@ -116,7 +116,11 @@ function listRuleFiles(root) {
 /** Parse one rule file's channel-declaration fields — same fields principle 31 gates on. */
 function parseRuleFields(path) {
   const source = readFileSync(path, 'utf8');
-  const name = path.split('/').pop().replace(/\.md$/, '');
+  // basename, not split('/'): join() above yields backslash-joined paths on win32, and a
+  // '/'-only split keeps the whole path as the name — every manifest `rule::harness` key
+  // then misses and the whole matrix reads as drift (#1799). basename is
+  // separator-agnostic per platform; on POSIX the result is byte-identical.
+  const name = basename(path, '.md');
   return {
     name,
     isTier0: ALWAYS_ON_CORE.has(name),
