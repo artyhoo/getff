@@ -850,7 +850,7 @@ e7b7cae01a8cb0b4f6aa8796fc7a588cc748c68aa0d65f0c3c2403e92ce5643e  packages/core/
 c6412f2a0c2511b44415803a7e7215ea79d0726fc3fc12d5d1b5b90fe2e02517  packages/core/hooks/ask-question-reminder.test.ts
 b54ebe4810d07d31953c88e59bfdab26ea94acc018e092ff98e6ac57919f725b  packages/core/hooks/check-doc-authority-header.test.ts
 c78be1e2040d28961c132c594d98f1345a8f676bb02a1f49592715792b171bd4  packages/core/hooks/check-doc-authority.test.ts
-67d3efb06c64f9b64a5c9917d4c22965c01f472dce881713b359c679a5a3a18e  packages/core/hooks/check-docs-refresh.test.ts
+efae8625a870d289e7de0b847fdb568fb0c34881dd60a88cfa36748e1af79b38  packages/core/hooks/check-docs-refresh.test.ts
 0c469cc007e8cd1aca73f731beceee5310bd88a99dda78fc1dff5e613eabc698  packages/core/hooks/check-hook-marker.test.ts
 fde36da94974e629af0d67d9b0dd2afde8f490e6698099fe693f1854fe4f55c3  packages/core/hooks/check-kickoff-portability.test.ts
 7ff5545993d81c3df34bd28e8f7f11448c762665801d5472816489042965d519  packages/core/hooks/check-kickoff-traps.test.ts
