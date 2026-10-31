@@ -102,10 +102,35 @@ const TSX_LOADER = createRequire(import.meta.url).resolve('tsx/esm');
 // whole child never starts). The file-URL form is valid on every platform, so the spawn
 // sites below pass this while REAL_NODE_MODULES keeps the plain path form.
 const TSX_LOADER_IMPORT = pathToFileURL(TSX_LOADER).href;
-const REAL_NODE_MODULES = TSX_LOADER.replace(
-  /\/tsx\/dist\/esm\/index\.mjs$/,
-  '',
-);
+// Separator-agnostic derivation. The former `/\/tsx\/dist\/esm\/index\.mjs$/`
+// strip assumed forward slashes and never matched win32 resolve() output
+// (`D:\…\index.mjs`), so REAL_NODE_MODULES silently stayed the tsx FILE path;
+// the sandbox junction then linked node_modules to a file — dangling (lstat
+// says link, existsSync says gone) — and every resolution through it missed
+// (runs 40340771916 → 41189657830 classes S5/C8: "tsx not resolvable" +
+// ERR_MODULE_NOT_FOUND 'remark' with nmIsLink=true). Four dirnames up from the
+// resolved module (<nm>/tsx/dist/esm/index.mjs → <nm>) names the same
+// node_modules on every platform; three lands on the tsx PACKAGE dir (caught
+// locally by the S5/C8 arms going red on POSIX — depth is load-bearing).
+const REAL_NODE_MODULES = dirname(dirname(dirname(dirname(TSX_LOADER))));
+
+/** #1799 win32 honesty guard for the lychee-stub arms. The stub is an
+ *  extensionless `#!/bin/sh` script, but §8 discovers lychee through
+ *  runCheck→spawnSync, whose libuv PATH search appends `.exe` only — a script
+ *  stub is never spawnable there, so on win32 the SUT always takes its DESIGNED
+ *  not-found degradation. Under that degradation the gate-live arms fail and the
+ *  exclusion arms pass vacuously (nothing reaches argv — the T7/T14
+ *  skip-reported-as-green trap this file refuses elsewhere). Both shapes are
+ *  lies about the contract, so the arms take a named skip instead; a real fix
+ *  needs a bash-side lychee resolver in the SUT (production, parked) or a real
+ *  lychee.exe on PATH. POSIX arms are untouched. Confirmed by run 41189657830
+ *  (C7 captures: stubPlain=true with "lychee not found in PATH"). */
+const skipIfWin32LycheeStub = (ctx: Skippable): void => {
+  if (process.platform !== 'win32') return;
+  ctx.skip(
+    'skipped on win32: the lychee stub is an extensionless sh script and runCheck/libuv PATH-spawns append .exe only, so the SUT takes its designed not-found degradation — the gate-live/exclusion contracts are inexpressible without a bash-side resolver (production, parked) or a real lychee.exe — #1799',
+  );
+};
 
 // Each case spawns `node --import tsx` against a real git fixture (and the
 // TOOL-absence arms re-spawn under a stripped PATH), so the default 5s ceiling is
@@ -796,7 +821,8 @@ describe(
       expect(out, out).not.toMatch(/would-block-shipped: AGENTS\.md/);
     });
 
-    it('S2 §3 SECONDARY (NEGATIVE) — CONSUMER-owned markdown with a real broken link + lychee REJECTS → §8 lycheeSection blocks (gate is live, not silently disabled)', () => {
+    it('S2 §3 SECONDARY (NEGATIVE) — CONSUMER-owned markdown with a real broken link + lychee REJECTS → §8 lycheeSection blocks (gate is live, not silently disabled)', (ctx) => {
+      skipIfWin32LycheeStub(ctx);
       const { dir, baseSha, hook } = makeConsumerSandbox();
       // Override the consumer-sandbox's exit-0 lychee stub to REJECT — mimics a real
       // dangling link in a consumer-authored file. The §8 lycheeSection shells out to
@@ -820,19 +846,6 @@ describe(
 
       const r = runHook(dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
-      if (process.platform === 'win32') {
-        // C7 native capture (run 40340771916): the extensionless sh lychee stub cannot
-        // be exec'd by CreateProcess (libuv appends .exe only), so §8 sees lychee
-        // not-found and degrades — this log names the section's own skip line and the
-        // resolved stub forms. POSIX prints nothing; assertions unchanged.
-        console.log(
-          'C7-CAPTURE lychee=',
-          JSON.stringify({
-            stubPlain: existsSync(join(stubBin, 'lychee')),
-            out: (out ?? '').slice(0, 800),
-          }),
-        );
-      }
 
       // §3 binding (T-HS-A): exit code FIRST, wording second. exit 1 = gate lived.
       expect(r.status, out).toBe(1);
@@ -848,7 +861,8 @@ describe(
     // the S2 Part 1 narrowing above deliberately does NOT fire, so nothing else can
     // account for the exclusion.
 
-    it('§8 twin-exclusion POSITIVE — a changed plugin/agents twin never reaches lychee argv (maintainer layout)', () => {
+    it('§8 twin-exclusion POSITIVE — a changed plugin/agents twin never reaches lychee argv (maintainer layout)', (ctx) => {
+      skipIfWin32LycheeStub(ctx);
       const { dir, baseSha, hook } = makeConsumerSandbox();
       plantSsotRegister(dir);
       // REJECT if and only if a plugin/agents path reaches argv. A blanket exit-0 stub
@@ -887,7 +901,8 @@ describe(
       expect(out, out).not.toMatch(/lychee found broken links/);
     });
 
-    it('§8 twin-exclusion NEGATIVE — the agents/ SOURCE is still walked and a broken link there still blocks (exclusion is scoped, not a hole)', () => {
+    it('§8 twin-exclusion NEGATIVE — the agents/ SOURCE is still walked and a broken link there still blocks (exclusion is scoped, not a hole)', (ctx) => {
+      skipIfWin32LycheeStub(ctx);
       const { dir, baseSha, hook } = makeConsumerSandbox();
       plantSsotRegister(dir);
       // REJECT if and only if an agents/ (non-plugin) path reaches argv. If the new
@@ -915,19 +930,6 @@ describe(
 
       const r = runHook(dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
-      if (process.platform === 'win32') {
-        // C7 native capture (run 40340771916): the extensionless sh lychee stub cannot
-        // be exec'd by CreateProcess (libuv appends .exe only), so §8 sees lychee
-        // not-found and degrades — this log names the section's own skip line and the
-        // resolved stub forms. POSIX prints nothing; assertions unchanged.
-        console.log(
-          'C7-CAPTURE lychee=',
-          JSON.stringify({
-            stubPlain: existsSync(join(stubBin, 'lychee')),
-            out: (out ?? '').slice(0, 800),
-          }),
-        );
-      }
 
       expect(r.status, out).toBe(1);
       expect(out, out).toMatch(/source-still-checked: agents\/source\.md/);
@@ -939,7 +941,8 @@ describe(
     // every skill/agent a CONSUMER authored was dropped from the walk (and counted in the
     // "excluded N framework-shipped *.md" notice). These two arms are the pair: the
     // consumer's own skill must reach lychee, the shipped one must not.
-    it('A4-8 NEGATIVE — a CONSUMER-authored .claude/skills/**/*.md with a broken link reaches lychee and blocks the push', () => {
+    it('A4-8 NEGATIVE — a CONSUMER-authored .claude/skills/**/*.md with a broken link reaches lychee and blocks the push', (ctx) => {
+      skipIfWin32LycheeStub(ctx);
       const { dir, baseSha, hook } = makeConsumerSandbox();
       const stubBin = join(dir, '.stub-bin');
       // Reject only when the consumer's own skill file is in argv, so the assertion
@@ -963,19 +966,6 @@ describe(
 
       const r = runHook(dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
-      if (process.platform === 'win32') {
-        // C7 native capture (run 40340771916): the extensionless sh lychee stub cannot
-        // be exec'd by CreateProcess (libuv appends .exe only), so §8 sees lychee
-        // not-found and degrades — this log names the section's own skip line and the
-        // resolved stub forms. POSIX prints nothing; assertions unchanged.
-        console.log(
-          'C7-CAPTURE lychee=',
-          JSON.stringify({
-            stubPlain: existsSync(join(stubBin, 'lychee')),
-            out: (out ?? '').slice(0, 800),
-          }),
-        );
-      }
 
       // Pre-fix this was exit 0: the file matched the `.claude/skills/` prefix, was
       // excluded, and lychee was never invoked at all.
@@ -986,7 +976,8 @@ describe(
       expect(out, out).toMatch(/lychee found broken links/);
     });
 
-    it('A4-8 POSITIVE — a SHIPPED skill slug is still excluded (the S2 Part 1 narrowing is intact)', () => {
+    it('A4-8 POSITIVE — a SHIPPED skill slug is still excluded (the S2 Part 1 narrowing is intact)', (ctx) => {
+      skipIfWin32LycheeStub(ctx);
       const { dir, baseSha, hook } = makeConsumerSandbox();
       const stubBin = join(dir, '.stub-bin');
       writeFileSync(
@@ -1023,7 +1014,8 @@ describe(
     //
     // Both run WITHOUT .ai-factory/refresh-baseline.json (makeConsumerSandbox plants none),
     // so they exercise the null-baseline fallback — the arm the static list actually serves.
-    it('A4-8b POSITIVE — a shipped .ai-factory/*.md the old list forgot is excluded, not walked', () => {
+    it('A4-8b POSITIVE — a shipped .ai-factory/*.md the old list forgot is excluded, not walked', (ctx) => {
+      skipIfWin32LycheeStub(ctx);
       const { dir, baseSha, hook } = makeConsumerSandbox();
       const stubBin = join(dir, '.stub-bin');
       writeFileSync(
@@ -1053,7 +1045,8 @@ describe(
       expect(out, out).not.toMatch(/would-block-shipped/);
     });
 
-    it('A4-8b NEGATIVE — a CONSUMER-authored .ai-factory/RULES.<name>.md reaches lychee (the bare-prefix over-reach)', () => {
+    it('A4-8b NEGATIVE — a CONSUMER-authored .ai-factory/RULES.<name>.md reaches lychee (the bare-prefix over-reach)', (ctx) => {
+      skipIfWin32LycheeStub(ctx);
       const { dir, baseSha, hook } = makeConsumerSandbox();
       const stubBin = join(dir, '.stub-bin');
       writeFileSync(
@@ -1075,19 +1068,6 @@ describe(
 
       const r = runHook(dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
-      if (process.platform === 'win32') {
-        // C7 native capture (run 40340771916): the extensionless sh lychee stub cannot
-        // be exec'd by CreateProcess (libuv appends .exe only), so §8 sees lychee
-        // not-found and degrades — this log names the section's own skip line and the
-        // resolved stub forms. POSIX prints nothing; assertions unchanged.
-        console.log(
-          'C7-CAPTURE lychee=',
-          JSON.stringify({
-            stubPlain: existsSync(join(stubBin, 'lychee')),
-            out: (out ?? '').slice(0, 800),
-          }),
-        );
-      }
 
       // Pre-fix this was exit 0: the file matched the bare `.ai-factory/RULES.` prefix —
       // a stack-variant shape the installer never delivers under that name — and was

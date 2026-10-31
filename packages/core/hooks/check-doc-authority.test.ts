@@ -62,8 +62,8 @@ import {
   failLoudSkipContext,
   type Skippable,
 } from './symlink-or-junction-or-skip.ts';
-import { spawnBashOrSkip } from './spawn-bash-or-skip.ts';
-import { resolve, dirname, join, sep } from 'node:path';
+import { spawnBashOrSkip, toMsysArg } from './spawn-bash-or-skip.ts';
+import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
@@ -898,12 +898,13 @@ describe('check-doc-authority.sh — tsx not found (all tiers miss) → existing
     >;
     delete fullEnv.CLAUDE_PROJECT_DIR;
     delete fullEnv.ZCODE_PROJECT_DIR;
-    // Payload goes out POSIX-shaped (win32 join() backslashes would never match the
-    // hook's forward-slash scope strip — run 40340771916 class C5: the arm observed
-    // status 0 with EMPTY stdout, the hook's silent `outside repo — skip` exit, which
-    // on an exit-0 PostToolUse is indistinguishable from a pass). Identity on POSIX;
-    // same payload contract as the canonical-path arms of check-hook-marker.test.ts.
-    const payloadPath = join(box, 'CLAUDE.md').split(sep).join('/');
+    // Payload in the hook's OWN REPO_ROOT dialect. With CLAUDE_PROJECT_DIR unset the
+    // hook derives REPO_ROOT via bash `pwd` — on win32 Git-Bash that is the MSYS root
+    // form (/c/…), so a C:/…-shaped payload (round 1, run 41189657830) still missed the
+    // `REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"` strip and took the silent outside-repo
+    // exit-0 — the C5 capture printed status 0 with EMPTY stdout/stderr. toMsysArg is
+    // the identity on POSIX, so the POSIX arm stays byte-identical.
+    const payloadPath = toMsysArg(join(box, 'CLAUDE.md'));
     const r = spawnBashOrSkip(
       ctx,
       '/bin/bash',

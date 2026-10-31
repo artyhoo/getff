@@ -438,10 +438,40 @@ describe(
         CLAUDE_CODE_SESSION_ID: '',
       });
       if (process.platform === 'win32') {
-        // C4 native capture (run 40340771916): this arm died at create-worktree's
-        // `git worktree add` with the MSYS path spelled out but git's own stderr
-        // swallowed. Dump the child bytes; on failure they name git's real complaint.
+        // C4 native capture (runs 40340771916 → 41189657830): this arm died at
+        // create-worktree's `git worktree add` with the MSYS path spelled out but
+        // git's own stderr swallowed. Dump the child bytes; on failure they name
+        // git's real complaint. Round 2 adds read-only worktree-state probes: the
+        // positive sibling (different unique name) had JUST succeeded, so leftover
+        // dir/admin state under this repo is the standing hypothesis — `git worktree
+        // list --porcelain` (what git itself believes), the .claude/worktrees dir
+        // listing (what the wrapper sees), and .git/worktrees (git's admin side).
         // POSIX prints nothing; assertions unchanged.
+        let gitWorktrees = 'unavailable';
+        try {
+          gitWorktrees = execSync('git worktree list --porcelain', {
+            cwd: REPO_ROOT,
+            encoding: 'utf8',
+          }).slice(0, 1200);
+        } catch (e) {
+          gitWorktrees = `probe-failed: ${(e as Error).message.slice(0, 200)}`;
+        }
+        let wtDirs = 'unavailable';
+        try {
+          wtDirs = readdirSync(join(REPO_ROOT, '.claude/worktrees'))
+            .join(',')
+            .slice(0, 800);
+        } catch (e) {
+          wtDirs = `probe-failed: ${(e as Error).message.slice(0, 200)}`;
+        }
+        let gitAdmin = 'unavailable';
+        try {
+          gitAdmin = readdirSync(join(REPO_ROOT, '.git/worktrees'))
+            .join(',')
+            .slice(0, 800);
+        } catch (e) {
+          gitAdmin = `probe-failed: ${(e as Error).message.slice(0, 200)}`;
+        }
         console.log(
           'C4-CAPTURE status=',
           r.status,
@@ -449,6 +479,8 @@ describe(
           JSON.stringify((r.stdout ?? '').slice(0, 900)),
           'stderr=',
           JSON.stringify((r.stderr ?? '').slice(0, 400)),
+          'worktrees=',
+          JSON.stringify({ gitWorktrees, wtDirs, gitAdmin }),
         );
       }
       expect(
