@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "check": "presentation",
+  "featureId": "portable-verified-autonomy",
+  "revision": 1,
+  "attemptId": "fc7a2af9ce2432021be82b42d26a8a14ca4a39f4d10c26c9d528111f641851cf",
+  "prdSha256": "ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721",
+  "specSha256": "d82086984feffc8bc038021ef4419e0d4388e32e82accbe7ebab0e016002904c"
+}

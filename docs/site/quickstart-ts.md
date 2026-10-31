@@ -101,9 +101,11 @@ with code 0. Those lines are not shown here. The very last line of the run is:
 ✅ ./setup complete (yes).
 ```
 
-One thing to know before you run it. The installer also registers a documentation
-server for your agent with `claude mcp add --scope user`. That setting is for your whole
-machine, not only this project. The installer prints a warning line when it does this.
+One thing to know before you run it. The installer writes a project `.mcp.json` registering
+the documentation servers (context7, deepwiki) for this project only. A user-scope
+registration (`claude mcp add --scope user`) — your whole machine — happens only when you
+explicitly opt into the machine-global companion step with `--global`; under plain `-y`
+that step is skipped and reported as not wired.
 
 ## 2. Check that the files landed
 

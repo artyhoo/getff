@@ -151,7 +151,7 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 <!-- step: verify-payload -->
 
 2. **Verify the payload landed** — `ls .claude/skills/`. On top of `env` you should see
-   `dispatcher`, `harvest`, `aif-doctor`, `story` and `claude-glm-executor-handoff`.
+   `dispatcher`, `aif-doctor`, `harvest`, `story`, `claude-glm-executor-handoff` and `intent`.
 
 <!-- step: fill-passport -->
 
@@ -188,7 +188,7 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 
 ### §2.4 Toolchain lanes — native verification at every profile
 
-`python`, `cargo` and `go` are separate installed layers. They do not deliver the npm audit/glob/fences scripts, Husky bundle, or npm env/factory skill roster. A successful lane install is complete without those files. A `generic` stack-free layer likewise has no ESLint gates; run its delivered docs audit.
+`python`, `cargo` and `go` are separate installed layers. They do not deliver the npm audit/glob/fences scripts, Husky bundle, or npm env/factory skill roster. A successful lane install is complete without those files. Every lane still delivers the common agent surface: fenced `AGENTS.md`, the `.ai-factory/` passport subtree including this guide (`AI-USAGE-GUIDE.md`), four skills (`getff`, `tool-bootstrapping`, `rule-research`, `rule-tests`), two rule agents (`rule-researcher`, `rule-test-author`), its hooks and a project `.mcp.json` (context7 + deepwiki). A `generic` stack-free layer likewise has no ESLint gates; run its delivered docs audit.
 
 Run the lane's block from your project root with its tools installed. Missing tools are **not proven**, never a passing firing check. Check the install log's planted-violation RED and clean-control GREEN results; then introduce one violation in your own source, observe the native gate fail, remove it, and re-run clean. These blocks use the delivered config, including collision-reference files, rather than claiming that a parked config already governs your project.
 
@@ -218,10 +218,12 @@ Plant `eval("1 + 1")` to exercise the ast-grep ban, or `from datetime import dat
 
 #### Cargo
 
-Cargo installs configuration, the `.getff/Cargo.lints.toml` severity projection when applicable, a workflow and a rules lock; it installs no AGENTS/passport/skill surface. Select the delivered getff bans in an isolated config directory so a kept consumer `clippy.toml` is not overwritten:
+Cargo installs configuration, the `.getff/Cargo.lints.toml` severity projection when applicable, a workflow and a rules lock, plus the common agent surface named in the §2.4 intro (fenced `AGENTS.md`, passport subtree with this guide, four skills, two rule agents). Select the delivered getff bans in an isolated config directory so a kept consumer `clippy.toml` is not overwritten:
 
 ```bash
 set -e
+test -f AGENTS.md
+test -f .ai-factory/DESCRIPTION.md
 test -f .github/workflows/getff-cargo.yml
 clippy_config_dir=$(mktemp -d)
 trap 'rm -rf "$clippy_config_dir"' EXIT
@@ -237,10 +239,12 @@ Plant `std::env::var("X")` in your Rust source and verify a nonzero exit naming 
 
 #### Go
 
-Go installs configuration, a workflow and a rules lock; it installs no AGENTS/passport/skill surface. Prefer the collision reference when present:
+Go installs configuration, a workflow and a rules lock, plus the same common agent surface named in the §2.4 intro. Prefer the collision reference when present:
 
 ```bash
 set -e
+test -f AGENTS.md
+test -f .ai-factory/DESCRIPTION.md
 test -f .github/workflows/getff-go.yml
 getff_go_config=.golangci.yml
 [ ! -f getff-golangci.yml ] || getff_go_config=getff-golangci.yml
@@ -248,13 +252,13 @@ test -f "$getff_go_config"
 golangci-lint run --enable forbidigo --config "$getff_go_config" ./...
 ```
 
-Plant `os.Getenv("X")` in Go source and verify forbidigo fails, then remove it. For cargo/Go, research new bans through the native configuration workflow; do not invoke absent rule-research agents. Existing project tests remain yours to run and wire into CI.
+Plant `os.Getenv("X")` in Go source and verify forbidigo fails, then remove it. The delivered `/rule-research` skill and `rule-researcher` agent (§2.4 intro) do not add a native-config research workflow on these lanes. Go is out of scope for the researcher protocol — no Go arm exists yet. Cargo has research/render in the framework, but no consumer-side join + verify loop: the lane ships pre-rendered clippy bans only. Add new bans through your own native configuration, not through the delivered skill. Existing project tests remain yours to run and wire into CI.
 
 ---
 
 ## §3 Daily cycle
 
-On toolchain-only installs, use §2.4's native checks before edits, commits and PRs, and your own tests. Read the installed context when present (Python); cargo/Go have no framework context doc. The loop below describes npm stack layers at every npm depth, and only their delivered gates.
+On toolchain-only installs, use §2.4's native checks before edits, commits and PRs, and your own tests. Read the installed context — every lane ships fenced `AGENTS.md` and the `.ai-factory/` passport subtree with this guide; Python's lane additionally materializes `ARCHITECTURE.md` and `RULES.md`. The loop below describes npm stack layers at every npm depth, and only their delivered gates.
 
 1. **Before you edit** — read `AGENTS.md`, then the `.ai-factory/` doc it points at for your task
    (`RULES.md` for what is enforced, `ARCHITECTURE.md` for layer direction).
@@ -336,12 +340,14 @@ Two things worth knowing before you open it:
 The layers this framework ships do not all reach every AI harness equally, and the guide says so
 rather than implying uniformity:
 
-| Layer                                              | Claude Code                       | Other harnesses (Cursor, Codex CLI, Aider, Windsurf, Roo Code)                          |
-| -------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
-| ESLint custom rules, pre-commit, pre-push, CI      | works                             | works — nothing harness-specific                                                        |
-| `AGENTS.md` as session context                     | works                             | works — that is the point of the format                                                 |
-| Skills (`/rule-research`, `/arch`, `/pipeline`, …) | auto-activate on relevant queries | do **not** auto-activate — read the matching `SKILL.md` by hand when the topic comes up |
-| `.claude/settings.json` hooks                      | works                             | inert — layers 1-4 above are unaffected                                                 |
+| Layer                                              | Claude Code                       | Other harnesses (Cursor, Aider, Windsurf, Roo Code)                                                                                                  |
+| -------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ESLint custom rules, pre-commit, pre-push, CI      | works                             | works — nothing harness-specific                                                                                                                     |
+| `AGENTS.md` as session context                     | works                             | works — that is the point of the format                                                                                                              |
+| Skills (`/rule-research`, `/arch`, `/pipeline`, …) | auto-activate on relevant queries | do **not** auto-activate — read the matching `SKILL.md` by hand when the topic comes up (Codex: natively discovered — see the Codex paragraph below) |
+| `.claude/settings.json` hooks                      | works                             | Codex CLI: adapter definitions delivered, fire only after you review and trust them; other harnesses inert — layers 1-4 above are unaffected         |
+
+**Codex (skills, native discovery):** Codex skills are not manual-discovery-only. An install delivers native bindings at `.agents/skills/<slug>/SKILL.md` — frontmatter name/description plus a link to the canonical source — and a per-source invocation policy at `agents/openai.yaml` beside each binding. Its `allow_implicit_invocation` is generated `true` for ordinary procedures and `false` for roles and explicit-only sources, so each source carries its own policy: no blanket every-rule autoactivation and no blanket explicit-only rule. The policy is discovery metadata only, separate from hook trust (the hooks row above keeps its review-and-trust caveat) and from host execution. Discovering or installing a skill invokes nothing and grants no trust, tools, permissions or delegation; what actually runs stays governed by the host and your authorization, and explicit `$<slug>` invocation always works.
 
 **ZCode (plugin channel):** the «Other harnesses» column is the ZCode story too, with two further named degradations — PostToolUse gate hooks run **advisory-only** (ZCode's schema consumes `additionalContext`, not `permissionDecision`) and plugin sub-agents are recorded but not executed; skills still load and auto-trigger via the SessionStart bootstrap, and the hard layer (`.husky` + CI) remains opt-in by running the installer yourself. Per-hook parity census: <https://github.com/artyhoo/getff#as-a-zcode-plugin-per-harness>.
 

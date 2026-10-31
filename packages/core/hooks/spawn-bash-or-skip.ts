@@ -12,7 +12,7 @@
 // Git Bash can satisfy (absolute /bin/… // /usr/… binaries, MSYS-only tooling) SKIPS the
 // enclosing test with a named reason — a visible named skip, never a silent pass.
 // Resolution-vs-skip decisions log to stderr behind DEBUG_WIN_SPAWN=1 (test-side debug
-// output never touches stdout). BFR consult: prior-art-evaluations.md#316 (BUILD;
+// output never touches stdout). BFR consult: prior-art-evaluations.md#317 (BUILD;
 // introduced #313 at eca6e188b, 313 -> 314 -> 316 per row-#308 convention; closest
 // #40 negative, #54 runner-shape ADAPT).
 import { spawnSync } from 'node:child_process';
