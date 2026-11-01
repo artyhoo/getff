@@ -366,7 +366,8 @@ D13L=$(mktemp -d); TMPS+=("$D13L")
 cp "$D13/package.json" "$D13/eslint.config.mjs" "$D13/lint.sh" "$D13L/" 2>/dev/null
 printf '# yarn lockfile\n' > "$D13L/yarn.lock"
 lock13=$(shasum "$D13L/yarn.lock" | cut -d' ' -f1)
-outl=$( cd "$D13L" && bash "$INSTALL" generic --full < /dev/null 2>&1 )
+outl=$( cd "$D13L" && bash "$INSTALL" generic --full < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || bad "(13) locked twin install exited $rc (tail: $(tail -3 <<<"$outl" | tr '\n' '|'))"
 wf13l="$D13L/.github/workflows/getff-rules.yml"
 [ -f "$wf13l" ] && ok "(13) locked twin delivers its own workflow" || bad "(13) locked twin missing workflow (tail: $(tail -3 <<<"$outl" | tr '\n' '|'))"
 step13b=$( cd "$D13L" && PATH="$STUB:$PATH" CI=true ci_install_step "$wf13l" 2>&1 )
