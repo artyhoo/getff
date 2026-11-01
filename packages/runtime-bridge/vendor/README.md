@@ -138,8 +138,10 @@ docs, vendor twins, manifests and fingerprints (extension + default-path checks;
 extension/default-path checks; a non-LLM `ocr review --preview` on the C2 range showed all
 28 required paths `will_review:true` (root receipts under
 `upstream-public-scope-preview/`). The connection card documents this as the normal route
-for mandatory-scope reviews. Real productive Dot/OpenMaus/getff callers and a real native
-result inside an installed consumer remain UNVERIFIED. Stub-green source compatibility
+for mandatory-scope reviews. A real full-scope native result driven by the getff producer
+on the operator repo exists (run `867a3091…`: `compatible`, 28/28 required paths, 4
+findings, repairs landed — raw bytes preserved). Real productive Dot/OpenMaus callers and a
+real native result inside an installed consumer remain UNVERIFIED. Stub-green source compatibility
 is not a real OCR review. A `compatible` verdict attests bounded process/input/coverage
 compatibility with the pinned public contract; it is not semantic-duty acceptance and not
 a merge/integration grant.
