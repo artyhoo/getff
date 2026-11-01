@@ -2338,7 +2338,7 @@ ignore_shipped_configs() {
   local candidates=(
     "eslint.config.mjs" "eslint.config.rn-common.mjs" "vitest.config.ts" "tsconfig.json" "playwright.config.ts"
     ".dependency-cruiser.mjs" "stryker.config.json" ".lintstagedrc.json"
-    ".github/workflows/ci.yml" ".github/workflows/workflow-integrity.yml"
+    ".github/workflows/ci.yml" ".github/workflows/workflow-integrity.yml" ".github/workflows/getff-rules.yml"
   )
   # GH #807: a #793/#796 multi-stack monorepo ships per-workspace configs (apps/*/eslint.config.mjs,
   # deeper */*/eslint.config.mjs, and the RN */eslint.config.rn-common.mjs) — root basenames above do
