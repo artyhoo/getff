@@ -1475,6 +1475,42 @@ for (const [label, mod] of twins) {
       expect(rHead.out.exitCode).toBe(2);
       expect(rHead.out.verdict?.holdReason).toBe('head-mismatch');
 
+      // AIF prefix bypass (acceptance-closure F1): a SHA-256 repo makes a
+      // full40 task.commitSha shape-VALID while prefix-matching the 64-hex
+      // HEAD. Single production change that flips this case: the shared
+      // equal-length exact comparison (commitIdsEqual prefix form removed).
+      // Pre-fix this ran the native review as compatible.
+      const s256 = buildScenario({ objectFormat: 'sha256' });
+      expect(s256.head).toMatch(/^[0-9a-f]{64}$/i);
+      const rPref = await run(mod, s256, {
+        tasks: [
+          { ...s256.task, commitSha: s256.head.slice(0, 40) } as AifTaskFull,
+        ],
+      });
+      expect(rPref.out.exitCode).toBe(2);
+      expect(rPref.out.verdict?.status).toBe('hold');
+      expect(rPref.out.verdict?.holdReason).toBe('head-mismatch');
+      expect(rPref.out.stderrLine).toMatch(/head-mismatch/);
+      expect(rPref.record.reviewCalls).toBe(0);
+
+      // Controls: full64 exact AIF identity still runs; case-insensitive
+      // full40 identity (the SHA-1 AIF shape) still runs. Fresh scenario for
+      // the compatible control — the HOLD above persisted its verdict file
+      // into s256's .ai-factory/ocr/, which strict untracked policy would
+      // (correctly) flag as undeclared context for a later invocation.
+      const s256b = buildScenario({ objectFormat: 'sha256' });
+      const r64 = await run(mod, s256b, { tasks: [s256b.task] });
+      expect(r64.out.exitCode).toBe(0);
+      expect(r64.out.verdict?.status).toBe('compatible');
+      const ci = buildScenario();
+      const rCi = await run(mod, ci, {
+        tasks: [
+          { ...ci.task, commitSha: ci.head.toUpperCase() } as AifTaskFull,
+        ],
+      });
+      expect(rCi.out.exitCode).toBe(0);
+      expect(rCi.out.verdict?.status).toBe('compatible');
+
       const unknown = buildScenario();
       const rUnknown = await run(mod, unknown, { tasks: [null as unknown as AifTaskFull] });
       expect(rUnknown.out.exitCode).toBe(1);

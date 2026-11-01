@@ -1145,12 +1145,6 @@ function digestEnv(env: Record<string, string>): string {
   return sha256(parts.join('\0'));
 }
 
-const commitIdsEqual = (a: string, b: string): boolean => {
-  const x = a.toLowerCase();
-  const y = b.toLowerCase();
-  return x === y || (x.length > y.length ? x.startsWith(y) : y.startsWith(x));
-};
-
 export interface TrustedReviewRunResult {
   exitCode: 0 | 1 | 2;
   verdict: TrustedReviewVerdict | null;
@@ -1382,17 +1376,16 @@ export async function runTrustedReview(
         `merge-base(${base}, ${head}) did not resolve to a full commit id`,
       );
     }
-    // Local profile: the request must name the FULL candidate commit. The
-    // prefix form exists for the AIF binding only; in a SHA-256 repository a
-    // 40-hex request.head passes shape validation and prefix-matches the
-    // 64-hex HEAD — a request that never specified the exact candidate would
-    // become compatible. Local demands equal-length, case-insensitive exact
-    // equality (native review finding, run 867a3091).
+    // BOTH profiles demand the FULL candidate identity. Shape validation
+    // already requires full 40/64-hex ids (request.head / task.commitSha),
+    // and the older accepted AIF identity contract (source-stage-fidelity-
+    // intent-v2: HEAD == task.commitSha) forbids prefix matches: in a
+    // SHA-256 repository a full40 task.commitSha prefix-matches the 64-hex
+    // HEAD and must HOLD head-mismatch before any native invocation, exactly
+    // like the local arm (native run 867a3091 + acceptance-closure F1).
     const headMatches =
-      opts.profile === 'local'
-        ? head.length === requestedHead.length &&
-          head.toLowerCase() === requestedHead.toLowerCase()
-        : commitIdsEqual(head, requestedHead);
+      head.length === requestedHead.length &&
+      head.toLowerCase() === requestedHead.toLowerCase();
     if (!headMatches) {
       return holdResult(
         'head-mismatch',
