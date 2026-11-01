@@ -107,6 +107,15 @@ export const STACK_RULES = {
         'app/Root.{tsx,jsx}',
       ],
     },
+    // Q1/Q2 test-quality metachecks on test-bearing files (parity with the stack templates).
+    {
+      rule: 'rules-as-tests/no-vacuous-assertion',
+      files: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**'],
+    },
+    {
+      rule: 'rules-as-tests/require-effective-assertion',
+      files: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**'],
+    },
     ...RUNTIME,
   ],
   'ts-server': [
@@ -118,6 +127,23 @@ export const STACK_RULES = {
         '**/controllers/**/*.{ts,tsx}',
         '**/app/api/**/*.{ts,tsx}',
         '**/actions/**/*.{ts,tsx}',
+      ],
+    },
+    // Q1/Q2 test-quality metachecks on test-bearing files (parity with the stack templates).
+    {
+      rule: 'rules-as-tests/no-vacuous-assertion',
+      files: [
+        '**/*.{test,spec}.{ts,tsx}',
+        '**/__tests__/**',
+        'tests/**/*.{ts,tsx}',
+      ],
+    },
+    {
+      rule: 'rules-as-tests/require-effective-assertion',
+      files: [
+        '**/*.{test,spec}.{ts,tsx}',
+        '**/__tests__/**',
+        'tests/**/*.{ts,tsx}',
       ],
     },
     ...RUNTIME,
@@ -133,6 +159,15 @@ export const STACK_RULES = {
       files: NEXT_BOUNDARY,
       notPlaced:
         "the react-next config's R14/R20 selectors share one setting with the generated rules; getff places them in ESLint only",
+    },
+    // Q1/Q2 test-quality metachecks on test-bearing files (parity with the stack templates).
+    {
+      rule: 'rules-as-tests/no-vacuous-assertion',
+      files: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**'],
+    },
+    {
+      rule: 'rules-as-tests/require-effective-assertion',
+      files: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**'],
     },
     ...RUNTIME,
   ],

@@ -10260,26 +10260,204 @@ var init_require_error_boundary = __esm({
         const sourceCode = context.sourceCode;
         const lines = sourceCode.lines;
         let hasJSX = false;
-        let hasErrorBoundaryInJSX = false;
+        let hasUnprotectedJSX = false;
         let firstJSXNode = null;
+        let firstUnprotectedNode = null;
         return {
           JSXOpeningElement(node) {
             hasJSX = true;
             if (firstJSXNode === null) firstJSXNode = node;
             const name = extractJSXElementName(node.name);
-            if (name !== null && isErrorBoundaryLike(name)) {
-              hasErrorBoundaryInJSX = true;
+            if (name !== null && isErrorBoundaryLike(name)) return;
+            for (let p = node.parent; p && p.type !== "Program"; p = p.parent) {
+              if (p.type === "JSXElement") {
+                const ancName = extractJSXElementName(p.openingElement.name);
+                if (ancName !== null && isErrorBoundaryLike(ancName)) return;
+              }
             }
+            hasUnprotectedJSX = true;
+            if (firstUnprotectedNode === null) firstUnprotectedNode = node;
           },
           "Program:exit"(program) {
-            if (!hasJSX || hasErrorBoundaryInJSX) return;
-            const reportNode = firstJSXNode ?? program;
-            const line = lines[reportNode.loc.start.line - 1] ?? "";
-            if (line.includes("// audit:exempt")) return;
+            if (!hasJSX || !hasUnprotectedJSX) return;
+            const reportNode = firstUnprotectedNode ?? firstJSXNode ?? program;
+            const exemptLine = firstJSXNode ? lines[firstJSXNode.loc.start.line - 1] ?? "" : "";
+            if (exemptLine.includes("// audit:exempt")) return;
             context.report({
               node: reportNode,
               messageId: "missingErrorBoundary"
             });
+          }
+        };
+      }
+    };
+  }
+});
+
+// packages/core/eslint-rules/no-vacuous-assertion.ts
+function isExempt2(line) {
+  return line.includes("// audit:exempt");
+}
+function isPureLiteral(node) {
+  switch (node.type) {
+    case "Literal":
+      return true;
+    case "TemplateLiteral":
+      return node.expressions.length === 0;
+    case "UnaryExpression":
+      return UNARY_PURE_OPERATORS.has(node.operator) && isPureLiteral(node.argument);
+    case "BinaryExpression":
+      return isPureLiteral(node.left) && isPureLiteral(node.right);
+    default:
+      return false;
+  }
+}
+function testCallName(callee) {
+  if (callee.type === "Identifier") {
+    return ["it", "test", "specify"].includes(callee.name) ? callee.name : null;
+  }
+  if (callee.type === "MemberExpression" && callee.object.type === "Identifier") {
+    return ["it", "test", "specify"].includes(callee.object.name) ? callee.object.name : null;
+  }
+  if (callee.type === "CallExpression") return testCallName(callee.callee);
+  return null;
+}
+function insideTestBody(node) {
+  let current = node.parent;
+  while (current) {
+    if (current.type === "CallExpression" && testCallName(current.callee) !== null)
+      return true;
+    current = current.parent;
+  }
+  return false;
+}
+var UNARY_PURE_OPERATORS, noVacuousAssertion;
+var init_no_vacuous_assertion = __esm({
+  "packages/core/eslint-rules/no-vacuous-assertion.ts"() {
+    "use strict";
+    UNARY_PURE_OPERATORS = /* @__PURE__ */ new Set(["-", "+", "!", "~", "typeof", "void"]);
+    noVacuousAssertion = {
+      meta: {
+        type: "problem",
+        docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/no-vacuous-assertion.ts`,
+          description: "Forbid expect() over a pure literal inside a test body (Q1 vacuous assertion \u2014 survives every production fault). Scope CONSTRAINT: decidable syntax only, see rule header."
+        },
+        messages: {
+          vacuousAssertion: "Vacuous assertion: `expect(<literal>)` compares a constant to itself and survives every production fault (Q1). Assert the real subject instead. Intentional fixture: add `// audit:exempt` on this line with a reason."
+        },
+        schema: []
+      },
+      defaultOptions: [],
+      create(context) {
+        const lines = context.sourceCode.lines;
+        return {
+          "CallExpression[callee.name='expect']"(node) {
+            const first = node.arguments[0];
+            if (!first) return;
+            if (first.type === "SpreadElement") return;
+            if (!isPureLiteral(first)) return;
+            if (!insideTestBody(node)) return;
+            if (isExempt2(lines[node.loc.start.line - 1] ?? "")) return;
+            context.report({ node, messageId: "vacuousAssertion" });
+          }
+        };
+      }
+    };
+  }
+});
+
+// packages/core/eslint-rules/require-effective-assertion.ts
+function isExempt3(line) {
+  return line.includes("// audit:exempt");
+}
+function testCallInfo(callee) {
+  if (callee.type === "Identifier" && TEST_NAMES.has(callee.name)) {
+    return { name: callee.name, variant: null };
+  }
+  if (callee.type === "MemberExpression" && callee.object.type === "Identifier" && TEST_NAMES.has(callee.object.name)) {
+    const variant = callee.property.type === "Identifier" ? callee.property.name : null;
+    return { name: callee.object.name, variant };
+  }
+  if (callee.type === "CallExpression") return testCallInfo(callee.callee);
+  return null;
+}
+function isTestCallback(node) {
+  const info = testCallInfo(node.callee);
+  if (!info) return false;
+  if (info.variant !== null && EXEMPT_VARIANTS.has(info.variant)) return false;
+  return true;
+}
+function effectiveName(name) {
+  const lower = name.toLowerCase();
+  return lower.startsWith("expect") || lower.startsWith("assert") || lower.startsWith("verify");
+}
+function calleeNames(callee) {
+  if (callee.type === "Identifier") return [callee.name];
+  const names = [];
+  if (callee.type === "MemberExpression") {
+    if (callee.property.type === "Identifier") names.push(callee.property.name);
+    if (callee.object.type === "Identifier") names.push(callee.object.name);
+  }
+  return names;
+}
+function hasEffectiveAssertion(node) {
+  if (!node) return false;
+  if (node.type === "CallExpression") {
+    if (isTestCallback(node)) return false;
+    if (calleeNames(node.callee).some(effectiveName)) return true;
+  }
+  for (const key of Object.keys(node)) {
+    if (key === "parent" || key === "loc" || key === "range") continue;
+    const child = node[key];
+    if (Array.isArray(child)) {
+      for (const item of child) {
+        if (item && typeof item === "object" && "type" in item) {
+          if (hasEffectiveAssertion(item)) return true;
+        }
+      }
+    } else if (child && typeof child === "object" && "type" in child) {
+      if (hasEffectiveAssertion(child)) return true;
+    }
+  }
+  return false;
+}
+function callbackOf(node) {
+  const last = node.arguments[node.arguments.length - 1];
+  if (!last) return void 0;
+  if (last.type === "ArrowFunctionExpression" || last.type === "FunctionExpression")
+    return last;
+  return void 0;
+}
+var TEST_NAMES, EXEMPT_VARIANTS, requireEffectiveAssertion;
+var init_require_effective_assertion = __esm({
+  "packages/core/eslint-rules/require-effective-assertion.ts"() {
+    "use strict";
+    TEST_NAMES = /* @__PURE__ */ new Set(["it", "test", "specify"]);
+    EXEMPT_VARIANTS = /* @__PURE__ */ new Set(["skip", "skipIf", "todo", "fails"]);
+    requireEffectiveAssertion = {
+      meta: {
+        type: "problem",
+        docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/require-effective-assertion.ts`,
+          description: "Forbid test bodies with no expect*/assert*/verify*-named call (Q2 \u2014 a test that cannot fail). Scope CONSTRAINT: decidable syntax only, see rule header."
+        },
+        messages: {
+          noEffectiveAssertion: "Test body contains no effective assertion (`expect*` / `assert*` / `verify*` call): it cannot fail, so it verifies nothing (Q2). Await alone is not an assertion. Intentional placeholder: use `it.todo`, or add `// audit:exempt` on this line with a reason."
+        },
+        schema: []
+      },
+      defaultOptions: [],
+      create(context) {
+        const lines = context.sourceCode.lines;
+        return {
+          CallExpression(node) {
+            if (!isTestCallback(node)) return;
+            const cb = callbackOf(node);
+            if (!cb) return;
+            if (isExempt3(lines[node.loc.start.line - 1] ?? "")) return;
+            if (hasEffectiveAssertion(cb)) return;
+            context.report({ node, messageId: "noEffectiveAssertion" });
           }
         };
       }
@@ -10297,6 +10475,8 @@ var init_eslint_rules = __esm({
     init_require_otel_span();
     init_restricted_syntax_audit_exempt();
     init_require_error_boundary();
+    init_no_vacuous_assertion();
+    init_require_effective_assertion();
     plugin = {
       meta: {
         name: "@rules-as-tests/core-eslint-rules",
@@ -10307,7 +10487,9 @@ var init_eslint_rules = __esm({
         "no-direct-time-randomness": noDirectTimeRandomness,
         "require-otel-span": requireOtelSpan,
         "restricted-syntax-audit-exempt": restrictedSyntaxAuditExempt,
-        "require-error-boundary": requireErrorBoundary
+        "require-error-boundary": requireErrorBoundary,
+        "no-vacuous-assertion": noVacuousAssertion,
+        "require-effective-assertion": requireEffectiveAssertion
       }
     };
     eslint_rules_default = plugin;
@@ -11430,6 +11612,9 @@ var init_install = __esm({
 function isRestrictedImportsTuple(value) {
   return Array.isArray(value) && value.length >= 1;
 }
+function isErrorSeverity(value) {
+  return value === "error" || value === 2;
+}
 function mergeNoRestrictedImports(a, b, sources, newSource) {
   if (!isRestrictedImportsTuple(a) || !isRestrictedImportsTuple(b)) {
     throw new RuleCollisionError(
@@ -11445,7 +11630,7 @@ function mergeNoRestrictedImports(a, b, sources, newSource) {
   for (const p of optsB?.paths ?? []) {
     if (!dedup.has(p.name)) dedup.set(p.name, p);
   }
-  const severity = sevA === "error" || sevB === "error" ? "error" : sevA;
+  const severity = isErrorSeverity(sevA) || isErrorSeverity(sevB) ? "error" : sevA;
   return [severity, { paths: Array.from(dedup.values()) }];
 }
 function restrictedSyntaxSelector(entry) {
@@ -11467,7 +11652,7 @@ function mergeNoRestrictedSyntax(a, b, sources, newSource) {
     const key = restrictedSyntaxSelector(e);
     if (!dedup.has(key)) dedup.set(key, e);
   }
-  const severity = sevA === "error" || sevB === "error" ? "error" : sevA;
+  const severity = isErrorSeverity(sevA) || isErrorSeverity(sevB) ? "error" : sevA;
   return [severity, ...Array.from(dedup.values())];
 }
 function mergeEslintRuleConfig(acc, next, newSource, ruleSources) {

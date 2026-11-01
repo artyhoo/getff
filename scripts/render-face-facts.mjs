@@ -280,8 +280,8 @@ function deriveEnforcementOutcomes() {
   log(`enforcementOutcomes: ${nodes.length} demo nodes × ${outcomesByBackend.size} backends (live facts)`);
   return {
     source: [
-      'AGENTS.md:79',
-      'AGENTS.md:99',
+      'AGENTS.md:80',
+      'AGENTS.md:100',
       'packages/core/composition/demo/root-agents-demo.ts:133',
     ],
     nodes: out,

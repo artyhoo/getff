@@ -1,0 +1,42 @@
+{
+  "recordId": "cf4-guard-liveness-status-inversion",
+  "schema": "tak-s1-counterfactual/1 (spec §6 minimal counterfactual fields)",
+  "obligationId": "KERNEL-guard-liveness (fresh kernel-subject fault, arm 2: terminal fail-status inversion — the boundary pair to cf3)",
+  "sourceSha": "2b45e109e8523532744858448204d6545665ed29",
+  "carrier": "packages/core/hooks/checks/guard-liveness.ts — mutated ONLY inside a DETACHED SCRATCH WORKTREE (git worktree add --detach at HEAD, pattern packages/core/audit-self/pre-merge-local.sh:240); main checkout never mutated",
+  "deliveryEdge": "real vitest 4.1.8 run of the kernel's own suite (hooks/checks/guard-liveness.test.ts) inside the scratch worktree; reachability probed by direct tsx call of the exported runRuleLiveness",
+  "fixtureHash": {
+    "guard-liveness.ts HEAD blob (= worktree pre-image)": "b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48",
+    "guard-liveness.ts post-patch": "142ecb211b2c9937af905f19085aa2360bc315ee733441c3d2cf9d01ea481f03"
+  },
+  "testIds": [
+    "guard-liveness.test.ts > PAIRED-NEGATIVE: non-violating negative-test input returns fail status [GLV-1] (kill site line 96)",
+    "guard-liveness.test.ts > inline badGood aggregation arm (kill site line 160, expected 'pass' to be 'fail')",
+    "guard-liveness.test.ts > runGuardLivenessCheck aggregation arm (kill site line 221, expected false to be true)"
+  ],
+  "faultPatch": {
+    "label": "cf4: guard-liveness terminal verdict fail -> pass",
+    "sha256(label\\nfrom\\nto)": "ca2188fbeed28d2a8e4d6b495063db2fed4b655c7cdf125f4357e3014aa75e4c",
+    "appliedExactlyOnce": true
+  },
+  "reachabilityObservation": {
+    "method": "non-equivalent to cf3 by construction: the inversion flips EVERY failing invocation, including the clean zero-message shape GLV-1 itself uses. tsx probe calls runRuleLiveness directly with the BROKEN_LIVENESS_RULE shape (clean input): 'PROBE status=pass' (failures array still recorded) under the mutant vs 'PROBE status=fail' pristine — no test file involved",
+    "evidence": "OK probe /tmp/s1-cf4-Pop1l5/probe-kernel-subject.mts → PROBE status=pass"
+  },
+  "baselineResult": "guard-liveness suite pass in the pristine scratch worktree (vitest JSON: file pass) + healthy probe 'PROBE status=fail'",
+  "mutantResult": {
+    "guard-liveness.test.ts": "fail — KILLED (VITEST-RC counterfactual 1)",
+    "intendedFailedAssertion": "expected 'pass' to be 'fail' (Object.is equality) at guard-liveness.test.ts:96 — the [GLV-1] paired-negative; plus two further kills at lines 160 and 221",
+    "killedTestNamed": "[GLV-1] appears in the counterfactual suite stdout"
+  },
+  "restoredResult": "git checkout -- in scratch worktree + sha256 equality with the HEAD blob (RESTORED packages/core/hooks/checks/guard-liveness.ts sha256=b05a4eb9…) + probe back to 'PROBE status=fail' + scratch suite pass; main checkout proven clean (git status --porcelain on the kernel file = empty); worktree removed",
+  "finalBaselineResult": "guard-liveness suite pass re-run in the MAIN checkout post-experiment (VITEST-RC final 0); report artifacts cleaned up",
+  "runtimeSeconds": 7,
+  "determinism": "run twice (logs below); both exit 0 with identical kill evidence",
+  "classification": "killed",
+  "replayCommand": "bash scripts/test-assurance/counterfactuals/replay-cf4-guard-liveness-status-inversion.sh",
+  "evidenceLogs": [
+    "docs/test-assurance-kernel/s1/logs/batch-d/cf4-replay.log",
+    "docs/test-assurance-kernel/s1/logs/batch-d/replay2-cf4-guard-liveness-status-inversion.log"
+  ]
+}

@@ -1,0 +1,344 @@
+{
+  "schema": "tak.s3.scope-extension/v1",
+  "evidenceComplete": true,
+  "anchoredBase": {
+    "head": "932ef452c5e9639293eb8c0d17e443b4d2acf6f1",
+    "tree": "4ca080adc480be6972d9adce9b1faadbb619e4e4"
+  },
+  "addedPaths": [
+    {
+      "path": "scripts/test-assurance/s3.mjs",
+      "class": "s3-source",
+      "sha256": "2ecbf73fceaaae07a9b8687853f407525e496edf9b8bd0f855cc939526f40ff2"
+    },
+    {
+      "path": "scripts/test-assurance/s3.test.mjs",
+      "class": "s3-source",
+      "sha256": "3d5fb66466f495169eb0669f8439bf3c6de394ae476fcb16ecd1524e7761f3aa"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/scope-extension.json",
+      "class": "s3-evidence",
+      "selfIndexed": true
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/frozen-policy.json",
+      "class": "s3-evidence",
+      "sha256": "ac0889cd7dc3f399866dbbf11200171f6c90cb3cd4887ab71a3dd605a952d1e6"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/metric-policy.json",
+      "class": "s3-evidence",
+      "sha256": "ca5b485396902efe119238a616fdf3692de73a7d299f2cee5c9cc018c3dba712"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/coverage.json",
+      "class": "s3-evidence",
+      "sha256": "1d23f755d57badd40f663a96236698fbc1f816188305593bcd0ee46900dc767e"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/README.md",
+      "class": "s3-evidence",
+      "sha256": "d1113edecd4bb3098cee6340a75b636c8ef4b3232bd53747bda8e239fdbfaede"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/performance.json",
+      "class": "s3-evidence",
+      "sha256": "41f55a968ce8657dd75e8744d32c56e9043c707c02265a7d9a73af20077ddf6c"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/raw-index.json",
+      "class": "s3-evidence",
+      "sha256": "aabc4dc27ca72d366164e1278c46b34d3273dc666e79e148011c34092b627ec0"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-frozen-t1.log",
+      "class": "s3-evidence",
+      "sha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-frozen-t2.log",
+      "class": "s3-evidence",
+      "sha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-frozen-t3.log",
+      "class": "s3-evidence",
+      "sha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-optimized-t1.log",
+      "class": "s3-evidence",
+      "sha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-optimized-t2.log",
+      "class": "s3-evidence",
+      "sha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-optimized-t3.log",
+      "class": "s3-evidence",
+      "sha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-frozen-t1.log",
+      "class": "s3-evidence",
+      "sha256": "ce8731a14bd213d3583844d274eacb9e0716a41e5c254c5e3c87049fa3bc978b"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-frozen-t2.log",
+      "class": "s3-evidence",
+      "sha256": "12b1b5daee9cc21764883d8b4c3aabd1dbb6d5f968fd5c8aeaf68ea0d0e0cc7d"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-frozen-t3.log",
+      "class": "s3-evidence",
+      "sha256": "abcdfa4d98cfbcc64fc7f3d6f1f84c6db493a4bdd5e1fd1930e51606374fc426"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-optimized-t1.log",
+      "class": "s3-evidence",
+      "sha256": "ef9ef5660909c2c0a2b9afd2da421c5ece4d4117720c40c82e8f107d4b806d81"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-optimized-t2.log",
+      "class": "s3-evidence",
+      "sha256": "cdd33dd968106367c7843ed675c706fda2f4622caeb4484b6dca4abd95320092"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-optimized-t3.log",
+      "class": "s3-evidence",
+      "sha256": "d9b4aaafebc356fa9dce0f33374589296f74c4f47b4ae87de17341c5e5e11c2b"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t1.log",
+      "class": "s3-evidence",
+      "sha256": "81a2363ac957bdcc99b00a4bccd761d465145e6564eca3e6ac7bddc3fbe80664"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t2.log",
+      "class": "s3-evidence",
+      "sha256": "764bf9c2df9d824ff8256d31c100102a5bdae7573dbd655cee01fff22b4d6f6f"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t3.log",
+      "class": "s3-evidence",
+      "sha256": "66d8e36689691674e2178fff7208f27dd65a2fe3e626655e73c9eaab5ffc6d7d"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t1.log",
+      "class": "s3-evidence",
+      "sha256": "c1d80ffb0bd689bd51afb2b0111825e627dd1daf7c8b4033a65cc7e5d042f8c6"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t2.log",
+      "class": "s3-evidence",
+      "sha256": "25eec76f4bf76c6d9b3a9e46faa61629373ee64aac2888b10bb96fa845520f36"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t3.log",
+      "class": "s3-evidence",
+      "sha256": "9b5184095cdc9c255d6dac38cffa4422155ee8442d8aaeeb4227b5c8183e1981"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t1.log",
+      "class": "s3-evidence",
+      "sha256": "57ebdc334f02b3c42fc9f1753abcb3c5c36f1aa6df932d8e911690405a98fd7e"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t2.log",
+      "class": "s3-evidence",
+      "sha256": "bf4caf381c718398e83978e83330820113ba9be63e42f937e4b855a06ce7c997"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t3.log",
+      "class": "s3-evidence",
+      "sha256": "616481130bce0eb52e02e25edbfaba8ebba4d63f97426d096b88f3b21cbebc4d"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t1.log",
+      "class": "s3-evidence",
+      "sha256": "04bb7b615ea70bff78ce7e249537c1e173a5444e8a3a2d4cdcbcf19d51c78b62"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t2.log",
+      "class": "s3-evidence",
+      "sha256": "e34ff0d5d1235b8c986d23cef4875611bed444a38ee8cb42f92a249ed9f63af2"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t3.log",
+      "class": "s3-evidence",
+      "sha256": "fe70ed8536e45a5a5dad04057c1db891ee544739b226d1eff6559f05dc572f14"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-frozen-t1.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-frozen-t2.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-frozen-t3.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-optimized-t1.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-optimized-t2.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/docs-optimized-t3.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-frozen-t1.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-frozen-t2.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-frozen-t3.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-optimized-t1.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-optimized-t2.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/rule-optimized-t3.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t1.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t2.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t3.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t1.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t2.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t3.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t1.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t2.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t3.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t1.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t2.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t3.stderr.log",
+      "class": "s3-evidence",
+      "sha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/collector-journal.json",
+      "class": "s3-evidence",
+      "sha256": "7a26f80fb8067d59aeed13b23eac0cc6407d4fd743a9a71c8eeca4279e0d370b"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/s2-acceptance-932.json",
+      "class": "s3-evidence",
+      "sha256": "5c63785fa06bd3d93ae5df4a2fe857413dba40c2c7cdb814ccdf688a8fccd432"
+    },
+    {
+      "path": "docs/test-assurance-kernel/s3/s3-verdict-9ab84e.json",
+      "class": "s3-evidence",
+      "sha256": "7540b625c1ee57aee62294434900a71719baa1fb6ab65a32f31f92e11ae084a8"
+    }
+  ],
+  "declaredPendingEvidence": [],
+  "modifiedPaths": [
+    {
+      "path": "scripts/test-assurance/verify.mjs",
+      "sha256": "61cab826c26b03fe041787ba7db4abbf9180d83bb640265ff198e56d4ff4f68c"
+    }
+  ],
+  "s4EvidenceIndex": {
+    "namespace": "docs/test-assurance-kernel/s4/",
+    "declaredPaths": [],
+    "allowedKinds": [
+      "spec-review",
+      "quality-review",
+      "code-signature",
+      "ci-record",
+      "install-record",
+      "performance-record"
+    ]
+  },
+  "note": "pending entries name bounded future evidence only; each is sha-pinned in this ledger at landing time (same commit as the file). The ledger itself is the single documented selfIndexed cycle \u2014 Root/owner-reviewed and commit-covered, never self-certified.",
+  "predecessors": {
+    "s2": {
+      "acceptedEvidence": {
+        "path": "docs/test-assurance-kernel/s3/s2-acceptance-932.json",
+        "sha256": "5c63785fa06bd3d93ae5df4a2fe857413dba40c2c7cdb814ccdf688a8fccd432"
+      }
+    },
+    "s3": {
+      "verdictRecord": {
+        "path": "docs/test-assurance-kernel/s3/s3-verdict-9ab84e.json",
+        "sha256": "7540b625c1ee57aee62294434900a71719baa1fb6ab65a32f31f92e11ae084a8"
+      }
+    }
+  }
+}

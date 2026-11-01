@@ -1,0 +1,19 @@
+# GATE 4 (Batch I, post-C3-fix re-run): node scripts/test-assurance/verify.mjs --stage S1 --require-host linux
+# Generated: 2026-10-08T17:10:48Z
+
+VERIFY repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+VERIFY stage=S1 require-host=linux sysname=linux
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+VERIFY prereqs PASS binaries ok; probes ok; oracle 30 cases all present; live oracle sha256=069d2a70165b… matches the driver-expectations pin; driver arms=6
+VERIFY k7-records PASS 5/5 pinned spec §6 records valid (schema, patch hash, reachability, evidence logs on disk, replayable entrypoints)
+VERIFY static-matrix PASS 30/30 fresh CLI replays match the frozen oracle (rejects=9 with intended rule ids, admits/fixtures=21 silent; wrong-import stays an honest rc-0 admission)
+VERIFY driver PASS node scripts/test-assurance/driver.mjs → 0 (baseline conforms; every anti-detector arm reached its frozen flip)
+VERIFY counterfactuals PASS 5/5 replays exit 0 (demonstrations reproduced; honest-survival characterizations pinned)
+VERIFY delivery PASS 4/4 replays exit 0 (demonstrations reproduced; honest-survival characterizations pinned)
+VERIFY suites PASS vitest suites → 0 (Test Files  32 passed (32)) — covers delivery-live/silent, K6 discovery ratchets, corpus ratchet
+VERIFY twins PASS build-shipped-eslint-rules.sh --check → 0 (committed twins in sync with .ts sources)
+VERIFY tsc PASS npm --prefix packages/core run typecheck → 0
+VERIFY dispositions PASS 5 disposition entries valid; coverage complete for 2 non-killed/non-equivalent + review-routed obligation(s) [cf3-guard-liveness-permissive, wrong-import/bad.wrong-import]
+VERIFY-SUMMARY stage=S1 steps=10 pass=10 red=0 infra=0
+VERIFY VERDICT: ACCEPTED exit=0 (stage S1: every registered replay matched its frozen expectation in this invocation)
+GATE4_EXIT=0

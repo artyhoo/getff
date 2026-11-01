@@ -40,7 +40,7 @@ bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
 py_fixture() {  # a pure Python consumer: pyproject.toml, no package.json, a git repo
-  local d; d=$(mktemp -d)
+  local d; d=$(mktemp -d) || { echo ""; return 1; }
   printf '[project]\nname = "demo"\nversion = "0.0.1"\n' > "$d/pyproject.toml"
   ( cd "$d" && git init -q && git config user.email "test@test.com" && git config user.name "Test" ) >/dev/null 2>&1
   echo "$d"
@@ -67,7 +67,10 @@ echo ""
 # ── (1) A2-4 pos: a framework-side hook change REACHES a brownfield consumer via --refresh ────────
 echo "  ── (1) framework-side update → install.sh python --refresh → consumer copy updated ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_178=$?
+if [ "$RC_P50_178" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-178)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_178, expected 0 (p50-178)"; fi
 if [ ! -f "$P/.claude/hooks/inject-matching-rule.sh" ]; then
   bad "(1) precondition: the fresh install did not deliver .claude/hooks/inject-matching-rule.sh"
 else
@@ -75,6 +78,8 @@ else
   FAKE=$(fake_pkg_root "FRAMEWORK-SIDE-UPDATE-A24")
   # PKG_ROOT is resolved by install.sh from its own location, so drive the install THROUGH the farm.
   ( cd "$P" && bash "$FAKE/install.sh" python --refresh < /dev/null ) > "$P/refresh.log" 2>&1
+  RC_P50_179=$?
+  if [ "$RC_P50_179" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-179)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_179, expected 0 (p50-179)"; fi
   if grep -qF 'FRAMEWORK-SIDE-UPDATE-A24' "$P/.claude/hooks/inject-matching-rule.sh"; then
     ok "(1) the new framework hook body reached the consumer (agent surface honours --refresh)"
   else
@@ -88,6 +93,8 @@ else
     printf 'CONSUMER-DRIFT\n' >> "$P/.claude/skills/getff/SKILL.md"
     printf 'CONSUMER-DRIFT\n' >> "$P/.claude/hooks/deps-hash-check.sh"
     ( cd "$P" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+    RC_P50_180=$?
+    if [ "$RC_P50_180" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-180)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_180, expected 0 (p50-180)"; fi
     _stale=""
     for _f in .claude/agents/rule-researcher.md .claude/skills/rule-research/SKILL.md \
               .claude/skills/getff/SKILL.md .claude/hooks/deps-hash-check.sh; do
@@ -107,9 +114,14 @@ fi
 # unconditionally would pass arm (1) while destroying that contract, so this arm must stay RED-able.
 echo ""; echo "  ── (2) NEG: a plain re-run (no --refresh) must NOT overwrite the consumer copy ──"
 P2=$(py_fixture)
+[ -n "$P2" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P2" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_181=$?
+if [ "$RC_P50_181" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-181)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_181, expected 0 (p50-181)"; fi
 FAKE2=$(fake_pkg_root "FRAMEWORK-SIDE-UPDATE-NEG")
 ( cd "$P2" && bash "$FAKE2/install.sh" python < /dev/null ) >/dev/null 2>&1
+RC_P50_182=$?
+if [ "$RC_P50_182" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-182)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_182, expected 0 (p50-182)"; fi
 if grep -qF 'FRAMEWORK-SIDE-UPDATE-NEG' "$P2/.claude/hooks/inject-matching-rule.sh"; then
   bad "(2) a plain re-run overwrote the consumer hook — skip-if-exists contract broken (arm (1) is vacuous)"
 else
@@ -124,6 +136,8 @@ printf 'CONSUMER-OWNED-BODY\n' >> "$P/.claude/agents/rule-researcher.md"
 printf 'CONSUMER-OWNED-SKILL\n' >> "$P/.claude/skills/rule-research/SKILL.md"
 : > "$P/.claude/skills/rule-research.override.md"
 ( cd "$P" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_183=$?
+if [ "$RC_P50_183" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-183)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_183, expected 0 (p50-183)"; fi
 if grep -qF 'CONSUMER-OWNED-BODY' "$P/.claude/agents/rule-researcher.md"; then
   ok "(3) agent with a sibling .override.md was NOT overwritten"
 else
@@ -144,6 +158,8 @@ for _f in .ai-factory/RULES.md .ai-factory/DESCRIPTION.md .ai-factory/ARCHITECTU
   printf '\n<!-- CONSUMER-EDIT -->\n' >> "$P/$_f"
 done
 ( cd "$P" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_184=$?
+if [ "$RC_P50_184" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-184)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_184, expected 0 (p50-184)"; fi
 _clobbered=""
 for _f in .ai-factory/RULES.md .ai-factory/DESCRIPTION.md .ai-factory/ARCHITECTURE.md \
           .ai-factory/tool-decisions.md .ai-factory/rules/integration-rules.md; do
@@ -159,6 +175,8 @@ fi
 echo ""; echo "  ── (5) .ai-factory/AI-USAGE-GUIDE.md is framework-owned → refreshed ──"
 printf '\nSTALE-GUIDE\n' >> "$P/.ai-factory/AI-USAGE-GUIDE.md"
 ( cd "$P" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_185=$?
+if [ "$RC_P50_185" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-185)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_185, expected 0 (p50-185)"; fi
 if grep -qF 'STALE-GUIDE' "$P/.ai-factory/AI-USAGE-GUIDE.md"; then
   bad "(5) AI-USAGE-GUIDE.md not refreshed — diverges from do_refresh (install.sh:1605)"
 else
@@ -169,6 +187,7 @@ rm -rf "$P"
 # ── (6)-(9) A2-5: the python consumer's RULES.md is the PYTHON rule list ──────────────────────────
 echo ""; echo "  ── (6) RULES.md names every delivered ast-grep rule id + ruff ban code ──"
 PR=$(py_fixture)
+[ -n "$PR" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 # A researched rule joins the delivered set on every pass (_py_join_researched_rules) — plant one so
 # arm (8) can prove the doc is RENDERED from disk, not a static list that would start lying here.
 mkdir -p "$PR/.getff/rules-research"
@@ -184,6 +203,8 @@ rule:
   pattern: "pickle.loads($$$ARGS)"
 YML
 ( cd "$PR" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_186=$?
+if [ "$RC_P50_186" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-186)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_186, expected 0 (p50-186)"; fi
 RULES="$PR/.ai-factory/RULES.md"
 if [ ! -f "$RULES" ]; then
   bad "(6) .ai-factory/RULES.md was not delivered on the python lane"
@@ -227,6 +248,8 @@ EOF
   echo ""; echo "  ── (9) RULES.md is consumer-owned: --refresh never overwrites it ──"
   printf '\n<!-- MY-OWN-RULE -->\n' >> "$RULES"
   ( cd "$PR" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+  RC_P50_187=$?
+  if [ "$RC_P50_187" -eq 0 ]; then ok "python-agent-surface-refresh: install rc=0 (p50-187)"; else bad "python-agent-surface-refresh: install rc=$RC_P50_187, expected 0 (p50-187)"; fi
   if grep -qF 'MY-OWN-RULE' "$RULES"; then
     ok "(9) --refresh preserved the consumer's own RULES.md edits"
   else

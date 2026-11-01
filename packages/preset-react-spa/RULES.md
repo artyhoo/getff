@@ -1,6 +1,6 @@
 # Rules — automatically enforced after every /aif-implement
 
-> **Authoritative for:** canonical R1–R11 rule list for the preset-react-spa preset (consumer-customisable). Enforcement is multi-channel (earliest reachable channel wins): edit-time custom ESLint rules, pre-push `audit-ai-docs.sh`, and AI Factory's `rules-sidecar` (which reads this file at `.ai-factory/RULES.md` during `/aif-verify`).
+> **Authoritative for:** canonical base and test-quality rule catalog for the preset-react-spa preset (consumer-customisable). Enforcement is multi-channel (earliest reachable channel wins): edit-time custom ESLint rules, pre-push `audit-ai-docs.sh`, and AI Factory's `rules-sidecar` (which reads this file at `.ai-factory/RULES.md` during `/aif-verify`).
 > **NOT authoritative for:** project goal — see consumer's README.md. SPA-specific rules (R-SPA-*) — see `RULES.react-spa.md`.
 
 These rules are enforced at the **earliest reachable channel**: custom ESLint rules at
@@ -24,6 +24,8 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 | **R9 Imports / dependencies** | ESLint `no-restricted-imports` |
 | **R10 Naming** | Manual review — sidecar runs ad-hoc grep on the diff |
 | **R11 CI integrity** | `ci.yml (lint/typecheck/architecture/test/security/audit-ai-docs → ci-success aggregate)` |
+| **R21 Non-vacuous test assertions** | ESLint `rules-as-tests/no-vacuous-assertion` |
+| **R22 Effective test assertion presence** | ESLint `rules-as-tests/require-effective-assertion` |
 
 ## R1 — TypeScript hygiene
 - No `as any` anywhere. If type is genuinely unknown, use `unknown` and narrow.
@@ -61,6 +63,8 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 - No conditional logic (`if`/`for`/`while`) in test bodies — use `it.each` for variants.
 
 **Check:** `scripts/audit-r4.ts` + `vitest related <changed>`
+
+**Assurance scope:** The probe proves only matching file/name-reference structure. Configured test-file lint rejects selected syntax defects, and actual test execution is separate. The existing R4 rules-sidecar during `/aif-verify`, or explicit manual R4 review when that companion is absent, assesses governed-behavior relevance, independent expectations and the stated boundary/property obligations. Structural/syntax checks alone do not certify behavioral coverage.
 
 ## R5 — Async correctness
 - All Promises either `await`ed or explicitly handled with `.catch()`.
@@ -104,6 +108,15 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 **Check:** `ci.yml` aggregate via `ci-success` job (`needs:` all quality jobs).
 
 ---
+
+## Test-quality syntax floors (R21/R22)
+
+- **R21:** `rules-as-tests/no-vacuous-assertion` rejects literal-only assertions.
+- **R22:** `rules-as-tests/require-effective-assertion` requires an effective assertion.
+
+Both rules are already enabled by this preset's test-file ESLint configuration.
+They check decidable syntax. They do not establish behavioral coverage, oracle
+independence or mock fidelity; those remain review and counterfactual obligations.
 
 ## How violations are handled
 

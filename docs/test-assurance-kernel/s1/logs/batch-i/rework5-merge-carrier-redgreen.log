@@ -1,0 +1,19 @@
+# rework5 [89d0cdb7197e]+[04b2f96c72a8] — cited-host-commit carrier check, BOTH WAYS (raw evidence)
+
+Mechanism: verify.mjs stepDispositions runs git cat-file -t on every CITED_HOST_COMMITS entry
+(46c8d1d5f78, env-scrubbed spawn). Unresolved + no owner-stage merge-carrier entry = RED;
+unresolved + entry present = PASS carrier-pending; resolved = PASS (merge-forward carried it).
+
+== GREEN arm: entry present, commit unresolved (in-container state) ==
+VERIFY dispositions PASS 16 disposition entries valid; coverage complete for 2 non-killed/non-equivalent + review-routed obligation(s) [cf3-guard-liveness-permissive, wrong-import/bad.wrong-import]; cited host commits: 46c8d1d5f78 carrier-pending (obligation disp-rework5-host-commit-merge-carrier)
+VERIFY VERDICT: PARTIAL-ACCEPTED exit=0 (stage S1: 1/10 steps ran via --step filter and all matched; the stage-level verdict requires an unfiltered run)
+rc=0
+
+== RED arm: carrier entry removed (hash-proven tamper + restore) ==
+pre-tamper sha256 30cc2defc42d213ab461cf8897004cd477ea16709ecb8fb656971739b9fd1766
+carrier entry block removed (parsed-id match)
+VERIFY dispositions RED 1 dispositions finding(s): cited host commit 46c8d1d5f78 (lockfile-clean host build-getff-dist rebuild — the freshness evidence named by the promotion gates) does not resolve in this checkout and no owner-stage merge-carrier entry (source merge-carrier/46c8d1d5f78) covers it — the citation dangles for any PR reader
+VERIFY VERDICT: NOT-ACCEPTED exit=1 (RED steps: dispositions)
+rc=1
+post-restore sha256 30cc2defc42d213ab461cf8897004cd477ea16709ecb8fb656971739b9fd1766
+RESTORE hash-proven OK

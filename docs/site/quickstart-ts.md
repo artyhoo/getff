@@ -12,6 +12,7 @@ sources:
   - docs/site/quickstart-python.md
   - docs/site/quickstart-rust.md
   - docs/site/terms.md
+  - eslint.config.mjs
   - install.sh
   - package.json
   - packages/core/manifest/maturity.json

@@ -1,0 +1,19 @@
+# rework5 gate: markdownlint over the s1 md set (raw)
+$ npx markdownlint-cli2 "docs/test-assurance-kernel/s1/*.md"
+rc=0 (0 = clean)
+markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)
+Finding: docs/test-assurance-kernel/s1/*.md
+Linting: 9 files
+Summary: 0 issues in 0 files
+
+== wc -l (600-line markdown gate) ==
+   598 docs/test-assurance-kernel/s1/batches.md
+   260 docs/test-assurance-kernel/s1/cold-review.md
+    64 docs/test-assurance-kernel/s1/corpus-register.md
+   308 docs/test-assurance-kernel/s1/dispositions.md
+   116 docs/test-assurance-kernel/s1/honest-limits.md
+    41 docs/test-assurance-kernel/s1/matrix.md
+   174 docs/test-assurance-kernel/s1/pr-body-disclosures.md
+    60 docs/test-assurance-kernel/s1/prior-art.md
+   127 docs/test-assurance-kernel/s1/replay-commands.md
+  1748 total

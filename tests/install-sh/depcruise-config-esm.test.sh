@@ -83,6 +83,8 @@ fi
 C="$WORK/fresh"; mkdir -p "$C"
 printf '{ "name": "dcc", "version": "0.0.0" }\n' > "$C/package.json"
 ( cd "$C" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$WORK/c.log" 2>&1
+RC_P50_052=$?
+if [ "$RC_P50_052" -eq 0 ]; then ok "depcruise-config-esm: install rc=0 (p50-052)"; else bad "depcruise-config-esm: install rc=$RC_P50_052, expected 0 (p50-052)"; fi
 [ -f "$C/.dependency-cruiser.mjs" ] && ok "C: fresh install placed .dependency-cruiser.mjs" \
   || bad "C: fresh install did not place .dependency-cruiser.mjs"
 [ ! -e "$C/.dependency-cruiser.cjs" ] && ok "C: no .dependency-cruiser.cjs placed" \
@@ -98,6 +100,8 @@ printf '{ "name": "dcd", "version": "0.0.0" }\n' > "$D/package.json"
 printf "/** the consumer's own */\nmodule.exports = { forbidden: [] };\n" > "$D/.dependency-cruiser.js"
 cp "$D/.dependency-cruiser.js" "$WORK/own.before"
 ( cd "$D" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$WORK/d.log" 2>&1
+RC_P50_053=$?
+if [ "$RC_P50_053" -eq 0 ]; then ok "depcruise-config-esm: install rc=0 (p50-053)"; else bad "depcruise-config-esm: install rc=$RC_P50_053, expected 0 (p50-053)"; fi
 cmp -s "$D/.dependency-cruiser.js" "$WORK/own.before" && ok "D: the consumer's .dependency-cruiser.js is byte-identical after install" \
   || bad "D: the consumer's .dependency-cruiser.js was changed"
 [ ! -e "$D/.dependency-cruiser.mjs" ] && [ ! -e "$D/.dependency-cruiser.cjs" ] \

@@ -1,0 +1,56 @@
+# Batch C verification log (Q4/Q5 executed conformance) — raw gate output
+# recorded: 2026-10-08, base HEAD 7a5d1caf5 + Batch C working tree (see git log)
+# All commands run from the repo root unless noted. Exits are verbatim.
+
+## 1. RED probe (BEFORE any Batch C mechanism existed) — see red-probe.log
+# baseline: all 5 corpus cases (q4 bad/good, q1 fabricated-status aux, q5 bad/good)
+#   PASS under the real runner (vitest 4.1.8) with the real exit-42 subprocess and a
+#   healthy helper — EXIT CODE: 0  → the gap exists on this base (channel absent).
+# q4 flip (fixture process.exit(42) -> process.exit(0)): EXIT CODE: 1
+#   "AssertionError: expected +0 to be 42 // Object.is equality" on q4-good only;
+#   q4-bad + fabricated stay green  → survival recorded, gap demonstrated.
+# q5 fault (helper sealed = true -> sealed = false): EXIT CODE: 1
+#   "AssertionError: expected false to be true // Object.is equality" on q5-good only;
+#   q5-bad stays green  → circular evidence survives, reject demonstrated.
+# Full raw runner output incl. reporter blocks: red-probe.log (136 lines).
+
+## 2. Pre-existing typecheck debt found by this batch's gate, repaired in an atomic fix commit
+$ node_modules/.bin/tsc --noEmit -p packages/core   # BEFORE repairs:
+packages/core/eslint-rules/no-vacuous-assertion.ts(87,28): error TS2345: Argument of type
+  'CallExpressionArgument' is not assignable to parameter of type 'PrivateIdentifier | Expression'.
+packages/core/hooks/checks/guard-liveness.ts(303,7): error TS2322: Type 'Record<string, unknown>'
+  is not assignable to type 'Record<string, Plugin>'.
+packages/core/principles/51-test-quality-corpus-conformance.test.ts(63,5): error TS2352: Conversion
+  of type '...' to type 'Config<RulesConfig>[]' may be a mistake (neither type sufficiently overlaps).
+# AFTER repairs (SpreadElement narrowing + use-site plugin cast + unknown-first cast):
+$ node_modules/.bin/tsc --noEmit -p packages/core > /tmp/s1-tsc-out.txt 2>&1; echo "TSC EXIT=$?"
+TSC EXIT=0        # 0 lines of output — clean, incl. the new 52 module + test
+
+## 3. Twin regeneration (the no-vacuous-assertion.ts edit drifts its committed .mjs twin)
+$ bash scripts/build-shipped-eslint-rules.sh          → EXIT=0
+  "✓ compiled 8 rule(s) → .mjs + .d.ts (committed next to .ts sources; consumer needs no tsc)."
+$ bash scripts/build-shipped-eslint-rules.sh --check  → EXIT=0
+  "✓ shipped compiled rules in sync with .ts sources (32 checks)."
+$ grep -c SpreadElement packages/core/eslint-rules/no-vacuous-assertion.mjs → 2  (fix present in twin)
+
+## 4. Affected suites, run TWICE for determinism (one earlier run had exposed a
+#    scratch-litter collision in the missing-file arm — fixed with unique scratch names
+#    + finally cleanup; the failure was in the TEST harness, not the mechanism)
+$ vitest run eslint-rules/no-vacuous-assertion.test.ts eslint-rules/require-effective-assertion.test.ts \
+    eslint-rules/plugin-dual-engine.test.ts hooks/checks/guard-liveness.test.ts \
+    principles/51-test-quality-corpus-conformance.test.ts principles/52-subprocess-status-conformance.test.ts
+RUN 1: Test Files 6 passed (6) — Tests 114 passed (114)
+RUN 2: Test Files 6 passed (6) — Tests 114 passed (114)
+# per-file: no-vacuous-assertion ✓, require-effective-assertion ✓, plugin-dual-engine ✓,
+#           guard-liveness ✓ (20 arms incl. changed-file lane), 51 ✓ (6/6, ratchet exact),
+#           52 ✓ (8/8 — Q4/Q5 scenarios 738ms + 696ms, 4 real runner invocations)
+
+## 5. Self-application sanity (early T15) — root delivery lane over the new kernel files
+$ node_modules/.bin/eslint packages/core/principles/52-subprocess-status-conformance.test.ts
+ESLINT-52TEST EXIT=0    # both Q1/Q2 rules admit the new principle test (effective assertions)
+$ node_modules/.bin/eslint scripts/test-assurance/corpus/q4-ignored-exit/{bad,good}*.ts \
+    scripts/test-assurance/corpus/q5-self-source/{bad,good}*.ts
+ESLINT-CORPUS EXIT=0    # matches the frozen static matrix exactly: q4/q5 classes are
+                        # static-ADMITs (expectations.json) — their channel is executed-conformance
+
+## 6. Population ratchet unchanged (principle 51 sweep still exact at 5 pinned findings) ✓ (in §4)

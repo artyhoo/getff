@@ -1,0 +1,58 @@
+{
+  "head_observed": "8400408c47b63beabece9d20c15a48c2d4f4efe9",
+  "governing_surface": "packages/core/manifest/rules-manifest.json policy of automated-check rule; NOT arbitrary .agents/rules prose",
+  "contract": "packages/core/principles/06-must-not-demoted.test.ts:6-29 soft/demotion language with hard counterpart and manual exemption; original spec SeedA01 requires accepted lowercasewording and syntactic/semantic distinction",
+  "source_gate_sha256": "57d108329987193347af31e3489d1882d3afe9c21477c5bc1b546dbb5bca590d",
+  "manifest_sha256": "9ac59a882852b6cefc2ad19e1c77af95e1cc22374a4970a53c22c7751ecd2153",
+  "actual_entry_id": "R1",
+  "actual_automated_check_type": "command",
+  "cases": [
+    {
+      "id": "plain-should-automated",
+      "policy": "should use the injected config accessor.",
+      "manual_override": false,
+      "expected_real_gate": "reject"
+    },
+    {
+      "id": "soft-recommendation-automated",
+      "policy": "Recommended to use the injected config accessor where possible.",
+      "manual_override": false,
+      "expected_real_gate": "reject"
+    },
+    {
+      "id": "preferably-automated",
+      "policy": "Preferably use the injected config accessor.",
+      "manual_override": false,
+      "expected_real_gate": "reject"
+    },
+    {
+      "id": "uppercase-must-with-soft-context",
+      "policy": "MUST use the injected config accessor. Recommended to add context.",
+      "manual_override": false,
+      "expected_real_gate": "admit"
+    },
+    {
+      "id": "lowercase-must-with-soft-context",
+      "policy": "must use the injected config accessor. Recommended to add context.",
+      "manual_override": false,
+      "expected_real_gate": "admit"
+    },
+    {
+      "id": "hard-never-with-soft-context",
+      "policy": "Never read environment directly. Recommended to add context.",
+      "manual_override": false,
+      "expected_real_gate": "admit"
+    },
+    {
+      "id": "manual-soft-control",
+      "policy": "Recommended to use the injected config accessor where possible.",
+      "manual_override": true,
+      "expected_real_gate": "admit"
+    }
+  ],
+  "scope": "Independently normative lexical contract: should is documentedsoftword; case-sensitive MUST alternative is not a semantic weakening. This is NOT general semanticdemotion proof: quoted/contextual/ambiguouspolicy staysnamedreview.",
+  "frozen_before_source_effect": true,
+  "actual_gate_replay": "Not yet performed; productionhelper is private in actualprinciple file. Future approvedouterdriver must execute actualP06 on owned scratchmanifest/corpus, not copypredicate or mutateexpectedafterresults.",
+  "K3_K4_required": "Unchangedoutercases must reject actualpermissivegate and overrejectinggate faults, with independent reachability and restoration; originalS0/S1 recordsfixed.",
+  "source_admission": false
+}

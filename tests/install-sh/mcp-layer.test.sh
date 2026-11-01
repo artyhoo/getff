@@ -70,8 +70,10 @@ _run_install() {
   (
     export PATH="$_stub_bin:$PATH"
     cd "$proj"
-    bash "$REPO_ROOT/install.sh" ts-server "${args[@]}" 2>/dev/null
+    bash "$REPO_ROOT/install.sh" ts-server "${args[@]}" 2>/dev/null \
   )
+  RC_P50_172=$?
+  [ "$RC_P50_172" = 0 ] || bad "mcp-layer: helper install rc=$RC_P50_172, expected 0 (p50-172)"
 }
 
 # ── (a) --full --force → .mcp.json with correct context7 shape ───────────────

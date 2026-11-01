@@ -1,0 +1,64 @@
+
+> @rules-as-tests/core@0.1.0 test:canonical
+> node --test ../../scripts/canonical-agents-source.test.mjs ../../scripts/canonical-native.test.mjs ../../scripts/codex-contributor.test.mjs
+
+✔ the full migration population has authored owners and reachable native entries (46.701334ms)
+✔ story helper and hook are shared owners, including edits through compatibility entries (40.714834ms)
+✔ authority hook still distinguishes clean and violating edits through both entries (582.013833ms)
+✔ one output-language instruction preserves CC plain output and ZCode JSON adaptation (30.409959ms)
+✔ CC report warning calls the shared grammar with clean, violation and noise controls (96.568333ms)
+✔ Codex bindings load one canonical procedure and helpers without copying its body (4.597083ms)
+✔ native check executes the canonical owner without a Claude compatibility tree (9.189333ms)
+✔ Git carries exact native bindings while private runtime files stay ignored (109.555125ms)
+✔ native role descriptions preserve folded and literal canonical YAML scalars (1.869041ms)
+✔ consumer native bindings run the delivered authority check without contributor assets (345.1285ms)
+✔ the authoring repo checked-in codex population matches the SSOT render (65.597292ms)
+✔ native card parity is gated: description, policy flag and deleted target fail --check; body-only edits stay green (335.305042ms)
+✔ emitted card helper bindings execute from root and nested cwd through the git-anchored path (127.963042ms)
+✔ all add/update/delete/rename targets are checked, not only first file (1.45175ms)
+✔ source marker gate receives Codex patch target and exits 2 (25.315625ms)
+✔ source rule injection fires on second patch path and returns native context (346.788917ms)
+✔ pre-tool seal denies settings in a later patch operation before effects (3.395625ms)
+✔ native shell and question canonical names retain original arguments (0.1355ms)
+✔ missing source hook is visibly failed (0.331708ms)
+✔ stable latest assistant wins over known rollout messages, unknown schema adds no usage (1.0315ms)
+✔ native emitter preserves lifecycle coverage, replaces only ZCode rewrite, all skill populations (10.067959ms)
+✔ missing targets beneath symlinked protected parents remain sealed (1.420834ms)
+✔ SubagentStop adapts agent_transcript_path fallback (54.967042ms)
+✔ retired generated source skills disappear and drift fails before refresh (191.393334ms)
+✔ retired inventory cannot remove files through traversal or symlink parents (191.45975ms)
+✔ native doctor rejects stale commands, metadata and missing duplicate registrations (0.343959ms)
+✔ generation refuses destination symlinks without rewriting canonical or foreign files (93.945ms)
+✔ observed native rollout retains completed shell/MCP calls and per-response usage (0.479584ms)
+✔ malformed or cumulative-only native usage cannot invent a context estimate (0.275083ms)
+✔ usage after native final text cannot hide incomplete SubagentStop report (54.838084ms)
+✔ Codex retains dormant handoff policy and shares wrapper language fallback (104.327959ms)
+✔ native model window reaches source context tier while explicit override wins (1138.396958ms)
+✔ native evidence preserves completion, identity and parse diagnostics additively (0.869041ms)
+✔ native evidence retains observed starts without changing default hook output (0.610333ms)
+✔ native evidence correlates observed requests with completion cycle (0.488333ms)
+✔ native evidence rejects contradictory outer and inner effect turn identities (1.207541ms)
+✔ M02 shell reader transport: quoted and multiple absolute paths use Read selector independently of events (1044.567334ms)
+✔ M02 head/tail transport: only tested -n decimal and -- grammar resolves targets (457.950958ms)
+✔ M02 unresolved transport: native cwd does not prove relative identity and substitutions stay unresolved (484.83825ms)
+✔ M08 canonical shell denies: command operands are never executed and echo remains a non-effect control (78.67975ms)
+✔ M08 canonical read distinction: direct and shell credentials are denied; ordinary read and env writes remain allowed (99.84275ms)
+✔ M08 patch policy: later target, delete, rename source/destination, and symlink parents remain sealed (40.811333ms)
+✔ M08 explicit degradation: unknown tool and unsupported canonical syntax never claim full policy coverage (52.988042ms)
+✔ M02/M08 emitted registration flip: known native effect aliases select real adapter branches (224.505542ms)
+✔ M08 symlink resolution flip: dangling protected targets and credential aliases use physical parents (3.125417ms)
+✔ M08 primary seal control: canonical hook retains primary settings.local seal from another fixture cwd (123.289042ms)
+✔ M02 effective cwd flip: explicit raw exec_command workdir resolves relative reader; native session cwd stays unresolved (382.317917ms)
+✔ M08 R1 argv boundary regression: real deny tokens differ from quoted single arguments and executables (127.687292ms)
+✔ M02 R2 executor regression: supported shell reads and native events differ from Python overrides (2426.358125ms)
+✔ M08 R2 executor regression: shell denies differ from identical Python command text (57.392833ms)
+✔ M02 leading-dash regression: end-of-options enables a filename while quoted reader text stays inert (1400.620333ms)
+✔ M02 cat stdin regression: bare dash is unresolved while explicit dash filenames remain reads (1265.173792ms)
+ℹ tests 52
+ℹ suites 0
+ℹ pass 52
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10630.80925

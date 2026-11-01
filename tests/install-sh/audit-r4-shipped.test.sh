@@ -15,6 +15,8 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 T=$(mktemp -d)
 printf '{ "name": "f6t", "version": "0.0.0" }\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_001=$?
+if [ "$RC_P50_001" -eq 0 ]; then ok "audit-r4-shipped: install rc=0 (p50-001)"; else bad "audit-r4-shipped: install rc=$RC_P50_001, expected 0 (p50-001)"; fi
 
 # F6-pos — the R4 probe lands next to its caller.
 [ -f "$T/scripts/audit-r4.ts" ] && ok "F6: scripts/audit-r4.ts shipped" || bad "F6: scripts/audit-r4.ts missing"

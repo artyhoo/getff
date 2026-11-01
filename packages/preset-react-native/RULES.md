@@ -1,12 +1,12 @@
 # Rules — automatically enforced after every /aif-implement
 
-> **Authoritative for:** canonical R1–R11 rule list for the preset-react-native preset (consumer-customisable). Enforcement is multi-channel (earliest reachable channel wins): core ESLint rules at edit-time, pre-push `audit-ai-docs.react-native.sh`, and AI Factory's `rules-sidecar` (which reads this file at `.ai-factory/RULES.md` during `/aif-verify`).
+> **Authoritative for:** canonical base and test-quality rule catalog for the preset-react-native preset (consumer-customisable). Enforcement is multi-channel (earliest reachable channel wins): core ESLint rules at edit-time, pre-push `audit-ai-docs.react-native.sh`, and AI Factory's `rules-sidecar` (which reads this file at `.ai-factory/RULES.md` during `/aif-verify`).
 > **NOT authoritative for:** project goal — see consumer's README.md.
 
 These rules are enforced at the **earliest reachable channel**: core ESLint rules at edit-time,
 getff's own rule-globs / lint-staged / generated-rule / link checks at pre-push, and AI
 Factory's `rules-sidecar` (which reads this file) at `/aif-verify`. Your `tsc` and test suite
-are yours to wire — the pre-push hook does not run them. Each rule has a corresponding automated check.
+are yours to wire — the pre-push hook does not run them. Checks run where configured. The R21/R22 syntax checks below are not wired by this preset.
 Bypass via `/aif-rules` (with rationale), never via `--no-verify`.
 
 ## Summary table
@@ -24,6 +24,8 @@ Bypass via `/aif-rules` (with rationale), never via `--no-verify`.
 | **R9 Imports / dependencies** | all | ESLint `no-restricted-imports` |
 | **R10 Naming** | all | Manual review |
 | **R11 CI integrity** | all | `ci.yml (lint/typecheck/test/security/audit-ai-docs → ci-success aggregate)` |
+| **R21 Non-vacuous test assertions** | all | `rules-as-tests/no-vacuous-assertion` — NOT wired; manual R4 review |
+| **R22 Effective test assertion presence** | all | `rules-as-tests/require-effective-assertion` — NOT wired; manual R4 review |
 
 ## R1 — TypeScript hygiene
 
@@ -55,6 +57,8 @@ Bypass via `/aif-rules` (with rationale), never via `--no-verify`.
 - Tests contain real assertions (not just `toBeDefined()` for typed values).
 
 **Check:** `scripts/audit-r4.ts` or manual review.
+
+**Assurance scope:** The probe proves only matching file/name-reference structure. This native preset does not wire Q1/Q2 (R21/R22); its catalog rows retain manual review. Actual configured test execution is separate. The existing R4 rules-sidecar during `/aif-verify`, or explicit manual R4 review when that companion is absent, assesses governed-behavior relevance, independent expectations and applicable boundary/property obligations. A structural pass does not certify behavioral coverage.
 
 ## R5 — Async correctness
 
@@ -104,6 +108,16 @@ Bypass via `/aif-rules` (with rationale), never via `--no-verify`.
 **Check:** `github-actions-ci-ui.yml` structure review.
 
 ---
+
+## Test-quality syntax floors (R21/R22)
+
+- **R21:** `rules-as-tests/no-vacuous-assertion` detects literal-only assertions.
+- **R22:** `rules-as-tests/require-effective-assertion` detects missing effective assertions.
+
+This React Native preset does **not** wire either rule. Review test assertions
+manually under R4; these catalog rows do not enable automatic enforcement.
+Even where enabled elsewhere, the rules establish syntax floors, not behavioral
+coverage, oracle independence or mock fidelity.
 
 ## How violations are handled
 

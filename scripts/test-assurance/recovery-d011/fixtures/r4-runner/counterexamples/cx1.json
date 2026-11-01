@@ -1,0 +1,14 @@
+{
+  "id": "cx1",
+  "tag": "passed+required-pending",
+  "provenance": "chief counterexample, bytes verbatim from amended-1/evidence/coordinator-classifier-probe.mts line 60; amended-1/evidence/coordinator-classifier-result.json case 'same file passed + required pending'",
+  "filters": ["same.test.ts"],
+  "rootDir": "/r4-replay",
+  "report": {"success": true, "numTotalTests": 2, "testResults": [{"name": "same.test.ts", "status": "passed", "assertionResults": [{"status": "passed"}, {"status": "pending"}]}]},
+  "caller_fed_files_amended1": {"same.test.ts": {"status": "pass", "failureMessages": []}},
+  "stdout": "",
+  "exitCode": 0,
+  "amended1_actual": "pass",
+  "expected_amended2": "not-executed",
+  "note": "A3: the report's own assertion said pending; the amended-1 caller-fed files channel overrode it to pass. v2 derives status from the report itself: pending is never-executed -> not-executed, before any detection credit."
+}

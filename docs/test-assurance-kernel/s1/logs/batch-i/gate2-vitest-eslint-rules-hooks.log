@@ -1,0 +1,11 @@
+== gate 2: npx vitest run packages/core/eslint-rules packages/core/hooks/checks ==
+
+ RUN  v4.1.8 /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+
+
+ Test Files  29 passed (29)
+      Tests  773 passed | 1 skipped (774)
+   Start at  16:52:26
+   Duration  3.89s (transform 1.76s, setup 462ms, import 7.82s, tests 16.54s, environment 2ms)
+
+GATE2_EXIT=0

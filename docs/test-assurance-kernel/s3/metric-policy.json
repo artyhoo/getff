@@ -1,0 +1,17 @@
+{
+  "schema": "tak.s3.metric-policy/v1",
+  "frozenCopy": "docs/test-assurance-kernel/s3/frozen-policy.json",
+  "frozenCopySha256": "ac0889cd7dc3f399866dbbf11200171f6c90cb3cd4887ab71a3dd605a952d1e6",
+  "consumer": "scripts/test-assurance/s3.mjs evaluateMetricTrial",
+  "policy": {
+    "dominantOrdinaryWorkload": "rule",
+    "dominantReductionFraction": 0.2,
+    "otherRegressionFraction": 0.05,
+    "otherRegressionAbsoluteMs": 1000,
+    "trialsPerRoleAndWorkload": 3,
+    "normalTrials": 24,
+    "historicalOriginalRuleMedianMs": 538,
+    "historicalOriginalRuleTargetMs": 430.4
+  },
+  "note": "The eight pureMetricCases inside the frozen copy are TEST-ONLY boundary predicates proving consumer liveness at the exact inclusive boundaries (1000->800 PASS, 1000->801 RED, 1000->2000 PASS, 1000->2001 RED, 30000->31500 PASS, 30000->31501 RED, missing-trial INVALID, nonpositive INVALID). They are never real performance evidence; the s3-policy-units step byte-pins the oracle so expected verdicts cannot be edited to satisfy the check."
+}

@@ -48,6 +48,8 @@ project() { # $1 = dir — an empty project with a package.json and a git repo
 install_into() { # $1 = dir, $2 = stack, rest = install.sh flags
   local d="$1" s="$2"; shift 2
   ( cd "$d" && bash "$REPO_ROOT/install.sh" "$s" "$@" </dev/null ) >"$d.log" 2>&1
+  RC_P50_319=$?
+  [ "$RC_P50_319" = 0 ] || bad "vitest-layout-roots: helper install rc=$RC_P50_319, expected 0 (p50-319)"
 }
 anchored() { sed "s#'src/\*\*/#'$1/**/#g" "$2"; } # $1 = anchor, $2 = template → the expected bytes
 

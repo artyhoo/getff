@@ -1,0 +1,86 @@
+{
+  "kind": "r4-runner pinned replay inputs sidecar (amended-2/A3)",
+  "note": "Per-report rootDir/filters/stdout/exitCode for deterministic replay through the amended-2 classifier. The six base reports are byte-copied from amended-1/fixtures/r4-runner/reports (immutable, hash-pinned in the sub-batch manifest); the four malformed-* controls are new. stdout pins only the load-bearing reporter lines (the Errors regex the grammar reads); full fresh live captures live in amended-2/evidence/.",
+  "reports": {
+    "mixed.report.json": {
+      "rootDir": "/Users/art/.claude/jobs/fdda52c3/tmp/r4-exp",
+      "filters": ["tests/intended-fail.test.ts", "tests/unhandled.test.ts"],
+      "stdout": "Errors  1\n",
+      "exitCode": 1,
+      "expected": "infrastructure-failure",
+      "why": "unhandled runner error (reporter Errors line) present ALONGSIDE an intended failure — infrastructure, never detection (A3 order: Errors check precedes anyFail)"
+    },
+    "passskip.report.json": {
+      "rootDir": "/Users/art/.claude/jobs/fdda52c3/tmp/r4-exp",
+      "filters": ["tests/healthy.test.ts", "tests/skipped.test.ts"],
+      "stdout": "",
+      "exitCode": 0,
+      "expected": "not-executed",
+      "why": "healthy passed + required skipped: skipped is never-executed, not a pass (A3 cx1 channel)"
+    },
+    "unhandled-only.report.json": {
+      "rootDir": "/Users/art/.claude/jobs/fdda52c3/tmp/r4-exp",
+      "filters": ["tests/unhandled.test.ts"],
+      "stdout": "Errors  1\n",
+      "exitCode": 1,
+      "expected": "infrastructure-failure",
+      "why": "single passed file but unhandled runner error in stdout with exit 1 — never a pass"
+    },
+    "wrong-identity.report.json": {
+      "rootDir": "/s",
+      "filters": ["tests/healthy.test.ts"],
+      "stdout": "",
+      "exitCode": 0,
+      "expected": "infrastructure-failure",
+      "why": "report carries unrequested tests/other-file.test.ts — wrong-identity run refused (full-path identity, both directions)"
+    },
+    "empty-results.report.json": {
+      "rootDir": "/Users/art/.claude/jobs/fdda52c3/tmp/r4-exp",
+      "filters": ["tests/healthy.test.ts"],
+      "stdout": "",
+      "exitCode": 0,
+      "expected": "infrastructure-failure",
+      "why": "testResults: [] — zero test files is never green (T-TAK-A)"
+    },
+    "unknown-shape.report.json": {
+      "rootDir": "/Users/art/.claude/jobs/fdda52c3/tmp/r4-exp",
+      "filters": ["tests/healthy.test.ts"],
+      "stdout": "",
+      "exitCode": 0,
+      "expected": "infrastructure-failure",
+      "why": "report carries only a snapshot key — numTotalTests absent, malformed grammar fails closed"
+    },
+    "malformed-total.report.json": {
+      "rootDir": "/Users/art/.claude/jobs/fdda52c3/tmp/r4-exp",
+      "filters": ["x.test.ts"],
+      "stdout": "",
+      "exitCode": 0,
+      "expected": "infrastructure-failure",
+      "why": "numTotalTests absent — grammar requires a non-negative integer"
+    },
+    "malformed-success.report.json": {
+      "rootDir": "/Users/art/.claude/jobs/fdda52c3/tmp/r4-exp",
+      "filters": ["x.test.ts"],
+      "stdout": "",
+      "exitCode": 0,
+      "expected": "infrastructure-failure",
+      "why": "success: \"yes\" — grammar requires boolean when present"
+    },
+    "malformed-file-status.report.json": {
+      "rootDir": "/Users/art/.claude/jobs/fdda52c3/tmp/r4-exp",
+      "filters": ["x.test.ts"],
+      "stdout": "",
+      "exitCode": 0,
+      "expected": "infrastructure-failure",
+      "why": "file status 'flaky' outside the passed|failed vocabulary"
+    },
+    "malformed-assertion-status.report.json": {
+      "rootDir": "/Users/art/.claude/jobs/fdda52c3/tmp/r4-exp",
+      "filters": ["x.test.ts"],
+      "stdout": "",
+      "exitCode": 0,
+      "expected": "infrastructure-failure",
+      "why": "assertion status 'bogus' outside the passed|failed|pending|skipped|todo vocabulary"
+    }
+  }
+}

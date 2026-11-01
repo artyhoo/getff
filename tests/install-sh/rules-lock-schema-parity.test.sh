@@ -52,6 +52,8 @@ echo "  ── (1) python lane emits the full F11 core set ──"
 P=$(mktemp -d)
 printf '[project]\nname = "demo"\nversion = "0.0.1"\n' > "$P/pyproject.toml"
 ( cd "$P" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_306=$?
+if [ "$RC_P50_306" -eq 0 ]; then ok "rules-lock-schema-parity: install rc=0 (p50-306)"; else bad "rules-lock-schema-parity: install rc=$RC_P50_306, expected 0 (p50-306)"; fi
 PLOCK="$P/.getff/rules-lock.python.json"
 if [ -f "$PLOCK" ]; then
   ok "(1) python scratch install emitted $PLOCK"
@@ -70,6 +72,8 @@ echo ""; echo "  ── (2) cargo lane emits the full F11 core set ──"
 C=$(mktemp -d)
 printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n\n[dependencies]\n' > "$C/Cargo.toml"
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_307=$?
+if [ "$RC_P50_307" -eq 0 ]; then ok "rules-lock-schema-parity: install rc=0 (p50-307)"; else bad "rules-lock-schema-parity: install rc=$RC_P50_307, expected 0 (p50-307)"; fi
 CLOCK="$C/.ai-factory/synthesizer-output/rules-lock.cargo.json"
 if [ -f "$CLOCK" ]; then
   ok "(2) cargo scratch install emitted $CLOCK"
@@ -86,6 +90,8 @@ echo ""; echo "  ── (2b) go lane emits the full F11 core set ──"
 G=$(mktemp -d)
 printf 'module example.com/demo\n\ngo 1.22\n' > "$G/go.mod"
 ( cd "$G" && bash "$INSTALL" go < /dev/null ) >/dev/null 2>&1
+RC_P50_308=$?
+if [ "$RC_P50_308" -eq 0 ]; then ok "rules-lock-schema-parity: install rc=0 (p50-308)"; else bad "rules-lock-schema-parity: install rc=$RC_P50_308, expected 0 (p50-308)"; fi
 GLOCK="$G/.ai-factory/synthesizer-output/rules-lock.go.json"
 if [ -f "$GLOCK" ]; then
   ok "(2b) go scratch install emitted $GLOCK"

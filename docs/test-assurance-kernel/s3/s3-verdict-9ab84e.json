@@ -1,0 +1,21 @@
+{
+  "schema": "tak.s3.predecessor-s3/v1",
+  "stage": "S3",
+  "verdict": "RED",
+  "head": "9ab84e51b9cd4b0c9d5331260e64dedabeec8924",
+  "tree": "5b02c0ee3ae5bddfce162a863685615e11d8500f",
+  "assessedAtUtc": "2026-10-31T12:55:00Z",
+  "stepOutcomes": {
+    "s3-scope-extension": "PASS",
+    "s3-policy-units": "PASS",
+    "s3-native-companion": "PASS",
+    "s3-final-acceptance": "RED"
+  },
+  "openItems": [
+    "s0-12-raw-logs NOT_RETRIEVED — no obligation-specific closure record",
+    "cf37-broad-fixture observed-RED-not-rebased — no owner rebaseline ruling",
+    "rule-538-to-430.4 open — measured dominant median 1079ms vs the frozen 430.4ms target",
+    "ci NOT_STARTED — no typed s4 ci-record receipt"
+  ],
+  "note": "Honest delivered S3 verdict at 9ab84e (24-cell retained matrix real; original four-fixture campaign NOT established per the bfec256c qualification). S4 certificates stay nonPASS until this record is superseded by an ACCEPTED S3 verdict (R3)."
+}

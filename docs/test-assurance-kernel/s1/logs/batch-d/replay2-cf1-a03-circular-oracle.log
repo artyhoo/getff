@@ -1,0 +1,23 @@
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+== phase: baseline (both corpus cases pass under the real runner) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /tmp/s1-cf1-NagtEy/stdout-baseline.log
+FILE q5-bad-circular-phrase.test.ts pass
+FILE q5-good-behavior-backed.test.ts pass
+OK baseline 2/2 green
+== phase: fault — break the backing behavior in the SCRATCH good copy only ==
+PATCH-LABEL cf1: q5 backing behavior sealed = true -> false
+PATCH-SHA256 9c74dd4055e451bbdd7e6f464cbc5244c989a2b415cdf35f70d04d4867e1726f
+PATCH-BEFORE-SHA256 541563ca0724b322a7704be765df255a83561e3755dd06fcb6a8ab38da0da9c4
+PATCH-AFTER-SHA256 13863332db9e2a677ffcca73ef9c8a891eb69e1acf2a6bfbe2d982e2ad59eb15
+PATCH-OCCURRENCES 1
+== phase: counterfactual run ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /tmp/s1-cf1-NagtEy/stdout-counterfactual.log
+FILE q5-bad-circular-phrase.test.ts pass
+FILE q5-good-behavior-backed.test.ts fail
+  MSG AssertionError: expected false to be true // Object.is equality |     at /tmp/s1-cf1-NagtEy/tests/q5-good-behavior-backed.test.ts:14:28 |     at file:///home/www/rules-as-tests-aif/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 |
+OK file-status q5-bad-circular-phrase.test.ts=pass
+OK file-status q5-good-behavior-backed.test.ts=fail
+OK intended-assertion q5-good-behavior-backed.test.ts /expected false to be true/
+CF1 VERDICT: pass (circular companion survived; behavior-backed companion killed with intended assertion)

@@ -71,6 +71,8 @@ rm -f "$scopy"
 T=$(mktemp -d)
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" react-next --force ) >/dev/null 2>&1
+RC_P50_095=$?
+if [ "$RC_P50_095" -eq 0 ]; then ok "f8b-rulecreator-doc-urls: install rc=0 (p50-095)"; else bad "f8b-rulecreator-doc-urls: install rc=$RC_P50_095, expected 0 (p50-095)"; fi
 
 if [ -d "$T/eslint-rules-local" ]; then
   out=$(grep -rnE "$DEAD" "$T/eslint-rules-local"/*.ts 2>/dev/null)

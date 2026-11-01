@@ -1,0 +1,726 @@
+$ bash scripts/run-local-ci-sweep.sh --keep-going
+# final-rework acceptance sweep, working tree at rework4 (pre-commit), 2026-10-10T12:25:13Z
+[sweep] unmapped path 'eslint.config.mjs' → escalating to --full
+[sweep] WARN-SKIP actionlint — degraded, NOT a real run
+[sweep] PASS alwayson-budget
+[sweep] WARN-SKIP claude-dir-ci-only — degraded, NOT a real run
+[sweep] WARN-SKIP md-ci-only — degraded, NOT a real run
+[sweep] PASS meta-all-wired
+[sweep] PASS sweep-ci-coverage
+[sweep] WARN-SKIP docs-quality-strict — degraded, NOT a real run
+[sweep] PASS face-facts-check
+[sweep] PASS format-check
+[sweep] PASS install-roster-check
+[sweep] PASS presets-check
+[sweep] PASS reference-check
+[sweep] PASS render-check
+[sweep] PASS rule-index-check
+[sweep] FAIL script-selftests — output: /tmp/run-local-ci-sweep.vTyTTJ/15-script-selftests.log
+----- script-selftests: last 40 lines of output -----
+  ✓ P10 gate silent for unrelated commands
+  ✓ P11 gate approves the apply form with optional --target/--repo
+  ✓ P12 gate silent on malformed JSON payload
+  ✓ P13 gate silent on empty stdin
+  ✓ P14 gate silent for non-Bash tools
+  ✓ N11 compound suffix '; printf EXTRA' gets no allow (D2070-S01 repro)
+  ✓ N12 && chain gets no allow
+  ✓ N13 newline-suffixed command gets no allow
+  ✓ N14 piped suffix gets no allow
+  ✓ N15 command substitution gets no allow
+  ✓ N16 backtick substitution gets no allow
+  ✓ N17 redirection gets no allow
+  ✓ N18 extra mode: --apply appended to the dry-run shape gets no allow
+  ✓ N19 unknown flag gets no allow
+  ✓ N20 smuggled variable gets no allow
+  ✓ N21 apply form without the override gets no allow
+  ✓ N22 duplicate --patch gets no allow
+  ✓ N23 subshell parens get no allow
+  ✓ N24 env prefix on the dry-run shape gets no allow
+  ✓ N25 truncated flag list gets no allow
+  ✗ N1 drift — want rc≠0 + «drift:», got rc=1: ERROR: patch does not apply cleanly to .husky/pre-commit — the hook moved on since the patch was prepared; re-prepare patch+expected together|
+  ✗ N2 target outside .husky/ refuses — want rc≠0 + «under .husky», got rc=1: ERROR: target must be a repo-relative path under .husky/ (got: scripts/other.sh)|
+  ✗ N3 generated .husky/_ shim refuses — want rc≠0 + «husky shim», got rc=1: ERROR: refusing target .husky/_/pre-commit: the generated husky shim (.husky/_) and parent traversals are not patchable here|
+  ✗ N4 --apply without the override refuses — want rc≠0 + «GIT_SAFETY_OVERRIDE», got rc=2: ERROR: refusing --apply: the git-safety tripwire (part 1d) reverts any Bash write to .husky/**|unless the Bash command itself carries the sanctioned literal — env vars set inside this script do|NOT count (the tripwire reads the command text). Re-invoke with the exact prefix:|  GIT_SAFETY_OVERRIDE='apply-husky-patch sanctioned channel (operator-approved 2026-10-06)' bash "$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh" --apply --patch <p> --expected <e>|
+  ✗ N5 --apply with a wrong override refuses — want rc≠0 + «exact prefix», got rc=2: ERROR: refusing --apply: the git-safety tripwire (part 1d) reverts any Bash write to .husky/**|unless the Bash command itself carries the sanctioned literal — env vars set inside this script do|NOT count (the tripwire reads the command text). Re-invoke with the exact prefix:|  GIT_SAFETY_OVERRIDE='apply-husky-patch sanctioned channel (operator-approved 2026-10-06)' bash "$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh" --apply --patch <p> --expected <e>|
+  ✓ N6 repo outside the family refuses (pin)
+  ✓ N26 suffix repository (artyhoo/getff-experiment) refuses
+  ✓ N27 wrong host with the right path refuses
+  ✓ N28 embedded path refuses
+  ✗ P16 common-dir fallback — rc=1: ERROR: patch does not apply cleanly to .husky/pre-commit — the hook moved on since the patch was prepared; re-prepare patch+expected together|
+  ✗ N7 missing patch file refuses — want rc≠0 + «missing:», got rc=1: ERROR: missing: /tmp/apply-husky-patch.test.EoKk8T/nope.patch|
+  ✗ N8 missing target file refuses — want rc≠0 + «does not exist», got rc=1: ERROR: target file does not exist: .husky/commit-msg (this channel patches existing hooks; creating a new hook file is a maintainer step)|
+  ✗ N9 symlinked target refuses — want rc≠0 + «symlink», got rc=1: ERROR: target is a symlink: /tmp/apply-husky-patch.test.EoKk8T/repoA/.husky/link-me|
+  ✓ N10 non-applying patch refuses, target unchanged
+  ✓ S1 bash -n clean: apply-husky-patch.sh
+  ✓ S1 bash -n clean: apply-husky-patch-gate.sh
+  ✓ S2 check-bash32 clean: apply-husky-patch.sh
+  ✓ S2 check-bash32 clean: apply-husky-patch-gate.sh
+
+PASS=32 FAIL=15
+----- end script-selftests output -----
+[sweep] PASS terms-style-check
+[sweep] PASS arch-retell-corpus
+[sweep] PASS audit-ai-docs-live
+[sweep] PASS bash32
+[sweep] FAIL canonical-source — output: /tmp/run-local-ci-sweep.vTyTTJ/20-canonical-source.log
+----- canonical-source: last 40 lines of output -----
+  ...
+# Subtest: M08 R1 argv boundary regression: real deny tokens differ from quoted single arguments and executables
+ok 48 - M08 R1 argv boundary regression: real deny tokens differ from quoted single arguments and executables
+  ---
+  duration_ms: 215.886409
+  type: 'test'
+  ...
+# Subtest: M02 R2 executor regression: supported shell reads and native events differ from Python overrides
+ok 49 - M02 R2 executor regression: supported shell reads and native events differ from Python overrides
+  ---
+  duration_ms: 2854.085095
+  type: 'test'
+  ...
+# Subtest: M08 R2 executor regression: shell denies differ from identical Python command text
+ok 50 - M08 R2 executor regression: shell denies differ from identical Python command text
+  ---
+  duration_ms: 88.849186
+  type: 'test'
+  ...
+# Subtest: M02 leading-dash regression: end-of-options enables a filename while quoted reader text stays inert
+ok 51 - M02 leading-dash regression: end-of-options enables a filename while quoted reader text stays inert
+  ---
+  duration_ms: 1566.802039
+  type: 'test'
+  ...
+# Subtest: M02 cat stdin regression: bare dash is unresolved while explicit dash filenames remain reads
+ok 52 - M02 cat stdin regression: bare dash is unresolved while explicit dash filenames remain reads
+  ---
+  duration_ms: 1445.889761
+  type: 'test'
+  ...
+1..52
+# tests 52
+# suites 0
+# pass 50
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10767.365193
+----- end canonical-source output -----
+[sweep] PASS citation-fullsweep
+[sweep] PASS docs-refresh
+[sweep] PASS getff-dist-canonical-links
+[sweep] FAIL getff-dist-manifest — output: /tmp/run-local-ci-sweep.vTyTTJ/24-getff-dist-manifest.log
+----- getff-dist-manifest: last 40 lines of output -----
+DRIFT: packages/getff/MANIFEST.sha256 differs from a fresh assembly of the repo root:
+  committed  .agents/rules/00-rule-index.md
+  fresh      .agents/rules/00-rule-index.md
+  fresh      .agents/rules/test-quality-contracts.md
+  fresh      packages/core/audit-self/fixtures/fences-fire/no-vacuous-assertion.bad.txt
+  fresh      packages/core/audit-self/fixtures/fences-fire/no-vacuous-assertion.good.txt
+  fresh      packages/core/audit-self/fixtures/fences-fire/no-vacuous-assertion.manifest.json
+  fresh      packages/core/audit-self/fixtures/fences-fire/require-effective-assertion.bad.txt
+  fresh      packages/core/audit-self/fixtures/fences-fire/require-effective-assertion.good.txt
+  fresh      packages/core/audit-self/fixtures/fences-fire/require-effective-assertion.manifest.json
+  committed  packages/core/audit-self/prove-rules.mjs
+  fresh      packages/core/audit-self/prove-rules.mjs
+  committed  packages/core/eslint-rules/index.ts
+  fresh      packages/core/eslint-rules/index.ts
+  fresh      packages/core/eslint-rules/no-vacuous-assertion.d.ts
+  fresh      packages/core/eslint-rules/no-vacuous-assertion.mjs
+  fresh      packages/core/eslint-rules/no-vacuous-assertion.test.ts
+  fresh      packages/core/eslint-rules/no-vacuous-assertion.ts
+  fresh      packages/core/eslint-rules/require-effective-assertion.d.ts
+  fresh      packages/core/eslint-rules/require-effective-assertion.mjs
+  fresh      packages/core/eslint-rules/require-effective-assertion.test.ts
+  fresh      packages/core/eslint-rules/require-effective-assertion.ts
+  committed  packages/core/hooks/checks/guard-liveness.test.ts
+  committed  packages/core/hooks/checks/guard-liveness.ts
+  fresh      packages/core/hooks/checks/guard-liveness.test.ts
+  fresh      packages/core/hooks/checks/guard-liveness.ts
+  committed  packages/core/install/wire-synth-rules.test.ts
+  fresh      packages/core/install/wire-synth-rules.test.ts
+  fresh      packages/core/principles/51-test-quality-corpus-conformance.test.ts
+  fresh      packages/core/principles/52-subprocess-status-conformance.test.ts
+  fresh      packages/core/principles/52-subprocess-status-conformance.ts
+  fresh      packages/core/principles/53-delivery-discovery-conformance.test.ts
+  fresh      packages/core/principles/53-delivery-discovery-conformance.ts
+  committed  packages/preset-next-15-canonical/templates/eslint.config.react.mjs
+  fresh      packages/preset-next-15-canonical/templates/eslint.config.react.mjs
+  committed  packages/preset-react-spa/templates/eslint.config.react.mjs
+  fresh      packages/preset-react-spa/templates/eslint.config.react.mjs
+  committed  templates/ts-server/eslint.config.mjs
+  fresh      templates/ts-server/eslint.config.mjs
+----- end getff-dist-manifest output -----
+[sweep] PASS pipefail-early-exit
+[sweep] WARN-SKIP shellcheck — degraded, NOT a real run
+[sweep] PASS shipped-rules-drift
+[sweep] PASS ships-manifest
+[sweep] PASS typecheck
+[sweep] PASS byte-identical
+[sweep] FAIL runtime-bundles-drift — output: /tmp/run-local-ci-sweep.vTyTTJ/31-runtime-bundles-drift.log
+----- runtime-bundles-drift: last 40 lines of output -----
+❌ bundle dependency parity FAILED
+
+  fast-uri: the installed tree does not match the lockfiles —
+      3.1.8        planned by every committed lockfile
+      3.1.7        actually resolvable at node_modules/fast-uri
+
+   A rebuild of a committed bundle (packages/core/hooks/pre-push.bundle.mjs, packages/core/install/mcp-source-check.bundle.mjs, packages/core/install/rule-bootstrap-cli.bundle.mjs, packages/core/install/synth-and-wire.bundle.mjs)
+   would inline whichever copy the ambient install left in place, so its drift gate
+   would report a PHANTOM drift on a branch that never touched that bundle's sources.
+
+   Fix the disagreement, do not regenerate the bundle around it:
+     • a direct dependency disagrees → pin the SAME exact version in package.json (root)
+       and packages/core/package.json, then regenerate BOTH locks:
+         npm install --package-lock-only
+         cd packages/core && npm install --package-lock-only --no-workspaces
+     • a transitive dependency disagrees → move the lagging lock to the other one's
+       version (e.g. `npm update <pkg> --package-lock-only` in the lagging layer), then
+       rebuild any bundle whose inlined bytes change
+     • a world reports <absent> → that lock does not plan the package at all; add it
+       where it is imported, or rebuild the bundle if it no longer inlines it
+     • tree disagrees → re-install to lockfile state (CI parity):
+         NODE_ENV=development npm install
+----- end runtime-bundles-drift output -----
+[sweep] FAIL synth-bundle-drift — output: /tmp/run-local-ci-sweep.vTyTTJ/32-synth-bundle-drift.log
+----- synth-bundle-drift: last 40 lines of output -----
+❌ bundle dependency parity FAILED
+
+  fast-uri: the installed tree does not match the lockfiles —
+      3.1.8        planned by every committed lockfile
+      3.1.7        actually resolvable at node_modules/fast-uri
+
+   A rebuild of a committed bundle (packages/core/hooks/pre-push.bundle.mjs, packages/core/install/mcp-source-check.bundle.mjs, packages/core/install/rule-bootstrap-cli.bundle.mjs, packages/core/install/synth-and-wire.bundle.mjs)
+   would inline whichever copy the ambient install left in place, so its drift gate
+   would report a PHANTOM drift on a branch that never touched that bundle's sources.
+
+   Fix the disagreement, do not regenerate the bundle around it:
+     • a direct dependency disagrees → pin the SAME exact version in package.json (root)
+       and packages/core/package.json, then regenerate BOTH locks:
+         npm install --package-lock-only
+         cd packages/core && npm install --package-lock-only --no-workspaces
+     • a transitive dependency disagrees → move the lagging lock to the other one's
+       version (e.g. `npm update <pkg> --package-lock-only` in the lagging layer), then
+       rebuild any bundle whose inlined bytes change
+     • a world reports <absent> → that lock does not plan the package at all; add it
+       where it is imported, or rebuild the bundle if it no longer inlines it
+     • tree disagrees → re-install to lockfile state (CI parity):
+         NODE_ENV=development npm install
+----- end synth-bundle-drift output -----
+[sweep] PASS agnosticism
+[sweep] PASS dispatcher-tests
+[sweep] PASS hook-tests
+[install-sh] 161 test files · 12 parallel · 1 quarantined-serial
+[install-sh] 1/161 done · gh-531-shipped-prettier.test.sh (ok)
+[install-sh] 2/161 done · audit-consumer-mode.test.sh (ok)
+[install-sh] 3/161 done · canonical-link-containment.test.sh (ok)
+[install-sh] 4/161 done · b1-stack-research-lookup.test.sh (ok)
+[install-sh] 5/161 done · aif-guided-install-gating.test.sh (ok)
+[install-sh] 6/161 done · check-shields-up-paired-negative.test.sh (ok)
+[install-sh] 7/161 done · check-zcode-mirror.test.sh (ok)
+[install-sh] 8/161 done · bridge-guided.test.sh (ok)
+[install-sh] 9/161 done · check-fences-fire-paired-negative.test.sh (FAIL)
+[install-sh] 10/161 done · audit-r4-shipped.test.sh (ok)
+[install-sh] 11/161 done · b3-monorepo-per-workspace-wire.test.sh (ok)
+[install-sh] 12/161 done · copy-safe-force-dir-payload.test.sh (ok)
+[install-sh] 13/161 done · consumer-pipeline.test.sh (ok)
+[install-sh] 14/161 done · c1-wiring.test.sh (ok)
+[install-sh] 15/161 done · canonical-bindings.test.sh (ok)
+[install-sh] 16/161 done · arch-target-monorepo.test.sh (ok)
+[install-sh] 17/161 done · detect-r2-boundary.test.sh (ok)
+[install-sh] 18/161 done · engine.test.sh (ok)
+[install-sh] 19/161 done · delivered-prettier-conformance.test.sh (ok)
+[install-sh] 20/161 done · depcruise-config-esm.test.sh (FAIL)
+[install-sh] 21/161 done · check-fences-fire-full-barrel.test.sh (ok)
+[install-sh] 22/161 done · ci-runs-every-recorded-check.test.sh (ok)
+[install-sh] 23/161 done · f1-ts-arm.test.sh (ok)
+[install-sh] 24/161 done · consumer-delivery-safety-guard.test.sh (ok)
+[install-sh] 25/161 done · deps-keep-project-versions.test.sh (FAIL)
+[install-sh] 26/161 done · f11-ci-node-version.test.sh (ok)
+[install-sh] 27/161 done · f16-stryker-live-mutants.test.sh (ok)
+[install-sh] 28/161 done · f12-workflow-integrity-shipped.test.sh (ok)
+[install-sh] 29/161 done · f18-eslint-nonts-no-crash.test.sh (FAIL)
+[install-sh] 30/161 done · f19-fences-fire-load-probe.test.sh (ok)
+[install-sh] 31/161 done · f13-stryker-pm.test.sh (ok)
+[install-sh] 32/161 done · f17-lint-rules-planted-violation.test.sh (ok)
+[install-sh] 33/161 done · f14-lintstaged-resolves.test.sh (FAIL)
+[install-sh] 34/161 done · cargo-entry-lane.test.sh (FAIL)
+[install-sh] 35/161 done · eslint-rule-prune-by-manifest.test.sh (ok)
+[install-sh] 36/161 done · f5-stryker-globs.test.sh (ok)
+[install-sh] 37/161 done · f2-hook-activation.test.sh (ok)
+[install-sh] 38/161 done · f8b-rulecreator-doc-urls.test.sh (ok)
+[install-sh] 39/161 done · f8c-no-husky-init-advice.test.sh (ok)
+[install-sh] 40/161 done · f8-agents-scripts-shipped.test.sh (ok)
+[install-sh] 41/161 done · byte-identical.test.sh (ok)
+[install-sh] 42/161 done · f9-aif-commands-honesty.test.sh (ok)
+[install-sh] 43/161 done · format-getff-writes.test.sh (FAIL)
+[install-sh] 44/161 done · deliver-gate-scripts.test.sh (ok)
+[install-sh] 45/161 done · generator-tools-root.test.sh (FAIL)
+[install-sh] 46/161 done · generated-rule-mutation-manifest-fail-closed.test.sh (FAIL)
+[install-sh] 47/161 done · f8d-ai-factory-sot-materialized.test.sh (ok)
+[install-sh] 48/161 done · getff-dep-names.test.sh (ok)
+[install-sh] 49/161 done · f3-f7-rule-globs.test.sh (ok)
+[install-sh] 50/161 done · getff-default-branch-substitution.test.sh (ok)
+[install-sh] 51/161 done · gh-730-r2-zod-scope.test.sh (ok)
+[install-sh] 52/161 done · gh-535-rule-enforced.test.sh (FAIL)
+[install-sh] 53/161 done · gh-534-arch-boundaries.test.sh (ok)
+[install-sh] 54/161 done · foreign-tool-configs.test.sh (ok)
+[install-sh] 55/161 done · fence-agents-coownership.test.sh (ok)
+[install-sh] 56/161 done · f20-stryker-monorepo-emit.test.sh (ok)
+[install-sh] 57/161 done · eslint-barrel-preserve-consumer.test.sh (ok)
+[install-sh] 58/161 done · gh-975-husky-reassert.test.sh (ok)
+[install-sh] 59/161 done · glm-onebutton.test.sh (ok)
+[install-sh] 60/161 done · gh-934-ship-doc-authority-hook.test.sh (ok)
+[install-sh] 61/161 done · gh-934-ship-output-language-hook.test.sh (ok)
+[install-sh] 62/161 done · hook-event-move.test.sh (ok)
+[install-sh] 63/161 done · gh-934-ship-project-agnostic-hooks.test.sh (ok)
+[install-sh] 64/161 done · gh-934-ship-session-ux-hooks.test.sh (ok)
+[install-sh] 65/161 done · gh-974-honest-incomplete-deps.test.sh (ok)
+[install-sh] 66/161 done · imr-registration.test.sh (ok)
+[install-sh] 67/161 done · go-entry-lane.test.sh (ok)
+[install-sh] 68/161 done · gh-934-ship-eot-hook.test.sh (FAIL)
+[install-sh] 69/161 done · install-refresh-npm-evidence.test.sh (ok)
+[install-sh] 70/161 done · install-self-verification.test.sh (ok)
+[install-sh] 71/161 done · install-self-verify-banner-honesty.test.sh (ok)
+[install-sh] 72/161 done · generic-stack.test.sh (ok)
+[install-sh] 73/161 done · handoff-group.test.sh (FAIL)
+[install-sh] 74/161 done · f15-prettierignore.test.sh (FAIL)
+[install-sh] 75/161 done · installer-greps-read-code.test.sh (ok)
+[install-sh] 76/161 done · install-toolchain-docs.test.sh (ok)
+[install-sh] 77/161 done · layer-units.test.sh (ok)
+[install-sh] 78/161 done · lib-helpers.test.sh (ok)
+[install-sh] 79/161 done · lint-baseline-pass-unpruned.test.sh (ok)
+[install-sh] 80/161 done · install-self-verify-skip-and-exit.test.sh (ok)
+[install-sh] 81/161 done · lychee-shipped-md-offline.test.sh (ok)
+[install-sh] 82/161 done · manifest-parse.test.sh (ok)
+[install-sh] 83/161 done · install-refresh-tty-guard.test.sh (ok)
+[install-sh] 84/161 done · merge-fenced-splice-failure.test.sh (ok)
+[install-sh] 85/161 done · meta-all-wired.test.sh (ok)
+[install-sh] 86/161 done · install-tier-home-reachability.test.sh (ok)
+[install-sh] 87/161 done · hookspath-consumer-owned.test.sh (ok)
+[install-sh] 88/161 done · no-companion-blocks.test.sh (ok)
+[install-sh] 89/161 done · install-no-tsx-step.test.sh (ok)
+[install-sh] 90/161 done · own-config-known-rot.test.sh (ok)
+[install-sh] 91/161 done · oxlint-register-jsplugin.test.sh (ok)
+[install-sh] 92/161 done · pre-commit-serial-tasks.test.sh (ok)
+[install-sh] 93/161 done · pre-merge-local-delivery.test.sh (ok)
+[install-sh] 94/161 done · pre-push-dispatcher-route.test.sh (ok)
+[install-sh] 95/161 done · cic-s3-dep-install.test.sh (ok)
+[install-sh] 96/161 done · preset-staleness.test.sh (ok)
+[install-sh] 97/161 done · prepush-follows-record.test.sh (ok)
+[install-sh] 98/161 done · nvmrc-ci-drift.test.sh (ok)
+[install-sh] 99/161 done · python-delivery.test.sh (ok)
+[install-sh] 100/161 done · first-commit-passable.test.sh (ok)
+[install-sh] 101/161 done · multi-stack-monorepo.test.sh (ok)
+[install-sh] 102/161 done · python-agent-surface-refresh.test.sh (ok)
+[install-sh] 103/161 done · r2-boundary-under-sigpipe.test.sh (ok)
+[install-sh] 104/161 done · monorepo-stack-fallback.test.sh (ok)
+[install-sh] 105/161 done · r2-na-marker.test.sh (ok)
+[install-sh] 106/161 done · r2-not-wired-summary.test.sh (ok)
+[install-sh] 107/161 done · r2-wirer-no-hand-step.test.sh (ok)
+[install-sh] 108/161 done · install-dual-refresh.test.sh (ok)
+[install-sh] 109/161 done · linter-slot.test.sh (ok)
+[install-sh] 110/161 done · react-tsconfig.test.sh (ok)
+[install-sh] 111/161 done · react-spa-wiring.test.sh (ok)
+[install-sh] 112/161 done · refresh-covers-full-delivery.test.sh (ok)
+[install-sh] 113/161 done · react-native-wiring.test.sh (ok)
+[install-sh] 114/161 done · lane-orphan-residue.test.sh (ok)
+[install-sh] 115/161 done · consumer-upgrade-path.test.sh (ok)
+[install-sh] 116/161 done · refresh-offers-lintstaged-migration.test.sh (ok)
+[install-sh] 117/161 done · python-rules-lock.test.sh (ok)
+[install-sh] 118/161 done · refresh-reconciles-skill-rename.test.sh (ok)
+[install-sh] 119/161 done · refresh-different-stack-prunes-barrel.test.sh (ok)
+[install-sh] 120/161 done · refresh-safe-dir-payload.test.sh (ok)
+[install-sh] 121/161 done · install-no-manual-step.test.sh (ok)
+[install-sh] 122/161 done · refresh-regenerates-barrel.test.sh (ok)
+[install-sh] 123/161 done · refresh-dir-payload-ownership.test.sh (ok)
+[install-sh] 124/161 done · rule-bootstrap-failure-loud.test.sh (ok)
+[install-sh] 125/161 done · rules-lock-scope-trap.test.sh (ok)
+[install-sh] 126/161 done · rules-lock-version-diff.test.sh (ok)
+[install-sh] 127/161 done · rules-lock-schema-parity.test.sh (ok)
+[install-sh] 128/161 done · run-armed.test.sh (ok)
+[install-sh] 129/161 done · python-entry-lane.test.sh (ok)
+[install-sh] 130/161 done · rules-lock-malformed-values.test.sh (ok)
+[install-sh] 131/161 done · setup-orchestrator.test.sh (ok)
+[install-sh] 132/161 done · rules-lock-version-grep-null-tolerant.test.sh (ok)
+[install-sh] 133/161 done · project-checks-record.test.sh (ok)
+[install-sh] 134/161 done · s3-wire-ci.test.sh (ok)
+[install-sh] 135/161 done · ship-orchestration-skills.test.sh (ok)
+[install-sh] 136/161 done · session-settings.test.sh (ok)
+[install-sh] 137/161 done · snapshot-exclusion-guard.test.sh (ok)
+[install-sh] 138/161 done · stack-autodetect.test.sh (ok)
+[install-sh] 139/161 done · stale-tmp-unconditional-success.test.sh (ok)
+[install-sh] 140/161 done · synth-wire-consumer-config.test.sh (FAIL)
+[install-sh] 141/161 done · synth-wire-lint-probe-restore.test.sh (ok)
+[install-sh] 142/161 done · mcp-layer.test.sh (ok)
+[install-sh] 143/161 done · tool-decisions-seed-integration.test.sh (ok)
+[install-sh] 144/161 done · transform-internal-refs.test.sh (ok)
+[install-sh] 145/161 done · t6-synth-wire-planted-violation.test.sh (ok)
+[install-sh] 146/161 done · refresh-vendor-single-delivery.test.sh (ok)
+[install-sh] 147/161 done · stack-tools.test.sh (ok)
+[install-sh] 148/161 done · setup-yes-path.test.sh (ok)
+[install-sh] 149/161 done · refresh-divergence-guard.test.sh (ok)
+[install-sh] 150/161 done · workspace-stack-detect.test.sh (ok)
+[install-sh] 151/161 done · skill-context-evolve-coownership.test.sh (ok)
+[install-sh] 152/161 done · wire-eslint-r2.test.sh (FAIL)
+[install-sh] 153/161 done · refresh-baseline-survives-early-exit.test.sh (ok)
+[install-sh] 154/161 done · v2-strict-runtime-armed.test.sh (ok)
+[install-sh] 155/161 done · ships-manifest.test.sh (ok)
+[install-sh] 156/161 done · typecheck-matches-tsconfig.test.sh (ok)
+[install-sh] 157/161 done · r2-glob-reach.test.sh (FAIL)
+[install-sh] 158/161 done · r2-auto-wire.test.sh (ok)
+[install-sh] 159/161 done · vitest-layout-roots.test.sh (ok)
+[install-sh] 160/161 done · with-aif-suite-flag.test.sh (ok)
+[install-sh] 161/161 done · refresh-rewires.test.sh (ok)
+[install-sh] FAILED — cargo-entry-lane.test.sh(rc=1) check-fences-fire-paired-negative.test.sh(rc=1) depcruise-config-esm.test.sh(rc=1) deps-keep-project-versions.test.sh(rc=1) f14-lintstaged-resolves.test.sh(rc=1) f15-prettierignore.test.sh(rc=1) f18-eslint-nonts-no-crash.test.sh(rc=1) format-getff-writes.test.sh(rc=1) generated-rule-mutation-manifest-fail-closed.test.sh(rc=1) generator-tools-root.test.sh(rc=1) gh-535-rule-enforced.test.sh(rc=1) gh-934-ship-eot-hook.test.sh(rc=1) handoff-group.test.sh(rc=1) r2-glob-reach.test.sh(rc=1) synth-wire-consumer-config.test.sh(rc=1) wire-eslint-r2.test.sh(rc=1)
+[sweep] FAIL install-sh-suite — output: /tmp/run-local-ci-sweep.vTyTTJ/36-install-sh-suite.log
+----- install-sh-suite: last 40 lines of output -----
+  ✓ --all: suite skill present: claude-glm-executor-handoff
+  ✓ --all: gated agent present: orchestrator-worker-discipline
+  ✓ --all: gated agent present: reviewer-discipline
+  ✓ --all: gated skill-context present
+
+PASS=54 FAIL=0
+───── workspace-stack-detect.test.sh ─────
+▶ UNIT: _workspace_pkg_dirs enumerates workspace package dirs (5-dir convention, node-free)
+  ✓ lists apps/api
+  ✓ lists apps/mobile
+  ✓ lists packages/config
+  ✓ neg: apps/docs (no package.json) NOT enumerated → reader requires package.json
+
+▶ UNIT: _detect_stacks_per_workspace → {dir<TAB>stack} map (T-MSM-A: neither stack dropped)
+  ✓ apps/api → ts-server
+  ✓ apps/mobile → react-native (secondary stack NOT dropped — #780 nuance)
+
+▶ NEG (T-MSM-A core): root-only detection DROPS the secondary stack — per-workspace walk is load-bearing
+  ✓ neg: root-only detect = 'ts-server' (drops apps/mobile react-native) → root-only is insufficient
+  ✓ neg-pair: per-workspace map recovers the react-native root-only dropped
+
+▶ per-workspace 'unknown' → re-checkable marker (kept in map, NOT dropped, NOT exit 1)
+  ✓ packages/config (no stack signal) → 'unknown' marker kept (re-checkable)
+  ✓ neg: packages/config not silently assigned a concrete stack (honest 'unknown')
+
+▶ non-vacuity: a flat (non-monorepo) repo yields an EMPTY per-workspace map
+  ✓ flat repo → empty per-workspace map (walk does not fabricate workspaces)
+
+▶ back-compat: _detect_stack_from_pkg signal logic unchanged (no-arg + parameterized)
+  ✓ no-arg reads $PROJECT_ROOT (cwd apps/mobile → react-native)
+  ✓ arg form reads <dir>/package.json (apps/api → ts-server)
+  ✓ neg: arg form ('react-native') reflects the ARG dir not $PROJECT_ROOT root → truly parameterized
+
+▶ fixture install rc=0 (lib.sh with the new defs sources + dispatches clean under set -euo pipefail)
+  ✓ fixture monorepo install (ts-server --dry-run) exits 0
+
+PASS=15 FAIL=0
+
+[install-sh] 145/161 passed in 882s (12 parallel, 1 quarantined-serial)
+[install-sh] FAILED: cargo-entry-lane.test.sh(rc=1) check-fences-fire-paired-negative.test.sh(rc=1) depcruise-config-esm.test.sh(rc=1) deps-keep-project-versions.test.sh(rc=1) f14-lintstaged-resolves.test.sh(rc=1) f15-prettierignore.test.sh(rc=1) f18-eslint-nonts-no-crash.test.sh(rc=1) format-getff-writes.test.sh(rc=1) generated-rule-mutation-manifest-fail-closed.test.sh(rc=1) generator-tools-root.test.sh(rc=1) gh-535-rule-enforced.test.sh(rc=1) gh-934-ship-eot-hook.test.sh(rc=1) handoff-group.test.sh(rc=1) r2-glob-reach.test.sh(rc=1) synth-wire-consumer-config.test.sh(rc=1) wire-eslint-r2.test.sh(rc=1)
+----- end install-sh-suite output -----
+[sweep] PASS measure-scripts
+[sweep] FAIL mutation-runner-selftest — output: /tmp/run-local-ci-sweep.vTyTTJ/38-mutation-runner-selftest.log
+----- mutation-runner-selftest: last 40 lines of output -----
+arm (a): worktree-under-hook (real git push from a linked worktree)
+  ok: a1 fixed runner, manifest absent (rc=2)
+  ok: a1 die names <worktree>/.ai-factory
+  ok: a1 fixed root is NOT <worktree>/scripts
+  ok: a1p pre-fix runner, manifest absent (rc=2)
+  ok: a1p pre-fix die names <worktree>/scripts/.ai-factory (wrong root witnessed)
+  ok: a2 fixed runner, manifest + stubs provisioned (rc=0)
+  ok: a2 prints the nothing-to-test verdict
+  ok: a3 fixed runner, explicit manifest (rc=0)
+  skip: a3p pre-fix mask — /app fallback resolves .bin; wrong-root witness carried by a1p
+arm (b): plain clone (control — layout axis)
+  ok: b1 manifest-absent die rc=2 (rc=2)
+  ok: b1 die names <clone>/.ai-factory
+  ok: b2 provisioned no-arg run rc=0 (rc=0)
+  ok: b2 prints the nothing-to-test verdict
+arm (c): direct invocation, GIT_DIR unset (control — hook axis)
+  ok: c1 direct invocation, provisioned, rc=0 (rc=0)
+  ok: c1 prints the nothing-to-test verdict
+arm (d): the runner provisions the generator toolchain when the project lacks it
+  ok: d0 a manifest with no rule, rc=0 (rc=0)
+  ok: d0 nothing to test installs nothing
+  FAIL: d1 wrong or no npm install (got: )
+  FAIL: d1 the run says what it installs and where — missing: is not in /tmp/tmp.p9xBJlfY3H/arm-d/node_modules/.cache/getff/generator-tools — installing it there
+      observed: === generated rule mutation: 1 rule(s), floor=60% ===
+  ok: d1 the rule is then tested
+  ok: d2 the second run reuses the toolchain (no npm)
+  FAIL: d3 a half-installed toolchain was accepted (npm log: )
+  ok: d5 the project's own eslint + typescript-eslint are used (no npm)
+  FAIL: d6 offline, rc=2 (cannot run) — expected rc=2, got rc=1
+  ok: d6 offline gives up in 0 s (< 90 s)
+  FAIL: d4 npm fails, rc=2 (cannot run, never a pass) — expected rc=2, got rc=1
+  FAIL: d4 the die line names the toolchain — missing: could not install getff's rule-generator toolchain
+      observed: === generated rule mutation: 1 rule(s), floor=60% ===
+
+run-generated-rule-mutation.test.sh: PASS=20 FAIL=6
+----- end mutation-runner-selftest output -----
+[sweep] FAIL plugin-aifdoctor-selftests — output: /tmp/run-local-ci-sweep.vTyTTJ/39-plugin-aifdoctor-selftests.log
+----- plugin-aifdoctor-selftests: last 40 lines of output -----
+    ✅ container staging 523aaca -> 92c804b  (primary: in-container git fetch)
+       revert: docker exec -u 1000:1000 aif-test-agent git -C /tmp/tmp.CKvhyUi5S6 checkout --detach && docker exec -u 1000:1000 aif-test-agent git -C /tmp/tmp.CKvhyUi5S6 branch -f staging 523aaca4072c1e762734d23f5218c78a87db3e8c && docker exec -u 1000:1000 aif-test-agent git -C /tmp/tmp.CKvhyUi5S6 checkout staging
+  owner=1000:1000  git execs=12
+  [PASS] every in-container git ran as the clone owner (1000:1000)
+
+=== AC10: AIF_CONTAINER_USER overrides the derived owner ===
+warning: remote HEAD refers to nonexistent ref, unable to checkout
+  exit=0
+  [PASS] override user used for every in-container git
+
+================================================================
+Results: 10 passed, 0 failed (of 10)
+================================================================
+  ✓ session-start exits 0
+  ✓ session-start prints non-empty bootstrap
+  ✓ bootstrap names using-getff
+  ✓ bootstrap encodes instruction-priority ladder
+  ✓ bootstrap states the soft/hard boundary (T16)
+  ✓ plugin/skills/ai-doc/SKILL.md has valid frontmatter (name+description)
+  ✓ plugin/skills/getff/SKILL.md has valid frontmatter (name+description)
+  ✓ plugin/skills/installing-enforcement/SKILL.md has valid frontmatter (name+description)
+  ✓ plugin/skills/rule-research/SKILL.md has valid frontmatter (name+description)
+  ✓ plugin/skills/rule-tests/SKILL.md has valid frontmatter (name+description)
+  ✓ plugin/skills/template-audit/SKILL.md has valid frontmatter (name+description)
+  ✓ plugin/skills/tool-bootstrapping/SKILL.md has valid frontmatter (name+description)
+  ✓ plugin/skills/using-getff/SKILL.md has valid frontmatter (name+description)
+  ✓ ships ≥2 skills (using-getff + getff)
+  ✓ hooks.json wires SessionStart→session-start
+  ✓ session-start target exists
+
+PASS=16 FAIL=0
+  ✓ (1) ZCode rollout recap+repeat → idle-suppress (silent)
+  ✗ (2) ZCode rollout new-q: rc=0 out=
+  ✗ (3) ZCode rollout+AUQ: rc=0 out=
+  ✗ (4) ZCode empty-rollout: rc=0 out=
+  ✗ (5) ZCode 1-line rollout: rc=0 out=
+  ✗ (6) ZCode empty-rollout-file: rc=0 out=
+  ✗ (7) CC env: rc=0 out=
+
+PASS=1 FAIL=6
+----- end plugin-aifdoctor-selftests output -----
+[sweep] PASS premerge-carrier-selftest
+[sweep] PASS audit-ai-docs
+[sweep] PASS canonical-regen
+[sweep] PASS first-steps-parity
+[sweep] PASS template-render
+[sweep] FAIL vitest-backends — output: /tmp/run-local-ci-sweep.vTyTTJ/45-vitest-backends.log
+----- vitest-backends: last 40 lines of output -----
+
+> @rules-as-tests/core@0.1.0 test:backends
+> vitest run backends/
+
+
+ RUN  v4.1.8 /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core
+
+ ❯ backends/npm/capability-matrix.test.ts (13 tests | 1 failed) 9ms
+     × toolchain freshness: the evidence eslint version equals the eslint that actually resolves here 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  backends/npm/capability-matrix.test.ts > capability-matrix.json — the committed file passes validateMatrix > toolchain freshness: the evidence eslint version equals the eslint that actually resolves here
+AssertionError: expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "cell \"syntax\": evidence.toolchain claims eslint 10.4.0, but the resolving eslint is 10.4.1 — regenerate the live-fired evidence against the current toolchain",
++ ]
+
+ ❯ backends/npm/capability-matrix.test.ts:215:55
+    213|     const resolved = (require('eslint/package.json') as { version: str…
+    214|     const matrix = JSON.parse(readFileSync(join(__dirname, 'capability…
+    215|     expect(checkToolchainFreshness(matrix, resolved)).toEqual([]);
+       |                                                       ^
+    216|   });
+    217| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 25 passed (26)
+      Tests  1 failed | 247 passed | 37 skipped (285)
+   Start at  12:43:06
+   Duration  1.87s (transform 1.81s, setup 496ms, import 2.93s, tests 2.05s, environment 2ms)
+----- end vitest-backends output -----
+[sweep] PASS vitest-composition
+[sweep] FAIL vitest-hooks — output: /tmp/run-local-ci-sweep.vTyTTJ/47-vitest-hooks.log
+----- vitest-hooks: last 40 lines of output -----
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ hooks/worktree-setup-hydration.test.ts:266:60
+    264|       const wt = `${repo}/.claude/worktrees/hyd-script-pos`;
+    265|       const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrell…
+    266|       expect(existsSync(statePath), 'state.md must exist').toBe(true);
+       |                                                            ^
+    267|       expect(lstatSync(statePath).isSymbolicLink(), 'state.md must be …
+    268|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/32]⎯
+
+ FAIL  hooks/worktree-setup-hydration.test.ts > create-worktree.sh — coordination-sync via link-coordination.sh (portable script) > DUAL-PAIR PARITY: hook and script both produce symlinks (when jq available)
+AssertionError: state.md must exist: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ hooks/worktree-setup-hydration.test.ts:304:60
+    302|       const wt = `${repo}/.claude/worktrees/hyd-parity`;
+    303|       const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrell…
+    304|       expect(existsSync(statePath), 'state.md must exist').toBe(true);
+       |                                                            ^
+    305|       expect(lstatSync(statePath).isSymbolicLink(), 'state.md must be …
+    306|       const content = readFileSync(statePath, 'utf8');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/32]⎯
+
+
+ Test Files  4 failed | 91 passed (95)
+      Tests  32 failed | 2240 passed | 6 skipped (2278)
+   Start at  12:43:09
+   Duration  87.17s (transform 3.57s, setup 1.23s, import 6.33s, tests 307.24s, environment 8ms)
+----- end vitest-hooks output -----
+[sweep] FAIL vitest-install-wire — output: /tmp/run-local-ci-sweep.vTyTTJ/48-vitest-install-wire.log
+----- vitest-install-wire: last 40 lines of output -----
+    798|       expect((await probeLintViaEslint(p, dir, { scopeGlobs: ['**/rout…
+       |                                                                                                       ^
+    799|       expect(readdirSync(dir).sort()).toEqual(['eslint.config.mjs']);
+    800|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/core/install/wire-synth-rules.test.ts > N-rule post-write lint probe + restore > probeLintViaEslint: a typed-lint parser refusing a probe outside its tsconfig → ok, not broken
+AssertionError: expected { verdict: 'unavailable', …(1) } to deeply equal { verdict: 'ok' }
+
+- Expected
++ Received
+
+  {
+-   "verdict": "ok",
++   "detail": "Oops! Something went wrong! :(
++
++ ESLint: 10.4.1
++
++ Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'typescript-eslint' imported from /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/install/.nrule-probe-5Lrjxg/eslint.config.mjs
++     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:314:9)
++     at packageResolve (",
++   "verdict": "unavailable",
+  }
+
+ ❯ packages/core/install/wire-synth-rules.test.ts:876:17
+    874|       );
+    875|       const r = await probeLintViaEslint(p, dir, { scopeGlobs: ['**/ro…
+    876|       expect(r).toEqual({ verdict: 'ok' });
+       |                 ^
+    877|       expect(readdirSync(dir).sort()).toEqual(['eslint.config.mjs', 't…
+    878|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 32 passed | 41 skipped (75)
+   Start at  12:44:32
+   Duration  33.73s (transform 411ms, setup 36ms, import 702ms, tests 33.30s, environment 0ms)
+----- end vitest-install-wire output -----
+[sweep] PASS vitest-ir
+[sweep] FAIL vitest-principles — output: /tmp/run-local-ci-sweep.vTyTTJ/50-vitest-principles.log
+----- vitest-principles: last 40 lines of output -----
+
+ FAIL  principles/48-skill-description-budget.test.ts > principle 48 — skill description budget > holds for every skill this repo authors or ships
+AssertionError: .claude/skills: model-visible descriptions total 11372 B, budget 6800 B (largest: orchestrator 1188 B, self-reflection 765 B, tool-bootstrapping 617 B): expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   ".claude/skills: model-visible descriptions total 11372 B, budget 6800 B (largest: orchestrator 1188 B, self-reflection 765 B, tool-bootstrapping 617 B)",
++ ]
+
+ ❯ principles/48-skill-description-budget.test.ts:89:43
+     87|   it('holds for every skill this repo authors or ships', () => {
+     88|     const problems = evaluate(RULES, (p) => measurePopulation(REPO_ROO…
+     89|     expect(problems, problems.join('\n')).toEqual([]);
+       |                                           ^
+     90|   });
+     91|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  principles/51-test-quality-corpus-conformance.test.ts > principle 51 — S1 test-quality corpus conformance > population ratchet: tracked test population findings equal the pinned set exactly
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ principles/51-test-quality-corpus-conformance.test.ts:231:3
+    229|   });
+    230|
+    231|   it('population ratchet: tracked test population findings equal the p…
+       |   ^
+    232|     const files = trackedTestFiles();
+    233|     expect(files.length).toBeGreaterThan(100); // the sweep actually s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  4 failed | 56 passed (60)
+      Tests  4 failed | 691 passed | 1 skipped (696)
+   Start at  12:45:04
+   Duration  11.68s (transform 3.96s, setup 985ms, import 7.23s, tests 71.01s, environment 11ms)
+----- end vitest-principles output -----
+[sweep] PASS vitest-render
+[sweep] PASS vitest-skills
+[sweep] WARN-SKIP vitest-spec-validation — degraded, NOT a real run
+[sweep] PASS vitest-synthesizer
+[sweep] FAIL vitest-units — output: /tmp/run-local-ci-sweep.vTyTTJ/55-vitest-units.log
+----- vitest-units: last 40 lines of output -----
+    798|       expect((await probeLintViaEslint(p, dir, { scopeGlobs: ['**/rout…
+       |                                                                                                       ^
+    799|       expect(readdirSync(dir).sort()).toEqual(['eslint.config.mjs']);
+    800|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  install/wire-synth-rules.test.ts > N-rule post-write lint probe + restore > probeLintViaEslint: a typed-lint parser refusing a probe outside its tsconfig → ok, not broken
+AssertionError: expected { verdict: 'unavailable', …(1) } to deeply equal { verdict: 'ok' }
+
+- Expected
++ Received
+
+  {
+-   "verdict": "ok",
++   "detail": "Oops! Something went wrong! :(
++
++ ESLint: 10.4.1
++
++ Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'typescript-eslint' imported from /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/install/.nrule-probe-vj6sno/eslint.config.mjs
++     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:314:9)
++     at packageResolve (",
++   "verdict": "unavailable",
+  }
+
+ ❯ install/wire-synth-rules.test.ts:876:17
+    874|       );
+    875|       const r = await probeLintViaEslint(p, dir, { scopeGlobs: ['**/ro…
+    876|       expect(r).toEqual({ verdict: 'ok' });
+       |                 ^
+    877|       expect(readdirSync(dir).sort()).toEqual(['eslint.config.mjs', 't…
+    878|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 88 passed | 1 skipped (90)
+      Tests  2 failed | 1234 passed | 161 skipped (1397)
+   Start at  12:45:51
+   Duration  100.56s (transform 6.11s, setup 1.77s, import 33.89s, tests 249.22s, environment 13ms)
+----- end vitest-units output -----
+SWEEP: 13 of 55 gate(s) FAILED: script-selftests canonical-source getff-dist-manifest runtime-bundles-drift synth-bundle-drift install-sh-suite mutation-runner-selftest plugin-aifdoctor-selftests vitest-backends vitest-hooks vitest-install-wire vitest-principles vitest-units (mode=full, --keep-going)
+SWEEP: NOT RUN: (none)
+SWEEP: gate logs in /tmp/run-local-ci-sweep.vTyTTJ

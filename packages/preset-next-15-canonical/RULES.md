@@ -1,6 +1,6 @@
 # Rules — automatically enforced after every /aif-implement
 
-> **Authoritative for:** canonical R1–R11 rule list for the preset-next-15 preset (consumer-customisable). Enforcement is multi-channel (earliest reachable channel wins): edit-time custom ESLint rules, pre-push `audit-ai-docs.sh`, and AI Factory's `rules-sidecar` (which reads this file at `.ai-factory/RULES.md` during `/aif-verify`).
+> **Authoritative for:** canonical base and test-quality rule catalog for the preset-next-15 preset (consumer-customisable). Enforcement is multi-channel (earliest reachable channel wins): edit-time custom ESLint rules, pre-push `audit-ai-docs.sh`, and AI Factory's `rules-sidecar` (which reads this file at `.ai-factory/RULES.md` during `/aif-verify`).
 > **NOT authoritative for:** project goal — see consumer's README.md.
 
 These rules are enforced at the **earliest reachable channel**: custom ESLint rules at
@@ -36,6 +36,8 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 | **R18 TanStack Query / SWR** | react-next | ESLint `no-restricted-syntax` |
 | **R19 Styles** | react-next | `depcruise --validate (blocks styled-components/@emotion)` |
 | **R20 Server Actions** | react-next | ESLint `no-restricted-syntax` |
+| **R21 Non-vacuous test assertions** | ts-server, react-next | ESLint `rules-as-tests/no-vacuous-assertion` |
+| **R22 Effective test assertion presence** | ts-server, react-next | ESLint `rules-as-tests/require-effective-assertion` |
 | **IR1 API contracts** | microservices | `CI job: zod-to-openapi diff against published OpenAPI` |
 | **IR2 Consumer-driven contracts (Pact)** | microservices | `CI: pact-publish + pact-verify + can-i-deploy` |
 | **IR3 Event schemas (async messaging)** | microservices | `audit-ai-docs.sh probe — `publish()` calls reference @org/event-schemas` |
@@ -132,6 +134,8 @@ import type { OrderRepo } from './ports/order-repo';
 - For pure functions with general invariants: at least one fast-check property.
 
 **Check:** `scripts/audit-r4.ts` (ts-morph) — every export in `src/domain/**/*.ts` has matching `.unit.ts` that references the export name. Plus `vitest related <changed>` for actual test execution.
+
+**Assurance scope:** The probe proves only matching file/name-reference structure. Configured test-file lint rejects selected syntax defects, and actual test execution is separate. The existing R4 rules-sidecar during `/aif-verify`, or explicit manual R4 review when that companion is absent, assesses governed-behavior relevance, independent expectations and the stated boundary/property obligations. Structural/syntax checks alone do not certify behavioral coverage.
 
 ### Examples
 

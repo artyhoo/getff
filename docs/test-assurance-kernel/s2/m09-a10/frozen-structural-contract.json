@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "obligation": "Original M09/A10 finite structural checks",
+  "no_op": {
+    "known_spellings": [
+      "true",
+      "echo ok",
+      "echo \"ok\"",
+      "echo 'ok'",
+      ":",
+      "exit 0"
+    ],
+    "rejected_commands": [
+      "true # actual enforcement absent",
+      "echo ok # actual enforcement absent",
+      "echo \"ok\" # actual enforcement absent",
+      "echo 'ok' # actual enforcement absent",
+      ": # actual enforcement absent",
+      "exit 0\t# actual enforcement absent"
+    ],
+    "admitted_commands": [
+      "node scripts/check.js # real check",
+      "true && node scripts/check.js # real check",
+      "echo \"ok # quoted data\"",
+      "true\nnode scripts/check.js"
+    ]
+  },
+  "mutation_selection": {
+    "fixture_paths": [
+      "src/math.ts",
+      "lib/math.ts",
+      "apps/web/src/math.ts",
+      "packages/shared/src/math.ts",
+      "src/math.unit.ts",
+      "apps/web/src/math.spec.ts",
+      "lib/index.ts",
+      "packages/shared/src/types.d.ts"
+    ],
+    "expected_selected": [
+      "apps/web/src/math.ts",
+      "lib/math.ts",
+      "packages/shared/src/math.ts",
+      "src/math.ts"
+    ],
+    "all_excluding_fault": "!**/*",
+    "faulted_selected": [],
+    "claims": "Resolved physical source population only; no mutation score or full engine run"
+  },
+  "original_audit_sha256": "60ffefdd305cf663a308e8db39b4e41887b8007102f48932ecefd9ba0943ec53",
+  "source_preimages": {
+    "packages/core/principles/04-no-tautology.test.ts": "5c325d9792efd39a290a39106c54156a1bb27300b4d7536c2b02424a0fa78676",
+    "tests/install-sh/f5-stryker-globs.test.sh": "6ca0ad57713bbe9a8cf92e92ee193e5fdc715ba1fb4c0593dc0c432f06e62cd7",
+    "templates/ts-server/stryker.config.json": "3cb6f04b83ea266a42bc0c821f75ceb767b1c0dd12bba3c21aa36221f53ec524"
+  },
+  "counters": {
+    "M09_used": 1,
+    "cap": 3,
+    "remaining": 2,
+    "PARTIAL_used": 0,
+    "PARTIAL_cap": 2,
+    "no_reset": true
+  }
+}

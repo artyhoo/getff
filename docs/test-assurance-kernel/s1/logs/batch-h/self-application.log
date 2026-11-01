@@ -1,0 +1,11 @@
+# T15 self-application — the metachecks run over the kernel's own suites — 2026-10-08T16:22:06Z
+
+$ npx eslint <kernel test files + adapter/driver>  # expect exit 0 (admitted)
+SELF_APP_EXIT=0
+
+== corpus good companions re-admitted (per-case) ==
+q1-vacuous/good.constant-on-subject.ts exit=0
+q1-vacuous/good.snapshot-contract.ts exit=0
+q1-vacuous/good.parity-test.ts exit=0
+q1-vacuous/good.structural-schema.ts exit=0
+q1-vacuous/good.intentional-fixture-exempt.ts exit=0

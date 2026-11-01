@@ -30,7 +30,7 @@ _sha256() {  # portable sha256 (linux sha256sum / macOS shasum)
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
 cargo_fixture() {  # echo a fresh temp dir seeded with a Cargo.toml (a pure Rust consumer)
-  local d; d=$(mktemp -d)
+  local d; d=$(mktemp -d) || { echo ""; return 1; }
   printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n\n[dependencies]\n' > "$d/Cargo.toml"
   echo "$d"
 }
@@ -41,6 +41,7 @@ echo ""
 # ── (1) fresh explicit `install.sh cargo` on a pure-Rust repo → delivers, no npm artefacts ─────────
 echo "  ── (1) fresh explicit: install.sh cargo (Cargo.toml only, no package.json) ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ); rc=$?
 [ "$rc" -eq 0 ] \
   && ok "(1) exit 0 (no-package.json precondition BYPASSED — a Rust repo has no package.json)" \
@@ -70,6 +71,7 @@ rm -rf "$C"
 # ── (2) explicit `cargo` OVERRIDES npm auto-detect in a MIXED repo (package.json + Cargo.toml) ─────
 echo "  ── (2) explicit cargo overrides npm auto-detect (mixed repo) ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 printf '{"name":"mixed","version":"0.0.0"}\n' > "$C/package.json"
 out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ); rc=$?
 { [ "$rc" -eq 0 ] && [ -f "$C/clippy.toml" ]; } \
@@ -82,7 +84,9 @@ echo "  ── (3) npm flow untouched (package.json only, no Cargo.toml) ──"
 N=$(mktemp -d)
 printf '{"name":"npm-only","version":"0.0.0"}\n' > "$N/package.json"
 ( cd "$N" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
-out=$( cd "$N" && bash "$INSTALL" ts-server --force < /dev/null 2>&1 ) || true
+out=$( cd "$N" && bash "$INSTALL" ts-server --force < /dev/null 2>&1 )
+RC_P50_005=$?
+if [ "$RC_P50_005" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-005)"; else bad "cargo-entry-lane: install rc=$RC_P50_005, expected 0 (p50-005)"; fi
 { [ ! -f "$N/clippy.toml" ] && [ ! -f "$N/deny.toml" ]; } \
   && ok "(3) npm lane produced NO cargo artefacts (46-cargo.sh inert on npm — guarded no-op)" \
   || bad "(3) cargo artefact leaked onto the npm lane (activation guard broken)"
@@ -91,10 +95,15 @@ rm -rf "$N"
 # ── (4) --refresh re-delivery OVERWRITES a framework-owned clippy.toml (brownfield update) ─────────
 echo "  ── (4) --refresh overwrites the framework-owned clippy.toml ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_006=$?
+if [ "$RC_P50_006" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-006)"; else bad "cargo-entry-lane: install rc=$RC_P50_006, expected 0 (p50-006)"; fi
 # Mutate the delivered getff clippy.toml, then --refresh must restore the template bytes.
 echo "# consumer tampered" >> "$C/clippy.toml"
-out=$( cd "$C" && bash "$INSTALL" cargo --refresh < /dev/null 2>&1 ) || true
+out=$( cd "$C" && bash "$INSTALL" cargo --refresh < /dev/null 2>&1 )
+RC_P50_007=$?
+if [ "$RC_P50_007" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-007)"; else bad "cargo-entry-lane: install rc=$RC_P50_007, expected 0 (p50-007)"; fi
 cmp -s "$TPL/clippy.toml" "$C/clippy.toml" \
   && ok "(4) --refresh restored the framework-owned clippy.toml to template bytes" \
   || bad "(4) --refresh did not overwrite the tampered getff clippy.toml"
@@ -103,9 +112,12 @@ rm -rf "$C"
 # ── (5) augment-first REFUSE cell — a consumer-authored clippy.toml is NOT clobbered ──────────────
 echo "  ── (5) REFUSE cell: consumer clippy.toml kept, ours shipped as getff-clippy.toml ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 printf 'cognitive-complexity-threshold = 30\n' > "$C/clippy.toml"
 CONSUMER_BEFORE=$(cat "$C/clippy.toml")
-out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
+out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 )
+RC_P50_008=$?
+if [ "$RC_P50_008" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-008)"; else bad "cargo-entry-lane: install rc=$RC_P50_008, expected 0 (p50-008)"; fi
 { [ "$(cat "$C/clippy.toml")" = "$CONSUMER_BEFORE" ] && [ -f "$C/getff-clippy.toml" ]; } \
   && ok "(5) consumer clippy.toml untouched + our rules shipped as getff-clippy.toml (cell ii REFUSE)" \
   || bad "(5) REFUSE cell wrong: consumer clippy.toml modified or getff-clippy.toml missing"
@@ -146,7 +158,10 @@ rm -rf "$C"
 # @arm:E1:pos scratch-consumer-red-green-pair (cargo lane — planted violation RED + clean control GREEN)
 echo "  ── (6) firing self-check (tool-gated) ──"
 C=$(cargo_fixture)
-out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 )
+RC_P50_009=$?
+if [ "$RC_P50_009" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-009)"; else bad "cargo-entry-lane: install rc=$RC_P50_009, expected 0 (p50-009)"; fi
 if command -v cargo >/dev/null 2>&1; then
   grep -q "fired RED on the planted violation" <<<"$out" \
     && ok "(6) cargo present → self-check FIRED RED on the planted std::env::var violation" \
@@ -169,6 +184,7 @@ rm -rf "$C"
 # ── (7) degrade path (stripped PATH, no cargo) via the CARGO_LAYER_LIB_ONLY seam ──────────────────
 echo "  ── (7) degrade path (stripped PATH, no cargo) ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 cp "$TPL/clippy.toml" "$C/clippy.toml"
 deg=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" \
@@ -207,6 +223,7 @@ for t in cat awk sed grep date mkdir rm mktemp head wc ls; do
   p=$(command -v "$t" 2>/dev/null) && ln -sf "$p" "$BIN8/$t"
 done
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 cp "$TPL/clippy.toml" "$C/clippy.toml"   # getff-header copy → delivered path resolves to clippy.toml
 warn8a=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" PATH="$BIN8" \
@@ -221,6 +238,7 @@ grep -q "non-authoritative" <<<"$warn8a" \
   || bad "(8a) unexpected fingerprint on the no-hash-tool path: '$fp8a'"
 rm -rf "$C"
 C=$(cargo_fixture)   # NO clippy config at all → the clippy-absent trigger (full PATH, hash tools present)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 warn8b=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" \
     "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
@@ -258,6 +276,7 @@ rm -rf "$C" "$BIN8"
 if command -v cargo >/dev/null 2>&1; then
   echo "  ── (9) over-broad delivered config → clean control catches it (E1 negative) ──"
   C=$(cargo_fixture)
+  [ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
   {
     echo '# generated by getff cargo backend v0 — do not edit by hand (OVER-BROAD test stub)'
     echo 'disallowed-methods = ['
@@ -309,9 +328,12 @@ run_cargo_delivery() {  # <project_root> <layer_path>
 # the W4 MAJOR class lived precisely in an untested REFUSE corner)
 echo "  ── (10) REFUSE cell (iii): consumer deny.toml kept, ours shipped as getff-deny.toml ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 printf '[bans]\nmultiple-versions = "warn"\n' > "$C/deny.toml"
 DENY_BEFORE=$(cat "$C/deny.toml")
-out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
+out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 )
+RC_P50_010=$?
+if [ "$RC_P50_010" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-010)"; else bad "cargo-entry-lane: install rc=$RC_P50_010, expected 0 (p50-010)"; fi
 [ "$(cat "$C/deny.toml")" = "$DENY_BEFORE" ] \
   && ok "(10) consumer deny.toml left byte-identical (cell iii REFUSE — no silent clobber)" \
   || bad "(10) consumer deny.toml was modified — REFUSE cell broken"
@@ -327,9 +349,12 @@ rm -rf "$C"
 # @arm:C1:pos delivery-cell-matrix-complete (cargo CI REFUSE cell — was individually untested)
 echo "  ── (11) CI REFUSE cell: non-getff getff-cargo.yml preserved + loud REFUSE ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 mkdir -p "$C/.github/workflows"
 printf 'name: consumer-authored cargo wf\n' > "$C/.github/workflows/getff-cargo.yml"
-out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
+out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 )
+RC_P50_011=$?
+if [ "$RC_P50_011" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-011)"; else bad "cargo-entry-lane: install rc=$RC_P50_011, expected 0 (p50-011)"; fi
 grep -qxF 'name: consumer-authored cargo wf' "$C/.github/workflows/getff-cargo.yml" \
   && ok "(11) non-getff getff-cargo.yml NOT clobbered (consumer workflow preserved)" \
   || bad "(11) non-getff getff-cargo.yml was overwritten — STOP-line breach"
@@ -352,9 +377,14 @@ cargo_config_fingerprint() {  # volatile-excluded per 46-cargo.sh delivery-log c
     done
 }
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_012=$?
+if [ "$RC_P50_012" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-012)"; else bad "cargo-entry-lane: install rc=$RC_P50_012, expected 0 (p50-012)"; fi
 fp1=$(cargo_config_fingerprint "$C")
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_013=$?
+if [ "$RC_P50_013" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-013)"; else bad "cargo-entry-lane: install rc=$RC_P50_013, expected 0 (p50-013)"; fi
 fp2=$(cargo_config_fingerprint "$C")
 { [ -n "$fp1" ] && [ "$fp1" = "$fp2" ]; } \
   && ok "(12) second run left the delivered config tree byte-identical (cell v idempotent)" \
@@ -382,6 +412,7 @@ deliver_cargo_toolchain() {
 }
 STUB_EOF
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 printf 'cognitive-complexity-threshold = 30\n' > "$C/clippy.toml"
 printf '[bans]\nmultiple-versions = "warn"\n' > "$C/deny.toml"
 mkdir -p "$C/.github/workflows"
@@ -403,13 +434,18 @@ rm -rf "$C" "$STUBDIR"
 # @arm:C2:pos no-consumer-manifest-mutation (hash-compare across plain install + --force)
 echo "  ── (14) C2: Cargo.toml byte-identical after install and --force (manifest never mutated) ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 printf '\n[lints.rust]\nunsafe_code = "forbid"\n' >> "$C/Cargo.toml"   # real consumer content incl. a [lints] table
 MANIFEST_SHA_BEFORE=$(_sha256 "$C/Cargo.toml")
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_014=$?
+if [ "$RC_P50_014" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-014)"; else bad "cargo-entry-lane: install rc=$RC_P50_014, expected 0 (p50-014)"; fi
 [ "$(_sha256 "$C/Cargo.toml")" = "$MANIFEST_SHA_BEFORE" ] \
   && ok "(14) Cargo.toml byte-identical after plain install (read-only manifest contract)" \
   || bad "(14) Cargo.toml MUTATED by plain install — the lane wrote into the consumer manifest"
 ( cd "$C" && bash "$INSTALL" cargo --force < /dev/null ) >/dev/null 2>&1
+RC_P50_015=$?
+if [ "$RC_P50_015" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-015)"; else bad "cargo-entry-lane: install rc=$RC_P50_015, expected 0 (p50-015)"; fi
 [ "$(_sha256 "$C/Cargo.toml")" = "$MANIFEST_SHA_BEFORE" ] \
   && ok "(14) Cargo.toml byte-identical after --force too (overwrite flag never reaches the manifest)" \
   || bad "(14) Cargo.toml MUTATED under --force"
@@ -439,6 +475,7 @@ deliver_cargo_toolchain() {
 }
 STUB_EOF
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 MANIFEST_SHA_BEFORE=$(_sha256 "$C/Cargo.toml")
 run_cargo_delivery "$C" "$STUBDIR/stub-mutating-46-cargo.sh" >/dev/null 2>&1
 [ "$(_sha256 "$C/Cargo.toml")" != "$MANIFEST_SHA_BEFORE" ] \
@@ -460,6 +497,7 @@ rm -rf "$C" "$STUBDIR"
 # exits 101 with no stdout IS the deterministic minimal-profile host — driving the REAL install.sh.
 echo "  ── (16) cargo exits 101 mid-self-check → install.sh must still complete (A2-3) ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 SHIM16=$(mktemp -d)
 printf '#!/usr/bin/env sh\nexit 101\n' > "$SHIM16/cargo"
 chmod +x "$SHIM16/cargo"
@@ -494,7 +532,10 @@ rm -rf "$C" "$SHIM16"
 # cargo lane rewrites the lock on every pass (no content-aware skip), so each pass lands the fp.
 echo "  ── (17) A2-9: fingerprint covers generation-context manifest + fragments ──"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_016=$?
+if [ "$RC_P50_016" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-016)"; else bad "cargo-entry-lane: install rc=$RC_P50_016, expected 0 (p50-016)"; fi
 LOCK17="$C/.ai-factory/synthesizer-output/rules-lock.cargo.json"
 _clippy_fp17() { sed -n 's/.*"sourceFingerprint": "sha256:\([0-9a-f]*\)".*/\1/p' "$LOCK17" 2>/dev/null; }
 fp17a=$(_clippy_fp17)
@@ -510,6 +551,8 @@ mkdir -p "$C/.ai-factory/synthesizer-output/generation-context"
 printf '{"id":"G1","rule":"cargo-ban-x","tier":2}\n' > "$C/.ai-factory/synthesizer-output/generation-context/G1.json"
 _clippy_sha17=$(_sha256 "$C/clippy.toml")
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_017=$?
+if [ "$RC_P50_017" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-017)"; else bad "cargo-entry-lane: install rc=$RC_P50_017, expected 0 (p50-017)"; fi
 fp17b=$(_clippy_fp17)
 [ "$(_sha256 "$C/clippy.toml")" = "$_clippy_sha17" ] \
   && ok "(17b) non-vacuity: delivered config byte-identical across passes (the fragment is the only delta)" \
@@ -521,12 +564,16 @@ else
 fi
 printf '{"id":"G1","rule":"cargo-ban-x","tier":0,"note":"mutated"}\n' > "$C/.ai-factory/synthesizer-output/generation-context/G1.json"
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_018=$?
+if [ "$RC_P50_018" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-018)"; else bad "cargo-entry-lane: install rc=$RC_P50_018, expected 0 (p50-018)"; fi
 fp17c=$(_clippy_fp17)
 [ -n "$fp17c" ] && [ "$fp17c" != "$fp17b" ] \
   && ok "(17d) fingerprint moved again on a fragment MUTATION ($fp17b → $fp17c)" \
   || bad "(17d) fingerprint UNCHANGED ($fp17b) after mutating the fragment (A2-9 RED)"
 printf '{"framework":"cargo","version":"4.5.6","rules":[]}\n' > "$C/.ai-factory/synthesizer-output/generation-context.json"
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_019=$?
+if [ "$RC_P50_019" -eq 0 ]; then ok "cargo-entry-lane: install rc=0 (p50-019)"; else bad "cargo-entry-lane: install rc=$RC_P50_019, expected 0 (p50-019)"; fi
 fp17d=$(_clippy_fp17)
 [ -n "$fp17d" ] && [ "$fp17d" != "$fp17c" ] \
   && ok "(17e) fingerprint moved when the ctx MANIFEST appeared ($fp17c → $fp17d) — version input covered" \

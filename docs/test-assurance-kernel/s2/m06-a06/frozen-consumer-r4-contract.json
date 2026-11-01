@@ -1,0 +1,34 @@
+{
+  "governing_seed": "Original specA06 and existing S1 q3 pinned17false/18true, real function call versus constant. New exact live fixtures for previously missing delivered-consumer path; no old S0/S1 records rewritten.",
+  "source": "export function isAdult(age: number): boolean { return age >= 18; }\n",
+  "actual_source_fault": {
+    "preimage": "return age >= 18;",
+    "postimage": "return age >= 0;",
+    "exact_occurrences": 1
+  },
+  "cases": {
+    "comment-only": "// isAdult is named here, but there is no runnable test.\n",
+    "empty": "import { it } from 'vitest';\nit('isAdult empty', () => {});\n",
+    "constant": "import { expect, it } from 'vitest';\nit('isAdult constant', () => { expect(true).toBe(true); });\n",
+    "pinned-boundary": "import { describe, expect, it } from 'vitest';\nimport { isAdult } from './age.ts';\ndescribe('pinned age boundary', () => {\n  it('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\n  it('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n});\n"
+  },
+  "pinned_facts": {
+    "17": false,
+    "18": true
+  },
+  "actual_generated_test_path": "src/domain/age.unit.ts",
+  "actual_source_path": "src/domain/age.ts",
+  "channels": {
+    "structural_probe": "Name/file floor characterization only; bad acceptance never certifies quality.",
+    "empty_required_intended_lint_message": "noEffectiveAssertion",
+    "constant_required_intended_lint_message": "vacuousAssertion",
+    "comment_only": "Record no-runnable/discovery refusal separately, not behavioral fault kill/Q2 firing.",
+    "pinned_boundary": "Real good runner2passed/process0 and lint0; realfault intended17assertion fails/process1/2runnable; restoregood0.",
+    "constant_under_fault": "Actual runner still passes constant, while actual delivered lint rejects it via Q1."
+  },
+  "manual_boundary": "Original policy real assertions/boundaries/property requirements retained; syntax/structural checks do not establish semantic relevance or independent oracle. Existing named R4 rules-sidecar/manual /aif-verify channel owns remainder.",
+  "scope_limit": "One actual TS-server delivered consumer path, no all9config matrix/wholeR4behavioral or otherpreset guarantee.",
+  "M06_shared_iteration": 2,
+  "M06_original_cap": 5,
+  "no_new_subcap": true
+}

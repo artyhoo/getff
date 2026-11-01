@@ -31,8 +31,10 @@ T=$(mktemp -d)
     && mkdir -p .claude \
     && printf '{\n  "hooks": {\n    "PostToolUse": [\n      {"matcher":"Edit","hooks":[{"type":"command","command":"bash .claude/hooks/consumer-own.sh"}]}\n    ]\n  }\n}\n' > .claude/settings.json \
     && git add -A && git commit -q -m base \
-    && bash "$REPO_ROOT/install.sh" ts-server --force
+    && bash "$REPO_ROOT/install.sh" ts-server --force \
 ) >"$T/.log" 2>&1
+  RC_P50_125=$?
+  if [ "$RC_P50_125" -eq 0 ]; then ok "gh-934-ship-session-ux-hooks: install rc=0 (p50-125)"; else bad "gh-934-ship-session-ux-hooks: install rc=$RC_P50_125, expected 0 (p50-125)"; fi
 
 H="$T/.claude/hooks"
 S="$T/.claude/settings.json"
@@ -73,6 +75,8 @@ fi
 
 # ── ARM (C): idempotency ──────────────────────────────────────────────────────
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$T/.log2" 2>&1
+RC_P50_126=$?
+if [ "$RC_P50_126" -eq 0 ]; then ok "gh-934-ship-session-ux-hooks: install rc=0 (p50-126)"; else bad "gh-934-ship-session-ux-hooks: install rc=$RC_P50_126, expected 0 (p50-126)"; fi
 _n_pre=$(jq '(.hooks.PreToolUse // []) | map(select(.hooks[].command | test("ask-question-reminder"))) | length' "$S" 2>/dev/null)
 _n_post=$(jq '(.hooks.PostToolUse // []) | map(select(.hooks[].command | test("inject-matching-rule"))) | length' "$S" 2>/dev/null)
 if [ "$_n_pre" = 1 ] && [ "$_n_post" = 1 ]; then
@@ -148,6 +152,8 @@ jq '.hooks.PreToolUse |= (map(select((.hooks[].command | test("ask-question-remi
     | .hooks.PostToolUse |= (map(select((.hooks[].command | test("inject-matching-rule")) | not)))' \
   "$S" > "$S.tmp" && mv "$S.tmp" "$S"
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >"$T/.log3" 2>&1
+RC_P50_127=$?
+if [ "$RC_P50_127" -eq 0 ]; then ok "gh-934-ship-session-ux-hooks: install rc=0 (p50-127)"; else bad "gh-934-ship-session-ux-hooks: install rc=$RC_P50_127, expected 0 (p50-127)"; fi
 _r_pre=$(jq -r '(.hooks.PreToolUse // []) | map(select(.hooks[].command | test("ask-question-reminder"))) | .[0].matcher // ""' "$S" 2>/dev/null)
 _r_post=$(jq -r '(.hooks.PostToolUse // []) | map(select(.hooks[].command | test("inject-matching-rule"))) | .[0].matcher // ""' "$S" 2>/dev/null)
 _r_consumer=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)

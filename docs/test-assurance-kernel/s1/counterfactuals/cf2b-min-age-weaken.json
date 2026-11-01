@@ -1,0 +1,44 @@
+{
+  "recordId": "cf2b-min-age-weaken",
+  "schema": "tak-s1-counterfactual/1 (spec §6 minimal counterfactual fields)",
+  "obligationId": "Q3-copied-predicate (seed A06 analogue, arm 2) — non-equivalent to cf2a by construction: different carrier token (exported constant, not the comparison operator) and different probe signature (MIN_AGE flips 18→0, which cf2a leaves at 18)",
+  "sourceSha": "2b45e109e8523532744858448204d6545665ed29",
+  "carrier": "scripts/test-assurance/corpus/q3-copied-predicate/subject.ts — mutated in a SCRATCH copy (tests/subject.ts); repo corpus untouched",
+  "deliveryEdge": "real vitest 4.1.8 runner in a scratch repo; reachability probed by direct tsx import (no test file involved)",
+  "fixtureHash": {
+    "tests/subject.ts (pre-patch copy)": "de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266",
+    "tests/subject.ts (post-patch)": "4fa2d1da8aa6752161b3d123da75f736016d0bda9281dd14d3a93efae3053fa3"
+  },
+  "testIds": [
+    "q3-bad-recomputed.test.ts > q3 bad: local copy instead of the delivered predicate > checks the boundary against its own copy",
+    "q3-bad-same-predicate.test.ts > q3 bad: expected computed with the same predicate > compares the predicate to itself",
+    "q3-good-pinned.test.ts > q3 good: delivered predicate against pinned boundary facts > rejects below the age of majority",
+    "q3-good-pinned.test.ts > q3 good: delivered predicate against pinned boundary facts > accepts at the age of majority"
+  ],
+  "faultPatch": {
+    "label": "cf2b: q3 constant MIN_AGE = 18 -> 0",
+    "sha256(label\\nfrom\\nto)": "820ae1d8adf8abca65c86b93b075c8a652a1853738a387d702e53450c59642ad",
+    "appliedExactlyOnce": true
+  },
+  "reachabilityObservation": {
+    "method": "tsx probe imports the mutated scratch subject DIRECTLY: 'PROBE isAdult(17)=true MIN_AGE=0' after the patch — the exported constant demonstrably weakened, independent of any test",
+    "evidence": "OK probe /tmp/s1-cf2b-0zFyJE/probe.mts → PROBE isAdult(17)=true MIN_AGE=0"
+  },
+  "baselineResult": "3/3 green (vitest JSON: 3 files, 0 failed) + healthy probe",
+  "mutantResult": {
+    "q3-bad-recomputed.test.ts": "pass (copied-predicate companion SURVIVES)",
+    "q3-bad-same-predicate.test.ts": "pass (same-predicate companion SURVIVES)",
+    "q3-good-pinned.test.ts": "fail",
+    "intendedFailedAssertion": "expected true to be false (Object.is equality) at q3-good-pinned.test.ts:10:25"
+  },
+  "restoredResult": "RESTORED tests/subject.ts sha256=de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266 (byte-identical) + probe back to 'PROBE isAdult(17)=false MIN_AGE=18' + repo corpus dir clean (git status --porcelain = empty)",
+  "finalBaselineResult": "not applicable — no production file touched (corpus-only scratch experiment)",
+  "runtimeSeconds": 1,
+  "determinism": "run twice (logs below); both exit 0 with identical verdict",
+  "classification": "killed",
+  "replayCommand": "bash scripts/test-assurance/counterfactuals/replay-cf2b-min-age-weaken.sh",
+  "evidenceLogs": [
+    "docs/test-assurance-kernel/s1/logs/batch-d/cf2b-replay.log",
+    "docs/test-assurance-kernel/s1/logs/batch-d/replay2-cf2b-min-age-weaken.log"
+  ]
+}

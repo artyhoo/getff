@@ -13,17 +13,21 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve, dirname, join, relative } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   runRuleLiveness,
   runGuardLivenessCheck,
   getChangedEslintRuleIds,
+  runTestQualityLiveness,
+  isTestBearingPath,
   type ManifestRule,
 } from './guard-liveness.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(HERE, '../../../..');
 const REAL_MANIFEST_PATH = resolve(HERE, '../../manifest/rules-manifest.json');
 
 // A rule with a working liveness test using a known plugin rule (R12)
@@ -158,6 +162,41 @@ describe('runRuleLiveness', () => {
     },
     10_000,
   );
+
+  it(
+    'parse-error negative-test input is reported as a miss, never matched as a violation [GLV-1][TAK-S2-GLV-FALLTHROUGH]',
+    () => {
+      // cf3/D5 discharge at the SUITE layer (S2 m12-glv-suite-sensitivity): a malformed
+      // input lints to exactly one fatal parse-error message (ruleId null, messageId
+      // undefined) — ONE reached message class at the matchesViolation fallthrough, not
+      // the only one: the installed linter also emits a nonfatal ruleId-null
+      // unused-disable warning there (NONEXCLUSIVE-REACHABILITY.json), and a clean
+      // zero-message input never invokes the matcher (some() over an empty array).
+      // A healthy matcher reports the miss → status fail. The permissive
+      // fallthrough mutant (final return true, frozen cf3 fault) counts the parse error
+      // AS the requested violation → status pass — the 25-case suite before this test
+      // stayed green under that mutant (reached-not-killed: historical cf3 record;
+      // reproduced on the current 29f3 25-case suite by the author firstRED witness
+      // and independently).
+      const parseErrorRule: ManifestRule = {
+        check: { type: 'eslint', rule: 'rules-as-tests/no-server-imports-in-client' },
+        examples: R12_RULE.examples,
+        'negative-test': {
+          input: ['const totally = ;'],
+          'expect-violation': 'rules-as-tests/no-server-imports-in-client',
+        },
+      };
+      const missResult = runRuleLiveness('R12_PARSE_ERROR', parseErrorRule);
+      expect(missResult.status).toBe('fail');
+      expect(missResult.failures?.length).toBeGreaterThan(0);
+
+      // Legitimate companion (same rule, actually-violating input): still passes —
+      // the repair kills the permissive fallthrough WITHOUT weakening the gate.
+      const legitResult = runRuleLiveness('R12', R12_RULE);
+      expect(legitResult.status).toBe('pass');
+    },
+    10_000,
+  );
 });
 
 describe('getChangedEslintRuleIds', () => {
@@ -259,4 +298,165 @@ describe('real-manifest liveness — selector-family rules R18/R13 [GLV-R18]', (
     },
     10_000,
   );
+});
+
+// ─── Test-quality arm (S1 kernel, Q1/Q2) ─────────────────────────────────────
+
+describe('isTestBearingPath', () => {
+  it('recognizes test-suffixed and test-directory paths, rejects production paths', () => {
+    expect(isTestBearingPath('src/foo.test.ts')).toBe(true);
+    expect(isTestBearingPath('src/foo.spec.mjs')).toBe(true);
+    expect(isTestBearingPath('a/tests/helper.ts')).toBe(true);
+    expect(isTestBearingPath('a/__tests__/helper.tsx')).toBe(true);
+    expect(isTestBearingPath('src/foo.ts')).toBe(false);
+    // the assurance corpus itself is NOT test-bearing by path (no .test. infix)
+    expect(isTestBearingPath('scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts')).toBe(false);
+  });
+});
+
+describe('runTestQualityLiveness', () => {
+  it('rejects a vacuous assertion in a changed test file [TQ-1]', () => {
+    // ESLint 10 flat-config matching rejects `..`/outside-repo filenames, and node_modules
+    // is a default flat-config ignore, so scratch fixtures live in the gitignored
+    // /.ai-factory/ scratch area — same in-repo shape as the real changed-file invocation.
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    const file = join(dir, 'bad.test.ts');
+    writeFileSync(file, `it('vacuous', () => { expect(true).toBe(true); });\n`);
+    const rel = relative(REPO_ROOT, file);
+    const result = runTestQualityLiveness([rel]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(result.error).toBeUndefined();
+    expect(result.files).toEqual([rel]);
+    expect(result.violations.some((v) => v.includes('no-vacuous-assertion'))).toBe(true);
+  });
+
+  it('rejects an assertion-less test body [TQ-2]', () => {
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    const file = join(dir, 'hollow.test.ts');
+    writeFileSync(file, `it('hollow', () => { console.log('x'); });\n`);
+    const rel = relative(REPO_ROOT, file);
+    const result = runTestQualityLiveness([rel]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(result.violations.some((v) => v.includes('require-effective-assertion'))).toBe(true);
+  });
+
+  it('admits a conforming test file [TQ-3]', () => {
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    const file = join(dir, 'good.test.ts');
+    writeFileSync(file, `it('real', () => { expect(id(1)).toBe(1); });\n`);
+    const rel = relative(REPO_ROOT, file);
+    const result = runTestQualityLiveness([rel]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(result.violations).toEqual([]);
+  });
+
+  it('fails closed on an unreadable changed test file — never silent green [TQ-4]', () => {
+    const result = runTestQualityLiveness(['definitely/missing/q1.test.ts']);
+    expect(result.error).toContain('unreadable');
+    expect(result.violations).toEqual([]);
+  });
+
+  it('lints nothing when the selection has no test-bearing path (selection recorded) [TQ-5]', () => {
+    const result = runTestQualityLiveness(['src/production.ts']);
+    expect(result.files).toEqual([]);
+    expect(result.violations).toEqual([]);
+  });
+});
+
+describe('runTestQualityLiveness (mjs lane)', () => {
+  it('lints .mjs test files too — locks the files-glob fix (files-less = *.mjs-only default)', () => {
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    const file = join(dir, 'bad.test.mjs');
+    writeFileSync(file, `it('vacuous', () => { expect(1 + 1).toBe(2); });\n`);
+    const rel = relative(REPO_ROOT, file);
+    const result = runTestQualityLiveness([rel]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(result.files).toEqual([rel]);
+    expect(result.violations.some((v) => v.includes('no-vacuous-assertion'))).toBe(true);
+  });
+});
+
+// ─── D011 SB2/R1R2 — widened selector/carrier arms (2026-10-14, additive) ─────
+// The be84 hole these lock: isTestBearingPath already ADMITTED .mts/.cts and the
+// unit/audit/integration names, but the carrier config's explicit glob list carried
+// neither — a selected file matched by no config block lints to zero messages and
+// read silently clean (the coordinator-reproduced selector/carrier divergence,
+// SUP-R2-GLV-GLOB). SB2 derives the globs from the selector's own extension
+// population, adds the fail-closed cover guard, and records dir-selected
+// non-lintable paths instead of dropping them. The no-cover guard's load-bearing
+// proof is the SUP-R2-FAILCLOSED mutant arm (recovery-d011 driver), which reverts
+// the whole region and requires the recovery control to catch it.
+
+describe('isTestBearingPath (D011 widened names)', () => {
+  it('admits unit/audit/integration naming across the ts/mts/cts/js extension family', () => {
+    for (const name of ['unit', 'audit', 'integration'] as const) {
+      expect(isTestBearingPath(`src/foo.${name}.ts`), name).toBe(true);
+      expect(isTestBearingPath(`src/foo.${name}.mts`), name).toBe(true);
+      expect(isTestBearingPath(`src/foo.${name}.cts`), name).toBe(true);
+      expect(isTestBearingPath(`src/foo.${name}.js`), name).toBe(true);
+      expect(isTestBearingPath(`src/foo.${name}.tsx`), name).toBe(true);
+    }
+    expect(isTestBearingPath('src/foo.test.mts')).toBe(true);
+    expect(isTestBearingPath('src/foo.spec.cts')).toBe(true);
+    // the widening is about TEST-BEARING names, not any dotted suffix
+    expect(isTestBearingPath('src/foo.audit-report.ts')).toBe(false);
+    expect(isTestBearingPath('src/foo.units.ts')).toBe(false);
+  });
+});
+
+describe('runTestQualityLiveness (D011 selector/carrier alignment)', () => {
+  it('actually lints selected .mts/.cts files — the be84 carrier hole read them silently clean', () => {
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    try {
+      for (const name of ['bad.unit.mts', 'bad.audit.cts'] as const) {
+        writeFileSync(join(dir, name), `it('vacuous', () => { expect(1 + 1).toBe(2); });\n`);
+      }
+      const rels = ['bad.unit.mts', 'bad.audit.cts'].map((n) => relative(REPO_ROOT, join(dir, n)));
+      const result = runTestQualityLiveness(rels);
+      expect(result.error).toBeUndefined();
+      expect(result.files).toEqual(rels);
+      expect(result.violations.filter((v) => v.includes('no-vacuous-assertion')).length).toBe(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('lints tests/-directory selected files (location axis), not just suffix-named ones', () => {
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    mkdirSync(join(dir, 'tests'));
+    const file = join(dir, 'tests', 'helper.vacuous.ts');
+    writeFileSync(file, `it('vacuous', () => { expect(true).toBe(true); });\n`);
+    const rel = relative(REPO_ROOT, file);
+    const result = runTestQualityLiveness([rel]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(result.files).toEqual([rel]);
+    expect(result.violations.some((v) => v.includes('no-vacuous-assertion'))).toBe(true);
+  });
+
+  it('records dir-selected NON-lintable paths in nonLintable — never silently clean, never an error', () => {
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    mkdirSync(join(dir, 'tests'));
+    const file = join(dir, 'tests', 'notes.md');
+    writeFileSync(file, `# notes — dir-selected but not lintable\n`);
+    const rel = relative(REPO_ROOT, file);
+    const result = runTestQualityLiveness([rel]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(isTestBearingPath(rel)).toBe(true);
+    expect(result.files).toEqual([]);
+    expect(result.nonLintable).toEqual([rel]);
+    expect(result.violations).toEqual([]);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('a conforming .unit.mts companion stays clean under the widened carrier (no over-rejection)', () => {
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    const file = join(dir, 'good.unit.mts');
+    writeFileSync(file, `import { expect, it } from 'vitest';\nit('real', () => { expect(JSON.parse('1')).toBe(1); });\n`);
+    const rel = relative(REPO_ROOT, file);
+    const result = runTestQualityLiveness([rel]);
+    rmSync(dir, { recursive: true, force: true });
+    expect(result.error).toBeUndefined();
+    expect(result.files).toEqual([rel]);
+    expect(result.violations).toEqual([]);
+  });
 });

@@ -59,6 +59,8 @@ T=$(newrepo)
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 git -C "$T" config core.hooksPath .githooks
 _out=$( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
+RC_P50_134=$?
+if [ "$RC_P50_134" -eq 0 ]; then ok "hookspath-consumer-owned: install rc=0 (p50-134)"; else bad "hookspath-consumer-owned: install rc=$RC_P50_134, expected 0 (p50-134)"; fi
 [ "$(git -C "$T" config core.hooksPath)" = ".githooks" ] && ok "(D) install kept the consumer's core.hooksPath=.githooks" || bad "(D) install repointed core.hooksPath to $(git -C "$T" config core.hooksPath)"
 grep -q 'git config core.hooksPath' <<<"$_out" && bad "(D) install still prints a git config command to run by hand" || ok "(D) no manual wiring command in install output"
 grep -q '\.githooks' <<<"$(echo "$_out" | grep -E '^[[:space:]]*- framework git hooks')" \
@@ -69,6 +71,8 @@ rm -rf "$T"
 T=$(newrepo)
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+RC_P50_135=$?
+if [ "$RC_P50_135" -eq 0 ]; then ok "hookspath-consumer-owned: install rc=0 (p50-135)"; else bad "hookspath-consumer-owned: install rc=$RC_P50_135, expected 0 (p50-135)"; fi
 [ "$(git -C "$T" config core.hooksPath)" = ".husky" ] && ok "(E) fresh repo still gets core.hooksPath=.husky" || bad "(E) fresh repo lost hook activation"
 rm -rf "$T"
 
@@ -79,6 +83,8 @@ rm -rf "$T"
 T=$(newrepo); mkdir -p "$T/web"
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/web/package.json"
 _out=$( cd "$T/web" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
+RC_P50_136=$?
+if [ "$RC_P50_136" -eq 0 ]; then ok "hookspath-consumer-owned: install rc=0 (p50-136)"; else bad "hookspath-consumer-owned: install rc=$RC_P50_136, expected 0 (p50-136)"; fi
 grep -q 'toplevel' <<<"$(echo "$_out" | grep -E '^[[:space:]]*- framework git hooks' | grep 'web/\.husky/')" \
   && ok "(F) the NOT-wired line names web/.husky/ and the toplevel reason" || bad "(F) no NOT-wired line naming web/.husky/ and the toplevel"
 grep -q 'git config core.hooksPath' <<<"$_out" && bad "(F) subdirectory install still prints a git config command" || ok "(F) no git config command for a subdirectory install"
@@ -97,6 +103,18 @@ printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 git -C "$T" config core.hooksPath .githooks
 mkdir -p "$T/.husky"; printf '#!/usr/bin/env sh\nnpm run typecheck\n' > "$T/.husky/pre-commit"; chmod +x "$T/.husky/pre-commit"
 _out=$( cd "$T" && PATH="$STUBBIN:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full < /dev/null 2>&1 )
+RC_P50_137=$?
+# rc contract (INDEPENDENT-CIC-FAKE-PM-RC-RULING.json class, f253d186…): --full + stub PM that
+# reports success but installs nothing → tsx/eslint absent → check-fences-fire dep-missing SKIP →
+# strict self-verify promotes it → honest exit 1. Both named reasons must be present so an
+# unrelated 1 cannot pass. The arm's SUBJECT — the (G) re-assert assertions below — is unaffected.
+if [ "$RC_P50_137" -eq 1 ] \
+   && grep -q 'dep-missing skip(s) are failures' <<<"$_out" \
+   && grep -q 'Installation finished, but self-verify FAILED' <<<"$_out"; then
+  ok "hookspath-consumer-owned: install rc=1 (p50-137) — strict dep-missing self-verify, named reasons present"
+else
+  bad "hookspath-consumer-owned: install rc=$RC_P50_137, expected 1 + strict dep-missing reasons (p50-137): $(echo "$_out" | tr '\n' '|' | cut -c1-200)"
+fi
 grep -qi 'dependencies did NOT fully install' <<<"$_out" && bad "(G) precondition: deps reported incomplete — the re-assert branch was not reached" || ok "(G) precondition: deps reported installed (re-assert branch reached)"
 grep -q 'npm run typecheck' "$T/.husky/pre-commit" && ok "(G) --full kept the consumer's own .husky/pre-commit" || bad "(G) --full overwrote the consumer's own .husky/pre-commit"
 [ "$(git -C "$T" config core.hooksPath)" = ".githooks" ] && ok "(G) --full kept core.hooksPath=.githooks through the re-assert" || bad "(G) the post-deps re-assert repointed core.hooksPath to $(git -C "$T" config core.hooksPath)"

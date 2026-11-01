@@ -1,0 +1,4 @@
+{
+  "rule-id": "rules-as-tests/require-effective-assertion",
+  "description": "Q2 — a test body with no expect*/assert*/verify*-named call cannot fail and must be rejected"
+}

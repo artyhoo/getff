@@ -21,6 +21,8 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 T=$(mktemp -d)
 printf '{"name":"f8d","version":"0.0.0"}\n' > "$T/package.json"
 STEPS=$( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force 2>&1 )
+RC_P50_097=$?
+if [ "$RC_P50_097" -eq 0 ]; then ok "f8d-ai-factory-sot-materialized: install rc=0 (p50-097)"; else bad "f8d-ai-factory-sot-materialized: install rc=$RC_P50_097, expected 0 (p50-097)"; fi
 
 [ -f "$T/.ai-factory/DESCRIPTION.md" ] \
   && ok ".ai-factory/DESCRIPTION.md materialized on landing" \
@@ -60,6 +62,8 @@ mkdir -p "$N/.ai-factory"
 SENTINEL="CONSUMER-OWNED-DESCRIPTION-DO-NOT-CLOBBER-$$"
 printf '# %s\n' "$SENTINEL" > "$N/.ai-factory/DESCRIPTION.md"
 ( cd "$N" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+RC_P50_098=$?
+if [ "$RC_P50_098" -eq 0 ]; then ok "f8d-ai-factory-sot-materialized: install rc=0 (p50-098)"; else bad "f8d-ai-factory-sot-materialized: install rc=$RC_P50_098, expected 0 (p50-098)"; fi
 if grep -qF "$SENTINEL" "$N/.ai-factory/DESCRIPTION.md"; then
   ok "neg: pre-existing consumer DESCRIPTION.md preserved (copy_safe skip-if-exists)"
 else
@@ -70,6 +74,8 @@ fi
 RN=$(mktemp -d)
 printf '{"name":"f8drn","version":"0.0.0"}\n' > "$RN/package.json"
 ( cd "$RN" && git init -q && bash "$REPO_ROOT/install.sh" react-native --force ) >/dev/null 2>&1
+RC_P50_099=$?
+if [ "$RC_P50_099" -eq 0 ]; then ok "f8d-ai-factory-sot-materialized: install rc=0 (p50-099)"; else bad "f8d-ai-factory-sot-materialized: install rc=$RC_P50_099, expected 0 (p50-099)"; fi
 [ -f "$RN/.ai-factory/ARCHITECTURE.md" ] \
   && ok "stack: react-native install lands .ai-factory/ARCHITECTURE.md" \
   || bad "stack: react-native install left .ai-factory/ARCHITECTURE.md missing"

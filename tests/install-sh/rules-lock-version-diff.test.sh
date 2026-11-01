@@ -40,11 +40,15 @@ echo ""; echo "  ── (2) consumer project-version bump → version does NOT d
 PA=$(mktemp -d)
 printf '[project]\nname = "demo"\nversion = "0.0.1"\n' > "$PA/pyproject.toml"
 ( cd "$PA" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_309=$?
+if [ "$RC_P50_309" -eq 0 ]; then ok "rules-lock-version-diff: install rc=0 (p50-309)"; else bad "rules-lock-version-diff: install rc=$RC_P50_309, expected 0 (p50-309)"; fi
 LOCKA="$PA/.getff/rules-lock.python.json"
 
 PB=$(mktemp -d)
 printf '[project]\nname = "demo"\nversion = "99.99.99"\n' > "$PB/pyproject.toml"
 ( cd "$PB" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_310=$?
+if [ "$RC_P50_310" -eq 0 ]; then ok "rules-lock-version-diff: install rc=0 (p50-310)"; else bad "rules-lock-version-diff: install rc=$RC_P50_310, expected 0 (p50-310)"; fi
 LOCKB="$PB/.getff/rules-lock.python.json"
 
 if [ -f "$LOCKA" ] && [ -f "$LOCKB" ]; then

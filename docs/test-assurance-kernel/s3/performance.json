@@ -1,0 +1,286 @@
+{
+  "status": "COMPLETE-24CELLS",
+  "roles": {
+    "frozen": {
+      "head": "6bd07187e57635d02f8aed5e3560a346ad2748db",
+      "tree": "3e602b409f92b21d2683e32a933326fead97afda"
+    },
+    "optimized": {
+      "head": "dd934c52319ae5780e203d061a357b7295855606",
+      "tree": "4fcfb240b7772a63f2cab9f9e1a93c34c863787d"
+    }
+  },
+  "cells": [
+    {
+      "workload": "docs",
+      "role": "frozen",
+      "trial": 1,
+      "exitCode": 0,
+      "wallMs": 2351,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t1.log",
+      "stdoutSha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t1.stderr.log",
+      "stderrSha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "workload": "docs",
+      "role": "optimized",
+      "trial": 1,
+      "exitCode": 0,
+      "wallMs": 2478,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t1.log",
+      "stdoutSha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t1.stderr.log",
+      "stderrSha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "workload": "rule",
+      "role": "frozen",
+      "trial": 1,
+      "exitCode": 0,
+      "wallMs": 1088,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t1.log",
+      "stdoutSha256": "ce8731a14bd213d3583844d274eacb9e0716a41e5c254c5e3c87049fa3bc978b",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t1.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "rule",
+      "role": "optimized",
+      "trial": 1,
+      "exitCode": 0,
+      "wallMs": 1091,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t1.log",
+      "stdoutSha256": "ef9ef5660909c2c0a2b9afd2da421c5ece4d4117720c40c82e8f107d4b806d81",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t1.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "kernel",
+      "role": "frozen",
+      "trial": 1,
+      "exitCode": 0,
+      "wallMs": 10536,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t1.log",
+      "stdoutSha256": "81a2363ac957bdcc99b00a4bccd761d465145e6564eca3e6ac7bddc3fbe80664",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t1.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "kernel",
+      "role": "optimized",
+      "trial": 1,
+      "exitCode": 0,
+      "wallMs": 10557,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t1.log",
+      "stdoutSha256": "c1d80ffb0bd689bd51afb2b0111825e627dd1daf7c8b4033a65cc7e5d042f8c6",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t1.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "fallback",
+      "role": "frozen",
+      "trial": 1,
+      "exitCode": 0,
+      "wallMs": 25159,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t1.log",
+      "stdoutSha256": "57ebdc334f02b3c42fc9f1753abcb3c5c36f1aa6df932d8e911690405a98fd7e",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t1.stderr.log",
+      "stderrSha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "workload": "fallback",
+      "role": "optimized",
+      "trial": 1,
+      "exitCode": 0,
+      "wallMs": 33725,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t1.log",
+      "stdoutSha256": "04bb7b615ea70bff78ce7e249537c1e173a5444e8a3a2d4cdcbcf19d51c78b62",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t1.stderr.log",
+      "stderrSha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "workload": "docs",
+      "role": "frozen",
+      "trial": 2,
+      "exitCode": 0,
+      "wallMs": 2422,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t2.log",
+      "stdoutSha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t2.stderr.log",
+      "stderrSha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "workload": "docs",
+      "role": "optimized",
+      "trial": 2,
+      "exitCode": 0,
+      "wallMs": 2493,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t2.log",
+      "stdoutSha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t2.stderr.log",
+      "stderrSha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "workload": "rule",
+      "role": "frozen",
+      "trial": 2,
+      "exitCode": 0,
+      "wallMs": 1099,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t2.log",
+      "stdoutSha256": "12b1b5daee9cc21764883d8b4c3aabd1dbb6d5f968fd5c8aeaf68ea0d0e0cc7d",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t2.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "rule",
+      "role": "optimized",
+      "trial": 2,
+      "exitCode": 0,
+      "wallMs": 1079,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t2.log",
+      "stdoutSha256": "cdd33dd968106367c7843ed675c706fda2f4622caeb4484b6dca4abd95320092",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t2.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "kernel",
+      "role": "frozen",
+      "trial": 2,
+      "exitCode": 0,
+      "wallMs": 10872,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t2.log",
+      "stdoutSha256": "764bf9c2df9d824ff8256d31c100102a5bdae7573dbd655cee01fff22b4d6f6f",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t2.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "kernel",
+      "role": "optimized",
+      "trial": 2,
+      "exitCode": 0,
+      "wallMs": 10744,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t2.log",
+      "stdoutSha256": "25eec76f4bf76c6d9b3a9e46faa61629373ee64aac2888b10bb96fa845520f36",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t2.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "fallback",
+      "role": "frozen",
+      "trial": 2,
+      "exitCode": 0,
+      "wallMs": 25672,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t2.log",
+      "stdoutSha256": "bf4caf381c718398e83978e83330820113ba9be63e42f937e4b855a06ce7c997",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t2.stderr.log",
+      "stderrSha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "workload": "fallback",
+      "role": "optimized",
+      "trial": 2,
+      "exitCode": 0,
+      "wallMs": 33859,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t2.log",
+      "stdoutSha256": "e34ff0d5d1235b8c986d23cef4875611bed444a38ee8cb42f92a249ed9f63af2",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t2.stderr.log",
+      "stderrSha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "workload": "docs",
+      "role": "frozen",
+      "trial": 3,
+      "exitCode": 0,
+      "wallMs": 2434,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t3.log",
+      "stdoutSha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t3.stderr.log",
+      "stderrSha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "workload": "docs",
+      "role": "optimized",
+      "trial": 3,
+      "exitCode": 0,
+      "wallMs": 2493,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t3.log",
+      "stdoutSha256": "ff030d8ab5360e39c3ef813b0478d9b7154259809212076f0e2ddd65a22764fa",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t3.stderr.log",
+      "stderrSha256": "f1e029c1c093e4641a7769e243ccdd401f13e3296057d2436609e876dccc9bed"
+    },
+    {
+      "workload": "rule",
+      "role": "frozen",
+      "trial": 3,
+      "exitCode": 0,
+      "wallMs": 1110,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t3.log",
+      "stdoutSha256": "abcdfa4d98cfbcc64fc7f3d6f1f84c6db493a4bdd5e1fd1930e51606374fc426",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t3.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "rule",
+      "role": "optimized",
+      "trial": 3,
+      "exitCode": 0,
+      "wallMs": 1077,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t3.log",
+      "stdoutSha256": "d9b4aaafebc356fa9dce0f33374589296f74c4f47b4ae87de17341c5e5e11c2b",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t3.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "kernel",
+      "role": "frozen",
+      "trial": 3,
+      "exitCode": 0,
+      "wallMs": 10991,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t3.log",
+      "stdoutSha256": "66d8e36689691674e2178fff7208f27dd65a2fe3e626655e73c9eaab5ffc6d7d",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t3.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "kernel",
+      "role": "optimized",
+      "trial": 3,
+      "exitCode": 0,
+      "wallMs": 11040,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t3.log",
+      "stdoutSha256": "9b5184095cdc9c255d6dac38cffa4422155ee8442d8aaeeb4227b5c8183e1981",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t3.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "workload": "fallback",
+      "role": "frozen",
+      "trial": 3,
+      "exitCode": 0,
+      "wallMs": 25425,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t3.log",
+      "stdoutSha256": "616481130bce0eb52e02e25edbfaba8ebba4d63f97426d096b88f3b21cbebc4d",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t3.stderr.log",
+      "stderrSha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    },
+    {
+      "workload": "fallback",
+      "role": "optimized",
+      "trial": 3,
+      "exitCode": 0,
+      "wallMs": 33216,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t3.log",
+      "stdoutSha256": "fe70ed8536e45a5a5dad04057c1db891ee544739b226d1eff6559f05dc572f14",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t3.stderr.log",
+      "stderrSha256": "dccddf352a03e6a591665610c668e156a2ba7296f82c9d6a2b32a70e864f0fdd"
+    }
+  ],
+  "notes": {
+    "generator": "matrix-24-driver.py (StageController epoch, one collection, trial-major interleaving)",
+    "fixture": "dated 6673 broad fixture applied to BOTH roles for fallback cells, exact reversal, porcelain-verified",
+    "wallClock": "controller-observed wall ms (aggregate elapsed), not CPU",
+    "collectedUtc": "2026-10-31T11:38:11.919578+00:00",
+    "finishedUtc": "2026-10-31T11:42:42.571538+00:00"
+  }
+}

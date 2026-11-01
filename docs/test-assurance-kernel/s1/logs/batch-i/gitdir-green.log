@@ -1,0 +1,16 @@
+DRIVER repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+DRIVER oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978
+DRIVER expectations=2026-10-08 arms=6 (only D1-PERM-Q1)
+== phase: baseline pre (real CLI over the frozen static matrix) ==
+OBS OK baseline/q1-bads cli files=5 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: 
+OBS OK baseline/q2-bads cli files=4 rc=1 want=1 diag=rules-as-tests/require-effective-assertion :: 
+OBS OK baseline/goods cli files=12 rc=0 want=0 :: 
+OBS OK baseline/fixtures cli files=3 rc=0 want=0 :: 
+OBS OK baseline/wrong-import-honest-admission cli files=1 rc=0 want=0 :: HONEST LIMIT, not a detection claim: the static lane admits the wrong-import bad (no syntax gate may claim dataflow); its reject expectation is review-routed (oracle channel_map.wrong-import) and is evidenced by the named cold-review protocol + blocking dispositions queue, never by this CLI.
+== phase: arm D1-PERM-Q1 (permissive, K=K3) — carrier packages/core/eslint-rules/no-vacuous-assertion.mjs ==
+OBS OK D1-PERM-Q1/pristine cli files=5 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: 
+PATCH D1-PERM-Q1 label="D1: no-vacuous-assertion context.report suppressed (permissive)" sha256=e825a6adbb4261eb83ceabf40dcf35578b31005c8e3f852c2f3e30307401d736 occurrences=1 before=55fb8c0ab364 after=ec3f9c4e1489
+OBS OK D1-PERM-Q1/mutant cli files=5 rc=0 want=0 :: the bad corpus flips green — corpus verification FAILS under the fault; if the CLI still exits 1 the neutering was NOT detected (arm fails → driver exit 1)
+ARM D1-PERM-Q1 DETECTED (corpus verification fails under the fault; K3)
+RESTORED D1-PERM-Q1 packages/core/eslint-rules/no-vacuous-assertion.mjs sha256=55fb8c0ab36449921743082a336010aa508bf7e9889a33111be75f844b43280e
+DRIVER VERDICT: pass (baseline conforms; every arm reached its frozen flip; gates restored)

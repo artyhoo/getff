@@ -38,7 +38,7 @@ bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 # Sets up the dispatcher-scope globals + sources lib.sh + both lanes (LIB_ONLY seam).
 # Mirrors tests/install-sh/python-delivery.test.sh:38-49 + the cargo lane's CARGO_LAYER_LIB_ONLY
-# seam (cargo-entry-lane.test.sh:290-303).
+# seam (cargo-entry-lane.test.sh:309-322).
 setup_lanes() {
   PKG_ROOT="$REPO_ROOT"
   PROJECT_ROOT=""
@@ -286,7 +286,7 @@ rm -rf "$P"
 # Round-1 rework MAJOR 1: the initial sweep covered 2 of 5 templates. Cell (6) proves the preset
 # lane fix end-to-end via a REAL install.sh run (not just a template assertion) — the fixture
 # must exercise setup.d/40-configs.sh's `deliver_getff_workflow` swap, not bypass it. Mirrors the
-# `install_consumer` pattern in check-fences-fire-full-barrel.test.sh:70-76.
+# `install_consumer` pattern in check-fences-fire-full-barrel.test.sh:84-90.
 # Covers react-spa explicitly; preset-next-15-canonical and preset-react-native ship byte-identical
 # templates at the same line numbers (5,7,11) — proven by symmetry. Also implicitly covers the
 # ts-server github-actions-ci.yml swap (same shape, same line numbers).
@@ -296,7 +296,14 @@ printf '{"name":"c6-react-spa","version":"0.0.0"}\n' > "$P/package.json"
 init_consumer "$P" master
 # Real install.sh run — exercises the 40-configs.sh swap end-to-end. </dev/null so any prompt
 # (e.g. companions) gets a "no" instead of hanging the test.
-( cd "$P" && bash "$REPO_ROOT/install.sh" react-spa --force </dev/null ) >"$P/.install.log" 2>&1
+# Env isolation (fixture repair, p50-108): setup_lanes' LIB_ONLY exports make the sourced
+# layers define-only, so a REAL install inheriting them skips portable-bindings' function
+# definitions while 99-finalize.sh:17 still calls install_portable_bindings — bash "command
+# not found", rc=127, only 235/549 files delivered. The real-install cell must run clean.
+( cd "$P" && unset INSTALL_SH_LIB_ONLY PY_LAYER_LIB_ONLY CARGO_LAYER_LIB_ONLY GO_LAYER_LIB_ONLY \
+  && bash "$REPO_ROOT/install.sh" react-spa --force </dev/null ) >"$P/.install.log" 2>&1
+RC_P50_108=$?
+if [ "$RC_P50_108" -eq 0 ]; then ok "getff-default-branch-substitution: install rc=0 (p50-108)"; else bad "getff-default-branch-substitution: install rc=$RC_P50_108, expected 0 (p50-108)"; fi
 if [ -f "$P/.github/workflows/ci.yml" ]; then
   ok "(6) react-spa install delivered .github/workflows/ci.yml"
 else

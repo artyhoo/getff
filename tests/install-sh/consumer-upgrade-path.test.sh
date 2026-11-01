@@ -18,9 +18,11 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 # ── shared: create a minimal consumer with a full install ──────────────────
 make_consumer() {
   local T
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+  RC_P50_028=$?
+  if [ "$RC_P50_028" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 
@@ -29,9 +31,11 @@ make_consumer() {
 # instead of eating the harness's stdin when the suite is run from a terminal.
 make_consumer_profile() {
   local T prof="$1"
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --profile "$prof" < /dev/null ) >/dev/null 2>&1
+  RC_P50_029=$?
+  if [ "$RC_P50_029" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 
@@ -39,9 +43,11 @@ make_consumer_profile() {
 # that the ts-server consumer above does NOT, needed to exercise the preset refresh sub-population.
 make_consumer_next() {
   local T
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" react-next ) >/dev/null 2>&1
+  RC_P50_030=$?
+  if [ "$RC_P50_030" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 
@@ -52,6 +58,14 @@ make_consumer_next() {
 # FAILS when refresh is not run (i.e. the test cannot pass vacuously).
 # ══════════════════════════════════════════════════════════════════════════════
 TC=$(make_consumer)
+if [ -n "$TC" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 AGENT_DST="$TC/.claude/agents/compliance-verifier.md"
 CURRENT_CONTENT=$(cat "$AGENT_DST")
 STALE_MARKER="STALE_CONTENT_INJECTED_BY_TEST"
@@ -61,6 +75,8 @@ printf '%s\n' "$STALE_MARKER" > "$AGENT_DST"
 
 # Run --refresh (non-dry-run so it actually writes)
 ( cd "$TC" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+RC_P50_031=$?
+if [ "$RC_P50_031" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-031)"; else bad "consumer-upgrade-path: install rc=$RC_P50_031, expected 0 (p50-031)"; fi
 
 # Assert: stale content replaced by current framework content
 if grep -qF "$STALE_MARKER" "$AGENT_DST"; then
@@ -80,6 +96,14 @@ fi
 
 # neg (LOAD-BEARING): WITHOUT refresh, stale content persists — proves assertion is non-vacuous.
 TC_NEG=$(make_consumer)
+if [ -n "$TC_NEG" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 AGENT_DST_NEG="$TC_NEG/.claude/agents/compliance-verifier.md"
 printf '%s\n' "$STALE_MARKER" > "$AGENT_DST_NEG"
 # Do NOT run --refresh
@@ -100,6 +124,14 @@ rm -rf "$TC" "$TC_NEG"
 #   (c) a DIFFERENT agent (no override) IS refreshed (proves refresh ran, not a no-op)
 # ══════════════════════════════════════════════════════════════════════════════
 TC2=$(make_consumer)
+if [ -n "$TC2" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 AGENT_OWNED="$TC2/.claude/agents/living-docs-auditor.md"      # will get override.md
 AGENT_OTHER="$TC2/.claude/agents/compliance-verifier.md"      # no override → must be refreshed
 
@@ -115,6 +147,8 @@ OVERRIDE_CONTENT=$(cat "$OVERRIDE_FILE")
 
 # Run --refresh
 ( cd "$TC2" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+RC_P50_032=$?
+if [ "$RC_P50_032" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-032)"; else bad "consumer-upgrade-path: install rc=$RC_P50_032, expected 0 (p50-032)"; fi
 
 # (a) override file preserved untouched
 if [ "$(cat "$OVERRIDE_FILE")" = "$OVERRIDE_CONTENT" ]; then
@@ -139,10 +173,20 @@ fi
 
 # neg (LOAD-BEARING): without override.md, stale agent IS refreshed (no protection)
 TC2_NEG=$(make_consumer)
+if [ -n "$TC2_NEG" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 AGENT_UNPROTECTED="$TC2_NEG/.claude/agents/living-docs-auditor.md"
 printf '%s\n' "$STALE2" > "$AGENT_UNPROTECTED"
 # No override file created
 ( cd "$TC2_NEG" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+RC_P50_033=$?
+if [ "$RC_P50_033" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-033)"; else bad "consumer-upgrade-path: install rc=$RC_P50_033, expected 0 (p50-033)"; fi
 if grep -qF "$STALE2" "$AGENT_UNPROTECTED"; then
   bad "customise-survives neg: without .override.md, stale content persisted (refresh skipped it — wrong)"
 else
@@ -155,10 +199,20 @@ rm -rf "$TC2" "$TC2_NEG"
 # TEST 3 — dry-run preview is faithful (shows what would happen, writes nothing)
 # ══════════════════════════════════════════════════════════════════════════════
 TC3=$(make_consumer)
+if [ -n "$TC3" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 AGENT_STALE="$TC3/.claude/agents/memory-codification-auditor.md"
 printf '%s\n' "STALE_DRYRUN_MARKER" > "$AGENT_STALE"
 
 DRY_OUT=$( cd "$TC3" && bash "$REPO_ROOT/install.sh" --refresh --dry-run 2>&1 )
+RC_P50_034=$?
+if [ "$RC_P50_034" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-034)"; else bad "consumer-upgrade-path: install rc=$RC_P50_034, expected 0 (p50-034)"; fi
 
 # Dry-run must mention the agent
 if grep -q "memory-codification-auditor.md" <<<"$DRY_OUT"; then
@@ -176,6 +230,8 @@ fi
 
 # neg: confirm real refresh DOES write (proves dry-run guard is real, not vacuous)
 ( cd "$TC3" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+RC_P50_035=$?
+if [ "$RC_P50_035" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-035)"; else bad "consumer-upgrade-path: install rc=$RC_P50_035, expected 0 (p50-035)"; fi
 if grep -q "STALE_DRYRUN_MARKER" "$AGENT_STALE"; then
   bad "dry-run neg: real --refresh left the stale marker (refresh was a no-op — proves nothing)"
 else
@@ -194,6 +250,14 @@ rm -rf "$TC3"
 # (neg)    WITHOUT --refresh the deleted bundle stays absent (non-vacuous).
 # ══════════════════════════════════════════════════════════════════════════════
 TC4=$(make_consumer)
+if [ -n "$TC4" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 BUNDLE_DST="$TC4/packages/core/hooks/pre-push.bundle.mjs"
 BUNDLE_SRC="$REPO_ROOT/packages/core/hooks/pre-push.bundle.mjs"
 STALE_TS="$TC4/packages/core/hooks/pre-push.ts"
@@ -204,6 +268,8 @@ printf '// stale pre-push.ts from a prior installer version\n' > "$STALE_TS"
 
 # Run --refresh (non-dry-run so it actually writes)
 REFRESH4_OUT=$( cd "$TC4" && bash "$REPO_ROOT/install.sh" --refresh 2>&1 )
+RC_P50_036=$?
+if [ "$RC_P50_036" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-036)"; else bad "consumer-upgrade-path: install rc=$RC_P50_036, expected 0 (p50-036)"; fi
 
 if [ -f "$BUNDLE_DST" ] && cmp -s "$BUNDLE_DST" "$BUNDLE_SRC"; then
   ok "hook-bundle pos: pre-push.bundle.mjs re-shipped by --refresh, identical to the framework bundle"
@@ -224,6 +290,14 @@ fi
 
 # neg (LOAD-BEARING): delete the bundle, do NOT refresh → it stays absent (non-vacuous).
 TC4_NEG=$(make_consumer)
+if [ -n "$TC4_NEG" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 BUNDLE_NEG="$TC4_NEG/packages/core/hooks/pre-push.bundle.mjs"
 rm -f "$BUNDLE_NEG"
 # Do NOT run --refresh
@@ -247,6 +321,14 @@ rm -rf "$TC4" "$TC4_NEG"
 # Paired-negative: WITHOUT --refresh each planted stale marker persists (non-vacuous).
 # ══════════════════════════════════════════════════════════════════════════════
 TC5=$(make_consumer)
+if [ -n "$TC5" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 STALE5="STALE_GATE_SCRIPT_INJECTED_PRE_869"
 # <consumer scripts/ basename> | <framework source relative to REPO_ROOT>
 # — mirrors the copy_safe delivery in setup.d/40-configs.sh (check-fences-fire :51,
@@ -265,6 +347,8 @@ done
 
 # Run --refresh (non-dry-run so it actually writes)
 ( cd "$TC5" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+RC_P50_037=$?
+if [ "$RC_P50_037" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-037)"; else bad "consumer-upgrade-path: install rc=$RC_P50_037, expected 0 (p50-037)"; fi
 
 # pos: each gate script is refreshed to the framework source (not the stale stub)
 for _entry in "${GATE_SCRIPTS[@]}"; do
@@ -281,6 +365,14 @@ done
 
 # neg (LOAD-BEARING): plant stale, do NOT refresh → stale persists (proves non-vacuity)
 TC5_NEG=$(make_consumer)
+if [ -n "$TC5_NEG" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 for _entry in "${GATE_SCRIPTS[@]}"; do
   _name="${_entry%%|*}"
   printf '%s\n' "$STALE5" > "$TC5_NEG/scripts/$_name"
@@ -309,6 +401,14 @@ rm -rf "$TC5" "$TC5_NEG"
 # pre-compiled .mjs + .ts. Paired-negative: WITHOUT --refresh each stays stale.
 # ══════════════════════════════════════════════════════════════════════════════
 TC6=$(make_consumer)
+if [ -n "$TC6" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 STALE6="STALE_FRAMEWORK_ARTEFACT_INJECTED_PRE_869B"
 # <consumer path> | <framework source relative to REPO_ROOT>
 FRAMEWORK_ARTEFACTS=(
@@ -326,6 +426,8 @@ done
 
 # Run --refresh
 ( cd "$TC6" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+RC_P50_038=$?
+if [ "$RC_P50_038" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-038)"; else bad "consumer-upgrade-path: install rc=$RC_P50_038, expected 0 (p50-038)"; fi
 
 # pos: each artefact is refreshed to the framework source
 for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
@@ -342,6 +444,14 @@ done
 
 # neg (LOAD-BEARING): plant stale, do NOT refresh → stale persists (proves non-vacuity)
 TC6_NEG=$(make_consumer)
+if [ -n "$TC6_NEG" ]; then
+  ok "consumer-upgrade-path: make_consumer install rc=0 (p50-028)"
+else
+  bad "consumer-upgrade-path: make_consumer install failed (empty sentinel), expected rc 0 (p50-028)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
   _name="${_entry%%|*}"
   printf '%s\n' "$STALE6" > "$TC6_NEG/$_name"
@@ -370,6 +480,14 @@ rm -rf "$TC6" "$TC6_NEG"
 # refreshes on a react-next consumer. Paired-negative: WITHOUT --refresh it stays stale.
 # ══════════════════════════════════════════════════════════════════════════════
 TC7=$(make_consumer_next)
+if [ -n "$TC7" ]; then
+  ok "consumer-upgrade-path: make_consumer_next install rc=0 (p50-030)"
+else
+  bad "consumer-upgrade-path: make_consumer_next install failed (empty sentinel), expected rc 0 (p50-030)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 STALE7="STALE_PRESET_RULE_INJECTED_PRE_869C"
 # both a CORE rule (control — was already refreshed) and the PRESET rule (the gap)
 PRESET_ARTEFACTS=(
@@ -389,6 +507,8 @@ else
     printf '%s\n' "$STALE7" > "$TC7/$_name"
   done
   ( cd "$TC7" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+  RC_P50_039=$?
+  if [ "$RC_P50_039" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-039)"; else bad "consumer-upgrade-path: install rc=$RC_P50_039, expected 0 (p50-039)"; fi
   for _entry in "${PRESET_ARTEFACTS[@]}"; do
     _name="${_entry%%|*}"; _src="${_entry##*|}"
     _dst="$TC7/$_name"
@@ -403,6 +523,14 @@ else
 
   # neg (LOAD-BEARING): plant stale in the preset rule, do NOT refresh → stays stale
   TC7_NEG=$(make_consumer_next)
+  if [ -n "$TC7_NEG" ]; then
+    ok "consumer-upgrade-path: make_consumer_next install rc=0 (p50-030)"
+  else
+    bad "consumer-upgrade-path: make_consumer_next install failed (empty sentinel), expected rc 0 (p50-030)"
+    echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+    echo ""; echo "PASS=$PASS FAIL=$FAIL"
+    exit 1
+  fi
   printf '%s\n' "$STALE7" > "$TC7_NEG/eslint-rules-local/no-server-imports-in-client.mjs"
   if grep -qF "$STALE7" "$TC7_NEG/eslint-rules-local/no-server-imports-in-client.mjs"; then
     ok "gh-869c neg: without --refresh, planted preset rule stays stale (assertion non-vacuous)"
@@ -461,6 +589,14 @@ FACTORY_ONLY=(
 # TEST 8 — #1334: a core-depth --refresh must not cross the depth boundary
 # ══════════════════════════════════════════════════════════════════════════════
 TC8=$(make_consumer_profile core)
+if [ -n "$TC8" ]; then
+  ok "consumer-upgrade-path: make_consumer_profile install rc=0 (p50-029)"
+else
+  bad "consumer-upgrade-path: make_consumer_profile install failed (empty sentinel), expected rc 0 (p50-029)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 _pre8=""
 for _p in "${ENVPLUS_ONLY[@]}" "${FACTORY_ONLY[@]}"; do
   [ -e "$TC8/$_p" ] && _pre8="$_pre8 $_p"
@@ -473,6 +609,8 @@ fi
 
 # (pos-a) bare --refresh — PROFILE resolves to core (non-interactive default)
 ( cd "$TC8" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_040=$?
+if [ "$RC_P50_040" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-040)"; else bad "consumer-upgrade-path: install rc=$RC_P50_040, expected 0 (p50-040)"; fi
 _leak8=""
 for _p in "${ENVPLUS_ONLY[@]}" "${FACTORY_ONLY[@]}"; do
   [ -e "$TC8/$_p" ] && _leak8="$_leak8 $_p"
@@ -485,6 +623,8 @@ fi
 
 # (pos-b) explicit --refresh --profile core — same boundary, explicit depth signal
 ( cd "$TC8" && bash "$REPO_ROOT/install.sh" --refresh --profile core < /dev/null ) >/dev/null 2>&1
+RC_P50_041=$?
+if [ "$RC_P50_041" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-041)"; else bad "consumer-upgrade-path: install rc=$RC_P50_041, expected 0 (p50-041)"; fi
 _leak8b=""
 for _p in "${ENVPLUS_ONLY[@]}" "${FACTORY_ONLY[@]}"; do
   [ -e "$TC8/$_p" ] && _leak8b="$_leak8b $_p"
@@ -507,6 +647,14 @@ fi
 # claude-glm-executor-handoff (factory install loop only).
 # ══════════════════════════════════════════════════════════════════════════════
 TC9=$(make_consumer_profile factory)
+if [ -n "$TC9" ]; then
+  ok "consumer-upgrade-path: make_consumer_profile install rc=0 (p50-029)"
+else
+  bad "consumer-upgrade-path: make_consumer_profile install failed (empty sentinel), expected rc 0 (p50-029)"
+  echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 STALE9="STALE_DEPTH_ARTEFACT_INJECTED_PRE_1312"
 REFRESH_TARGETS9=(
   ".claude/skills/arch/SKILL.md"
@@ -543,6 +691,8 @@ else
 
   # Bare --refresh: no --profile, so ONLY the presence clause can save these.
   ( cd "$TC9" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null ) >/dev/null 2>&1
+  RC_P50_042=$?
+  if [ "$RC_P50_042" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-042)"; else bad "consumer-upgrade-path: install rc=$RC_P50_042, expected 0 (p50-042)"; fi
 
   _i=0
   for _p in "${REFRESH_TARGETS9[@]}"; do
@@ -558,6 +708,14 @@ else
 
   # neg (LOAD-BEARING): plant stale in a second factory consumer, do NOT refresh → stays stale.
   TC9_NEG=$(make_consumer_profile factory)
+  if [ -n "$TC9_NEG" ]; then
+    ok "consumer-upgrade-path: make_consumer_profile install rc=0 (p50-029)"
+  else
+    bad "consumer-upgrade-path: make_consumer_profile install failed (empty sentinel), expected rc 0 (p50-029)"
+    echo "consumer-upgrade-path: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+    echo ""; echo "PASS=$PASS FAIL=$FAIL"
+    exit 1
+  fi
   printf '%s\n' "$STALE9" > "$TC9_NEG/.claude/skills/arch/SKILL.md"
   printf '%s\n' "$STALE9" > "$TC9_NEG/.claude/skills/rule-tests/SKILL.md"
   if grep -qF "$STALE9" "$TC9_NEG/.claude/skills/arch/SKILL.md" \
@@ -577,6 +735,8 @@ fi
 # acted on somewhere in the same run.
 # ══════════════════════════════════════════════════════════════════════════════
 DRY10=$( cd "$TC9" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
+RC_P50_043=$?
+if [ "$RC_P50_043" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-043)"; else bad "consumer-upgrade-path: install rc=$RC_P50_043, expected 0 (p50-043)"; fi
 ANNOUNCED10=$(printf '%s\n' "$DRY10" | sed -n 's/^▶ Skills (\([^)]*\)).*/\1/p' | tr ', ' '\n' | sed '/^$/d')
 if [ -z "$ANNOUNCED10" ]; then
   bad "announce-honesty: could not parse the '▶ Skills (…)' header from --refresh --dry-run output (gate broke)"
@@ -607,6 +767,8 @@ rm -rf "$TC9"
 # absent (the boundary moves to env, it does not disappear).
 # ══════════════════════════════════════════════════════════════════════════════
 ( cd "$TC8" && bash "$REPO_ROOT/install.sh" --refresh --profile env < /dev/null ) >/dev/null 2>&1
+RC_P50_044=$?
+if [ "$RC_P50_044" -eq 0 ]; then ok "consumer-upgrade-path: install rc=0 (p50-044)"; else bad "consumer-upgrade-path: install rc=$RC_P50_044, expected 0 (p50-044)"; fi
 _still11=""
 for _p in "${ENVPLUS_ONLY[@]}"; do
   [ -e "$TC8/$_p" ] || _still11="$_still11 $_p"

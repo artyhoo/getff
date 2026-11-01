@@ -32,7 +32,7 @@ a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills
 8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/rule-tests/agents/openai.yaml
 a1369b56957680bbbf481c414c8ee8fb907ce85f27dffdff66d96f28bf42885c  .agents/skills/tool-bootstrapping/SKILL.md
 8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/tool-bootstrapping/agents/openai.yaml
-21a63588f6cf094545783f87bed4b4800090add6e00f885d1db1b8ff9eadf2b6  .agents/tools/install/rule-bootstrap-cli.bundle.mjs
+9bcbd5fc056d7d985e807f224bde26fc844ceaa7323063eec40c94acd07f1257  .agents/tools/install/rule-bootstrap-cli.bundle.mjs
 de295425a7553c1cf0f193f92b9cb671e755c67740919ac4bbbdc174aa254b42  .agents/tools/ir/convention-node.schema.json
 9317540e8ed9f875564462353a5ae033f01272557e37fe115cce2ca43724df1c  .agents/tools/research/multi-tenant-hosts.json
 17e1286e848c12bd9159471a9916836479a29ff71378f2a0b4eb9f0e804b8a3f  .agents/tools/research/research-allowlist.schema.json
@@ -42,7 +42,7 @@ ae743445b9756a002c13ae9c3dd8849c6c5e017de7baf0e3a9e182a4d3ea1f2a  .agents/tools/
 db1dccc6bf666c28652862d477049ac159fffabb8f8a030f1d1b9a1d8be3f2c0  .ai-factory/AI-USAGE-GUIDE.md
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.md
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
-c1b878a1cdeeaad125c8a89909f3f8c52f34e273b90d7d38bca5fba54c47cbb1  .ai-factory/refresh-baseline.json
+e13d1c373b805050fe967dea7363bcf038914e2d9e4f5df5bf6b1ff1505739fc  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md

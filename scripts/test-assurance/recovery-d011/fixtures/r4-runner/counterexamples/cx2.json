@@ -1,0 +1,14 @@
+{
+  "id": "cx2",
+  "tag": "intendedfail+notexecuted",
+  "provenance": "chief counterexample, bytes verbatim from amended-1/evidence/coordinator-classifier-probe.mts line 61; amended-1/evidence/coordinator-classifier-result.json case 'one intended fail + another required not-executed'",
+  "filters": ["done.test.ts", "skipped.test.ts"],
+  "rootDir": "/r4-replay",
+  "report": {"success": false, "numTotalTests": 2},
+  "caller_fed_files_amended1": {"done.test.ts": {"status": "fail", "failureMessages": ["intended"]}, "skipped.test.ts": {"status": "not-executed", "failureMessages": []}},
+  "stdout": "",
+  "exitCode": 1,
+  "amended1_actual": "detection",
+  "expected_amended2": "infrastructure-failure",
+  "note": "A3: the cx2 report carries no testResults at all — malformed grammar fails closed to infrastructure-failure. The well-formed completion of the same combination is cx2b."
+}

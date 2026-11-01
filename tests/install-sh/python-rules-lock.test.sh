@@ -34,7 +34,7 @@ skip() { echo "  · $1"; }
 [ -d "$TPL" ]     || { echo "FATAL: python templates not found at $TPL"; exit 1; }
 
 py_fixture() {  # echo a fresh temp dir seeded with a pyproject.toml (a pure Python consumer)
-  local d; d=$(mktemp -d)
+  local d; d=$(mktemp -d) || { echo ""; return 1; }
   printf '[project]\nname = "demo"\nversion = "0.0.1"\n' > "$d/pyproject.toml"
   echo "$d"
 }
@@ -48,6 +48,7 @@ echo ""
 # ── (1) fresh install → the lock exists with the expected schema shape ─────────────────────────────
 echo "  ── (1) fresh install.sh python → rules-lock.python.json shape ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 out=$( cd "$P" && bash "$INSTALL" python --force < /dev/null 2>&1 ); rc=$?
 LOCK="$P/$LOCK_REL"
 [ "$rc" -eq 0 ] || bad "(1) install exit $rc: $(echo "$out" | tail -3 | tr '\n' '|')"
@@ -112,7 +113,10 @@ grep -qE '^[0-9a-f]{16}$' <<<"$fp1" \
 # ── (5) reproducibility: a second fresh consumer with the SAME rule set → SAME fingerprint ─────────
 echo ""; echo "  ── (5) reproducibility (same rules → same fingerprint) ──"
 P2=$(py_fixture)
+[ -n "$P2" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P2" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_213=$?
+if [ "$RC_P50_213" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-213)"; else bad "python-rules-lock: install rc=$RC_P50_213, expected 0 (p50-213)"; fi
 fp2=$(lock_field "$P2/$LOCK_REL" sourceFingerprint)
 [ -n "$fp1" ] && [ "$fp1" = "$fp2" ] \
   && ok "(5) identical delivered rule set → identical sourceFingerprint" \
@@ -126,6 +130,8 @@ fp2=$(lock_field "$P2/$LOCK_REL" sourceFingerprint)
 echo ""; echo "  ── (6) idempotent plain no-flag re-run (emittedAt stable) ──"
 before=$(cat "$LOCK")
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_214=$?
+if [ "$RC_P50_214" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-214)"; else bad "python-rules-lock: install rc=$RC_P50_214, expected 0 (p50-214)"; fi
 [ "$before" = "$(cat "$LOCK")" ] \
   && ok "(6) plain no-flag re-run is idempotent — lock byte-identical (skip-if-present)" \
   || bad "(6) plain no-flag re-run changed the lock (not idempotent)"
@@ -133,6 +139,8 @@ before=$(cat "$LOCK")
 # ── (7) --refresh regenerates the lock with the SAME fingerprint (rules unchanged) ─────────────────
 echo ""; echo "  ── (7) --refresh regenerates (same rules → same fingerprint) ──"
 ( cd "$P" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_215=$?
+if [ "$RC_P50_215" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-215)"; else bad "python-rules-lock: install rc=$RC_P50_215, expected 0 (p50-215)"; fi
 fp_refresh=$(lock_field "$LOCK" sourceFingerprint)
 [ "$fp_refresh" = "$fp1" ] \
   && ok "(7) --refresh keeps the fingerprint (deterministic over the unchanged rule set)" \
@@ -147,7 +155,10 @@ if [ -f "$RESEARCHED" ]; then
   cp -R "$TPL/." "$SRC/"
   cp "$RESEARCHED" "$SRC/.getff/astgrep-rules/"
   P3=$(py_fixture)
+  [ -n "$P3" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
   ( cd "$P3" && PY_TEMPLATE_DIR="$SRC" bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+  RC_P50_216=$?
+  if [ "$RC_P50_216" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-216)"; else bad "python-rules-lock: install rc=$RC_P50_216, expected 0 (p50-216)"; fi
   LOCK3="$P3/$LOCK_REL"
   fp3=$(lock_field "$LOCK3" sourceFingerprint)
   grep -q '"getff-researched-no-yaml-load"' "$LOCK3" \
@@ -172,7 +183,10 @@ fi
 echo ""; echo "  ── (9) regression: --force re-delivery regenerates the lock (no stale ruffBans/fingerprint) ──"
 SRC9=$(mktemp -d); cp -R "$TPL/." "$SRC9/"
 P9=$(py_fixture)
+[ -n "$P9" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P9" && PY_TEMPLATE_DIR="$SRC9" bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_217=$?
+if [ "$RC_P50_217" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-217)"; else bad "python-rules-lock: install rc=$RC_P50_217, expected 0 (p50-217)"; fi
 L9="$P9/$LOCK_REL"
 fpA=$(lock_field "$L9" sourceFingerprint)
 grep -q '"TID999"' "$L9" && preTID=1 || preTID=0
@@ -180,6 +194,8 @@ grep -q '"TID999"' "$L9" && preTID=1 || preTID=0
 sed -i.bak -E 's/select = \["DTZ005", "TID251", "TID253"\]/select = ["DTZ005", "TID251", "TID253", "TID999"]/' "$SRC9/ruff.toml" && rm -f "$SRC9/ruff.toml.bak"
 # Re-install with --force (NOT --refresh) over the SAME consumer → copy_safe overwrites ruff-bans.toml.
 ( cd "$P9" && PY_TEMPLATE_DIR="$SRC9" bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_218=$?
+if [ "$RC_P50_218" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-218)"; else bad "python-rules-lock: install rc=$RC_P50_218, expected 0 (p50-218)"; fi
 grep -q 'TID999' "$P9/.getff/ruff-bans.toml" \
   && ok "(9) --force re-delivery overwrote the delivered ruff-bans.toml (template B reached the consumer)" \
   || bad "(9) --force did NOT overwrite ruff-bans.toml — repro precondition unmet"
@@ -208,6 +224,7 @@ for t in cat find sort sed grep awk date mkdir rm mktemp head wc; do
   p=$(command -v "$t" 2>/dev/null) && ln -sf "$p" "$BIN/$t"
 done
 P10=$(py_fixture)
+[ -n "$P10" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 mkdir -p "$P10/.getff/astgrep-rules"
 cp "$TPL/.getff/astgrep-rules/"*.yml "$P10/.getff/astgrep-rules/"
 cp "$TPL/ruff.toml" "$P10/.getff/ruff-bans.toml"
@@ -241,7 +258,10 @@ rm -rf "$BIN" "$P10"
 echo ""; echo "  ── (11) regression: researched join on a PLAIN re-run regenerates the lock (content-aware) ──"
 if [ -f "$RESEARCHED" ]; then
   P11=$(py_fixture)
+  [ -n "$P11" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
   ( cd "$P11" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  RC_P50_219=$?
+  if [ "$RC_P50_219" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-219)"; else bad "python-rules-lock: install rc=$RC_P50_219, expected 0 (p50-219)"; fi
   L11="$P11/$LOCK_REL"
   [ -f "$L11" ] || bad "(11) plain fresh install did not emit the lock — precondition unmet"
   fpP=$(lock_field "$L11" sourceFingerprint)
@@ -253,6 +273,8 @@ if [ -f "$RESEARCHED" ]; then
   cp "$RESEARCHED" "$P11/.getff/rules-research/"
   # PLAIN no-flag re-run — the join delivers the researched rule; NO overwrite flag is set.
   ( cd "$P11" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  RC_P50_220=$?
+  if [ "$RC_P50_220" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-220)"; else bad "python-rules-lock: install rc=$RC_P50_220, expected 0 (p50-220)"; fi
   [ -f "$P11/.getff/astgrep-rules/getff-researched-no-yaml-load.yml" ] \
     && ok "(11) plain re-run joined the researched rule into the scan dir (repro precondition)" \
     || bad "(11) researched rule did NOT join on the plain re-run — repro precondition unmet"
@@ -276,6 +298,7 @@ fi
 # (the null arm fires on every scratch install because no synthesis ran).
 echo ""; echo "  ── (12) manifest-present arm: python reads .ai-factory/synthesizer-output/ for real ──"
 P12=$(py_fixture)
+[ -n "$P12" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 mkdir -p "$P12/.ai-factory/synthesizer-output"
 cat > "$P12/.ai-factory/synthesizer-output/generation-context.json" <<'CTXEOF'
 {
@@ -284,6 +307,8 @@ cat > "$P12/.ai-factory/synthesizer-output/generation-context.json" <<'CTXEOF'
 }
 CTXEOF
 ( cd "$P12" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_221=$?
+if [ "$RC_P50_221" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-221)"; else bad "python-rules-lock: install rc=$RC_P50_221, expected 0 (p50-221)"; fi
 L12="$P12/$LOCK_REL"
 _ctx12=$(lock_field "$L12" version)
 if [ "$_ctx12" = "3.2.1" ]; then
@@ -311,6 +336,8 @@ if [ -n "$_delivered_id" ]; then
   printf '{"id":"%s","provenance":[{"url":"https://pyyaml.org","allowlistKey":"pyyaml","fetchedAt":"2026-08-08","tier":0}],"tier":0}\n' "$_delivered_id" \
     > "$P12/.ai-factory/synthesizer-output/generation-context/python/$_delivered_id.json"
   ( cd "$P12" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+  RC_P50_222=$?
+  if [ "$RC_P50_222" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-222)"; else bad "python-rules-lock: install rc=$RC_P50_222, expected 0 (p50-222)"; fi
   if grep -q "\"provenance\":\[.*\"pyyaml\"" "$L12" 2>/dev/null; then
     ok "(12) fragment-READER works: rule '$_delivered_id' provenance read from a hand-placed generation-context/python/ fragment (producer side covered by arm 13 — S1b)"
   else
@@ -358,6 +385,7 @@ else
 
   if [ -n "$PRACTICE_FIX" ]; then
     P13=$(py_fixture)
+    [ -n "$P13" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
     # M3 rework: seed multi-stack manifests so the cargo + go lanes WRITE real locks at their
     # real home (.ai-factory/synthesizer-output/, NOT .getff/ — only the python lock lives
     # there; setup.d/lib.sh:1747-1748, the lock writer both lanes share). The prior arm pointed at
@@ -389,6 +417,8 @@ else
 
     # Run the python lane (joins rules-research/*.yml → astgrep-rules/, reads fragments, writes lock).
     ( cd "$P13" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+    RC_P50_223=$?
+    if [ "$RC_P50_223" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-223)"; else bad "python-rules-lock: install rc=$RC_P50_223, expected 0 (p50-223)"; fi
     L13="$P13/$LOCK_REL"
 
     # Criterion 1 + 2 + 3 + 5: the lock entry for the researched rule carries the record's
@@ -548,8 +578,12 @@ else
     # seeded above, the lanes now WRITE real locks; the absent-lock case is now `bad` (precondition
     # unmet), NOT a trivial pass — an assertion whose positive branch never runs is not an assertion.
     ( cd "$P13" && bash "$INSTALL" cargo --force < /dev/null ) >/dev/null 2>&1
+    RC_P50_224=$?
+    if [ "$RC_P50_224" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-224)"; else bad "python-rules-lock: install rc=$RC_P50_224, expected 0 (p50-224)"; fi
     L13_CARGO="$P13/.ai-factory/synthesizer-output/rules-lock.cargo.json"
     ( cd "$P13" && bash "$INSTALL" go --force < /dev/null ) >/dev/null 2>&1
+    RC_P50_225=$?
+    if [ "$RC_P50_225" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-225)"; else bad "python-rules-lock: install rc=$RC_P50_225, expected 0 (p50-225)"; fi
     L13_GO="$P13/.ai-factory/synthesizer-output/rules-lock.go.json"
     if [ -f "$L13_CARGO" ]; then
       if grep -q "\"$RULE_ID_13\"" "$L13_CARGO" 2>/dev/null; then
@@ -612,7 +646,10 @@ fi
 #               (the content-aware skip is preserved, not defeated by hashing more inputs).
 echo ""; echo "  ── (14) A2-7: fingerprint covers provenance fragments; idempotent skip preserved ──"
 P14=$(py_fixture)
+[ -n "$P14" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P14" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_226=$?
+if [ "$RC_P50_226" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-226)"; else bad "python-rules-lock: install rc=$RC_P50_226, expected 0 (p50-226)"; fi
 L14="$P14/$LOCK_REL"
 _fp_before=$(lock_field "$L14" sourceFingerprint)
 _id14=$(grep -hE '^id:' "$P14"/.getff/astgrep-rules/*.yml 2>/dev/null | head -1 | sed -E 's/^id:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
@@ -628,6 +665,8 @@ else
   printf '{"id":"%s","provenance":[{"url":"https://pyyaml.org","allowlistKey":"a2-7-probe","fetchedAt":"2026-09-05","tier":0}],"tier":0}\n' "$_id14" \
     > "$P14/.ai-factory/synthesizer-output/generation-context/python/$_id14.json"
   ( cd "$P14" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  RC_P50_227=$?
+  if [ "$RC_P50_227" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-227)"; else bad "python-rules-lock: install rc=$RC_P50_227, expected 0 (p50-227)"; fi
   _fp_after=$(lock_field "$L14" sourceFingerprint)
   _yml_sha_after=$(cat "$P14"/.getff/astgrep-rules/*.yml 2>/dev/null | shasum -a 256 2>/dev/null | awk '{print $1}')
 
@@ -647,6 +686,8 @@ else
   # (14b) NOTHING changes → the content-aware skip must still fire and the lock stay byte-identical.
   _lock_sha_before=$(shasum -a 256 "$L14" 2>/dev/null | awk '{print $1}')
   _out14b=$( cd "$P14" && bash "$INSTALL" python < /dev/null 2>&1 )
+  RC_P50_228=$?
+  if [ "$RC_P50_228" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-228)"; else bad "python-rules-lock: install rc=$RC_P50_228, expected 0 (p50-228)"; fi
   _lock_sha_after=$(shasum -a 256 "$L14" 2>/dev/null | awk '{print $1}')
 
   grep -q 'fingerprint unchanged' <<<"$_out14b" \
@@ -670,7 +711,10 @@ rm -rf "$P14"
 # overwrite the delivered dir, so the planted bait survives into the second fingerprint pass.
 echo ""; echo "  ── (15) A2-12: nested *.yml under the rules dir must NOT change the fingerprint ──"
 P15=$(py_fixture)
+[ -n "$P15" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P15" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_229=$?
+if [ "$RC_P50_229" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-229)"; else bad "python-rules-lock: install rc=$RC_P50_229, expected 0 (p50-229)"; fi
 L15="$P15/$LOCK_REL"
 fp15a=$(lock_field "$L15" sourceFingerprint)
 if [ -n "$fp15a" ]; then
@@ -685,6 +729,8 @@ cp "$P15"/.getff/astgrep-rules/*.yml "$P15/.getff/astgrep-rules/nested/"
   && ok "(15) non-vacuity: nested bait planted under .getff/astgrep-rules/nested/ (real yml bytes)" \
   || bad "(15) non-vacuity FAILED: nested bait did not land — a green result would prove nothing"
 ( cd "$P15" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_230=$?
+if [ "$RC_P50_230" -eq 0 ]; then ok "python-rules-lock: install rc=0 (p50-230)"; else bad "python-rules-lock: install rc=$RC_P50_230, expected 0 (p50-230)"; fi
 fp15b=$(lock_field "$L15" sourceFingerprint)
 if [ "$fp15b" = "$fp15a" ]; then
   ok "(15) nested *.yml did NOT change the fingerprint ($fp15a stable) — the walk is bounded (A2-12 closed)"
@@ -704,6 +750,7 @@ rm -rf "$P15"
 # line, return 0.
 echo ""; echo "  ── (16) emptied rules dir: plain re-run completes with the rules-lock skip line ──"
 P16=$(py_fixture)
+[ -n "$P16" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 rc_setup16=0
 ( cd "$P16" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1 || rc_setup16=$?
 [ "$rc_setup16" -eq 0 ] \

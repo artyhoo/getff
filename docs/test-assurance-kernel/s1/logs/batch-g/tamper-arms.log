@@ -1,0 +1,37 @@
+# Batch G tamper arms — the adapter's own fail-closed proof (exactly-once in-place tampers, hash-proven restore)
+# T0 hide dispositions queue -> dispositions RED (exit 1) · T1 drop pinned cf record -> k7-records RED naming it (exit 1) · T2 empty a driver baseline selector -> driver refuses (exit 3), adapter refuses to conclude (T-TAK-A: never green)
+# date -u: 2026-10-08T16:03:02Z HEAD: 1fce4516de250de26bb2bc3aa92005a51ec8913f
+
+════ TAMPER ARM T0 ════
+VERIFY repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+VERIFY stage=S1 require-host=unset sysname=linux
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+TAMPER T0 applied: absent (pre-state already is the tamper)
+TAMPER T0 observed: child exit=1 → RED as required
+VERIFY TAMPER T0 VERDICT: DETECTED exit=0 (the adapter's fail-closed behavior is proven, restoration hash-proven)
+TAMPER-T0-EXIT=0
+
+════ TAMPER ARM T1 ════
+VERIFY repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+VERIFY stage=S1 require-host=unset sysname=linux
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+TAMPER T1 applied: dropped pinned record docs/test-assurance-kernel/s1/counterfactuals/cf1-a03-circular-oracle.json
+TAMPER T1 observed: child exit=1 → RED names the dropped record (cf1-a03-circular-oracle) as required
+TAMPER restored docs/test-assurance-kernel/s1/counterfactuals/cf1-a03-circular-oracle.json sha256=aaa4f77ed44d… (byte-identical)
+VERIFY TAMPER T1 VERDICT: DETECTED exit=0 (the adapter's fail-closed behavior is proven, restoration hash-proven)
+TAMPER-T1-EXIT=0
+
+════ TAMPER ARM T2 ════
+VERIFY repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+VERIFY stage=S1 require-host=unset sysname=linux
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+TAMPER T2 applied: emptied baseline selector baseline/q1-bads.files (driver must refuse, T-TAK-A)
+TAMPER T2 observed: child exit=3 → driver refused the empty selector, adapter refused to conclude (INFRA) as required
+TAMPER restored scripts/test-assurance/driver-expectations.json sha256=ecbd0a75a9ed… (byte-identical)
+VERIFY TAMPER T2 VERDICT: DETECTED exit=0 (the adapter's fail-closed behavior is proven, restoration hash-proven)
+TAMPER-T2-EXIT=0
+
+== post-arms integrity: working tree must be byte-identical to pre-arms ==
+ M docs/test-assurance-kernel/s1/batches.md
+ M scripts/test-assurance/delivery/replay-principle-rename-break.sh
+?? scripts/test-assurance/verify.mjs

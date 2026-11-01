@@ -1,0 +1,971 @@
+{
+ "meta": {
+  "scope": "M10 tracked portable receipt index — operator-evidence-exception-1 (findings M10-FINAL-E1/E2); tracked companion to m10-completion-evidence.md",
+  "base_proposal": "c326d75a448f387ef49a99903a9985b23491c5c6",
+  "normalization": "session-absolute paths rewritten to session:<relative> labels (relative to s2-m10-status-full-preparation/); content otherwise taken from the retained originals. This tracked file is a NORMALIZED COPY: its own sha256 is not the digest of any retained artifact, and no byte-hash equality between the copy and any original is asserted",
+  "digest_rule": "every *_sha256 below was computed over the retained original bytes at the labeled session path and recomputes there",
+  "source_session_index": {
+   "label": "session:preparation/receipt-index.json",
+   "sha256": "1d5129699718528ed2b6d54822c554fcd0185cf5409a5bc15d60c298ffad704d"
+  },
+  "host_environment": "macOS (Darwin); Apple bash 3.2.57; GNU timeout 900s at /opt/homebrew/bin/timeout; r5 session exported LANG=C.UTF-8 unless an entry says otherwise; historical completion-4 logs captured no environment — unknown where so marked",
+  "counts": {
+   "fresh_normal_r5": 15,
+   "four_family_arm_logs": 12,
+   "historical_45": 45
+  }
+ },
+ "fresh_normal_r5": [
+  {
+   "suite": "tests/install-sh/cargo-entry-lane.test.sh",
+   "source_sha256_current": "cac33e460558080c57cfe7059ab96c0a9ef36c92ae6956b9aa2d65ad0006a10f",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/cargo-entry-lane.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=71 FAIL=0",
+   "log": "session:preparation/logs-r5/cargo-entry-lane.log",
+   "log_sha256": "d55d51c23db99268f7de310829189108a2bfa751bedf59b56a45cd40213b6fc6"
+  },
+  {
+   "suite": "tests/install-sh/consumer-delivery-safety-guard.test.sh",
+   "source_sha256_current": "0d880609d09abb7fbab480266339448f0c358219148d2cb5422695e6a62c8687",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/consumer-delivery-safety-guard.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=38 FAIL=0",
+   "log": "session:preparation/logs-r5/consumer-delivery-safety-guard.log",
+   "log_sha256": "ce2e76cea07b9541752eb80daf913d96afbe91ae9012899987d7f420f908653d"
+  },
+  {
+   "suite": "tests/install-sh/consumer-upgrade-path.test.sh",
+   "source_sha256_current": "7c6d85155b19ae983c321635be83d8e5694a377f24839de9c096a2f6037af94c",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/consumer-upgrade-path.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=77 FAIL=0",
+   "log": "session:preparation/logs-r5/consumer-upgrade-path.log",
+   "log_sha256": "28897fe9c04dcfddfd59d0517d72d9c03ce066a2e68499117227bc9083e53af3"
+  },
+  {
+   "suite": "tests/install-sh/deliver-gate-scripts.test.sh",
+   "source_sha256_current": "51d6a6f8154c69ea9845a3359bfcc7f7167808c15733a7559deccbf248cbc5ae",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/deliver-gate-scripts.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=34 FAIL=0",
+   "log": "session:preparation/logs-r5/deliver-gate-scripts.log",
+   "log_sha256": "638d2f1b91ce55765098fc7e5dec31bd45e946eaa9dba5c058ef63a544c7883d"
+  },
+  {
+   "suite": "tests/install-sh/eslint-rule-prune-by-manifest.test.sh",
+   "source_sha256_current": "c1212fcf72502ca7373c6223a5d010d3cbc560cc937441537bce04ac6d7a389a",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/eslint-rule-prune-by-manifest.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=12 FAIL=0",
+   "log": "session:preparation/logs-r5/eslint-rule-prune-by-manifest.log",
+   "log_sha256": "a95cc1db0504977607a90ba04599db07601856182612798d4f108fc643292437"
+  },
+  {
+   "suite": "tests/install-sh/lane-orphan-residue.test.sh",
+   "source_sha256_current": "1e5e421d4fdcdcd58ed771db38b23a53827a6c51a73bcc2219e4deed4dd50949",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/lane-orphan-residue.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=61 FAIL=0",
+   "log": "session:preparation/logs-r5/lane-orphan-residue.log",
+   "log_sha256": "95942c65cecf945455e4ba6da8e347d947964cd9309ca90f62baec0ca28f6fce"
+  },
+  {
+   "suite": "tests/install-sh/pre-merge-local-delivery.test.sh",
+   "source_sha256_current": "d4f6caade3621c17c6dec942631bbe1b145de7fc413f974a703c5cb48e408d85",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/pre-merge-local-delivery.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": null,
+   "log": "session:preparation/logs-r5/pre-merge-local-delivery.log",
+   "log_sha256": "c69a7b7dda40aabbc4ca29342a6acbf63e23df8e7e0f9b92f15e5a846ec24c68"
+  },
+  {
+   "suite": "tests/install-sh/python-agent-surface-refresh.test.sh",
+   "source_sha256_current": "fbd88d37e3bc79960968f5d6da3888b658cf214e94577abd7ec6de92aef9c8ce",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/python-agent-surface-refresh.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": null,
+   "log": "session:preparation/logs-r5/python-agent-surface-refresh.log",
+   "log_sha256": "c7352e05237d5b5d66af3f4df76dc7a7cab3959f3f6c3adbc9ec8b3c2b4ee937"
+  },
+  {
+   "suite": "tests/install-sh/python-entry-lane.test.sh",
+   "source_sha256_current": "bcdc5676076a1e4f64d0ae538da350ae327543d1bfd76f06bfdb22c9f9e65681",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/python-entry-lane.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=203 FAIL=0",
+   "log": "session:preparation/logs-r5/python-entry-lane.log",
+   "log_sha256": "544c4d79c96766502553e20657cefd00e660ac590f585f61d7fd9f161c0d61b4"
+  },
+  {
+   "suite": "tests/install-sh/python-rules-lock.test.sh",
+   "source_sha256_current": "17028bb2b08dee824671fb055e97ba1eec96ba7443dcde8f2cc7582662272287",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/python-rules-lock.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": null,
+   "log": "session:preparation/logs-r5/python-rules-lock.log",
+   "log_sha256": "569b5858757dc6ee06be4c7b60ff8671572db4e60bccdaf72c3603c755c42286"
+  },
+  {
+   "suite": "tests/install-sh/refresh-baseline-survives-early-exit.test.sh",
+   "source_sha256_current": "1e14537a09aa5c6c839bb35b14285f0187a73ab46e5cb71b4a6eb66d099e991b",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/refresh-baseline-survives-early-exit.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=30 FAIL=0",
+   "log": "session:preparation/logs-r5/refresh-baseline-survives-early-exit.log",
+   "log_sha256": "2353b2d0a41093cadd7e2506d5cc071bc6124973d6a3dfe9dc8b7e8cb0b58ba1"
+  },
+  {
+   "suite": "tests/install-sh/refresh-dir-payload-ownership.test.sh",
+   "source_sha256_current": "6927b37b6978639aec9aab4bd36f761c8793b40a8c1c29edf19031ce423cfdd0",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/refresh-dir-payload-ownership.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=25 FAIL=0",
+   "log": "session:preparation/logs-r5/refresh-dir-payload-ownership.log",
+   "log_sha256": "8efdad9d360e2b0ae40e6b1ac5843c2f58910bcb0dfe3dd33a05cd87757bdcd2"
+  },
+  {
+   "suite": "tests/install-sh/refresh-divergence-guard.test.sh",
+   "source_sha256_current": "b1d65771c014dbd3f82e6cef588685b97ca36744aebaec434da03820db84e1fc",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/refresh-divergence-guard.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=37 FAIL=0",
+   "log": "session:preparation/logs-r5/refresh-divergence-guard.log",
+   "log_sha256": "49ac7c3fad8e627fe5a8cdb14280ca44b4c035ef999880c359aa7e57854a1262"
+  },
+  {
+   "suite": "tests/install-sh/refresh-rewires.test.sh",
+   "source_sha256_current": "dac710dd3747f9921b50644b62990ee8889b074261085b85c9b1dff2c46c119b",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/refresh-rewires.test.sh",
+   "env": "LC_ALL=C (explicit; bash 3.2.57)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=193 FAIL=0",
+   "log": "session:preparation/logs-r5/refresh-rewires.lc-c.log",
+   "log_sha256": "eb81f43f40ac75e621aa90052e225aea9080f87403dae8224693e8a7984e42d4",
+   "prior_attempt": {
+    "observed_exit": 1,
+    "env": "session LANG=C.UTF-8",
+    "log_sha256": "e09e51327e3cc9551d4ecafa091623eb6b469a3f649b5fd0613eae1cce116614",
+    "note": "first fresh r5 run EXIT=1 at line 614 (`_h<U+00BB>: unbound variable`) — bash-3.2 UTF-8-locale variable-name-extension artifact on a line byte-identical to the completion-4 postimage; root-caused with a 5-line repro in the r5 runner summary",
+    "log": "session:preparation/logs-r5/refresh-rewires.log"
+   },
+   "completion4_prior_attempt": {
+    "log": "session:preparation/logs-repair4/refresh-rewires.log",
+    "log_sha256": "386dcb2543c8cbfc8d863dc4846a4c00f277b00ed7b2e44ebedb51ee36a08f8c",
+    "observed_exit": 1,
+    "note": "retained completion-4 runner log is TERMINAL EXIT=1 — same `_h»` locale-artifact class at line 537; NO completion-4 fix1 receipt exists for this suite, so the completion-4 REPORT §5 '60/60 green / 6 fix1 PASS' overcounts it (its own fix1 table lists five suites); the LC_ALL=C r5 run above is this suite's FIRST terminal green receipt. The r5 runner summary's wording 'an infrastructure delta of the restarted session' is corrected here: the artifact fired in the pre-restart completion-4 session too. The completion-4 session's locale was not captured — unknown."
+   }
+  },
+  {
+   "suite": "tests/install-sh/refresh-vendor-single-delivery.test.sh",
+   "source_sha256_current": "15ac9f64c5ef40d838e5a22c8b53ad4c64cba8f6e0299de9f298fa4d1130f4f9",
+   "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/refresh-vendor-single-delivery.test.sh",
+   "env": "session LANG=C.UTF-8 (bash 3.2.57; green — no varname/non-ascii-adjacency site in this suite)",
+   "observed_exit": 0,
+   "last_passfail": "PASS=24 FAIL=0",
+   "log": "session:preparation/logs-r5/refresh-vendor-single-delivery.log",
+   "log_sha256": "34db6aeb10c803ae69f6f2df4d7864c49e609b58a3bc9f1e8e0ce6876551a4b5"
+  }
+ ],
+ "four_family_controls": {
+  "verdict": "GO_EXACT_FOUR_ORIGINAL_M10_PROPAGATION_FAMILY_CONTROLS_ONLY",
+  "reviewer": "Existing independent Codex coordinator; actual fixed expectations, wrapper/source identity and all12 raw terminal outcomes reviewed. No new actor or cold-seat claim.",
+  "recorded_at_utc": "2026-10-15T02:55:04.786547+00:00",
+  "receipt_document": "session:independent-review/INDEPENDENT-REVISION5-FOUR-FAMILY-CONTROLS-GO.json",
+  "receipt_document_sha256": "c68d5dda855984cc7f9497dc3e718bdddb4484a03eac4debd48b715669a5ca75",
+  "root_frozen_controls_sha256": "8f6f60830a46649407e557ecdbc765dd65a0caad3f345675e99071bb8ed2c478",
+  "author_predeclaration_sha256": "2ebcdbfe276c4799cec4aa649114191075d988181159bfb7bef3a6b56aa40bcb",
+  "actual_controller_sha256": "71d07479af65f9d777dbf4e16cbbd4b46e4c72f29ce8a565662d538cc0b54dba",
+  "qualification": "Actual first matched invocation was the first overall invocation and actual stock0 in all8 fault arms, with per-arm marker/witness. Exact old carriers false-green0; repaired carriers had exactly1 named failure and exit1; exact stock restored all4 healthy0 with PASS>0/FAIL0. Does not certify generic runner fail-closed behavior, unknown inputs, all302 repaired calls behaviorally, all60 fresh environment inputs, whole M10 proposal/source application, whole S2 or process compliance. Retain the separate prototype/preservation/locale qualifications; source acceptance and final stage gates remain pending.",
+  "scope_limit": "actual first-match/stock0 observations only; the prototype controller's exit0/failures0 is NOT a generic fail-closed certificate (per the accepted qualification above)",
+  "rows": [
+   {
+    "id": "p50-315",
+    "family": "F2 masked status",
+    "file": "tests/install-sh/snapshot-exclusion-guard.test.sh",
+    "original_source_sha256": "6a8573aa58ebc254df4598b19cca79858feed71162dfb537925b8b3b6f321330",
+    "repaired_source_sha256": "ff8f8d73fae6cb5e006f520d9a794c77de4705ca51988c93dd1147e6fed98d0d",
+    "arms": [
+     {
+      "phase": "old-fault",
+      "exit": 0,
+      "pass": 11,
+      "fail": 0,
+      "intended_failure_lines": [],
+      "log": "session:preparation/r5-logs/p50-315-old-fault.log",
+      "log_sha256": "46d8f454ba7b80fb58ced62cfc06d2fa33eefdf90e93bc6dda99ed3e7da1d99d",
+      "witness": "session:preparation/r5-shadow/p50-315-target42/witness-a.log",
+      "witness_sha256": "287f42284234faab23189011ccafd812afc9d8774b54b9e66c401f7c3b3511c7",
+      "first_actual_witness": "2026-10-15T02:09:49Z argv=[python --force] stock-rc=0",
+      "actual_invocation_count": 1,
+      "created_marker_present": true
+     },
+     {
+      "phase": "repaired-fault",
+      "exit": 1,
+      "pass": 11,
+      "fail": 1,
+      "intended_failure_lines": [
+       "  ✗ snapshot-exclusion-guard: install rc=42, expected 0 (p50-315)"
+      ],
+      "log": "session:preparation/r5-logs/p50-315-repaired-fault.log",
+      "log_sha256": "3816a2133d323c06bf16ab6ce4c214a7ea563dc421b3c51f44570417fca67d7f",
+      "witness": "session:preparation/r5-shadow/p50-315-target42/witness-b.log",
+      "witness_sha256": "94e1f2c39862efcad27f08ba5042d15f37a35f7847dbb9033c5c419dc161ff3d",
+      "first_actual_witness": "2026-10-15T02:09:58Z argv=[python --force] stock-rc=0",
+      "actual_invocation_count": 1,
+      "created_marker_present": true
+     },
+     {
+      "phase": "restored",
+      "exit": 0,
+      "pass": 12,
+      "fail": 0,
+      "intended_failure_lines": [],
+      "log": "session:preparation/r5-logs/p50-315-restored.log",
+      "log_sha256": "5c3e2d81152548071c0233ada09012e12371d21a672a2ab48aaccd185e3922bf"
+     }
+    ]
+   },
+   {
+    "id": "p50-232",
+    "family": "F3 direct helper",
+    "file": "tests/install-sh/r2-glob-reach.test.sh",
+    "original_source_sha256": "8401a0ed7b70f91f746b9a56a773d1c4ce89b514f6ec745cb4ae5c2684ae3421",
+    "repaired_source_sha256": "28c043033a1217df622fa4be98124d5a34cf34deece18060939ac4efe4cd740b",
+    "arms": [
+     {
+      "phase": "old-fault",
+      "exit": 0,
+      "pass": 122,
+      "fail": 0,
+      "intended_failure_lines": [],
+      "log": "session:preparation/r5-logs/p50-232-old-fault.log",
+      "log_sha256": "2d0cbb63fed405197d3929d065304f225f5786433ae1c58f3eefd0c29a240730",
+      "witness": "session:preparation/r5-shadow/p50-232-target42/witness-a.log",
+      "witness_sha256": "f9d24306d62ae1391436a255ec922937fdebbe553749eb0935d4fea68ec9846b",
+      "first_actual_witness": "2026-10-15T02:11:10Z argv=[ts-server --force] stock-rc=0",
+      "actual_invocation_count": 32,
+      "created_marker_present": true
+     },
+     {
+      "phase": "repaired-fault",
+      "exit": 1,
+      "pass": 130,
+      "fail": 1,
+      "intended_failure_lines": [
+       "  ✗ r2-glob-reach: install rc=42, expected 0 (p50-232)"
+      ],
+      "log": "session:preparation/r5-logs/p50-232-repaired-fault.log",
+      "log_sha256": "f2a359bb39985b8e7cf529880826b658b1ea4867e5a16655fdc2942546348764",
+      "witness": "session:preparation/r5-shadow/p50-232-target42/witness-b.log",
+      "witness_sha256": "8aa830d3a7c607b188411935675cea2cd247d803b94e6c6668fc00803753fc1b",
+      "first_actual_witness": "2026-10-15T02:22:56Z argv=[ts-server --force] stock-rc=0",
+      "actual_invocation_count": 32,
+      "created_marker_present": true
+     },
+     {
+      "phase": "restored",
+      "exit": 0,
+      "pass": 131,
+      "fail": 0,
+      "intended_failure_lines": [],
+      "log": "session:preparation/r5-logs/p50-232-restored.log",
+      "log_sha256": "01cf8bc8f96b8f54b28272ae90a332deb8cc7b933d8514a1913d05b853ad4fd2"
+     }
+    ]
+   },
+   {
+    "id": "p50-059",
+    "family": "F4 command-substituted path helper",
+    "file": "tests/install-sh/eslint-rule-prune-by-manifest.test.sh",
+    "original_source_sha256": "674791dba3097a410af0022a2cc05e7404c3357ef9c5ee8ec7558efe9074a8c9",
+    "repaired_source_sha256": "c1212fcf72502ca7373c6223a5d010d3cbc560cc937441537bce04ac6d7a389a",
+    "arms": [
+     {
+      "phase": "old-fault",
+      "exit": 0,
+      "pass": 6,
+      "fail": 0,
+      "intended_failure_lines": [],
+      "log": "session:preparation/r5-logs/p50-059-old-fault.log",
+      "log_sha256": "96663fc08aea855bda073e2e2a7ffc3fadb59ae6959d8b5c95570b44f0ce968b",
+      "witness": "session:preparation/r5-shadow/p50-059-target42/witness-a.log",
+      "witness_sha256": "b8a8c0b88f3782290b6848f22f79e7f72d0b4280c48ff200b798b57500c1ce3a",
+      "first_actual_witness": "2026-10-15T02:48:07Z argv=[ts-server] stock-rc=0",
+      "actual_invocation_count": 6,
+      "created_marker_present": true
+     },
+     {
+      "phase": "repaired-fault",
+      "exit": 1,
+      "pass": 0,
+      "fail": 1,
+      "intended_failure_lines": [
+       "  ✗ eslint-rule-prune-by-manifest: make_consumer install failed (empty sentinel), expected rc 0 (p50-059)"
+      ],
+      "log": "session:preparation/r5-logs/p50-059-repaired-fault.log",
+      "log_sha256": "0924ea3d407b27b08e289eb0eb36e80535ce9c75229f10218569243ebf2b6c42",
+      "witness": "session:preparation/r5-shadow/p50-059-target42/witness-b.log",
+      "witness_sha256": "dbfb420fc6b1a718e1f638e0dffef6168aa8ac63afbdb7a4f62f985016f7bf67",
+      "first_actual_witness": "2026-10-15T02:49:19Z argv=[ts-server] stock-rc=0",
+      "actual_invocation_count": 1,
+      "created_marker_present": true
+     },
+     {
+      "phase": "restored",
+      "exit": 0,
+      "pass": 12,
+      "fail": 0,
+      "intended_failure_lines": [],
+      "log": "session:preparation/r5-logs/p50-059-restored.log",
+      "log_sha256": "a95cc1db0504977607a90ba04599db07601856182612798d4f108fc643292437"
+     }
+    ]
+   },
+   {
+    "id": "p50-097",
+    "family": "F5 captured output",
+    "file": "tests/install-sh/f8d-ai-factory-sot-materialized.test.sh",
+    "original_source_sha256": "5674d03ac8fbcb0c66fa1746bda7bde0de79000cdec3b7d802de8150e1f20d4a",
+    "repaired_source_sha256": "1cdf02d60063618f41295dc1a2cf1c107028d013300ac20a207eda2fff397711",
+    "arms": [
+     {
+      "phase": "old-fault",
+      "exit": 0,
+      "pass": 7,
+      "fail": 0,
+      "intended_failure_lines": [],
+      "log": "session:preparation/r5-logs/p50-097-old-fault.log",
+      "log_sha256": "734dec01ba819ee1774fae31514e2667304e3cbb86bbb8899952f1c127c9bed4",
+      "witness": "session:preparation/r5-shadow/p50-097-target42/witness-a.log",
+      "witness_sha256": "2eac3a121394222dc4c3965a5d1a74c8bdd94ba75868ff7c57221f5b23a1cbbb",
+      "first_actual_witness": "2026-10-15T02:51:35Z argv=[ts-server --force] stock-rc=0",
+      "actual_invocation_count": 3,
+      "created_marker_present": true
+     },
+     {
+      "phase": "repaired-fault",
+      "exit": 1,
+      "pass": 9,
+      "fail": 1,
+      "intended_failure_lines": [
+       "  ✗ f8d-ai-factory-sot-materialized: install rc=42, expected 0 (p50-097)"
+      ],
+      "log": "session:preparation/r5-logs/p50-097-repaired-fault.log",
+      "log_sha256": "563d967fd1636547b75cb0de6bd12d01f79b144c1b60648e9917deb89489a733",
+      "witness": "session:preparation/r5-shadow/p50-097-target42/witness-b.log",
+      "witness_sha256": "3b2e568f2b0049f3bd87179d855aca3ee647e832dc63370a8ff8cf847badc6a3",
+      "first_actual_witness": "2026-10-15T02:52:15Z argv=[ts-server --force] stock-rc=0",
+      "actual_invocation_count": 3,
+      "created_marker_present": true
+     },
+     {
+      "phase": "restored",
+      "exit": 0,
+      "pass": 10,
+      "fail": 0,
+      "intended_failure_lines": [],
+      "log": "session:preparation/r5-logs/p50-097-restored.log",
+      "log_sha256": "e0c3c3ef12cf4baf623c68688459705023c731d552c84c9ab89d345f28c86395"
+     }
+    ]
+   }
+  ],
+  "session_summary": {
+   "log": "session:preparation/r5-logs/controls-r5.summary",
+   "log_sha256": "e636fc8279e91f5a2bbfa03f9fe7db141cc97b710109611990afac6d74c3fee4"
+  },
+  "rejected_attempt_1_cp_fail": {
+   "log": "session:preparation/r5-logs/controls-r5.attempt1-cpfail.summary",
+   "log_sha256": "2505cecca6fbef7ce2051201d558afe44addebe31479cd7d5f79e22d52821821",
+   "note": "all four cp steps failed (shadow dir never created; zero arms executed) — preserved as rejected history, not hidden"
+  },
+  "cp_errors_log": {
+   "log": "session:preparation/r5-logs/cp-errors.log",
+   "log_sha256": "ee51926af069876cac413459e7575ef197724b48b94cffbe533ceaa4598c70bc"
+  }
+ },
+ "historical_45_unchanged_suites": {
+  "scope": "45 suites byte-unchanged since the completion-4 proposal postimage — their receipts are HISTORICAL/source-equal observations at the completion-4 boundary, not a current fresh gate; not rerun in r5 or in this exception",
+  "completion4_runner_observed": {
+   "runner_summary": {
+    "log": "session:preparation/logs-repair4/runner.summary",
+    "log_sha256": "dc480b2589194d1e41fc38cbbb61666693bcd540c5a4ded25649cb2edb0fad9c"
+   },
+   "observed_totals": "TOTAL_RUN=36 REUSED-VALID=24 FAILS=6 INFRA-TIMEOUT=0",
+   "scope_note": "historical observations at the completion-4 boundary; the six FAILs were repaired in fixture test files only and rerun under five retained *.fix1.log receipts; the sixth FAIL (refresh-rewires) retained a terminal EXIT=1 log and received its first green receipt only in review-revision-5 under LC_ALL=C (see fresh_normal_r5)"
+  },
+  "suites": [
+   {
+    "suite": "tests/install-sh/audit-r4-shipped.test.sh",
+    "source_sha256_current": "d8ee5124d96a047cbcccba53ee78f7562ae9a3ff19efbbd92406a6099e7208a7",
+    "receipt_kind": "cycle-2 receipt (input-mtime proven)",
+    "observed_exit": 0,
+    "last_passfail": "PASS=3 FAIL=0",
+    "log": "session:preparation/logs-repair/audit-r4-shipped.log",
+    "log_sha256": "8af57a2f26397d6fc45f2be34f67dee1f65d980f3bea0df008ed75d7a4b6c292",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/audit-r4-shipped.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/c1-wiring.test.sh",
+    "source_sha256_current": "9ca8804fe72368ad7d05909a609becfbdd45d44c73c9b2105d376666f733da9c",
+    "receipt_kind": "cycle-2 receipt (input-mtime proven)",
+    "observed_exit": 0,
+    "last_passfail": "PASS=14 FAIL=0",
+    "log": "session:preparation/logs-repair/c1-wiring.log",
+    "log_sha256": "875cbaaf94dddea76bf642e182435c8d6e48a51f5e5d7306becfc766bd807167",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/c1-wiring.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/check-fences-fire-full-barrel.test.sh",
+    "source_sha256_current": "c1619e64edbba119b2ec6977b426bdd730cf428a0ad5b8e8c23e2db6b64b7102",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=6 FAIL=0 SKIP=0",
+    "log": "session:preparation/logs-repair2/check-fences-fire-full-barrel.log",
+    "log_sha256": "3626e23a6c83917d6da85abf65c74a3efe2e5edbaefac91fcc84a4f63bb2a6f6",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/check-fences-fire-full-barrel.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/cic-s3-dep-install.test.sh",
+    "source_sha256_current": "4791baf430a6e398b49852808301a67cec3b7db33a7f7ef93ee724645bc91c18",
+    "receipt_kind": "corrected no-waiver contract rerun",
+    "observed_exit": 0,
+    "last_passfail": "PASS=71 FAIL=0",
+    "log": "session:preparation/logs-repair4-cic-s3-fix2.log",
+    "log_sha256": "67a7984dbc8125ca0f42fc2dfdea029f72eb4b8047fe7e9791bf61f793901db0",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/cic-s3-dep-install.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/depcruise-config-esm.test.sh",
+    "source_sha256_current": "a0fd9b5e3ddf9a279ab116d8302fbe359f537932d860dbdb6008005af24c32d8",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=15 FAIL=0",
+    "log": "session:preparation/logs-repair2/depcruise-config-esm.log",
+    "log_sha256": "2cb9236f7a37f8bdd3314415d8695455463dead14bbd5d74cb7c9fba06189c8d",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/depcruise-config-esm.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f1-ts-arm.test.sh",
+    "source_sha256_current": "c4b9dc19ca9c691615e0383f4db5daa73df4da18868ce17f8dbec6cbcc74b3db",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=7 FAIL=0",
+    "log": "session:preparation/logs-repair2/f1-ts-arm.log",
+    "log_sha256": "08d0d9ebb3b71d47e0bccf6e6392cd7adbd5c906f7ecbcc71e8eaa237cd53237",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f1-ts-arm.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f11-ci-node-version.test.sh",
+    "source_sha256_current": "07cee743d9f6af50d78518201209ad76831942e474143902a24e2dea43684f3d",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=6 FAIL=0",
+    "log": "session:preparation/logs-repair2/f11-ci-node-version.log",
+    "log_sha256": "12b465974225e0308291060c0ad17b8bad8513f42c4b5dd3f76e10d97b2f5ce7",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f11-ci-node-version.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f12-workflow-integrity-shipped.test.sh",
+    "source_sha256_current": "0a57f2529cd53aa258c9f33ecf6490487dc304bd5d8c890ee01da367a33d863b",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=7 FAIL=0",
+    "log": "session:preparation/logs-repair2/f12-workflow-integrity-shipped.log",
+    "log_sha256": "cb7679160a97d16d7f1a48859473ffa84ef3ac506672f7ab5957329cc9867139",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f12-workflow-integrity-shipped.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f13-stryker-pm.test.sh",
+    "source_sha256_current": "c8dea6e8b635900acabdb584c901d4b2bd950628372cadeb3cbe9bd63cae1e3c",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=4 FAIL=0",
+    "log": "session:preparation/logs-repair2/f13-stryker-pm.log",
+    "log_sha256": "8971163a32f136441783c25ce7bdbcdb0689b0a15e799f4e3aaabc07dcc9148d",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f13-stryker-pm.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f14-lintstaged-resolves.test.sh",
+    "source_sha256_current": "394bc3da052dd44441216e1e62521b79dc7bc50650b6bb961fc4ade20edbb41a",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=12 FAIL=0",
+    "log": "session:preparation/logs-repair2/f14-lintstaged-resolves.log",
+    "log_sha256": "69f79a240b76823555d3de71bab7f6b48999be1c0c62266a2f001fca38bb7aba",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f14-lintstaged-resolves.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f15-prettierignore.test.sh",
+    "source_sha256_current": "8ab26100298f624d7f7f8bd75203b5e146b20633a9ee2fa030939aa576aef755",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=48 FAIL=0",
+    "log": "session:preparation/logs-repair2/f15-prettierignore.log",
+    "log_sha256": "d7985db5205ffa605d4cfed914165c149927ea96a3bcda59c1acc7d818d75afd",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f15-prettierignore.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f19-fences-fire-load-probe.test.sh",
+    "source_sha256_current": "e2b2b67df01252afec496aead3acd23d945caa56808477cd580d71aea7bacf4d",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=7 FAIL=0",
+    "log": "session:preparation/logs-repair2/f19-fences-fire-load-probe.log",
+    "log_sha256": "c75130d4fe8b92c2c5ef58de927a52616e0e7b5be1319da2a33974b7e95ce619",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f19-fences-fire-load-probe.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f2-hook-activation.test.sh",
+    "source_sha256_current": "36974c5d370341073d30fa77addb185b783aa58c086decce01fe3baf63c46d84",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=8 FAIL=0",
+    "log": "session:preparation/logs-repair2/f2-hook-activation.log",
+    "log_sha256": "514926d253062ed8a7ff2346d30db4674972dc2ddb84e03a9d1914c00dd47c0b",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f2-hook-activation.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f3-f7-rule-globs.test.sh",
+    "source_sha256_current": "481aef6d86dd1590eb89022be9bd20cc33cafb64ce7aac8aad077131f8b8603d",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=21 FAIL=0",
+    "log": "session:preparation/logs-repair2/f3-f7-rule-globs.log",
+    "log_sha256": "fb49ed0fa5deab11c8cfe615aae1086d61165dfc372eda560aefe6cdeb7fa278",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f3-f7-rule-globs.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f5-stryker-globs.test.sh",
+    "source_sha256_current": "6ca0ad57713bbe9a8cf92e92ee193e5fdc715ba1fb4c0593dc0c432f06e62cd7",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=5 FAIL=0",
+    "log": "session:preparation/logs-repair2/f5-stryker-globs.log",
+    "log_sha256": "26bdfa0782ac0cf6da205492733fdf4a812d23cd54f7cce73ec4e5a85aad0f50",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f5-stryker-globs.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f8-agents-scripts-shipped.test.sh",
+    "source_sha256_current": "f0c01a0cacf660340d4ca2050bd7590e4ee742eddb20c9373ec7765ae140423a",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=10 FAIL=0",
+    "log": "session:preparation/logs-repair2/f8-agents-scripts-shipped.log",
+    "log_sha256": "52b243574272e78331d414f3d5920db1d315142a01ac786f50f3b67e1105c789",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f8-agents-scripts-shipped.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f8b-rulecreator-doc-urls.test.sh",
+    "source_sha256_current": "41a3c7ff92873a0b63252c3b7befabb5427b78ee7e5630810d76b63525ab10b9",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=7 FAIL=0",
+    "log": "session:preparation/logs-repair2/f8b-rulecreator-doc-urls.log",
+    "log_sha256": "8837642de310675d90f53e99da1e019c24bc569cc5b35746781f1ec381d63753",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f8b-rulecreator-doc-urls.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f8c-no-husky-init-advice.test.sh",
+    "source_sha256_current": "2a60450c2c21e9d71ede7537c986f9cc5c081cf88bd835ba02f0f9060fbb0dd9",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=4 FAIL=0",
+    "log": "session:preparation/logs-repair2/f8c-no-husky-init-advice.log",
+    "log_sha256": "55df03da353046dd1570168f7bafa6f7d93d5c2966709ac7812e89f5946fb8ae",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f8c-no-husky-init-advice.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f8d-ai-factory-sot-materialized.test.sh",
+    "source_sha256_current": "1cdf02d60063618f41295dc1a2cf1c107028d013300ac20a207eda2fff397711",
+    "receipt_kind": "completion-4 reused cycle-3 receipt",
+    "observed_exit": 0,
+    "last_passfail": "PASS=10 FAIL=0",
+    "log": "session:preparation/logs-repair2/f8d-ai-factory-sot-materialized.log",
+    "log_sha256": "e0c3c3ef12cf4baf623c68688459705023c731d552c84c9ab89d345f28c86395",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f8d-ai-factory-sot-materialized.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/f9-aif-commands-honesty.test.sh",
+    "source_sha256_current": "13aa44ec344a061002c7dd0f69ab7c15a90056fe0bfe4de58a9cb18736c69852",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=11 FAIL=0",
+    "log": "session:preparation/logs-repair4/f9-aif-commands-honesty.log",
+    "log_sha256": "b91f128a18610b02090fe94ea23351e9084d00c8d57079a5f7dcf020aa6e2a10",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/f9-aif-commands-honesty.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/fence-agents-coownership.test.sh",
+    "source_sha256_current": "c23e37af8491ed3d113f60b4812ff1e29a5b1bde86a44adf57d0369e6a0b9a45",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=35 FAIL=0",
+    "log": "session:preparation/logs-repair4/fence-agents-coownership.log",
+    "log_sha256": "c92acd96c5a313fa7a1ea873910da9635e166f224ac99a6ad9daeb67697d7120",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/fence-agents-coownership.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/foreign-tool-configs.test.sh",
+    "source_sha256_current": "c8d2f96872651ab0df1e5ed19063c2540fec49c1647291f96400665ec91e5dce",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=35 FAIL=0",
+    "log": "session:preparation/logs-repair4/foreign-tool-configs.log",
+    "log_sha256": "89263a4ab5f1b7bd225103ad2cca6c53a2c117e0375a4d0003d1938b99b56813",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/foreign-tool-configs.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/getff-default-branch-substitution.test.sh",
+    "source_sha256_current": "7a8863041be8d5555ea78a69f07c829d6f7f0004168783b507eec16632db9d93",
+    "receipt_kind": "completion-4 fix1 rerun",
+    "observed_exit": 0,
+    "last_passfail": "Result: 35 pass / 0 fail",
+    "log": "session:preparation/logs-repair4/getff-default-branch-substitution.fix1.log",
+    "log_sha256": "1c9741fce543c8338b2dc0ad72993b7fd6444b0989740f83feb23ddf7ab9c73b",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/getff-default-branch-substitution.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/gh-531-shipped-prettier.test.sh",
+    "source_sha256_current": "1b68ba1f6d8ac5718c394a1c8dd4d3a7cb209fa9233f9f91dea824767e9ce224",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=60 FAIL=0",
+    "log": "session:preparation/logs-repair4/gh-531-shipped-prettier.log",
+    "log_sha256": "5ec5cc5dd7bd0665878810e2366658c5a0927144814d38488ebb523439f11267",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/gh-531-shipped-prettier.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/gh-934-ship-doc-authority-hook.test.sh",
+    "source_sha256_current": "c02d1a1dc20f4613d4a460f0ba3b7500613ce0f73b6cab0d526d13a1ef8865ca",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=19 FAIL=0",
+    "log": "session:preparation/logs-repair4/gh-934-ship-doc-authority-hook.log",
+    "log_sha256": "b0baba2e58ea949f6113aa58e5e80dd64514fcfa42c1acf0f4cb346ba4e063f2",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/gh-934-ship-doc-authority-hook.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/gh-934-ship-eot-hook.test.sh",
+    "source_sha256_current": "8cfbdccb34391bf2a6faaa9705a6a026fb25c0e317865e49312fdba6c67312eb",
+    "receipt_kind": "completion-4 fix1 rerun",
+    "observed_exit": 0,
+    "last_passfail": "PASS=15 FAIL=0",
+    "log": "session:preparation/logs-repair4/gh-934-ship-eot-hook.fix1.log",
+    "log_sha256": "cbafd93bd37f13a85d3b25b57a8208aa8badc926f560ba59959074c579961005",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/gh-934-ship-eot-hook.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/gh-934-ship-output-language-hook.test.sh",
+    "source_sha256_current": "1f0393ee88e8274a6c5967effa93c3fe07fa7b27ad68d227117a39a04dd77946",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=11 FAIL=0",
+    "log": "session:preparation/logs-repair4/gh-934-ship-output-language-hook.log",
+    "log_sha256": "0ac8ad59e4e8ebb9524a5e09fd0c78b14294331e980e7303e882f078584f30d5",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/gh-934-ship-output-language-hook.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/gh-934-ship-project-agnostic-hooks.test.sh",
+    "source_sha256_current": "61dd73bd48c1f60be8c5ea737f35c2bbab9c83c097519d955b193eef9b67c6d3",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=14 FAIL=0",
+    "log": "session:preparation/logs-repair4/gh-934-ship-project-agnostic-hooks.log",
+    "log_sha256": "1507e0e3d0a170b7c39fceb242853eaacf3a700863938b6e4081397f6ee6b934",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/gh-934-ship-project-agnostic-hooks.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/gh-934-ship-session-ux-hooks.test.sh",
+    "source_sha256_current": "91058f5cd665c1c86156f4df3a50a0ab1b35988f2d225ec0ca89bce07f4c7eba",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=16 FAIL=0",
+    "log": "session:preparation/logs-repair4/gh-934-ship-session-ux-hooks.log",
+    "log_sha256": "d44f57ad6d449e249eb0f0f85473d82e5e41b116be893aa78c09c9c94d2f5a2d",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/gh-934-ship-session-ux-hooks.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/go-entry-lane.test.sh",
+    "source_sha256_current": "03fe0be1339ed72416799519d0f303531e4db65b4685df3b5c094e800b120192",
+    "receipt_kind": "completion-4 fix1 rerun",
+    "observed_exit": 0,
+    "last_passfail": "PASS=40 FAIL=0",
+    "log": "session:preparation/logs-repair4/go-entry-lane.fix1.log",
+    "log_sha256": "bfcbd7766d52260742d596397eba7ace8d76588c67136045fdb5c301ab87e830",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/go-entry-lane.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/hookspath-consumer-owned.test.sh",
+    "source_sha256_current": "bf6f273e27bc743af8ab762bd8444c2c86b75bf20de381f340a3154d757caafb",
+    "receipt_kind": "completion-4 fix1 rerun",
+    "observed_exit": 0,
+    "last_passfail": "PASS=21 FAIL=0",
+    "log": "session:preparation/logs-repair4/hookspath-consumer-owned.fix1.log",
+    "log_sha256": "8658de525a6e64b6072206f240485922c8601e51c2f7a15dfbc2dd68211945f5",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/hookspath-consumer-owned.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/imr-registration.test.sh",
+    "source_sha256_current": "3e69564155ab3000b915c55d3f2f5912eb538269b6b9c1fd3a4a5225b293a60e",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=55 FAIL=0",
+    "log": "session:preparation/logs-repair4/imr-registration.log",
+    "log_sha256": "608a57971b463a00a077e49b7513ed81310d0fe8a2c832ffde76d0b7d46de802",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/imr-registration.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/install-no-manual-step.test.sh",
+    "source_sha256_current": "7b0e37a69d3aa0bf998efd4b71d3dabe3b186dec608009e15e47dc5972e8b0ad",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=142 FAIL=0",
+    "log": "session:preparation/logs-repair4/install-no-manual-step.log",
+    "log_sha256": "d498a40fb716e32d092c9a24f9f33672936a95ab835c2c6ba62b74154791ace1",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/install-no-manual-step.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/install-self-verify-skip-and-exit.test.sh",
+    "source_sha256_current": "60b9687b931d1cfadac004cda8d053e1b7726f3323664b1281f8e4c246cea10f",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=31 FAIL=0",
+    "log": "session:preparation/logs-repair4/install-self-verify-skip-and-exit.log",
+    "log_sha256": "d56d154705c45867863bf8906c87670c71f2352149b76ea4c7beefb6b38c31a0",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/install-self-verify-skip-and-exit.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/mcp-layer.test.sh",
+    "source_sha256_current": "2557c7fab6817162d0adf3a40c1e09829d4ff3477c6e4ae3f8cceaf44fc00121",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=28 FAIL=0",
+    "log": "session:preparation/logs-repair4/mcp-layer.log",
+    "log_sha256": "dda28f9c1e214cae82ba71407395b163b4f5cb9bfbae966d6e384b38bbe7351d",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/mcp-layer.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/r2-glob-reach.test.sh",
+    "source_sha256_current": "28c043033a1217df622fa4be98124d5a34cf34deece18060939ac4efe4cd740b",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=131 FAIL=0",
+    "log": "session:preparation/logs-repair4/r2-glob-reach.log",
+    "log_sha256": "01cf8bc8f96b8f54b28272ae90a332deb8cc7b933d8514a1913d05b853ad4fd2",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/r2-glob-reach.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/react-native-wiring.test.sh",
+    "source_sha256_current": "2f9acb5b8cd35f8326001c39b120e502ed95425e31ed736beb03d04a15ee4b9f",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=10 FAIL=0",
+    "log": "session:preparation/logs-repair4/react-native-wiring.log",
+    "log_sha256": "cf0ea31ed04c16a4d9a91bb8c36ea3983bbc35e8e0d10bead4b5d5a9fab43288",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/react-native-wiring.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/rules-lock-malformed-values.test.sh",
+    "source_sha256_current": "6ce0612b8167871d4fea643e7930a57b8a8760b32fb6e2ead9b5c6abe4591b05",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "── rules-lock-malformed-values: 13 passed, 0 failed ──",
+    "log": "session:preparation/logs-repair4/rules-lock-malformed-values.log",
+    "log_sha256": "aaec32ebe32536ed942fcfc14c3410d612412aac38eab1ed2176f48e4b078e54",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/rules-lock-malformed-values.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/rules-lock-schema-parity.test.sh",
+    "source_sha256_current": "8e2afedbcc705bcfdc1486a0cb9fa95111838ab121ae39af7eba7625510a555f",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "── rules-lock-schema-parity: 16 passed, 0 failed ──",
+    "log": "session:preparation/logs-repair4/rules-lock-schema-parity.log",
+    "log_sha256": "354d1defb720d0d25daf2302b2f76d587434dc2d3cc28a35b02119f25d503d98",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/rules-lock-schema-parity.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/rules-lock-version-diff.test.sh",
+    "source_sha256_current": "271e7db4ff6d021a5d71858be0b8d1328cc13160ebc2450ef6a23abf9b48d5be",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "── rules-lock-version-diff: 5 passed, 0 failed ──",
+    "log": "session:preparation/logs-repair4/rules-lock-version-diff.log",
+    "log_sha256": "6216347ebab9c94e63df9820048d1a673a3f8db008150838d06986eb04a5cf67",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/rules-lock-version-diff.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/s3-wire-ci.test.sh",
+    "source_sha256_current": "6fd690e3ca2982e9783635e8e07a96862d4f2c7de9523682ccc89bcb2803ce5c",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=9 FAIL=0",
+    "log": "session:preparation/logs-repair4/s3-wire-ci.log",
+    "log_sha256": "23c5e1267cff519985abd3b01021e118964715fbda97cbf3e1260ed318d91677",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/s3-wire-ci.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/ship-orchestration-skills.test.sh",
+    "source_sha256_current": "2f4011712c162cff1e319ad73bce6690fc7daf6d2e9335c737a9deb179264294",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=33 FAIL=0",
+    "log": "session:preparation/logs-repair4/ship-orchestration-skills.log",
+    "log_sha256": "9079b3764c32f42e4720042b7e55798f0725e580f5a156ed628026feb21f0d2f",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/ship-orchestration-skills.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/snapshot-exclusion-guard.test.sh",
+    "source_sha256_current": "ff8f8d73fae6cb5e006f520d9a794c77de4705ca51988c93dd1147e6fed98d0d",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=12 FAIL=0",
+    "log": "session:preparation/logs-repair4/snapshot-exclusion-guard.log",
+    "log_sha256": "5c3e2d81152548071c0233ada09012e12371d21a672a2ab48aaccd185e3922bf",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/snapshot-exclusion-guard.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/vitest-layout-roots.test.sh",
+    "source_sha256_current": "b04201f9bf145fe45040c28245f1d89e64428fd3348c5fb4d2c407436e0968ab",
+    "receipt_kind": "completion-4 first run",
+    "observed_exit": 0,
+    "last_passfail": "PASS=12 FAIL=0",
+    "log": "session:preparation/logs-repair4/vitest-layout-roots.log",
+    "log_sha256": "0a92780d3a58afaef06d50c406ad4e0cb45af19a94d6793c699c619ee4fdc3c1",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/vitest-layout-roots.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   },
+   {
+    "suite": "tests/install-sh/with-aif-suite-flag.test.sh",
+    "source_sha256_current": "e709178ecd0fd2e3f2005b4e978f4ff080a1a8102b30f45b0e9269b0a921e03c",
+    "receipt_kind": "completion-4 fix1 rerun",
+    "observed_exit": 0,
+    "last_passfail": "PASS=61 FAIL=0",
+    "log": "session:preparation/logs-repair4/with-aif-suite-flag.fix1.log",
+    "log_sha256": "41f9c13cf1fb256e797239bed8730b27dfae93d23baaeff85d59151925afe9ef",
+    "command": "cd <clone> && /opt/homebrew/bin/timeout 900 bash tests/install-sh/with-aif-suite-flag.test.sh",
+    "env": "not captured in the retained log (pre-restart completion-4 session); author-reported PATH pin only; locale/shell environment unknown",
+    "producer_binding": "suite bytes at receipt time are byte-equal to the completion-4 proposal postimage and to the current c326 postimage (verified by sha256); the completion-4 runner's skip rule guaranteed unchanged input for reused receipts; source byte equality is NOT all-input freshness — no current-environment equivalence or behavioral certification is claimed"
+   }
+  ]
+ },
+ "p50_p51_and_format": {
+  "p50_p51": {
+   "log": "session:preparation/logs-r5-p50-p51.log",
+   "log_sha256": "35e80bae5682f57910eebfb95a54c4e3517866abe8b154732b6f488f023556ac",
+   "observed_exit": 0,
+   "observed_summary": "Tests  49 passed (49)",
+   "note": "49/49 green on the final proposal tree"
+  },
+  "format_check": {
+   "log": "session:preparation/logs-r5-format-check.log",
+   "log_sha256": "77bd78164f852a35a12eade892c5abc4a04e4eb3ec6611499a02e6b259b59ed1",
+   "observed_exit": 0,
+   "observed_summary": "All matched files use Prettier code style!",
+   "note": "shipped-surface format check on the final proposal tree"
+  }
+ }
+}

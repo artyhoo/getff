@@ -9698,6 +9698,9 @@ var RuleCollisionError = class extends Error {
 function isRestrictedImportsTuple(value) {
   return Array.isArray(value) && value.length >= 1;
 }
+function isErrorSeverity(value) {
+  return value === "error" || value === 2;
+}
 function mergeNoRestrictedImports(a, b, sources, newSource) {
   if (!isRestrictedImportsTuple(a) || !isRestrictedImportsTuple(b)) {
     throw new RuleCollisionError(
@@ -9713,7 +9716,7 @@ function mergeNoRestrictedImports(a, b, sources, newSource) {
   for (const p of optsB?.paths ?? []) {
     if (!dedup.has(p.name)) dedup.set(p.name, p);
   }
-  const severity = sevA === "error" || sevB === "error" ? "error" : sevA;
+  const severity = isErrorSeverity(sevA) || isErrorSeverity(sevB) ? "error" : sevA;
   return [severity, { paths: Array.from(dedup.values()) }];
 }
 function restrictedSyntaxSelector(entry) {
@@ -9735,7 +9738,7 @@ function mergeNoRestrictedSyntax(a, b, sources, newSource) {
     const key = restrictedSyntaxSelector(e);
     if (!dedup.has(key)) dedup.set(key, e);
   }
-  const severity = sevA === "error" || sevB === "error" ? "error" : sevA;
+  const severity = isErrorSeverity(sevA) || isErrorSeverity(sevB) ? "error" : sevA;
   return [severity, ...Array.from(dedup.values())];
 }
 function mergeEslintRuleConfig(acc, next, newSource, ruleSources) {

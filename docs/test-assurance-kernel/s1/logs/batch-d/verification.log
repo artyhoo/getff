@@ -1,0 +1,49 @@
+# Batch D verification — 2026-10-08T13:41:29Z — HEAD 2b45e109e8523532744858448204d6545665ed29
+
+## 1. Replay scripts: both runs exit 0 (demonstration reproduced ×2)
+  cf1-replay.log: CF1 VERDICT: pass (circular companion survived; behavior-backed companion killed with intended assertion)
+  cf2a-replay.log: CF2A VERDICT: pass (pinned companion killed the boundary shift; both copied/recomputed companions survived)
+  cf2b-replay.log: CF2B VERDICT: pass (pinned companion killed the constant weakening; both copied/recomputed companions survived)
+  cf3-replay.log: CF3 VERDICT: pass (fallthrough mutant reached via parse-error probe; suite outcome observed: survived; restored + final baseline green)
+  cf4-replay.log: CF4 VERDICT: pass (inverted verdict reached via zero-message probe; killed by [GLV-1] on the intended assertion; restored + final baseline green)
+  replay2-cf1-a03-circular-oracle.log: CF1 VERDICT: pass (circular companion survived; behavior-backed companion killed with intended assertion)
+  replay2-cf2a-age-boundary-shift.log: CF2A VERDICT: pass (pinned companion killed the boundary shift; both copied/recomputed companions survived)
+  replay2-cf2b-min-age-weaken.log: CF2B VERDICT: pass (pinned companion killed the constant weakening; both copied/recomputed companions survived)
+  replay2-cf3-guard-liveness-permissive.log: CF3 VERDICT: pass (fallthrough mutant reached via parse-error probe; suite outcome observed: survived; restored + final baseline green)
+  replay2-cf4-guard-liveness-status-inversion.log: CF4 VERDICT: pass (inverted verdict reached via zero-message probe; killed by [GLV-1] on the intended assertion; restored + final baseline green)
+
+## 2. bash -n syntax check (all counterfactual scripts)
+  SYNTAX-OK scripts/test-assurance/counterfactuals/counterfactual-lib.sh
+  SYNTAX-OK scripts/test-assurance/counterfactuals/replay-cf1-a03-circular-oracle.sh
+  SYNTAX-OK scripts/test-assurance/counterfactuals/replay-cf2a-age-boundary-shift.sh
+  SYNTAX-OK scripts/test-assurance/counterfactuals/replay-cf2b-min-age-weaken.sh
+  SYNTAX-OK scripts/test-assurance/counterfactuals/replay-cf3-guard-liveness-permissive.sh
+  SYNTAX-OK scripts/test-assurance/counterfactuals/replay-cf4-guard-liveness-status-inversion.sh
+
+## 3. §6 record schema validation (every required field present, JSON parses)
+  SCHEMA-OK cf1-a03-circular-oracle.json — classification=killed, runtime=1s, patch=9c74dd4055e4…
+  SCHEMA-OK cf2a-age-boundary-shift.json — classification=killed, runtime=2s, patch=233213d4a42a…
+  SCHEMA-OK cf2b-min-age-weaken.json — classification=killed, runtime=1s, patch=820ae1d8adf8…
+  SCHEMA-OK cf3-guard-liveness-permissive.json — classification=survived, runtime=4s, patch=6da3c1c1a80a…
+  SCHEMA-OK cf4-guard-liveness-status-inversion.json — classification=killed, runtime=7s, patch=ca2188fbeed2…
+
+## 4. Repo hygiene: corpus + kernel + expectations untouched in the MAIN checkout
+  CLEAN (empty porcelain for corpus/, expectations.json, guard-liveness.ts)
+
+## 5. No leftover scratch worktrees from this batch
+0
+  CLEAN (0 s1-cf* worktrees remain)
+
+## 6. Log completeness (non-empty raw logs)
+     23 docs/test-assurance-kernel/s1/logs/batch-d/cf1-replay.log
+     34 docs/test-assurance-kernel/s1/logs/batch-d/cf2a-replay.log
+     34 docs/test-assurance-kernel/s1/logs/batch-d/cf2b-replay.log
+     42 docs/test-assurance-kernel/s1/logs/batch-d/cf3-replay.log
+     47 docs/test-assurance-kernel/s1/logs/batch-d/cf4-replay.log
+     23 docs/test-assurance-kernel/s1/logs/batch-d/replay2-cf1-a03-circular-oracle.log
+     34 docs/test-assurance-kernel/s1/logs/batch-d/replay2-cf2a-age-boundary-shift.log
+     34 docs/test-assurance-kernel/s1/logs/batch-d/replay2-cf2b-min-age-weaken.log
+     42 docs/test-assurance-kernel/s1/logs/batch-d/replay2-cf3-guard-liveness-permissive.log
+     47 docs/test-assurance-kernel/s1/logs/batch-d/replay2-cf4-guard-liveness-status-inversion.log
+     37 docs/test-assurance-kernel/s1/logs/batch-d/verification.log
+    397 total

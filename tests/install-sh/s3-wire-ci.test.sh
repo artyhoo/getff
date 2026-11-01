@@ -67,6 +67,8 @@ seed_uses() { # $1 dir → brownfield consumer whose kept ci.yml has ≥2 `uses:
 # moment the default path starts editing the consumer's CI.
 N=$(mktemp -d); seed "$N"
 ( cd "$N" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) > "$N/log" 2>&1
+RC_P50_311=$?
+if [ "$RC_P50_311" -eq 0 ]; then ok "s3-wire-ci: install rc=0 (p50-311)"; else bad "s3-wire-ci: install rc=$RC_P50_311, expected 0 (p50-311)"; fi
 if diff -q <(printf '%s\n' "$BROWNFIELD_CI") "$N/.github/workflows/ci.yml" >/dev/null 2>&1; then
   ok "NEG: default install (no --wire-ci) leaves the consumer workflow byte-identical (wiring is opt-in)"
 else
@@ -101,6 +103,8 @@ if command -v yq >/dev/null 2>&1; then
   # level) and yq's unique_by(.run // .uses // .name // .) dedups (yq level). Step count unchanged.
   _before=$(yq '.jobs.build.steps | length' "$P/.github/workflows/ci.yml" 2>/dev/null || echo "x")
   ( cd "$P" && bash "$REPO_ROOT/install.sh" ts-server --wire-ci </dev/null ) > /dev/null 2>&1
+  RC_P50_312=$?
+  if [ "$RC_P50_312" -eq 0 ]; then ok "s3-wire-ci: install rc=0 (p50-312)"; else bad "s3-wire-ci: install rc=$RC_P50_312, expected 0 (p50-312)"; fi
   _after=$(yq '.jobs.build.steps | length' "$P/.github/workflows/ci.yml" 2>/dev/null || echo "y")
   [ "$_before" = "$_after" ] \
     && ok "POS: re-running --wire-ci is idempotent (steps stayed at $_before — no duplicates)" \
@@ -207,6 +211,8 @@ else
   printf '#!/bin/sh\necho "fake-snap (stub, installs nothing)"\nexit 0\n' > "$OBIN/snap"
   chmod +x "$OBIN/snap"
   ( cd "$O" && PATH="$OBIN:$PATH" bash "$REPO_ROOT/install.sh" ts-server --wire-ci </dev/null ) > "$O/log" 2>&1
+  RC_P50_313=$?
+  if [ "$RC_P50_313" -eq 0 ]; then ok "s3-wire-ci: install rc=0 (p50-313)"; else bad "s3-wire-ci: install rc=$RC_P50_313, expected 0 (p50-313)"; fi
   grep -q 'snap install yq' "$O/log" \
     && ok "OPT-B OFFER-REACHED: a detected (stub) snap routes Option B to 'sudo snap install yq' (official installer named, unpinned)" \
     || bad "OPT-B OFFER-REACHED: stub snap detected but 'snap install yq' was never named"

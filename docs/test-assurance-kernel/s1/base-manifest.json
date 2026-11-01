@@ -1,0 +1,95 @@
+{
+  "stage": "S1",
+  "frozen_at_utc": "2026-10-08T10:45:00Z",
+  "git": {
+    "head_sha": "35738554faf029e9fe3b8b4c25bfdde242f65c66",
+    "head_subject": "docs(test-assurance-kernel): S0 frozen baseline — manifest, population, workloads, kernel-baseline (#2086)",
+    "head_committed_at": "2026-10-08T08:44:14+03:00",
+    "branch": "feature/test-assurance-kernel-bd2bc9",
+    "worktree_clean_at_freeze": true,
+    "handoff_pollution_restored": {
+      "count": 215,
+      "class": "compat .claude/* symlinks rewritten absolute->into primary checkout by handoff prep; restored to relative HEAD state before any S1 edit",
+      "receipt_log": "docs/test-assurance-kernel/s1/logs/phase0/provisioning.log"
+    }
+  },
+  "input_hashes": {
+    "spec": {
+      "path": "docs/superpowers/specs/2026-10-08-test-assurance-kernel-design.md",
+      "sha256": "55fa921e75a31a0d4bb8a34a2196a384ad6be227467cd8e2ff92837071dad2a9",
+      "matches_plan_pin": true
+    },
+    "kickoff_s1": {
+      "path": ".claude/orchestrator-prompts/test-assurance-kernel/kickoff-s1.md",
+      "sha256": "4a281b972cec0eabbcf7deeea3773305835b87ccc017d92a575a4778ff99c6ad",
+      "matches_plan_pin": true,
+      "frozen": true
+    }
+  },
+  "host": {
+    "uname": "Linux 48edb946ef54 6.18.33.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun 18 21:54:43 UTC 2026 x86_64 GNU/Linux",
+    "os_class": "linux",
+    "node": "v22.23.3",
+    "npm": "10.9.9",
+    "note": "execution base ≠ S0 host (S0: Darwin arm64, node v24.3.0). The kickoff's `--require-host darwin` host-verify contract therefore fails closed on this base by design and is the independent reviewer's Mac contract; this stage additionally ships `--require-host linux` acceptance on this base."
+  },
+  "tools": {
+    "vitest": "4.1.8",
+    "eslint": "10.4.1",
+    "tsx": "4.22.4",
+    "provenance": "primary checkout /home/www/rules-as-tests-aif/node_modules/.bin (S0-pinned versions re-verified live in this worktree)"
+  },
+  "node_modules_provisioning": {
+    "method": "per-entry symlinks from primary checkout (relative workspace links @rules-as-tests/* -> ../../packages/* resolve inside THIS worktree; a whole-dir symlink was rejected because it would resolve workspace packages into the primary checkout's stale sources)",
+    "root_links": 251,
+    "packages_core_links": 25,
+    "tmp_installs": [
+      {
+        "package": "js-yaml",
+        "version": "4.3.2",
+        "why": "declared devDependency (packages/core/package.json:96) absent from the partial primary node_modules; principle 24 failed to load without it (Cannot find module 'js-yaml'). Installed to /tmp/s1-devdeps and symlinked — no repo dependency change."
+      }
+    ],
+    "npm_cache": "/tmp/s1-npm-cache (primary cache is root-owned in places; EACCES without prefix)",
+    "receipt_log": "docs/test-assurance-kernel/s1/logs/phase0/provisioning.log"
+  },
+  "baseline_receipt": {
+    "command": "npm --prefix packages/core run test:principles",
+    "exit": 1,
+    "after_provisioning": {
+      "test_files": "56 passed / 57 (3 content-RED files, 1 fixed by js-yaml provisioning)",
+      "tests": "648 passed | 3 failed | 1 skipped"
+    },
+    "pre_existing_reds": [
+      {
+        "file": "packages/core/principles/14-skill-drift-detection.test.ts",
+        "why_pre_existing": "identical failure at identical commit in the primary checkout (same SHA, different checkout) — input-identity diff empty ⇒ pre-existing by construction",
+        "class": "repo-content self-check (broken refs in .claude/skills/* SKILL.md)"
+      },
+      {
+        "file": "packages/core/principles/37-make-target-claim-liveness.test.ts",
+        "why_pre_existing": "same proof as above",
+        "class": "repo-content self-check (false `make <target>` claim)"
+      },
+      {
+        "file": "packages/core/principles/48-skill-description-budget.test.ts",
+        "why_pre_existing": "same proof as above",
+        "class": "repo-content self-check (skill description budget)"
+      }
+    ],
+    "environment_reds_fixed_in_provisioning": [
+      {
+        "file": "packages/core/principles/24-plugin-manifest-integrity.test.ts",
+        "cause": "Cannot find module 'js-yaml' (partial node_modules)",
+        "resolution": "provisioned lockfile-pinned js-yaml@4.3.2; file now 17/17 green"
+      }
+    ],
+    "disposition": "the 3 content REDs are outside S1 write scope (S2 population repairs own them); S1 acceptance = no NEW REDs attributable to the S1 diff + green on the S1-relevant suites",
+    "raw_log": "docs/test-assurance-kernel/s1/logs/phase0/baseline-principles.log"
+  },
+  "s0_predecessor_evidence": "docs/test-assurance-kernel/s0/ (accepted, merged as #2086)",
+  "s0_environment_deltas_carried": [
+    "env -u CLAUDE_CODE_ENTRYPOINT scrub for subprocess-heavy suites (S0 manifest note)",
+    "linux rustc drift makes test:backends cargo capability-matrix RED locally (S0 §5) — same base behavior expected here"
+  ]
+}

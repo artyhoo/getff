@@ -74,6 +74,8 @@ printf '{ "name": "t", "version": "0.0.0", "lint-staged": { "*.ts": "tsc --noEmi
 printf 'module.exports = [];\n' > "$T/eslint.config.cjs"
 printf 'semi: false\n' > "$T/.prettierrc"
 _out=$( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
+RC_P50_104=$?
+if [ "$RC_P50_104" -eq 0 ]; then ok "foreign-tool-configs: install rc=0 (p50-104)"; else bad "foreign-tool-configs: install rc=$RC_P50_104, expected 0 (p50-104)"; fi
 [ ! -e "$T/eslint.config.mjs" ] && ok "(C) eslint.config.mjs not placed next to the consumer's eslint.config.cjs" || bad "(C) eslint.config.mjs placed — it overrides the consumer's eslint.config.cjs"
 [ ! -e "$T/.lintstagedrc.json" ] && ok "(C) .lintstagedrc.json not placed over package.json#lint-staged" || bad "(C) .lintstagedrc.json placed — it overrides package.json#lint-staged"
 [ ! -e "$T/.prettierrc.json" ] && ok "(C) .prettierrc.json not placed next to the consumer's .prettierrc" || bad "(C) .prettierrc.json placed — it overrides the consumer's .prettierrc"
@@ -88,6 +90,8 @@ rm -rf "$T"
 T=$(mktemp -d); git -C "$T" init -q
 printf '{ "name": "t", "version": "0.0.0" }\n' > "$T/package.json"
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+RC_P50_105=$?
+if [ "$RC_P50_105" -eq 0 ]; then ok "foreign-tool-configs: install rc=0 (p50-105)"; else bad "foreign-tool-configs: install rc=$RC_P50_105, expected 0 (p50-105)"; fi
 { [ -f "$T/eslint.config.mjs" ] && [ -f "$T/.lintstagedrc.json" ] && [ -f "$T/.prettierrc.json" ]; } \
   && ok "(D) a fresh repo still gets eslint.config.mjs + .lintstagedrc.json + .prettierrc.json" \
   || bad "(D) a fresh repo is missing a framework config"
@@ -99,6 +103,8 @@ T=$(mktemp -d); git -C "$T" init -q
 printf '{ "name": "t", "version": "0.0.0" }\n' > "$T/package.json"
 printf '{ "rules": { "no-console": "error" } }\n' > "$T/.eslintrc.json"
 _out=$( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
+RC_P50_106=$?
+if [ "$RC_P50_106" -eq 0 ]; then ok "foreign-tool-configs: install rc=0 (p50-106)"; else bad "foreign-tool-configs: install rc=$RC_P50_106, expected 0 (p50-106)"; fi
 [ -f "$T/eslint.config.mjs" ] && ok "(E) eslint.config.mjs placed next to a legacy .eslintrc.json" || bad "(E) eslint.config.mjs not placed — ESLint 9 would have no config"
 grep -q '\.eslintrc\.json.*ESLint 9' <<<"$(echo "$_out" | sed -n '/NOT wired/,$p')" \
   && ok "(E) the summary says .eslintrc.json is not read by ESLint 9" || bad "(E) the summary does not mention the ignored .eslintrc.json"
@@ -115,6 +121,8 @@ printf 'module.exports = {};\n' > "$T/packages/own-file/.lintstagedrc.js"
 printf 'export default [];\n' > "$T/packages/own-file/eslint.config.js"
 printf '{ "name": "plain" }\n' > "$T/packages/plain/package.json"
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+RC_P50_107=$?
+if [ "$RC_P50_107" -eq 0 ]; then ok "foreign-tool-configs: install rc=0 (p50-107)"; else bad "foreign-tool-configs: install rc=$RC_P50_107, expected 0 (p50-107)"; fi
 [ ! -e "$T/packages/own-key/.lintstagedrc.json" ] && ok "(F) no stub next to a package's package.json#lint-staged" || bad "(F) stub placed next to package.json#lint-staged"
 [ ! -e "$T/packages/own-file/.lintstagedrc.json" ] && ok "(F) no stub next to a package's .lintstagedrc.js" || bad "(F) stub placed next to .lintstagedrc.js"
 [ -f "$T/packages/plain/.lintstagedrc.json" ] && ok "(F) a package without its own config still gets the stub" || bad "(F) plain package lost its stub"

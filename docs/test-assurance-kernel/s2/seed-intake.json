@@ -1,0 +1,204 @@
+{
+ "meta": {
+  "stage": "S2 exact12seed registered characterization and scoped dispositions",
+  "base_head": "ac17594f1f1edaad7d98b0acb2ddcd08e748518f",
+  "generated_utc": "2026-10-14T02:24:10Z",
+  "rule": "all 12 original seeds present (spec §7), including already-fixed/rejected ones; replay commands only where the tool exists on disk (receipts evidence 05); no seed verdict is claimed beyond what an executed receipt shows",
+  "correction": "correction-1 (4/5): unchanged seed content; meta records that population-level status narrowing (finding 3) does not alter seed observations — cf receipts referenced per seed remain the accepted S1 artifacts."
+ },
+ "seeds": [
+  {
+   "seed": "A01",
+   "title": "P06 normative policy softened / lowercase MUST heuristic FP",
+   "current_paths": [
+    "packages/core/principles/06-must-not-demoted.test.ts"
+   ],
+   "replay_command": null,
+   "current_observation": "M01 finite policy-wording contract; do not infer arbitrary normative semantics.",
+   "current_status": "verified-structural",
+   "owner_mechanism": "M01",
+   "historical_intake_state": "pending-experiment",
+   "historical_intake_observation": "spec §7 row: test actual policy weakening + accepted wording; documented token grammar is not a runtime bug",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A02",
+   "title": "P38 workflow command replaced by true; comment-only evidence",
+   "current_paths": [
+    "packages/core/principles/38-vitest-include-ci-coverage.test.ts",
+    ".github/workflows/audit-self.yml"
+   ],
+   "replay_command": null,
+   "current_observation": "M02 executable invocation context and finite inert-command controls, not liveCIcertification.",
+   "current_status": "verified-structural",
+   "owner_mechanism": "M02",
+   "historical_intake_state": "pending-experiment",
+   "historical_intake_observation": "CI steps enumerated (evidence 02-I); replay = replace command with true + comment-only variant in scratch; include legitimate multiline commands",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A03",
+   "title": "P16/P21 assertions satisfied phrases in own source (circular oracle)",
+   "current_paths": [
+    "packages/core/principles/16-hook-stub-completeness.test.ts",
+    "scripts/test-assurance/counterfactuals/replay-cf1-a03-circular-oracle.sh"
+   ],
+   "replay_command": "bash scripts/test-assurance/counterfactuals/replay-cf1-a03-circular-oracle.sh",
+   "current_observation": "Accepted60principle/P16/P21class boundary. ActualP16helperfault3intendedfail/6pass andnormal/restored9, dormantcurrentrealset; twoT15selfmarkers notbehavioral. No universal oracle-independence proof.",
+   "current_status": "verified-structural",
+   "owner_mechanism": "M03",
+   "historical_intake_state": "partially-settled",
+   "historical_intake_observation": "S1 cf1 pins the demonstration (circular companion SURVIVES reached fault; behavior-backed companion killed with intended assertion); population-wide circular-oracle sweep remains",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A04",
+   "title": "emitter severities forced off; 431 tests passed; disk config failed to reject",
+   "current_paths": [
+    "packages/core/synthesizer/merge-eslint-config.ts",
+    "packages/core/principles/53-delivery-discovery-conformance.test.ts"
+   ],
+   "replay_command": "node scripts/test-assurance/verify.mjs --stage S1 --step delivery",
+   "current_observation": "Exact3approved installed configs, realcanonical/installer statuses and known615587fault; accepted scoped E917actualQ1/Q2meaning. Preserve initialfamilyouter1 and observerV1schemaerror, no fullD1severitypolicy/runtimecertificate.",
+   "current_status": "verified-structural",
+   "owner_mechanism": "M04",
+   "historical_intake_state": "partially-settled",
+   "historical_intake_observation": "S1 proved severity-off on the EMITTED config kills the good companion and flips the CLI silent (matrix Q6 row); sibling-preset real-ESLint diagnostic + installer validation boundary matrix remains",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A05",
+   "title": "ErrorBoundary: unrelated wrapped component suppressed diagnostic on unwrapped App",
+   "current_paths": [
+    "packages/core/eslint-rules/require-error-boundary.ts",
+    "packages/core/eslint-rules/require-error-boundary.mjs"
+   ],
+   "replay_command": null,
+   "current_observation": "Independent six lexical-ancestor cases over actualTS andshippedMJS; requirednative14 plus scoped acceptedcontrols, no copying producer decisions.",
+   "current_status": "verified-behavioral",
+   "owner_mechanism": "M05",
+   "historical_intake_state": "pending-experiment",
+   "historical_intake_observation": "rule documents narrow in-file AST ancestor scope (observed :38-61); multi-component + valid-wrap fixtures against BOTH ts and shipped mjs twins pending",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A06",
+   "title": "R4 comment/empty/constant passed probe; age-boundary killed >=18→>=0",
+   "current_paths": [
+    "tests/install-sh/audit-r4-shipped.test.sh",
+    "scripts/test-assurance/recovery-d011/r4-shell-control.mjs",
+    "scripts/test-assurance/counterfactuals/replay-cf2a-age-boundary-shift.sh",
+    "scripts/test-assurance/counterfactuals/replay-cf2b-min-age-weaken.sh"
+   ],
+   "replay_command": "node scripts/test-assurance/recovery-d011/r4-shell-control.mjs",
+   "current_observation": "Accepted real generatedconsumer R4 semantic floor/age18->0/comment/empty controls; separate source/twin/toolchain bindings, no borrowing for shippingpresence.",
+   "current_status": "verified-behavioral",
+   "owner_mechanism": "M06",
+   "historical_intake_state": "partially-settled",
+   "historical_intake_observation": "R4-SHELL control landed (6/6 arms, 4/4 causal mutants, actual-completion receipts, oracle full-hash binding); cf2a/cf2b replays retained; generated-consumer-test-path exercise + claim narrowing remain",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A07",
+   "title": "P02 regex accepted comment/fabricated status; rejected real destructured assertion",
+   "current_paths": [
+    "packages/core/principles/52-subprocess-status-conformance.test.ts",
+    "scripts/test-assurance/corpus/q4-ignored-exit/",
+    "scripts/test-assurance/corpus/q5-self-source/"
+   ],
+   "replay_command": "node scripts/test-assurance/verify.mjs --stage S1 --step driver",
+   "current_observation": "S1Q4/Q5 actualexecutedconformance plus explicit ordinaryCLI returnedcode and strictcurrentP51population, honest helper already enforcedexit4.",
+   "current_status": "verified-structural",
+   "owner_mechanism": "M07",
+   "historical_intake_state": "partially-settled",
+   "historical_intake_observation": "S1 Q4/Q5 executed conformance rejects bad.ignored-exit + bad.circular-phrase and admits good companions with pinned flips (matrix); sibling-suite genuine-subprocess sampling + the advisor :309 keep-list boundary remain",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A08",
+   "title": "shell dry-run seam observed only .husky; installer artifact test ignored exit 42",
+   "current_paths": [
+    "tests/install-sh/ (161 .test.sh)",
+    "scripts/test-assurance/recovery-d011/r4-shell-control.mjs"
+   ],
+   "replay_command": "node scripts/test-assurance/recovery-d011/r4-shell-control.mjs",
+   "current_observation": "Accepted actual dryrun filesystem boundary/seam fault restoration and6M10runtimecalls only; rest325 individuallytyped, not wholelist behavioral.",
+   "current_status": "verified-behavioral",
+   "owner_mechanism": "M06",
+   "historical_intake_state": "partially-settled",
+   "historical_intake_observation": "R4 suite exit-receipt discipline repaired (actual-completion receipts enforced); full filesystem-side-effect boundary inventory of the dry-run seam + all analogous ignored-status hits (P50 73 candidates) remain",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A09",
+   "title": "lint scope: vitest rules on .test/.spec but not .unit/.audit/.integration",
+   "current_paths": [
+    "templates/ts-server/eslint.config.mjs",
+    "packages/preset-*/templates/eslint.config.*"
+   ],
+   "replay_command": null,
+   "current_observation": "Exact6effectiveprofiles/naming378qualified and finite realclassCLI evidence, native84manual and foreign2explicit.",
+   "current_status": "verified-structural",
+   "owner_mechanism": "M08",
+   "historical_intake_state": "pending-experiment",
+   "historical_intake_observation": "OBSERVED: ts-server template NOW matches all five suffixes + __tests__ + tests/** (:208-213); calculateConfigForFile matrix over EVERY naming convention in ALL sibling presets/templates in scratch installs remains (template configs unresolvable from repo root — evidence 03)",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A10",
+   "title": "structural limits: six no-op strings missed comment-suffixed form; stryker accepted all-excluding glob",
+   "current_paths": [
+    "packages/core/stryker.config.mjs",
+    "tests/install-sh/consumer-upgrade-path.test.sh"
+   ],
+   "replay_command": null,
+   "current_observation": "Finite known-noop suffix grammar plus actual installedStryker selected-file population, no fullBash/mutation-score semantics.",
+   "current_status": "verified-structural",
+   "owner_mechanism": "M09",
+   "historical_intake_state": "pending-experiment",
+   "historical_intake_observation": "stryker mutate list uses explicit positive globs with documented negations (observed); consumer-upgrade-path carries explicit no-op anti-theatre negatives (observed); comment-suffixed + all-excluding-glob acceptance replays and nonempty-population requirement remain",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A11",
+   "title": "P50 baseline permitted existing scanner hits (326 at audit base)",
+   "current_paths": [
+    "packages/core/principles/50-install-rc-asserted.baseline.json"
+   ],
+   "replay_command": "npm --prefix packages/core run test:principles",
+   "current_observation": "All73candidate-to325call exact map with6runtime/317structural/1nonexecutedinput/1intentionalfixture preserved;2individualcandidate retirements, no blanketlegacyupgrade.",
+   "current_status": "verified-structural",
+   "owner_mechanism": "M10",
+   "historical_intake_state": "open",
+   "historical_intake_observation": "OBSERVED: baseline now pins 73 per-file entries (ratchet only lowers). ALL 73 are candidates → individual classification in M10; fix real ignored-status defects; preserve legitimate exceptions with rationale; never bulk-fabricate assertions",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  },
+  {
+   "seed": "A12",
+   "title": "fence/hash corruption survived composition suite",
+   "current_paths": [
+    "packages/core/composition/fence.ts",
+    "scripts/test-assurance/delivery/replay-a12-emitted-corruption.sh"
+   ],
+   "replay_command": "bash scripts/test-assurance/delivery/replay-a12-emitted-corruption.sh",
+   "current_observation": "Register unchanged S1historical hash-survivor characterization; current4bodycheckcarriers source-structural with render-presets actual0/0/1/0 only, prospectiveWI1Surface6metadata not currentbug.",
+   "current_status": "external-contract",
+   "owner_mechanism": "M11",
+   "historical_intake_state": "open",
+   "historical_intake_observation": "OPEN demonstrated gap (WI-1): corrupted hash= attribute parses, is exposed, fails nothing; body drift IS caught. S2 owns the emitted-output integrity consumer — first meaningful RED + independent expected outcomes BEFORE any repair",
+   "scope_authority": "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+   "receipt_freshness": "Prior independently accepted observations remain historical/source-bound. Fresh execution is claimed only for actual registered S2 steps in this invocation."
+  }
+ ]
+}

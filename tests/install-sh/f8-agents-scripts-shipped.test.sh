@@ -20,6 +20,8 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 T=$(mktemp -d)
 printf '{"name":"f8","version":"0.0.0"}\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_093=$?
+if [ "$RC_P50_093" -eq 0 ]; then ok "f8-agents-scripts-shipped: install rc=0 (p50-093)"; else bad "f8-agents-scripts-shipped: install rc=$RC_P50_093, expected 0 (p50-093)"; fi
 A="$T/AGENTS.md"
 P="$T/package.json"
 
@@ -88,6 +90,8 @@ fi
 C4=$(mktemp -d)
 printf '{"name":"f8c4","version":"0.0.0"}\n' > "$C4/package.json"
 ( cd "$C4" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_094=$?
+if [ "$RC_P50_094" -eq 0 ]; then ok "f8-agents-scripts-shipped: install rc=0 (p50-094)"; else bad "f8-agents-scripts-shipped: install rc=$RC_P50_094, expected 0 (p50-094)"; fi
 
 # Run check-rule-globs.sh: a shipped script that runs without node_modules.
 # Without boundary files it prints "nothing for R2 to govern" and exits 0.

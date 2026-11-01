@@ -23,6 +23,8 @@ mkbin() { local d="$1"; shift; mkdir -p "$d"; for b in "$@"; do printf '#!/bin/s
 T=$(mktemp -d)
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_069=$?
+if [ "$RC_P50_069" -eq 0 ]; then ok "f14-lintstaged-resolves: install rc=0 (p50-069)"; else bad "f14-lintstaged-resolves: install rc=$RC_P50_069, expected 0 (p50-069)"; fi
 GATE="$T/scripts/check-lintstaged-resolves.sh"
 [ -x "$GATE" ] \
   && ok "shipped: scripts/check-lintstaged-resolves.sh installed + executable" \
@@ -41,6 +43,8 @@ mkbin "$T/node_modules/.bin" prettier eslint sort-package-json
 M=$(mktemp -d)
 printf '{ "name":"m","version":"0.0.0" }\n' > "$M/package.json"
 ( cd "$M" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_070=$?
+if [ "$RC_P50_070" -eq 0 ]; then ok "f14-lintstaged-resolves: install rc=0 (p50-070)"; else bad "f14-lintstaged-resolves: install rc=$RC_P50_070, expected 0 (p50-070)"; fi
 mkdir -p "$M/apps/api/src"; echo 'export const x = 1;' > "$M/apps/api/src/a.ts"
 mkbin "$M/node_modules/.bin" prettier sort-package-json
 mkbin "$M/apps/api/node_modules/.bin" eslint prettier sort-package-json
@@ -73,6 +77,8 @@ printf '{ "name":"w","version":"0.0.0" }\n' > "$W/package.json"
 printf 'packages:\n  - "apps/*"\n' > "$W/pnpm-workspace.yaml"
 mkdir -p "$W/apps/api"; printf '{ "name":"@w/api","version":"0.0.0" }\n' > "$W/apps/api/package.json"
 ( cd "$W" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_071=$?
+if [ "$RC_P50_071" -eq 0 ]; then ok "f14-lintstaged-resolves: install rc=0 (p50-071)"; else bad "f14-lintstaged-resolves: install rc=$RC_P50_071, expected 0 (p50-071)"; fi
 [ -f "$W/apps/api/.lintstagedrc.json" ] \
   && ok "install M3: workspace detected → per-package .lintstagedrc.json stub dropped in apps/api" \
   || bad "install M3: workspace present but no per-package stub dropped in apps/api"

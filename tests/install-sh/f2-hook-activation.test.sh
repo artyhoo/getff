@@ -26,6 +26,8 @@ node -e 'process.exit((require(process.argv[1]).devDependencies||{}).husky?1:0)'
 T=$(mktemp -d)
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_088=$?
+if [ "$RC_P50_088" -eq 0 ]; then ok "f2-hook-activation: install rc=0 (p50-088)"; else bad "f2-hook-activation: install rc=$RC_P50_088, expected 0 (p50-088)"; fi
 
 [ "$(git -C "$T" config core.hooksPath)" = ".husky" ] && ok "pos: core.hooksPath=.husky (hooks now live)" || bad "pos: core.hooksPath not set to .husky"
 
@@ -41,6 +43,8 @@ node -e '
 # ── IDEMPOTENCY: a second install changes nothing ──
 before=$(node -e 'console.log(JSON.stringify(require(process.argv[1]).devDependencies))' "$T/package.json")
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_089=$?
+if [ "$RC_P50_089" -eq 0 ]; then ok "f2-hook-activation: install rc=0 (p50-089)"; else bad "f2-hook-activation: install rc=$RC_P50_089, expected 0 (p50-089)"; fi
 after=$(node -e 'console.log(JSON.stringify(require(process.argv[1]).devDependencies))' "$T/package.json")
 [ "$before" = "$after" ] && ok "idempotent: 2nd install → devDeps unchanged (no dupes)" || bad "idempotent: devDeps drifted: $before -> $after"
 [ "$(git -C "$T" config core.hooksPath)" = ".husky" ] && ok "idempotent: 2nd install → core.hooksPath still .husky" || bad "idempotent: hooksPath changed"

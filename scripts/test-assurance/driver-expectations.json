@@ -1,0 +1,206 @@
+{
+  "version": 1,
+  "frozen_at": "2026-10-08",
+  "frozen_from": "docs/superpowers/specs/2026-10-08-test-assurance-kernel-design.md §6 (separate unchanged conformance driver + representative fault classes) + the FROZEN ORACLE scripts/test-assurance/expectations.json (sha256 pinned below; its static matrix and channel_map predate every S1 detector) + the static text of the mutated carriers at HEAD. NOT derived from any detector run: this file was authored and independently cold-reviewed BEFORE scripts/test-assurance/driver.mjs existed. Baseline rows restate the oracle's static matrix as CLI process outcomes; the six anti-detector arms are the spec §6 representative fault classes over the S1-claimed detectors.",
+  "frozen_oracle": {
+    "path": "scripts/test-assurance/expectations.json",
+    "sha256": "069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978"
+  },
+  "detection_semantics": {
+    "driver_exit": "0 = baseline conforms (rc AND diagnostic exactly as frozen) AND every arm passes its arm_pass conjunction (pristine observation healthy, mutant observation flips). 1 = a fault left the gate green, a pristine baseline drifted, or a frozen expectation mismatch (undetected K3/K4 violation — REAL failure, never an infrastructure count). 3 = infrastructure/selection failure: missing binary/file, empty selection, missing expectation key, spawn error/signal/timeout, oracle-hash drift, or an eslint exit outside the documented 0/1 grammar (fatal rc 2 and any undocumented status) [freeze-review finding F1: an unexpected exit can neither read green nor count as detection — T-TAK-A].",
+    "arm_pass": "an arm passes iff corpus verification FAILS under its fault (pristine observation is healthy, mutant observation flips). Merely changing governed INPUT would be K2, not K3 — every arm mutates the GATE (rule twin / delivered config / kernel engine) while the governed corpus and this driver stay fixed.",
+    "mutation_discipline": "every arm mutates ONLY a detached scratch worktree at HEAD; patches apply exactly once (sha256 over label\\nfrom\\nto); pre-image proven byte-identical to the HEAD blob; restoration proven by hash equality + main-checkout porcelain-clean; a final baseline re-run closes the run."
+  },
+  "cli": {
+    "bin": "node_modules/.bin/eslint",
+    "cwd": "the checkout root (main repo for baseline, scratch worktree for arms) — ESLint 10 flat-config discovery is cwd-rooted and the config's path matching is in-repo-relative",
+    "args": "repo-relative corpus file paths, never globs the shell could expand empty"
+  },
+  "baseline": [
+    {
+      "id": "baseline/q1-bads",
+      "files": [
+        "scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts",
+        "scripts/test-assurance/corpus/q1-vacuous/bad.literal-arithmetic.ts",
+        "scripts/test-assurance/corpus/q1-vacuous/bad.string-literal-identity.ts",
+        "scripts/test-assurance/corpus/q1-vacuous/bad.negated-literal.ts",
+        "scripts/test-assurance/corpus/q1-vacuous/bad.fabricated-status.ts"
+      ],
+      "expectRc": 1,
+      "diagnostic": "rules-as-tests/no-vacuous-assertion",
+      "derived_from": "frozen oracle cases q1/bad.* (static.no-vacuous-assertion = reject)"
+    },
+    {
+      "id": "baseline/q2-bads",
+      "files": [
+        "scripts/test-assurance/corpus/q2-noassertion/bad.comment-only.ts",
+        "scripts/test-assurance/corpus/q2-noassertion/bad.empty-body.ts",
+        "scripts/test-assurance/corpus/q2-noassertion/bad.console-only.ts",
+        "scripts/test-assurance/corpus/q2-noassertion/bad.await-without-assert.ts"
+      ],
+      "expectRc": 1,
+      "diagnostic": "rules-as-tests/require-effective-assertion",
+      "derived_from": "frozen oracle cases q2/bad.* (static.require-effective-assertion = reject)"
+    },
+    {
+      "id": "baseline/goods",
+      "files": [
+        "scripts/test-assurance/corpus/q1-vacuous/good.constant-on-subject.ts",
+        "scripts/test-assurance/corpus/q1-vacuous/good.intentional-fixture-exempt.ts",
+        "scripts/test-assurance/corpus/q1-vacuous/good.snapshot-contract.ts",
+        "scripts/test-assurance/corpus/q1-vacuous/good.structural-schema.ts",
+        "scripts/test-assurance/corpus/q1-vacuous/good.parity-test.ts",
+        "scripts/test-assurance/corpus/q2-noassertion/good.helper-assertions.ts",
+        "scripts/test-assurance/corpus/q2-noassertion/good.async-assertions.ts",
+        "scripts/test-assurance/corpus/q3-copied-predicate/good.pinned-expectation.ts",
+        "scripts/test-assurance/corpus/q4-ignored-exit/good.asserted-exit.ts",
+        "scripts/test-assurance/corpus/q5-self-source/good.behavior-backed-phrase.ts",
+        "scripts/test-assurance/corpus/q6-disconnected/good.wired-config.ts",
+        "scripts/test-assurance/corpus/wrong-import/good.correct-import.ts"
+      ],
+      "expectRc": 0,
+      "derived_from": "frozen oracle good companions + wrong-import/good.correct-import (static = admit on both rules; keep-list semantics spec §5)"
+    },
+    {
+      "id": "baseline/fixtures",
+      "files": [
+        "scripts/test-assurance/corpus/q3-copied-predicate/subject.ts",
+        "scripts/test-assurance/corpus/wrong-import/delivered.ts",
+        "scripts/test-assurance/corpus/wrong-import/lookalike.ts"
+      ],
+      "expectRc": 0,
+      "derived_from": "frozen oracle fixture rows (class fixture-not-a-test; not tests, admitted by the static lane)"
+    },
+    {
+      "id": "baseline/wrong-import-honest-admission",
+      "files": [
+        "scripts/test-assurance/corpus/wrong-import/bad.wrong-import.ts"
+      ],
+      "expectRc": 0,
+      "note": "HONEST LIMIT, not a detection claim: the static lane admits the wrong-import bad (no syntax gate may claim dataflow); its reject expectation is review-routed (oracle channel_map.wrong-import) and is evidenced by the named cold-review protocol + blocking dispositions queue, never by this CLI.",
+      "derived_from": "frozen oracle case wrong-import/bad.wrong-import (channel review; static = admit)"
+    }
+  ],
+  "arms": [
+    {
+      "id": "D1-PERM-Q1",
+      "k": ["K3"],
+      "class": "permissive",
+      "obligation": "Q1 rejection (no-vacuous-assertion) keeps detecting when the rule is neutered",
+      "carrier": "packages/core/eslint-rules/no-vacuous-assertion.mjs",
+      "fault": "the rule's context.report call is suppressed — the detector never fires; the real CLI loads this .mjs twin through the delivered root config (K5 chain), so a silent twin is a silent gate",
+      "patch": {
+        "from": "                context.report({ node, messageId: 'vacuousAssertion' });",
+        "to": "                void node; // D1 permissive mutant: report suppressed (gate neutered, corpus fixed)",
+        "label": "D1: no-vacuous-assertion context.report suppressed (permissive)"
+      },
+      "pristine": [
+        { "kind": "cli", "files": "baseline/q1-bads", "expectRc": 1, "diagnostic": "rules-as-tests/no-vacuous-assertion" }
+      ],
+      "mutant": [
+        { "kind": "cli", "files": "baseline/q1-bads", "expectRc": 0, "note": "the bad corpus flips green — corpus verification FAILS under the fault; if the CLI still exits 1 the neutering was NOT detected (arm fails → driver exit 1)" }
+      ]
+    },
+    {
+      "id": "D2-K4-Q2",
+      "k": ["K4"],
+      "class": "over-rejecting",
+      "obligation": "over-rejection of the good corpus is DETECTED (K4) rather than silently shipping",
+      "carrier": "packages/core/eslint-rules/require-effective-assertion.mjs",
+      "fault": "the effective-assertion recognizer is inverted to recognize nothing — every test body is reported, so legitimate good companions are rejected while bads stay rejected (an over-rejecting gate)",
+      "patch": {
+        "from": "    return (lower.startsWith('expect') ||\n        lower.startsWith('assert') ||\n        lower.startsWith('verify'));",
+        "to": "    return false; // D2 K4 mutant: recognizer recognizes nothing (over-rejection arm)",
+        "label": "D2: require-effective-assertion recognizer recognizes nothing (over-rejecting)"
+      },
+      "pristine": [
+        { "kind": "cli", "files": ["scripts/test-assurance/corpus/q2-noassertion/good.helper-assertions.ts", "scripts/test-assurance/corpus/q2-noassertion/good.async-assertions.ts"], "expectRc": 0 },
+        { "kind": "cli", "files": "baseline/q2-bads", "expectRc": 1, "diagnostic": "rules-as-tests/require-effective-assertion" }
+      ],
+      "mutant": [
+        { "kind": "cli", "files": ["scripts/test-assurance/corpus/q2-noassertion/good.helper-assertions.ts", "scripts/test-assurance/corpus/q2-noassertion/good.async-assertions.ts"], "expectRc": 1, "diagnostic": "rules-as-tests/require-effective-assertion", "note": "GOOD corpus flips 0→1 — the K4 over-rejection is reached and corpus verification fails" },
+        { "kind": "cli", "files": "baseline/q2-bads", "expectRc": 1, "note": "bads STAY rejected — the mutant over-rejects, it does not relieve; a mutant that stops rejecting bads would be a different (permissive) fault" }
+      ]
+    },
+    {
+      "id": "D3-BOUNDARY-Q1",
+      "k": ["K3"],
+      "class": "boundary-weakening",
+      "obligation": "narrowing the pure-literal grammar is detected on exactly the narrowed class",
+      "carrier": "packages/core/eslint-rules/no-vacuous-assertion.mjs",
+      "fault": "BinaryExpression is dropped from the pure-literal grammar — `expect(1 + 1).toBe(2)` leaves the decidable scope while plain-literal identity is still rejected",
+      "patch": {
+        "from": "            return isPureLiteral(node.left) && isPureLiteral(node.right);",
+        "to": "            return false; // D3 boundary mutant: binary compositions leave the grammar",
+        "label": "D3: no-vacuous-assertion BinaryExpression dropped from pure-literal grammar (boundary)"
+      },
+      "narrowness_retainer": "the mutant must flip ONLY bad.literal-arithmetic (the corpus's sole binary-composition expect subject); the plain-Literal subjects stay rejected — this distinguishes a boundary weakening from the full neuter of D1. Declared grammar-branch limit (freeze-review finding E1): the corpus exercises only the BinaryExpression composition branch of isPureLiteral; the UnaryExpression branch has no corpus arm — a permissible small-explicit-set scope, recorded as a declared coverage gap",
+      "pristine": [
+        { "kind": "cli", "files": ["scripts/test-assurance/corpus/q1-vacuous/bad.literal-arithmetic.ts"], "expectRc": 1, "diagnostic": "rules-as-tests/no-vacuous-assertion" }
+      ],
+      "mutant": [
+        { "kind": "cli", "files": ["scripts/test-assurance/corpus/q1-vacuous/bad.literal-arithmetic.ts"], "expectRc": 0, "note": "the narrowed class flips green — verification fails under the boundary fault" },
+        { "kind": "cli", "files": ["scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts", "scripts/test-assurance/corpus/q1-vacuous/bad.string-literal-identity.ts", "scripts/test-assurance/corpus/q1-vacuous/bad.negated-literal.ts", "scripts/test-assurance/corpus/q1-vacuous/bad.fabricated-status.ts"], "expectRc": 1, "diagnostic": "rules-as-tests/no-vacuous-assertion", "note": "narrowness retainer: the untouched grammar still rejects" }
+      ]
+    },
+    {
+      "id": "D4-INVOCATION-Q1",
+      "k": ["K5"],
+      "class": "delivery-invocation-break",
+      "obligation": "a delivered-but-disconnected rule (severity off — seed A04) is detected at the delivery edge",
+      "carrier": "eslint.config.mjs",
+      "fault": "the delivered root config's no-vacuous-assertion severity error→off — the twin still exists and still works, but the invocation never asks it to reject (the Task-7 delivery edge, re-proven through the driver)",
+      "patch": {
+        "from": "      'rules-as-tests/no-vacuous-assertion': 'error',",
+        "to": "      'rules-as-tests/no-vacuous-assertion': 'off', // D4 invocation mutant (seed A04): delivered but disconnected",
+        "label": "D4: root config no-vacuous-assertion severity error->off (invocation break)"
+      },
+      "pristine": [
+        { "kind": "cli", "files": "baseline/q1-bads", "expectRc": 1, "diagnostic": "rules-as-tests/no-vacuous-assertion" }
+      ],
+      "mutant": [
+        { "kind": "cli", "files": "baseline/q1-bads", "expectRc": 0, "note": "the CLI goes silent — delivery-silent (K5 broken at the invocation edge)" }
+      ]
+    },
+    {
+      "id": "D5-PERM-GLV",
+      "k": ["K3"],
+      "class": "permissive",
+      "obligation": "the guard-liveness kernel engine's violation matcher keeps detecting (cf3 discharge — the Batch-D reached-not-killed gap)",
+      "carrier": "packages/core/hooks/checks/guard-liveness.ts",
+      "fault": "matchesViolation fallthrough return false→true (the exact cf3 fault): a missed violation is reported as matched, so runRuleLiveness passes a neutered engine",
+      "patch": {
+        "from": "  if (message.ruleId === ruleName) return true;\n  return false;",
+        "to": "  if (message.ruleId === ruleName) return true;\n  return true;",
+        "label": "cf3: guard-liveness matchesViolation permissive (return false -> return true)",
+        "expectedSha256": "6da3c1c1a80ae38acdc0f56d201277de4f3f1b5ad7eeef617ed7264dfe5aa877",
+        "expectedSha256_note": "must equal the sha256(label\\nfrom\\nto) recorded in docs/test-assurance-kernel/s1/counterfactuals/cf3-guard-liveness-permissive.json — the driver arm replays the SAME pinned fault"
+      },
+      "pristine": [
+        { "kind": "probe", "probe": "scripts/test-assurance/driver-probes/glv-parse-error-probe.mts", "expect": "PROBE status=fail", "note": "healthy matcher: the parse-error input (the only message class reaching the fallthrough) is reported as a miss" }
+      ],
+      "mutant": [
+        { "kind": "probe", "probe": "scripts/test-assurance/driver-probes/glv-parse-error-probe.mts", "expect": "PROBE status=pass", "note": "the miss is no longer reported — the frozen driver probe observes the flip the recorded GLV-1 suite fixture cannot (its clean zero-message input never invokes the matcher); this discharges cf3 as detected-by-driver with the suite-level limit retained as an honest limit" }
+      ]
+    },
+    {
+      "id": "D6-K4-GLV",
+      "k": ["K4"],
+      "class": "over-rejecting",
+      "obligation": "a kernel engine that fails healthy rules is DETECTED (K4) by the frozen driver probe",
+      "carrier": "packages/core/hooks/checks/guard-liveness.ts",
+      "fault": "the good-example violation check is forced true — every rule with a clean good example is failed by runRuleLiveness (over-rejection: the engine rejects healthy subjects)",
+      "patch": {
+        "from": "  const goodViolation = goodMessages.find((m) => m.ruleId === ruleName);",
+        "to": "  const goodViolation = { ruleId: ruleName, message: 'D6 K4 mutant: good-example violation forced' } as unknown as Linter.LintMessage;",
+        "label": "D6: guard-liveness good-example violation forced true (over-rejecting)"
+      },
+      "pristine": [
+        { "kind": "probe", "probe": "scripts/test-assurance/driver-probes/glv-healthy-rule-probe.mts", "expect": "PROBE status=pass", "note": "healthy rule: its negative-test input genuinely violates and its good example is clean" }
+      ],
+      "mutant": [
+        { "kind": "probe", "probe": "scripts/test-assurance/driver-probes/glv-healthy-rule-probe.mts", "expect": "PROBE status=fail", "note": "the healthy rule flips to fail — the K4 over-rejection is reached and the frozen probe's verification fails under the fault" }
+      ]
+    }
+  ]
+}

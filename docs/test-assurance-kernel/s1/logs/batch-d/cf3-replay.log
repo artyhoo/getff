@@ -1,0 +1,42 @@
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+== phase: scratch worktree at HEAD (b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48) ==
+Preparing worktree (detached HEAD 2b45e109e)
+== phase: baseline suite (pristine worktree) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /tmp/s1-cf3-AT2cA9/packages/core/stdout-baseline.log
+FILE guard-liveness.test.ts pass
+OK file-status guard-liveness.test.ts=pass
+== phase: healthy probe (fault absent → the miss IS reported) ==
+PROBE status=fail
+PROBE failures=["input[0] did not produce 'rules-as-tests/no-server-imports-in-client' for 'rules-as-tests/no-server-imports-in-client'; got [{\"rule\":null}]"]
+OK probe /tmp/s1-cf3-AT2cA9/probe-kernel-subject.mts → PROBE status=fail
+== phase: fault — permissive matchesViolation (fallthrough false -> true), scratch worktree only ==
+PATCH-LABEL cf3: guard-liveness matchesViolation permissive (return false -> return true)
+PATCH-SHA256 6da3c1c1a80ae38acdc0f56d201277de4f3f1b5ad7eeef617ed7264dfe5aa877
+PATCH-BEFORE-SHA256 b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48
+PATCH-AFTER-SHA256 baba8728963862a580b2ba5f947f01a0f521ae90e34a61b72e51064b7e585f3b
+PATCH-OCCURRENCES 1
+== phase: reachability under the fault (the miss is no longer reported) ==
+PROBE status=pass
+OK probe /tmp/s1-cf3-AT2cA9/probe-kernel-subject.mts → PROBE status=pass
+== phase: counterfactual suite — does the gate's own suite kill this? (observed, not presumed) ==
+VITEST-RC counterfactual 0
+VITEST-STDOUT /tmp/s1-cf3-AT2cA9/packages/core/stdout-counterfactual.log
+FILE guard-liveness.test.ts pass
+CF3-SUITE-OUTCOME survived
+OBSERVED-GAP: kernel suite SURVIVED the fallthrough-permissive mutant — recorded honestly as reached-not-killed (detection gap -> dispositions queue); cf4 pins the permissive fault the suite DOES kill
+== phase: restoration (git checkout + hash equality with the HEAD blob) ==
+RESTORED packages/core/hooks/checks/guard-liveness.ts sha256=b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48
+PROBE status=fail
+PROBE failures=["input[0] did not produce 'rules-as-tests/no-server-imports-in-client' for 'rules-as-tests/no-server-imports-in-client'; got [{\"rule\":null}]"]
+OK probe /tmp/s1-cf3-AT2cA9/probe-kernel-subject.mts → PROBE status=fail
+VITEST-RC restored 0
+VITEST-STDOUT /tmp/s1-cf3-AT2cA9/packages/core/stdout-restored.log
+FILE guard-liveness.test.ts pass
+OK file-status guard-liveness.test.ts=pass
+== phase: final passing baseline in the MAIN checkout (post-experiment) ==
+VITEST-RC final 0
+VITEST-STDOUT /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/stdout-final.log
+FILE guard-liveness.test.ts pass
+OK file-status guard-liveness.test.ts=pass
+CF3 VERDICT: pass (fallthrough mutant reached via parse-error probe; suite outcome observed: survived; restored + final baseline green)

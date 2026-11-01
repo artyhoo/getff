@@ -1,0 +1,8 @@
+VERIFY repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+VERIFY stage=S1 require-host=unset sysname=linux
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+PROMOTE-GATE disp-gate5-runtime-bundle-rebuild: BLOCKED — delivered artifact predates the stage arm — 0 hits for [runTestQualityLiveness] in packages/core/hooks/pre-push.bundle.mjs
+PROMOTE-GATE disp-gate5-runtime-bundle-rebuild: repair: rebuild the prebuilt bundles on a lockfile-clean install — this container carries fast-uri 3.1.7 vs lockfile 3.1.8, so a rebuild here would inline the wrong copy: `node scripts/build-runtime-bundles.mjs`, then commit the regenerated packages/core/hooks/pre-push.bundle.mjs
+TAMPER restored packages/core/hooks/pre-push.bundle.mjs sha256=893ad89e16b0… (byte-identical)
+PROMOTE-GATE disp-gate5-runtime-bundle-rebuild CONTROL: DETECTED (verdict flipped BLOCKED→RESOLVED under the opposite-state mutation, restoration hash-proven)
+PROMOTE-GATE VERDICT: REFUSED exit=1 (a promotion-blocking obligation is unresolved or a gate failed its own control — S1 must not promote)

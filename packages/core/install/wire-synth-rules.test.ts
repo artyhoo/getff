@@ -351,9 +351,12 @@ describe('wireNRules — combined (simple + wrapper)', () => {
 });
 
 // ─── defineConfig(obj, …) shape — the real shipped consumer config format ────
-// The installed react-next consumer config (eslint.config.mjs:50) and the gold preset
+// The installed react-next consumer config and the gold preset
 // (packages/preset-next-15-canonical/templates/eslint.config.react.mjs:50) both use
 // `export default defineConfig(obj1, obj2, …)` with object args, NOT a single array arg.
+// (The bare `eslint.config.mjs` line-citation this line replaced resolved, once the S1 stage
+// added a repo-root eslint.config.mjs, to a DIFFERENT artifact — the root Q1/Q2 lane config,
+// deliberately the array form. The template citation is the installed config's true source.)
 // This section verifies the wired path is reachable for that shape (T-GIW-A guard).
 
 const DEFINE_CONFIG_SOURCE_UNWIRED = [

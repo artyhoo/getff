@@ -23,6 +23,8 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 T=$(mktemp -d)
 printf '{ "name": "f1t", "version": "0.0.0" }\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_063=$?
+if [ "$RC_P50_063" -eq 0 ]; then ok "f1-ts-arm: install rc=0 (p50-063)"; else bad "f1-ts-arm: install rc=$RC_P50_063, expected 0 (p50-063)"; fi
 
 H="$T/packages/core/hooks"
 B="$H/pre-push.bundle.mjs"

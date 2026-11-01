@@ -22,6 +22,12 @@
  *
  * `process.env` is never mutated here: the planted variable lives on a throwaway object handed
  * to one child. A gate that set GIT_DIR on itself would be the incident.
+ *
+ * Lane companion (2026-11-01): arms (C) and (D) also guard the Node-canonical lane —
+ * `npm run test:canonical` runs the same suites through `node --test` OUTSIDE vitest, so its
+ * scrub arrives via `--import` preloads registered in packages/core/package.json, and (D)'s
+ * lane half proves by execution that those preloads scrub the per-file children before any
+ * module top-level runs.
  */
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
@@ -140,6 +146,37 @@ describe('principle 46 — git repository-local env must not reach a test subpro
         `setupFiles: ['${entry}']`,
       );
     }
+
+    // The Node-canonical lane (`npm run test:canonical`) runs the same three suites through
+    // `node --test`, OUTSIDE vitest — `setupFiles` never reaches it. The same scrub must be
+    // REGISTERED there as a preload, ordered so it runs before any test module: tsx/esm first
+    // (the setup it loads is TypeScript), the setup second, the modules after both. Incident
+    // 2026-11-01: the unregistered lane inherited GIT_DIR from a pre-push hook fired off a
+    // linked worktree, and the suites' `git init` sites wrote core.bare=true into the shared
+    // common config mid-run.
+    const pkg = JSON.parse(
+      readFileSync(resolve(CORE, 'package.json'), 'utf8'),
+    ) as { scripts: Record<string, string> };
+    const canonical = pkg.scripts['test:canonical'] ?? '';
+    const tsxAt = canonical.indexOf('--import tsx/esm');
+    const setupAt = canonical.indexOf('--import ./vitest.setup.ts');
+    const firstModule = canonical.indexOf('.test.mjs');
+    expect(
+      canonical,
+      'packages/core/package.json must keep a test:canonical entry',
+    ).toContain('node ');
+    expect(
+      tsxAt,
+      'the canonical lane must preload tsx/esm — the setup it registers is TypeScript',
+    ).toBeGreaterThan(-1);
+    expect(
+      setupAt,
+      'the canonical lane must preload ./vitest.setup.ts — the same scrub the vitest configs register above',
+    ).toBeGreaterThan(-1);
+    expect(
+      tsxAt < setupAt && setupAt < firstModule,
+      'preload order is load-bearing: tsx/esm, then the setup, then every test module — a setup ordered after the modules scrubs nothing that already loaded',
+    ).toBe(true);
   });
 
   // ── (D) the damage arm — the one that is not vacuous on CI ────────────────
@@ -179,6 +216,105 @@ describe('principle 46 — git repository-local env must not reach a test subpro
       existsSync(join(target2, 'fresh/.git')),
       'and the init landed where it was told to',
     ).toBe(true);
+
+    // LANE half (incident 2026-11-01): the registered preload must scrub the child `node
+    // --test` processes before any module top-level runs. `--import` propagation into the
+    // per-file children is the load-bearing link, so this control EXECUTES the production
+    // argv — parsed out of packages/core/package.json, never restated here — with the three
+    // module paths swapped for a probe that records what its module top-level could see.
+    // The family is planted on the child's env object only; nothing points at the real repo.
+    const pkg = JSON.parse(
+      readFileSync(resolve(CORE, 'package.json'), 'utf8'),
+    ) as { scripts: Record<string, string> };
+    const argv = (pkg.scripts['test:canonical'] ?? '')
+      .trim()
+      .split(/\s+/)
+      .slice(1);
+    const stripped: string[] = [];
+    let importPairCount = 0;
+    for (let i = 0; i < argv.length; i += 1) {
+      if (argv[i] === '--import') {
+        importPairCount += 1;
+        i += 1; // skip the specifier — this IS the producer-off variant
+      } else {
+        stripped.push(argv[i]!);
+      }
+    }
+    expect(
+      importPairCount,
+      'the entry must carry its --import pairs for this control to consume',
+    ).toBeGreaterThanOrEqual(2);
+
+    const laneDecoy = decoyRepo();
+    const probeDir = mkdtempSync(join(tmpdir(), 'p46-lane-probe-'));
+    const observed = join(probeDir, 'observed.json');
+    const probe = join(probeDir, 'lane.probe.test.mjs');
+    const planted = {
+      GIT_DIR: laneDecoy.adminDir,
+      AIF_CTX_WINDOW: '999000',
+      AIF_HANDOFF_GATE: '1',
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: '300000',
+    } as const;
+    writeFileSync(
+      probe,
+      [
+        "import { writeFileSync } from 'node:fs';",
+        "import test from 'node:test';",
+        "test('lane probe', () => {});",
+        `writeFileSync(${JSON.stringify(observed)}, JSON.stringify({`,
+        ...Object.keys(planted).map(
+          (n) => `  ${JSON.stringify(n)}: process.env[${JSON.stringify(n)}] ?? null,`,
+        ),
+        '}));',
+        '',
+      ].join('\n'),
+    );
+    const runLane = (args: readonly string[]) => {
+      const env: NodeJS.ProcessEnv = { ...SAFE_ENV, ...planted };
+      return execFileSync(process.execPath, args, {
+        cwd: CORE,
+        encoding: 'utf8',
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    };
+    const withProbe = (args: readonly string[]) =>
+      args.map((a) => (a.endsWith('.test.mjs') ? probe : a));
+
+    // Registration intact: the probe's module top-level sees NONE of the planted family, and
+    // the decoy the GIT_DIR points at stays untouched.
+    runLane(withProbe(argv));
+    const clean = JSON.parse(readFileSync(observed, 'utf8')) as Record<
+      string,
+      string | null
+    >;
+    for (const [name, value] of Object.entries(clean)) {
+      expect(
+        value,
+        `${name} reached the canonical lane's module top-level — the registered preload did not scrub the child`,
+      ).toBeNull();
+    }
+    expect(
+      readCoreBare(laneDecoy.commonConfig, REPO_ROOT),
+      'a scrubbed lane cannot redirect anything into the decoy',
+    ).toBe('false');
+
+    // Producer-off / registration-removed: the same argv minus its --import pairs, and the
+    // probe OBSERVES the planted family — the control above fires on the real mechanism, not
+    // on an assertion that cannot fail.
+    runLane(withProbe(stripped));
+    const laneLeaked = JSON.parse(readFileSync(observed, 'utf8')) as Record<
+      string,
+      string | null
+    >;
+    expect(
+      laneLeaked.GIT_DIR,
+      'without the preload GIT_DIR reaches module top-level',
+    ).toContain('p46-decoy-');
+    expect(
+      laneLeaked.AIF_CTX_WINDOW,
+      'the AIF host controls leak equally without the preload',
+    ).toBe('999000');
   });
 
   // ── (E) the observable state of THIS repository ───────────────────────────

@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, cpSync, readFileSync, writeFileSync, rmSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,7 +29,9 @@ const invoke=(slug,project,args=[],extra='',marker,mutant=false)=>{
   const source=substitute(mutant?authored.replaceAll('\\$1','$1'):authored,args,join(owner,'plugin/skills',slug),project);
   return spawnSync('bash',['-c',source+extra,'plugin-fixture',...args],{cwd:join(project,'nested cwd with spaces'),encoding:'utf8',env});
 };
-test.after(()=>rmSync(owner,{recursive:true,force:true}));
+// Named `after` export (node:test lifecycle hook): a teardown is not a test, and the named
+// form keeps the generic test.* detector out of a lifecycle registration.
+after(()=>rmSync(owner,{recursive:true,force:true}));
 function fixture(t){const project=realpathSync(mkdtempSync(join(tmpdir(),'plugin only project ')));mkdirSync(join(project,'nested cwd with spaces'));t.after(()=>rmSync(project,{recursive:true,force:true}));return project;}
 test('six independently generated plugin skills bind native resources without an installed .agents tree',t=>{
   const project=fixture(t), nested=join(project,'nested cwd with spaces');

@@ -1,0 +1,363 @@
+{
+  "frozen": {
+    "head": "6bd07187e57635d02f8aed5e3560a346ad2748db",
+    "tree": "3e602b409f92b21d2683e32a933326fead97afda"
+  },
+  "optimized": {
+    "head": "dd934c52319ae5780e203d061a357b7295855606"
+  },
+  "host": "darwin",
+  "tools": {
+    "node": "v24.3.0",
+    "vitest": "4.1.8"
+  },
+  "cells": [
+    {
+      "workload": "docs",
+      "role": "frozen",
+      "trial": 1,
+      "seq": 1,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "wallMs": 2351
+    },
+    {
+      "workload": "docs",
+      "role": "optimized",
+      "trial": 1,
+      "seq": 2,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "wallMs": 2478
+    },
+    {
+      "workload": "rule",
+      "role": "frozen",
+      "trial": 1,
+      "seq": 3,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "exitCode": 0,
+      "wallMs": 1088
+    },
+    {
+      "workload": "rule",
+      "role": "optimized",
+      "trial": 1,
+      "seq": 4,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "exitCode": 0,
+      "wallMs": 1091
+    },
+    {
+      "workload": "kernel",
+      "role": "frozen",
+      "trial": 1,
+      "seq": 5,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "exitCode": 0,
+      "wallMs": 10536
+    },
+    {
+      "workload": "kernel",
+      "role": "optimized",
+      "trial": 1,
+      "seq": 6,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "exitCode": 0,
+      "wallMs": 10557
+    },
+    {
+      "workload": "fallback",
+      "role": "frozen",
+      "trial": 1,
+      "seq": 7,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "exitCode": 0,
+      "wallMs": 25159
+    },
+    {
+      "workload": "fallback",
+      "role": "optimized",
+      "trial": 1,
+      "seq": 8,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "exitCode": 0,
+      "wallMs": 33725
+    },
+    {
+      "workload": "docs",
+      "role": "frozen",
+      "trial": 2,
+      "seq": 9,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "wallMs": 2422
+    },
+    {
+      "workload": "docs",
+      "role": "optimized",
+      "trial": 2,
+      "seq": 10,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "wallMs": 2493
+    },
+    {
+      "workload": "rule",
+      "role": "frozen",
+      "trial": 2,
+      "seq": 11,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "exitCode": 0,
+      "wallMs": 1099
+    },
+    {
+      "workload": "rule",
+      "role": "optimized",
+      "trial": 2,
+      "seq": 12,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "exitCode": 0,
+      "wallMs": 1079
+    },
+    {
+      "workload": "kernel",
+      "role": "frozen",
+      "trial": 2,
+      "seq": 13,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "exitCode": 0,
+      "wallMs": 10872
+    },
+    {
+      "workload": "kernel",
+      "role": "optimized",
+      "trial": 2,
+      "seq": 14,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "exitCode": 0,
+      "wallMs": 10744
+    },
+    {
+      "workload": "fallback",
+      "role": "frozen",
+      "trial": 2,
+      "seq": 15,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "exitCode": 0,
+      "wallMs": 25672
+    },
+    {
+      "workload": "fallback",
+      "role": "optimized",
+      "trial": 2,
+      "seq": 16,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "exitCode": 0,
+      "wallMs": 33859
+    },
+    {
+      "workload": "docs",
+      "role": "frozen",
+      "trial": 3,
+      "seq": 17,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "wallMs": 2434
+    },
+    {
+      "workload": "docs",
+      "role": "optimized",
+      "trial": 3,
+      "seq": 18,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "wallMs": 2493
+    },
+    {
+      "workload": "rule",
+      "role": "frozen",
+      "trial": 3,
+      "seq": 19,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "exitCode": 0,
+      "wallMs": 1110
+    },
+    {
+      "workload": "rule",
+      "role": "optimized",
+      "trial": 3,
+      "seq": 20,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "exitCode": 0,
+      "wallMs": 1077
+    },
+    {
+      "workload": "kernel",
+      "role": "frozen",
+      "trial": 3,
+      "seq": 21,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "exitCode": 0,
+      "wallMs": 10991
+    },
+    {
+      "workload": "kernel",
+      "role": "optimized",
+      "trial": 3,
+      "seq": 22,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "exitCode": 0,
+      "wallMs": 11040
+    },
+    {
+      "workload": "fallback",
+      "role": "frozen",
+      "trial": 3,
+      "seq": 23,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "exitCode": 0,
+      "wallMs": 25425
+    },
+    {
+      "workload": "fallback",
+      "role": "optimized",
+      "trial": 3,
+      "seq": 24,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "exitCode": 0,
+      "wallMs": 33216
+    }
+  ],
+  "campaign": {
+    "journalPath": "docs/test-assurance-kernel/s3/collector-journal.json",
+    "journalSha256": "7a26f80fb8067d59aeed13b23eac0cc6407d4fd743a9a71c8eeca4279e0d370b",
+    "fixtures": {
+      "docs": null,
+      "rule": null,
+      "kernel": null,
+      "fallback": "66733f31e6d57884964c10dfb93e8f0f2be27f94c7e577c691bf12e81f5e39e0"
+    },
+    "fixtureQualification": "TRUTHFUL record of the retained matrix-24b run: only the dated 6673 broad patch was applied (fallback blocks, per-block reversal, c9 semantics); the original docs/rule/kernel fixture patches were never applied. Per the bfec256c qualification the 24 comparisons are real but the ORIGINAL four-fixture campaign is NOT established — performance stays nonPASS on this missing binding."
+  }
+}

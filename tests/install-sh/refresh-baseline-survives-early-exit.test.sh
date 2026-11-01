@@ -33,7 +33,7 @@ PROBE_REL=".claude/hooks/deps-hash-check.sh"
 # make_bare — a consumer directory ready for install.sh, nothing installed yet.
 make_bare() {
   local T
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q ) >/dev/null 2>&1
   echo "$T"
@@ -54,6 +54,7 @@ trap 'rm -rf "$STUBBIN"' EXIT
 # ARM 1 — a deps-incomplete --full still writes the baseline before exiting 1
 # ══════════════════════════════════════════════════════════════════════════════
 TC1=$(make_bare)
+[ -n "$TC1" ] || { echo "FATAL: make_bare returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 OUT_1=$( cd "$TC1" && PATH="$STUB_PATH" bash "$REPO_ROOT/install.sh" ts-server --full < /dev/null 2>&1 )
 RC_1=$?
 
@@ -88,12 +89,15 @@ rm -rf "$TC1"
 # This is the ledger's actual casualty. Arm 1 asserts the file exists; this asserts the file does
 # its job on the very next `--refresh`, which is the run that used to destroy the edit.
 TC2=$(make_bare)
+[ -n "$TC2" ] || { echo "FATAL: make_bare returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$TC2" && PATH="$STUB_PATH" bash "$REPO_ROOT/install.sh" ts-server --full < /dev/null ) >/dev/null 2>&1
 if [ ! -f "$TC2/$PROBE_REL" ]; then
   bad "arm 2 precondition: the aborted install did not deliver $PROBE_REL"
 else
   printf 'CONSUMER_EDIT_AFTER_ABORTED_FULL\n' > "$TC2/$PROBE_REL"
   OUT_2=$( cd "$TC2" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+  RC_P50_239=$?
+  if [ "$RC_P50_239" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-239)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_239, expected 0 (p50-239)"; fi
   if grep -qF 'deps-hash-check.sh' <<<"$(printf '%s\n' "$OUT_2" | grep -F 'overwriting locally-modified file:')"; then
     ok "arm 2: the first --refresh after an aborted --full WARNS about the consumer edit"
   else
@@ -117,9 +121,14 @@ rm -rf "$TC2"
 # The second half of A1-2: even with the flush fixed, a run whose deliveries are all skips must
 # still be able to record a baseline (that is the "re-run --full after fixing the deps" path).
 TC3=$(make_bare)
+[ -n "$TC3" ] || { echo "FATAL: make_bare returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$TC3" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_240=$?
+if [ "$RC_P50_240" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-240)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_240, expected 0 (p50-240)"; fi
 rm -f "$TC3/$MANIFEST_REL"                       # simulate the run that never flushed
 OUT_3=$( cd "$TC3" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
+RC_P50_241=$?
+if [ "$RC_P50_241" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-241)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_241, expected 0 (p50-241)"; fi
 if grep -qF 'exists — skipping' <<<"$OUT_3"; then
   ok "arm 3 precondition: the second install did take the skip-if-exists path"
 else
@@ -145,10 +154,17 @@ rm -rf "$TC3"
 # guard then reports the consumer's own edit as pristine and the next --refresh destroys it
 # silently. This arm pins that the skip-stage is weak: prior entry wins.
 TC4=$(make_bare)
+[ -n "$TC4" ] || { echo "FATAL: make_bare returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$TC4" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_242=$?
+if [ "$RC_P50_242" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-242)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_242, expected 0 (p50-242)"; fi
 printf 'CONSUMER_EDIT_BEFORE_REINSTALL\n' > "$TC4/$PROBE_REL"
 ( cd "$TC4" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_243=$?
+if [ "$RC_P50_243" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-243)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_243, expected 0 (p50-243)"; fi
 OUT_4=$( cd "$TC4" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_244=$?
+if [ "$RC_P50_244" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-244)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_244, expected 0 (p50-244)"; fi
 if grep -qF 'deps-hash-check.sh' <<<"$(printf '%s\n' "$OUT_4" | grep -F 'overwriting locally-modified file:')"; then
   ok "arm 4 neg: a re-install did NOT relabel the consumer's edit as the baseline (weak staging)"
 else
@@ -164,9 +180,12 @@ rm -rf "$TC4"
 # consumer's bytes the «pristine framework» baseline, so the next `--force` overwrote it with no
 # preserved copy (the guard saw baseline == disk → pristine).
 TC5=$(make_bare)
+[ -n "$TC5" ] || { echo "FATAL: make_bare returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 mkdir -p "$TC5/$(dirname "$PROBE_REL")"
 printf 'CONSUMER_OWN_FILE_BEFORE_FIRST_INSTALL\n' > "$TC5/$PROBE_REL"
 ( cd "$TC5" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_245=$?
+if [ "$RC_P50_245" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-245)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_245, expected 0 (p50-245)"; fi
 E5=$(jq -r --arg k "$PROBE_REL" 'if (type=="object") and has($k) then .[$k] else "" end' "$TC5/$MANIFEST_REL" 2>/dev/null)
 if [ -z "$E5" ]; then
   ok "arm 5: the consumer's pre-existing $PROBE_REL was NOT recorded as a framework delivery"
@@ -174,6 +193,8 @@ else
   bad "arm 5: the consumer's own pre-existing file became the framework baseline (entry $E5)"
 fi
 ( cd "$TC5" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null ) >/dev/null 2>&1
+RC_P50_246=$?
+if [ "$RC_P50_246" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-246)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_246, expected 0 (p50-246)"; fi
 PRES_5=""
 for _f in "$TC5/.ai-factory/refresh-conflicts"/deps-hash-check.sh.*; do
   [ -e "$_f" ] && grep -qF 'CONSUMER_OWN_FILE_BEFORE_FIRST_INSTALL' "$_f" && PRES_5="$_f"
@@ -191,10 +212,15 @@ rm -rf "$TC5"
 # consumer file is no-entry — so --refresh must preserve it the same D4(c) way (silent copy +
 # one aggregate line), never drop it.
 TC5B=$(make_bare)
+[ -n "$TC5B" ] || { echo "FATAL: make_bare returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 mkdir -p "$TC5B/$(dirname "$PROBE_REL")"
 printf 'CONSUMER_OWN_FILE_BEFORE_FIRST_INSTALL\n' > "$TC5B/$PROBE_REL"
 ( cd "$TC5B" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_247=$?
+if [ "$RC_P50_247" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-247)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_247, expected 0 (p50-247)"; fi
 OUT_5B=$( cd "$TC5B" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_248=$?
+if [ "$RC_P50_248" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-248)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_248, expected 0 (p50-248)"; fi
 PRES_5B=""
 for _f in "$TC5B/.ai-factory/refresh-conflicts"/deps-hash-check.sh.*; do
   [ -e "$_f" ] && grep -qF 'CONSUMER_OWN_FILE_BEFORE_FIRST_INSTALL' "$_f" && PRES_5B="$_f"
@@ -219,11 +245,16 @@ rm -rf "$TC5B"
 # weak stage used to baseline every file in it, and --refresh then treated the consumer's fixture
 # as framework residue and deleted it.
 TC6=$(make_bare)
+[ -n "$TC6" ] || { echo "FATAL: make_bare returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 FIX_REL="scripts/fences-fire-fixtures/consumer-own.manifest.json"
 mkdir -p "$TC6/scripts/fences-fire-fixtures"
 printf '{"consumer":"own"}\n' > "$TC6/$FIX_REL"
 ( cd "$TC6" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_249=$?
+if [ "$RC_P50_249" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-249)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_249, expected 0 (p50-249)"; fi
 ( cd "$TC6" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_250=$?
+if [ "$RC_P50_250" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-250)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_250, expected 0 (p50-250)"; fi
 if [ -f "$TC6/$FIX_REL" ]; then
   ok "arm 6: the consumer's own fixture inside the delivered dir survived --refresh"
 else
@@ -238,9 +269,14 @@ rm -rf "$TC6"
 # (arch-header ARCHITECTURE.md, md-refs agents) the delivery is NOT the raw src, so a raw-src
 # comparison never matched and the A1-2 manifest rebuild silently lost those files.
 TC7=$(make_bare)
+[ -n "$TC7" ] || { echo "FATAL: make_bare returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$TC7" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_251=$?
+if [ "$RC_P50_251" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-251)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_251, expected 0 (p50-251)"; fi
 rm -f "$TC7/$MANIFEST_REL"
 ( cd "$TC7" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_252=$?
+if [ "$RC_P50_252" -eq 0 ]; then ok "refresh-baseline-survives-early-exit: install rc=0 (p50-252)"; else bad "refresh-baseline-survives-early-exit: install rc=$RC_P50_252, expected 0 (p50-252)"; fi
 for _rel in .ai-factory/ARCHITECTURE.md $(cd "$TC7" && ls .claude/agents/*.md 2>/dev/null | head -1); do
   E7=$(jq -r --arg k "$_rel" 'if (type=="object") and has($k) then .[$k] else "" end' "$TC7/$MANIFEST_REL" 2>/dev/null)
   if [ -n "$E7" ]; then

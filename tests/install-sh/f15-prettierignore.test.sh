@@ -16,6 +16,8 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 T=$(mktemp -d)
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_072=$?
+if [ "$RC_P50_072" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-072)"; else bad "f15-prettierignore: install rc=$RC_P50_072, expected 0 (p50-072)"; fi
 PI="$T/.prettierignore"
 
 [ -f "$PI" ] \
@@ -46,6 +48,8 @@ TB=$(mktemp -d)
 printf '{ "name":"brownfield","version":"0.0.0" }\n' > "$TB/package.json"
 printf 'dist/\n' > "$TB/.prettierignore"   # pre-existing consumer .prettierignore (real content)
 ( cd "$TB" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+RC_P50_073=$?
+if [ "$RC_P50_073" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-073)"; else bad "f15-prettierignore: install rc=$RC_P50_073, expected 0 (p50-073)"; fi
 PIB="$TB/.prettierignore"
 
 # (i) the consumer's original `dist/` line survives the merge.
@@ -60,6 +64,8 @@ grep -qx '.ai-factory/RULES.md' "$PIB" \
 
 # (iii) idempotent: a 2nd install adds NO duplicate AIF block (begin-marker count stays 1).
 ( cd "$TB" && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+RC_P50_074=$?
+if [ "$RC_P50_074" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-074)"; else bad "f15-prettierignore: install rc=$RC_P50_074, expected 0 (p50-074)"; fi
 NMARK=$(grep -cF '# >>> rules-as-tests-aif (managed) >>>' "$PIB")
 [ "$NMARK" -eq 1 ] \
   && ok "F15 brownfield: 2nd install adds NO duplicate AIF block (begin-marker count == 1)" \
@@ -68,6 +74,8 @@ NMARK=$(grep -cF '# >>> rules-as-tests-aif (managed) >>>' "$PIB")
 # neg (LOAD-BEARING): a 3rd install must STILL keep the count at 1 — proving idempotency is real,
 # not an artifact of the 2-install window. If the merge were non-idempotent the count would climb.
 ( cd "$TB" && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+RC_P50_075=$?
+if [ "$RC_P50_075" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-075)"; else bad "f15-prettierignore: install rc=$RC_P50_075, expected 0 (p50-075)"; fi
 NMARK3=$(grep -cF '# >>> rules-as-tests-aif (managed) >>>' "$PIB")
 if [ "$NMARK3" -ne 1 ]; then
   bad "F15 brownfield neg: 3rd install climbed the marker count to $NMARK3 → merge is NOT idempotent"
@@ -79,6 +87,8 @@ fi
 TG=$(mktemp -d)
 printf '{ "name":"greenfield","version":"0.0.0" }\n' > "$TG/package.json"
 ( cd "$TG" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+RC_P50_076=$?
+if [ "$RC_P50_076" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-076)"; else bad "f15-prettierignore: install rc=$RC_P50_076, expected 0 (p50-076)"; fi
 PIG="$TG/.prettierignore"
 { [ -f "$PIG" ] && grep -qx '.ai-factory/RULES.md' "$PIG"; } \
   && ok "F15 greenfield: no pre-existing file → .prettierignore copied WITH .ai-factory/RULES.md" \
@@ -98,6 +108,8 @@ printf '{ "name":"@m/api","dependencies":{"hono":"4.0.0"},"devDependencies":{"ty
 mkdir -p "$MS807/apps/mobile"
 printf '{ "name":"@m/mobile","dependencies":{"expo":"~52.0.0","react-native":"0.76.0","react":"18.3.0"} }\n' > "$MS807/apps/mobile/package.json"
 ( cd "$MS807" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force </dev/null ) >/dev/null 2>&1
+RC_P50_077=$?
+if [ "$RC_P50_077" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-077)"; else bad "f15-prettierignore: install rc=$RC_P50_077, expected 0 (p50-077)"; fi
 PI807="$MS807/.prettierignore"
 
 # (pos) the FRESH-shipped per-workspace configs are in the managed block.
@@ -123,6 +135,8 @@ printf '{ "name":"@m/api","dependencies":{"hono":"4.0.0"},"devDependencies":{"ty
 printf '// consumer-authored — do not ignore\nexport default [];\n' > "$MSN807/apps/api/eslint.config.mjs"
 # install WITHOUT --force so copy_safe takes the skip-if-exists (→ SKIPPED) branch.
 ( cd "$MSN807" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >/dev/null 2>&1
+RC_P50_078=$?
+if [ "$RC_P50_078" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-078)"; else bad "f15-prettierignore: install rc=$RC_P50_078, expected 0 (p50-078)"; fi
 PIN807="$MSN807/.prettierignore"
 # the consumer-authored config survived (copy_safe kept it) AND is NOT in the ignore block.
 grep -q 'consumer-authored' "$MSN807/apps/api/eslint.config.mjs" \
@@ -215,6 +229,8 @@ TR=$(mktemp -d)
 printf '{ "name":"refresh890","version":"0.0.0" }\n' > "$TR/package.json"
 printf 'dist/\n' > "$TR/.prettierignore"   # pre-existing → brownfield merge → managed BLOCK (with markers)
 ( cd "$TR" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >/dev/null 2>&1
+RC_P50_079=$?
+if [ "$RC_P50_079" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-079)"; else bad "f15-prettierignore: install rc=$RC_P50_079, expected 0 (p50-079)"; fi
 PIR="$TR/.prettierignore"
 
 # strip one managed pattern to simulate a block that predates a newer template.
@@ -226,6 +242,8 @@ else
 fi
 
 ( cd "$TR" && bash "$REPO_ROOT/install.sh" ts-server --refresh </dev/null ) >/dev/null 2>&1
+RC_P50_080=$?
+if [ "$RC_P50_080" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-080)"; else bad "f15-prettierignore: install rc=$RC_P50_080, expected 0 (p50-080)"; fi
 grep -qxF '.ai-factory/tool-decisions.md' "$PIR" \
   && ok "#890 refresh: --refresh re-delivered the missing managed pattern (do_refresh merges .prettierignore)" \
   || bad "#890 refresh: --refresh did NOT deliver it (do_refresh omits merge_prettierignore — the #869 class)"
@@ -240,10 +258,14 @@ TRO=$(mktemp -d)
 printf '{ "name":"refresh890o","version":"0.0.0" }\n' > "$TRO/package.json"
 printf 'dist/\n' > "$TRO/.prettierignore"
 ( cd "$TRO" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >/dev/null 2>&1
+RC_P50_081=$?
+if [ "$RC_P50_081" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-081)"; else bad "f15-prettierignore: install rc=$RC_P50_081, expected 0 (p50-081)"; fi
 PIRO="$TRO/.prettierignore"
 grep -vxF '.ai-factory/tool-decisions.md' "$PIRO" > "$PIRO.stale" && mv "$PIRO.stale" "$PIRO"
 printf 'consumer owns this\n' > "$PIRO.override.md"   # Layer-3 opt-out
 ( cd "$TRO" && bash "$REPO_ROOT/install.sh" ts-server --refresh </dev/null ) >/dev/null 2>&1
+RC_P50_082=$?
+if [ "$RC_P50_082" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-082)"; else bad "f15-prettierignore: install rc=$RC_P50_082, expected 0 (p50-082)"; fi
 if grep -qxF '.ai-factory/tool-decisions.md' "$PIRO"; then
   bad "#890 refresh neg: .override.md present but --refresh still merged → Layer-3 ownership ignored"
 else
@@ -275,6 +297,8 @@ printf '{ "name":"wtprune","version":"0.0.0" }\n' > "$TW/package.json"
 mkdir -p "$TW/.claude/worktrees/stale-wt/apps/api"
 printf 'export default [];\n' > "$TW/.claude/worktrees/stale-wt/apps/api/eslint.config.mjs"
 ( cd "$TW" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_083=$?
+if [ "$RC_P50_083" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-083)"; else bad "f15-prettierignore: install rc=$RC_P50_083, expected 0 (p50-083)"; fi
 if grep -q 'worktrees/stale-wt' "$TW/.prettierignore"; then
   bad "#915 prune: ignore_shipped_configs enumerated a .claude/worktrees/ config (find not pruned)"
 else
@@ -291,6 +315,8 @@ fi
 TC=$(mktemp -d)
 printf '{ "name":"claudemd","version":"0.0.0" }\n' > "$TC/package.json"
 ( cd "$TC" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_084=$?
+if [ "$RC_P50_084" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-084)"; else bad "f15-prettierignore: install rc=$RC_P50_084, expected 0 (p50-084)"; fi
 PIC="$TC/.prettierignore"
 
 # pos: a transformed shipped agent + the bare-cp shipped skill are in the managed cfg block
@@ -308,6 +334,8 @@ printf '{ "name":"owned","version":"0.0.0" }\n' > "$TO/package.json"
 mkdir -p "$TO/.claude/agents"
 printf '# my own agent\n' > "$TO/.claude/agents/capability-reuse-auditor.md"
 ( cd "$TO" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+RC_P50_085=$?
+if [ "$RC_P50_085" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-085)"; else bad "f15-prettierignore: install rc=$RC_P50_085, expected 0 (p50-085)"; fi
 if grep -qx '.claude/agents/capability-reuse-auditor.md' "$TO/.prettierignore" 2>/dev/null; then
   bad "claude-md guard-neg: consumer-OWNED agent md was prettier-ignored (silently hidden from format:check)"
 else
@@ -318,6 +346,8 @@ fi
 mkdir -p "$TC/.claude/skills/my-own-skill"
 printf '# mine\n' > "$TC/.claude/skills/my-own-skill/SKILL.md"
 ( cd "$TC" && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_086=$?
+if [ "$RC_P50_086" -eq 0 ]; then ok "f15-prettierignore: install rc=0 (p50-086)"; else bad "f15-prettierignore: install rc=$RC_P50_086, expected 0 (p50-086)"; fi
 if grep -q 'my-own-skill' "$PIC"; then
   bad "claude-md guard-neg: consumer's own custom skill got prettier-ignored (over-broad enumeration)"
 else

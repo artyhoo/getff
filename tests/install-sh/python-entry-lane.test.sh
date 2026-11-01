@@ -24,7 +24,7 @@ skip() { echo "  · $1"; }
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
 py_fixture() {  # echo a fresh temp dir seeded with a pyproject.toml (a pure Python consumer)
-  local d; d=$(mktemp -d)
+  local d; d=$(mktemp -d) || { echo ""; return 1; }
   printf '[project]\nname = "demo"\nversion = "0.0.1"\n' > "$d/pyproject.toml"
   echo "$d"
 }
@@ -35,6 +35,7 @@ echo ""
 # ── (1) fresh explicit `install.sh python` on a pure-python repo → delivers, no npm artefacts ──────
 echo "  ── (1) fresh explicit: install.sh python (pyproject only, no package.json) ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 ); rc=$?
 [ "$rc" -eq 0 ] \
   && ok "(1) exit 0 (no-package.json precondition BYPASSED — a python repo has no package.json)" \
@@ -76,6 +77,8 @@ P=$(mktemp -d)
 printf '{"name":"m","version":"0.0.0","dependencies":{"typescript":"^5"}}\n' > "$P/package.json"
 printf '[project]\nname="m"\n' > "$P/pyproject.toml"
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_188=$?
+if [ "$RC_P50_188" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-188)"; else bad "python-entry-lane: install rc=$RC_P50_188, expected 0 (p50-188)"; fi
 [ -f "$P/sgconfig.yml" ] && [ ! -e "$P/eslint.config.mjs" ] \
   && ok "(2) python bundle delivered + no eslint.config.mjs (explicit python beat the npm auto-detect)" \
   || bad "(2) explicit override failed: sgconfig=$( [ -f "$P/sgconfig.yml" ] && echo y || echo n ) eslint=$( [ -e "$P/eslint.config.mjs" ] && echo y || echo n )"
@@ -86,6 +89,8 @@ P=$(mktemp -d)
 printf '{"name":"m","version":"0.0.0","dependencies":{"typescript":"^5"}}\n' > "$P/package.json"
 printf '[project]\nname="m"\n' > "$P/pyproject.toml"
 ( cd "$P" && bash "$INSTALL" --dry-run < /dev/null ) >/dev/null 2>&1
+RC_P50_189=$?
+if [ "$RC_P50_189" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-189)"; else bad "python-entry-lane: install rc=$RC_P50_189, expected 0 (p50-189)"; fi
 [ ! -e "$P/sgconfig.yml" ] \
   && ok "(3) no sgconfig.yml — a repo WITH package.json defaults to the npm lane (python not auto-taken)" \
   || bad "(3) python bundle delivered on a package.json repo without the explicit python arg"
@@ -98,6 +103,7 @@ printf '[project]\nname="m"\n' > "$P/pyproject.toml"
 # ABSENT (the script died silently at the `read` line). GREEN (this arm): the message IS present.
 echo ""; echo "  ── (4) auto-detect OFFER default No: install.sh (no arg, EOF) on pyproject-only ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 out=$( cd "$P" && bash "$INSTALL" < /dev/null 2>&1 ); rc=$?
 [ ! -e "$P/sgconfig.yml" ] \
   && ok "(4) OFFER declined on EOF (default No) → python bundle NOT delivered (npm lane, then no-package.json abort)" \
@@ -115,7 +121,10 @@ grep -qF 'No package.json found' <<<"$out" \
 # ── (5) pure-python auto-detect: OFFER accepted (y) → delivers ────────────────────────────────────
 echo ""; echo "  ── (5) auto-detect OFFER accepted (y) → delivers ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 printf 'y\n' | ( cd "$P" && bash "$INSTALL" ) >/dev/null 2>&1
+RC_P50_190=$?
+if [ "$RC_P50_190" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-190)"; else bad "python-entry-lane: install rc=$RC_P50_190, expected 0 (p50-190)"; fi
 [ -f "$P/sgconfig.yml" ] \
   && ok "(5) answering 'y' to the OFFER delivered the python bundle" \
   || bad "(5) accepted OFFER did not deliver"
@@ -123,9 +132,14 @@ printf 'y\n' | ( cd "$P" && bash "$INSTALL" ) >/dev/null 2>&1
 # ── (6) --refresh re-delivers framework-owned artefacts (overwrites a tampered rule) ──────────────
 echo ""; echo "  ── (6) --refresh re-delivery: overwrites a tampered framework rule ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_191=$?
+if [ "$RC_P50_191" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-191)"; else bad "python-entry-lane: install rc=$RC_P50_191, expected 0 (p50-191)"; fi
 printf 'TAMPERED\n' >> "$P/.getff/astgrep-rules/getff-no-eval.yml"
 ( cd "$P" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_192=$?
+if [ "$RC_P50_192" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-192)"; else bad "python-entry-lane: install rc=$RC_P50_192, expected 0 (p50-192)"; fi
 if grep -q TAMPERED "$P/.getff/astgrep-rules/getff-no-eval.yml"; then
   bad "(6) --refresh did NOT overwrite the tampered framework rule (brownfield consumer stuck on stale rules)"
 else
@@ -139,6 +153,8 @@ cmp -s "$TPL/.getff/astgrep-rules/getff-no-eval.yml" "$P/.getff/astgrep-rules/ge
 echo ""; echo "  ── (7) --refresh auto-detect via marker (.getff-python-install.log) ──"
 printf 'TAMPER2\n' >> "$P/.getff/astgrep-rules/getff-no-os-system.yml"
 ( cd "$P" && bash "$INSTALL" --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_193=$?
+if [ "$RC_P50_193" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-193)"; else bad "python-entry-lane: install rc=$RC_P50_193, expected 0 (p50-193)"; fi
 grep -q TAMPER2 "$P/.getff/astgrep-rules/getff-no-os-system.yml" \
   && bad "(7) bare --refresh missed the python lane (marker not honoured)" \
   || ok "(7) bare --refresh auto-detected the python lane via marker + re-delivered"
@@ -175,7 +191,10 @@ grep -qF 'Refreshing getff Python toolchain' <<<"$out" \
 # @arm:E1:pos scratch-consumer-red-green-pair (python lane — planted violation RED + clean control GREEN)
 echo ""; echo "  ── (8) firing self-check on install (tool-gated fire; loud degrade otherwise) ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
+RC_P50_194=$?
+if [ "$RC_P50_194" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-194)"; else bad "python-entry-lane: install rc=$RC_P50_194, expected 0 (p50-194)"; fi
 # NB: guard the `sg` alias with an ast-grep identity probe — on Linux `sg` also names
 # the setgid(1) coreutil, so a bare `command -v sg` would take the "present" branch on a
 # host that has NO ast-grep (CI install-sh shards), diverging from the self-check's own
@@ -213,7 +232,10 @@ grep -qF 'OVER-BROAD' <<<"$out" \
 # ── (9) DEGRADE path (unit): _py_firing_self_check with NO tools on PATH → loud, never green ───────
 echo ""; echo "  ── (9) degrade path (stripped PATH, no ast-grep/ruff/uvx) ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1   # deliver with tools available
+RC_P50_195=$?
+if [ "$RC_P50_195" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-195)"; else bad "python-entry-lane: install rc=$RC_P50_195, expected 0 (p50-195)"; fi
 # Build a coreutils-only PATH that EXCLUDES every research tool, so `command -v ast-grep|sg|ruff|uvx`
 # genuinely fails regardless of WHERE the runner installed them. A plain PATH="/usr/bin:/bin" is
 # environment-fragile: some CI runners ship ast-grep in /usr/bin, so the strip left it reachable and
@@ -278,10 +300,13 @@ _file_fp16() { local _h; _h=$( cat "$1" ); printf '%s' "$_h" | _sha256_str | cut
 # @arm:E2:pos self-check-resolves-delivered-config (python REFUSE cell — fire + lock fp = delivered set)
 echo ""; echo "  ── (10) REFUSE cell: self-check + lock target the DELIVERED config (E2) ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 printf '[tool.ruff]\nline-length = 120\n' >> "$P/pyproject.toml"
 printf '[lint]\nselect = ["E9"]\n' > "$P/ruff.toml"   # consumer-owned, NO TID bans
 CONSUMER_RUFF_BEFORE=$(cat "$P/ruff.toml")
-out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 ) || true
+out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
+RC_P50_196=$?
+if [ "$RC_P50_196" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-196)"; else bad "python-entry-lane: install rc=$RC_P50_196, expected 0 (p50-196)"; fi
 [ "$(cat "$P/ruff.toml")" = "$CONSUMER_RUFF_BEFORE" ] && [ -f "$P/getff-ruff.toml" ] \
   && ok "(10) REFUSE cell held: consumer ruff.toml untouched + getff-ruff.toml reference shipped" \
   || bad "(10) REFUSE cell wrong: consumer ruff.toml modified or getff-ruff.toml missing"
@@ -314,6 +339,7 @@ consumer_fp=$(_file_fp16 "$P/ruff.toml")
 if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
   echo ""; echo "  ── (11) fallback ordering: getff-ruff.toml beats the consumer's ruff.toml (E2 negative) ──"
   P=$(py_fixture)
+  [ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
   printf '[lint]\nselect = ["E9"]\n' > "$P/ruff.toml"          # consumer-owned, NO TID bans
   cp "$TPL/ruff.toml" "$P/getff-ruff.toml"                     # getff reference copy (has the bans)
   # NO .getff/ruff-bans.toml — the fallback cascade is what resolves.
@@ -349,6 +375,7 @@ if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && g
    && { command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; }; then
   echo ""; echo "  ── (12) over-broad delivered rules → clean controls catch them (E1 negative) ──"
   P=$(py_fixture)
+  [ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
   mkdir -p "$P/.getff/astgrep-rules"
   {
     echo 'id: getff-overbroad-stub'
@@ -401,7 +428,10 @@ fi
 # marker here obligates a foreign registry and fails its pairing gate. Plain-comment label only.
 echo ""; echo "  ── (13) D8 agent surface delivered (skills / agents / hooks / .mcp.json / AGENTS.md / .ai-factory/) ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_197=$?
+if [ "$RC_P50_197" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-197)"; else bad "python-entry-lane: install rc=$RC_P50_197, expected 0 (p50-197)"; fi
 _d8_fail=0
 # Skills (4-skill curated subset — kickoff §2 item 1)
 for _s in getff tool-bootstrapping rule-research rule-tests; do
@@ -465,8 +495,11 @@ rm -rf "$P"
 # plain-comment label only, parallel to arm (13).
 echo ""; echo "  ── (14) D-S2b local git pre-push rung: delivered + executable + activated ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 git -C "$P" init -q
 out14=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
+RC_P50_198=$?
+if [ "$RC_P50_198" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-198)"; else bad "python-entry-lane: install rc=$RC_P50_198, expected 0 (p50-198)"; fi
 _s2b_fail=0
 # Paired negative of the not-wired arms in (1)/(16a)/(16c): the rung IS active here, so the install
 # must not claim the mirror check is unwired.
@@ -501,8 +534,11 @@ grep -qE 'rm[[:space:]]+(\.getff/hooks/pre-push|\.git/hooks)' "$P/.getff/hooks/p
 # untouched (the hook body MAY still be delivered; it just isn't wired into git).
 echo ""; echo "  ── (14b) D-S2b install-time opt-out: GETFF_SKIP_HOOKS=1 → no activation ──"
 P2=$(py_fixture)
+[ -n "$P2" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 git -C "$P2" init -q
 ( cd "$P2" && GETFF_SKIP_HOOKS=1 bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_199=$?
+if [ "$RC_P50_199" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-199)"; else bad "python-entry-lane: install rc=$RC_P50_199, expected 0 (p50-199)"; fi
 _act2=$(git -C "$P2" config --get core.hooksPath 2>/dev/null || true)
 [ -z "$_act2" ] \
   && ok "(14b) GETFF_SKIP_HOOKS=1 install → core.hooksPath NOT set (opt-out honored)" \
@@ -520,11 +556,14 @@ if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && g
    && { command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; }; then
   # Build a fixture WITH a bare remote so git push has a destination (pre-push needs a real push).
   P3=$(py_fixture)
+  [ -n "$P3" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
   git -C "$P3" init -q
   git -C "$P3" config user.email test@test.test
   git -C "$P3" config user.name test
   git -C "$P3" config commit.gpgsign false
   ( cd "$P3" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  RC_P50_200=$?
+  if [ "$RC_P50_200" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-200)"; else bad "python-entry-lane: install rc=$RC_P50_200, expected 0 (p50-200)"; fi
   REMOTE=$(mktemp -d)
   git init -q --bare "$REMOTE"
   git -C "$P3" remote add origin "$REMOTE"
@@ -583,9 +622,13 @@ fi
 echo ""; echo "  ── (16) D-S2b integration arm (3 cases: existing core.hooksPath / pre-commit / legacy .git/hooks) ──"
 
 # Case 1: existing core.hooksPath is preserved (declined with notice).
-P4=$(py_fixture); git -C "$P4" init -q
+P4=$(py_fixture)
+[ -n "$P4" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+git -C "$P4" init -q
 git -C "$P4" config core.hooksPath .my-hooks
 out1=$( cd "$P4" && bash "$INSTALL" python < /dev/null 2>&1 )
+RC_P50_201=$?
+if [ "$RC_P50_201" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-201)"; else bad "python-entry-lane: install rc=$RC_P50_201, expected 0 (p50-201)"; fi
 _act3=$(git -C "$P4" config --get core.hooksPath 2>/dev/null || true)
 [ "$_act3" = ".my-hooks" ] \
   && ok "(16a) case 1: existing core.hooksPath='.my-hooks' preserved (NOT overwritten)" \
@@ -603,8 +646,11 @@ rm -rf "$P4"
 
 # Case 2: existing .pre-commit-config.yaml → fragment appended (idempotent on re-install).
 P5=$(py_fixture)
+[ -n "$P5" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n' > "$P5/.pre-commit-config.yaml"
 out2=$( cd "$P5" && bash "$INSTALL" python < /dev/null 2>&1 )
+RC_P50_202=$?
+if [ "$RC_P50_202" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-202)"; else bad "python-entry-lane: install rc=$RC_P50_202, expected 0 (p50-202)"; fi
 grep -q 'getff-python-pre-push' "$P5/.pre-commit-config.yaml" \
   && ok "(16b) case 2: getff entry appended to .pre-commit-config.yaml" \
   || bad "(16b) case 2 FAILED: getff entry NOT appended: $(echo "$out2" | grep -i 'pre-commit\|getff' | tr '\n' '|')"
@@ -617,6 +663,8 @@ grep -qF "$MIRROR_NOT_WIRED" <<<"$out2" \
 # Count the unique marker line (one per append) — NOT the substring 'getff-python-pre-push',
 # which appears 3× per append (marker + SKIP= comment + id: line) and would mask a duplication.
 ( cd "$P5" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_203=$?
+if [ "$RC_P50_203" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-203)"; else bad "python-entry-lane: install rc=$RC_P50_203, expected 0 (p50-203)"; fi
 _count=$(grep -c 'delivered by setup.d/45-python.sh' "$P5/.pre-commit-config.yaml")
 [ "$_count" = "1" ] \
   && ok "(16b) case 2 idempotency: re-install did not duplicate the entry ($_count marker line)" \
@@ -646,11 +694,15 @@ _yaml_doc() {  # print `keys=<sorted top-level keys>` then the hook ids, one per
 }
 _pc_style() {  # <label> <config text> <comma-joined expected ids besides getff's> [<expected top-level keys>]
   local label="$1" body="$2" want="$3" keys="${4:-repos}" P got exp run
-  P=$(py_fixture); git -C "$P" init -q
+  P=$(py_fixture)
+  [ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+  git -C "$P" init -q
   printf '%s' "$body" > "$P/.pre-commit-config.yaml"
   exp="keys=$keys|$(printf '%s\n' ${want//,/ } getff-python-pre-push | sort | paste -sd, -)"
   for run in install re-install; do
     ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+    RC_P50_204=$?
+    if [ "$RC_P50_204" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-204)"; else bad "python-entry-lane: install rc=$RC_P50_204, expected 0 (p50-204)"; fi
     if got=$(_yaml_doc "$P/.pre-commit-config.yaml") \
        && [ "$(head -1 <<<"$got")|$(tail -n +2 <<<"$got" | sort | paste -sd, -)" = "$exp" ]; then
       ok "(16f) $label, $run: parses, $(head -1 <<<"$got"), hooks = $(tail -n +2 <<<"$got" | paste -sd, -)"
@@ -737,10 +789,14 @@ _not_added_arms() {  # <label> <fixture> <install output> — the shared I-1 ass
 }
 for _flow in 'repos: [{repo: local, hooks: [{id: x, name: x, entry: x, language: system}]}]\n' \
              'repos:\n  [{repo: local, hooks: [{id: x, name: x, entry: x, language: system}]}]\n'; do
-  P=$(py_fixture); git -C "$P" init -q
+  P=$(py_fixture)
+  [ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+  git -C "$P" init -q
   printf "$_flow" > "$P/.pre-commit-config.yaml"
   cp "$P/.pre-commit-config.yaml" "$P/.orig"
   out=$( cd "$P" && PC_CALLS="$P/.pc.calls" PATH="$_PC_STUB:$PATH" bash "$INSTALL" python < /dev/null 2>&1 )
+  RC_P50_205=$?
+  if [ "$RC_P50_205" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-205)"; else bad "python-entry-lane: install rc=$RC_P50_205, expected 0 (p50-205)"; fi
   if cmp -s "$P/.orig" "$P/.pre-commit-config.yaml" && grep -q 'entry in .pre-commit-config.yaml — not added' <<<"$out"; then
     ok "(16f) flow repos: ${_flow%%\\n*}…: file untouched, named in the NOT wired summary"
   else
@@ -759,10 +815,14 @@ case "\$*" in *getff-precommit.*) exit 1 ;; esac
 exec "$_real_mktemp" "\$@"
 STUB
 chmod +x "$_PC_STUB/mktemp"
-P=$(py_fixture); git -C "$P" init -q
+P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+git -C "$P" init -q
 printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n' > "$P/.pre-commit-config.yaml"
 cp "$P/.pre-commit-config.yaml" "$P/.orig"
 out=$( cd "$P" && PC_CALLS="$P/.pc.calls" PATH="$_PC_STUB:$PATH" bash "$INSTALL" python < /dev/null 2>&1 )
+RC_P50_206=$?
+if [ "$RC_P50_206" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-206)"; else bad "python-entry-lane: install rc=$RC_P50_206, expected 0 (p50-206)"; fi
 if cmp -s "$P/.orig" "$P/.pre-commit-config.yaml" && grep -q 'entry in .pre-commit-config.yaml — not added: mktemp failed' <<<"$out"; then
   ok "(16f) mktemp failure: file untouched, named in the NOT wired summary"
 else
@@ -772,11 +832,15 @@ _not_added_arms "mktemp failure" "$P" "$out"
 rm -rf "$P" "$_PC_STUB"
 
 # Case 3: existing .git/hooks/pre-push file (no core.hooksPath) → declined with notice.
-P6=$(py_fixture); git -C "$P6" init -q
+P6=$(py_fixture)
+[ -n "$P6" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+git -C "$P6" init -q
 mkdir -p "$P6/.git/hooks"
 printf '#!/bin/sh\nexit 0\n' > "$P6/.git/hooks/pre-push"
 chmod +x "$P6/.git/hooks/pre-push"
 out3=$( cd "$P6" && bash "$INSTALL" python < /dev/null 2>&1 )
+RC_P50_207=$?
+if [ "$RC_P50_207" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-207)"; else bad "python-entry-lane: install rc=$RC_P50_207, expected 0 (p50-207)"; fi
 _act5=$(git -C "$P6" config --get core.hooksPath 2>/dev/null || true)
 [ -z "$_act5" ] \
   && ok "(16c) case 3: core.hooksPath NOT set (legacy hook not clobbered)" \
@@ -801,12 +865,16 @@ rm -rf "$P6"
 # Firing proof goes THROUGH git (a real `git commit`), not a file-existence check — a hook that
 # exists but never runs is exactly the defect.
 echo ""; echo "  ── (16d) A2-2: existing .git/hooks/pre-commit still fires after install ──"
-P7=$(py_fixture); git -C "$P7" init -q
+P7=$(py_fixture)
+[ -n "$P7" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+git -C "$P7" init -q
 git -C "$P7" config user.email t@example.com; git -C "$P7" config user.name t
 mkdir -p "$P7/.git/hooks"
 printf '#!/bin/sh\n: > .pre-commit-fired\nexit 0\n' > "$P7/.git/hooks/pre-commit"
 chmod +x "$P7/.git/hooks/pre-commit"
 out4=$( cd "$P7" && bash "$INSTALL" python < /dev/null 2>&1 )
+RC_P50_208=$?
+if [ "$RC_P50_208" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-208)"; else bad "python-entry-lane: install rc=$RC_P50_208, expected 0 (p50-208)"; fi
 _act6=$(git -C "$P7" config --get core.hooksPath 2>/dev/null || true)
 [ -z "$_act6" ] \
   && ok "(16d) core.hooksPath NOT set over an existing .git/hooks/pre-commit" \
@@ -829,7 +897,9 @@ rm -rf "$P7"
 # disabled the main checkout's hooks from inside a worktree. `git rev-parse --git-path hooks`
 # is the only correct way to reach the real hook directory. RED against pre-fix code.
 echo ""; echo "  ── (16e) A2-2: linked worktree resolves hooks via git rev-parse --git-path ──"
-P8M=$(py_fixture); git -C "$P8M" init -q
+P8M=$(py_fixture)
+[ -n "$P8M" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+git -C "$P8M" init -q
 git -C "$P8M" config user.email t@example.com; git -C "$P8M" config user.name t
 git -C "$P8M" add -A >/dev/null 2>&1; git -C "$P8M" commit -q -m init >/dev/null 2>&1
 mkdir -p "$P8M/.git/hooks"
@@ -840,6 +910,8 @@ if git -C "$P8M" worktree add -q "$P8" -b wtprobe >/dev/null 2>&1; then
     && ok "(16e) fixture is a real linked worktree (.git is a FILE)" \
     || bad "(16e) fixture is not a linked worktree — arm would be vacuous"
   ( cd "$P8" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  RC_P50_209=$?
+  if [ "$RC_P50_209" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-209)"; else bad "python-entry-lane: install rc=$RC_P50_209, expected 0 (p50-209)"; fi
   _act7=$(git -C "$P8" config --get core.hooksPath 2>/dev/null || true)
   [ -z "$_act7" ] \
     && ok "(16e) core.hooksPath NOT set from inside the worktree (shared config untouched)" \
@@ -869,8 +941,11 @@ rm -rf "$P8M"
 # Next.js-15 RULES.md), and the same shape of fix: a lane-owned template wired at both call sites.
 echo ""; echo "  ── (17) A2-10: .ai-factory architecture doc is the PYTHON one ──"
 P9=$(py_fixture)
+[ -n "$P9" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 git -C "$P9" init -q
 ( cd "$P9" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_210=$?
+if [ "$RC_P50_210" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-210)"; else bad "python-entry-lane: install rc=$RC_P50_210, expected 0 (p50-210)"; fi
 _a210_fail=0
 _a210_arch="$P9/.ai-factory/ARCHITECTURE.md"
 if [ ! -f "$_a210_arch" ]; then
@@ -940,6 +1015,7 @@ echo "  ── (18) --profile on the python lane: validated, and factory-gated p
 _P18_SC=".ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md"
 
 P18=$(py_fixture)
+[ -n "$P18" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 out=$( cd "$P18" && bash "$INSTALL" python --profile bogus < /dev/null 2>&1 ); rc=$?
 [ "$rc" -ne 0 ] \
   && ok "(18a) an unknown --profile value fails loud on this lane (exit $rc)" \
@@ -950,14 +1026,20 @@ grep -q -- '--profile' <<<"$out" \
 rm -rf "$P18"
 
 P18=$(py_fixture)
+[ -n "$P18" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P18" && bash "$INSTALL" python --profile factory < /dev/null > /dev/null 2>&1 )
+RC_P50_211=$?
+if [ "$RC_P50_211" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-211)"; else bad "python-entry-lane: install rc=$RC_P50_211, expected 0 (p50-211)"; fi
 [ -f "$P18/$_P18_SC" ] \
   && ok "(18b) --profile factory ships the AIF skill-context override (20-agents.sh parity)" \
   || bad "(18b) --profile factory shipped no $_P18_SC — the factory depth never reached the lane"
 rm -rf "$P18"
 
 P18=$(py_fixture)
+[ -n "$P18" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P18" && bash "$INSTALL" python --profile core < /dev/null > /dev/null 2>&1 )
+RC_P50_212=$?
+if [ "$RC_P50_212" -eq 0 ]; then ok "python-entry-lane: install rc=0 (p50-212)"; else bad "python-entry-lane: install rc=$RC_P50_212, expected 0 (p50-212)"; fi
 [ ! -e "$P18/$_P18_SC" ] \
   && ok "(18c) paired negative: --profile core ships no factory-gated skill-context" \
   || bad "(18c) --profile core shipped $_P18_SC — the gate is constant-true, (18b) proves nothing"
@@ -975,7 +1057,9 @@ rm -rf "$P18"
 echo ""; echo "  ── (19) project-checks record: probe at install, arm only if green ──"
 
 # (19a) deterministic: record written + runner delivered + three lines (T-OBW2P-A)
-P=$(py_fixture); git -C "$P" init -q
+P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+git -C "$P" init -q
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
 [ "$_rc" -eq 0 ] || bad "(19a) install exited $_rc — a crashed install must not read as a green arm"
 _rec="$P/.ai-factory/tool-decisions.md"
@@ -1002,6 +1086,7 @@ rm -rf "$P"
 
 # (19b) --dry-run writes neither the record block nor the runner
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P" && bash "$INSTALL" python --dry-run < /dev/null ) >/dev/null 2>&1; _rc=$?
 [ "$_rc" -eq 0 ] || bad "(19b) dry-run install exited $_rc — the plan phase itself must not fail"
 if [ ! -e "$P/scripts/run-armed.sh" ] && ! grep -q 'aif:project-checks:begin' "$P/.ai-factory/tool-decisions.md" 2>/dev/null; then
@@ -1014,7 +1099,9 @@ rm -rf "$P"
 # (19g) deterministic: bans config MISSING at probe time → structural «not wired:» reason
 # (a directory parked at the path makes copy_safe's delivery fail open while [ -f ] stays false —
 # the only externally reachable shape, since a healthy install always writes the file first).
-P=$(py_fixture); git -C "$P" init -q
+P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+git -C "$P" init -q
 mkdir -p "$P/.getff/ruff-bans.toml"
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
 [ "$_rc" -eq 0 ] || bad "(19g) install exited $_rc — the bans-missing arm is fail-open, not a lane abort"
@@ -1025,7 +1112,9 @@ rm -rf "$P"
 
 # (19h) deterministic §8-3: consumer-owned core.hooksPath — the record + runner are written
 # regardless of rung activation (the record write is independent of GETFF_SKIP_HOOKS/the rung).
-P=$(py_fixture); git -C "$P" init -q
+P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+git -C "$P" init -q
 git -C "$P" config core.hooksPath .my-hooks
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
 [ "$_rc" -eq 0 ] || bad "(19h) install exited $_rc — an owned hooksPath must not abort the lane"
@@ -1039,7 +1128,9 @@ rm -rf "$P"
 # a hook die-louding «no readable record» with nothing to restore to is worse than its fallback).
 # The 444 file makes the final cat in record_project_checks fail (EACCES); copy_safe skips the
 # pre-existing file (no --force), so the mode survives to the record step. Tool-independent.
-P=$(py_fixture); git -C "$P" init -q
+P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+git -C "$P" init -q
 mkdir -p "$P/.ai-factory"
 printf '# Tool decisions\n\nmy own notes\n' > "$P/.ai-factory/tool-decisions.md"
 chmod 444 "$P/.ai-factory/tool-decisions.md"
@@ -1065,7 +1156,9 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
   RT_PATH="$PATH"
   # (19c) A2 brownfield: pre-existing finding → not-armed with its count reason → push exits 0
   echo ""; echo "  ── (19c) A2 brownfield: pre-existing finding → not-armed → push exits 0 ──"
-  P=$(py_fixture); git -C "$P" init -q
+  P=$(py_fixture)
+  [ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+  git -C "$P" init -q
   git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
   printf 'import os\nimport tensorflow\n\ndef main():\n    return 1\n' > "$P/app.py"
   git -C "$P" add -A; git -C "$P" commit -q -m init
@@ -1092,7 +1185,9 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
 
   # (19d) A1 greenfield: all three armed → a NEW banned import blocks the push
   echo ""; echo "  ── (19d) A1 greenfield: all armed → a NEW finding still blocks ──"
-  P=$(py_fixture); git -C "$P" init -q
+  P=$(py_fixture)
+  [ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+  git -C "$P" init -q
   git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
   git -C "$P" add -A 2>/dev/null; git -C "$P" commit -q -m init --allow-empty 2>/dev/null
   ( cd "$P" && bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1; _rc=$?
@@ -1121,7 +1216,9 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
   # (19e) A3: tools absent at INSTALL (stripped PATH) → structural reasons; present at PUSH →
   # the hook still exits 0 and names every structural skip loudly.
   echo ""; echo "  ── (19e) A3 tool-absent install: structural reasons → push 0, said loudly ──"
-  P=$(py_fixture); git -C "$P" init -q
+  P=$(py_fixture)
+  [ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+  git -C "$P" init -q
   git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
   git -C "$P" commit -q -m init --allow-empty 2>/dev/null
   _notools="$P/.no-tools-bin"; mkdir -p "$_notools"
@@ -1156,7 +1253,9 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
 
   # (19f) record unreadable at push → die loud (exit 1), never a silent no-check push
   echo ""; echo "  ── (19f) record unreadable at push → die loud ──"
-  P=$(py_fixture); git -C "$P" init -q
+  P=$(py_fixture)
+  [ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+  git -C "$P" init -q
   git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
   git -C "$P" commit -q -m init --allow-empty 2>/dev/null
   ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
@@ -1183,7 +1282,9 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
   # parses lacks it → the loud ⚠ direct fallback below; a cut deep enough to keep it is an
   # unterminated `case` → rc 2, fail-closed. Green tree → the fallback runs the same checks → 0.
   echo ""; echo "  ── (19j) truncated runner → loud direct fallback, never a silent pass ──"
-  P=$(py_fixture); git -C "$P" init -q
+  P=$(py_fixture)
+  [ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
+  git -C "$P" init -q
   git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
   git -C "$P" commit -q -m init --allow-empty 2>/dev/null
   ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?

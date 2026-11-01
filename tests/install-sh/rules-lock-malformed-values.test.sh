@@ -35,6 +35,8 @@ edition = "2021"
 [dependencies]
 EOF
 ( cd "$C1" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_302=$?
+if [ "$RC_P50_302" -eq 0 ]; then ok "rules-lock-malformed-values: install rc=0 (p50-302)"; else bad "rules-lock-malformed-values: install rc=$RC_P50_302, expected 0 (p50-302)"; fi
 LOCK1="$C1/.ai-factory/synthesizer-output/rules-lock.cargo.json"
 if [ -f "$LOCK1" ]; then
   v1=$(lock_version_raw "$LOCK1")
@@ -61,6 +63,8 @@ edition = "2021"
 [dependencies]
 EOF
 ( cd "$C2" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_303=$?
+if [ "$RC_P50_303" -eq 0 ]; then ok "rules-lock-malformed-values: install rc=0 (p50-303)"; else bad "rules-lock-malformed-values: install rc=$RC_P50_303, expected 0 (p50-303)"; fi
 LOCK2="$C2/.ai-factory/synthesizer-output/rules-lock.cargo.json"
 if [ -f "$LOCK2" ]; then
   v2=$(lock_version_raw "$LOCK2")
@@ -77,6 +81,8 @@ echo ""; echo "  ── (3) backslash-bearing consumer version ──"
 C3=$(mktemp -d)
 printf '[project]\nname = "demo"\nversion = "1.0\\\\0"\n' > "$C3/pyproject.toml"
 ( cd "$C3" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_304=$?
+if [ "$RC_P50_304" -eq 0 ]; then ok "rules-lock-malformed-values: install rc=0 (p50-304)"; else bad "rules-lock-malformed-values: install rc=$RC_P50_304, expected 0 (p50-304)"; fi
 LOCK3="$C3/.getff/rules-lock.python.json"
 if [ -f "$LOCK3" ]; then
   v3=$(lock_version_raw "$LOCK3")
@@ -99,6 +105,8 @@ if command -v python3 >/dev/null 2>&1; then
       go)     printf 'module example.com/demo\n\ngo 1.22\n' > "$D/go.mod" ;;
     esac
     ( cd "$D" && bash "$INSTALL" "$lane" --force < /dev/null ) >/dev/null 2>&1
+    RC_P50_305=$?
+    if [ "$RC_P50_305" -eq 0 ]; then ok "rules-lock-malformed-values: install rc=0 (p50-305)"; else bad "rules-lock-malformed-values: install rc=$RC_P50_305, expected 0 (p50-305)"; fi
     LOCK=$(find "$D" -name 'rules-lock.*.json' 2>/dev/null | head -1)
     if [ -n "$LOCK" ]; then
       python3 -c "import json; json.load(open('$LOCK'))" 2>/dev/null \

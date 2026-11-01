@@ -32,6 +32,8 @@ T=$(mktemp -d)
     && printf '{"name":"g934","version":"0.0.0"}\n' > package.json \
     && git add -A && git commit -q -m base \
     && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$T/.log" 2>&1
+RC_P50_116=$?
+if [ "$RC_P50_116" -eq 0 ]; then ok "gh-934-ship-eot-hook: install rc=0 (p50-116)"; else bad "gh-934-ship-eot-hook: install rc=$RC_P50_116, expected 0 (p50-116)"; fi
 
 H="$T/.claude/hooks"
 # ── ARM (A): delivery ─────────────────────────────────────────────────────────
@@ -52,6 +54,8 @@ grep -q 'deps-hash-check' <<<"$_ups" \
 
 # ── ARM (C): idempotency ──────────────────────────────────────────────────────
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$T/.log2" 2>&1
+RC_P50_117=$?
+if [ "$RC_P50_117" -eq 0 ]; then ok "gh-934-ship-eot-hook: install rc=0 (p50-117)"; else bad "gh-934-ship-eot-hook: install rc=$RC_P50_117, expected 0 (p50-117)"; fi
 _n=$(jq '(.hooks.Stop // []) | map(.hooks[].command) | map(select(test("end-of-turn-reminder"))) | length' "$S" 2>/dev/null)
 [ "$_n" = 1 ] && ok "(C) idempotent — re-install leaves exactly one end-of-turn Stop entry" || bad "(C) non-idempotent — $_n end-of-turn Stop entries after re-install"
 
@@ -68,8 +72,12 @@ TR="$T/transcript.jsonl"
 
 _run_hook() {  # $1 = lang ('' | ru) [$2 = transcript, def $TR] [$3 = session id, def g934]
   local lang="$1" tr="${2:-$TR}" sid="${3:-g934}"
+  # Env isolation (fixture repair, arms D/E/E2): the firing arms simulate an INTERACTIVE CC
+  # session. Under an SDK-driven harness the ambient CLAUDE_CODE_ENTRYPOINT=sdk-* leaks in and
+  # the delivered hook's SDK guard (exit 0 unless AIF_EOT_SDK_RECAP=1 — correct production
+  # behavior) fires before every blocking arm, so D/E/E2 went silently empty. Clear it here.
   printf '{"transcript_path":"%s","stop_hook_active":false,"session_id":"%s"}' "$tr" "$sid" \
-    | AIF_HOOK_LANG="${lang:-en}" bash "$H/end-of-turn-reminder.sh" 2>/dev/null
+    | env -u CLAUDE_CODE_ENTRYPOINT AIF_HOOK_LANG="${lang:-en}" bash "$H/end-of-turn-reminder.sh" 2>/dev/null
 }
 
 # ── ARM (D): firing EN ────────────────────────────────────────────────────────

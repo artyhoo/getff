@@ -1,0 +1,33 @@
+=== F-G1 fix verification: bash scripts/test-assurance/delivery/replay-principle-rename-break.sh (expect exit 0) ===
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+== phase: scratch worktree at HEAD (f88d56ea8419788f3f020774efe1f621c63f66db755e5db38bdfaf8b4c1c27f7) + Batch-E files copied in as fixture ==
+Preparing worktree (detached HEAD 1fce4516d)
+== phase: baseline — the 53 ratchet is green and the runner SELECTS the 52 test ==
+VITEST-RC baseline 0
+VITEST-STDOUT /tmp/s1-batch-e-rename-DzHhoz/packages/core/stdout-baseline.log
+FILE 53-delivery-discovery-conformance.test.ts pass
+OK file-status 53-delivery-discovery-conformance.test.ts=pass
+OK baseline: 52 test selectable and green (rc=0)
+== phase: delivery break — rename the committed principle test outside the grammar ==
+== phase: THE SILENT DROP — the runner can no longer target the file it just ran ==
+VITEST-TARGET-RC after rename: 1 (was 0); 'No test files found' lines: 1
+OK silent drop demonstrated: no test, no gate, no reference — an empty selection, not a detection [T-TAK-A]
+== phase: THE RATCHET CATCH — principle 53 goes RED naming the orphaned module 52 ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /tmp/s1-batch-e-rename-DzHhoz/packages/core/stdout-counterfactual.log
+FILE 53-delivery-discovery-conformance.test.ts fail
+  MSG AssertionError: orphaned principle modules (no grammar-selected <n>-*.test.ts sibling): principles/52-subprocess-status-conformance.ts: expected [ { …(2) } ] to deeply equal [] |     at /tmp/s1-batch-e-rename-DzHhoz/packages/core/principles
+OK file-status 53-delivery-discovery-conformance.test.ts=fail
+OK intended-assertion 53-delivery-discovery-conformance.test.ts /52-subprocess-status-conformance/
+OK killed-by: pairing ratchet names the orphaned module 'principles/52-subprocess-status-conformance.ts'
+== phase: restoration (git mv back + hash equality with the HEAD blob; drop the fixture copies) ==
+RESTORED packages/core/principles/52-subprocess-status-conformance.test.ts sha256=f88d56ea8419788f3f020774efe1f621c63f66db755e5db38bdfaf8b4c1c27f7 (worktree principles/ clean)
+== phase: final passing baseline in the MAIN checkout (post-experiment) ==
+VITEST-RC final 0
+VITEST-STDOUT /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/stdout-final.log
+FILE 52-subprocess-status-conformance.test.ts pass
+FILE 53-delivery-discovery-conformance.test.ts pass
+OK file-status 53-delivery-discovery-conformance.test.ts=pass
+OK file-status 52-subprocess-status-conformance.test.ts=pass
+PRINCIPLE-RENAME-BREAK VERDICT: pass (rename silently dropped the test from the runner; the 53 pairing ratchet caught it naming the orphan; restored + final baseline green)
+RENAME-BREAK-EXIT=0

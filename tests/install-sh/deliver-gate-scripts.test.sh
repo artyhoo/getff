@@ -80,9 +80,11 @@ trap cleanup EXIT
 # (non-interactive: stdin closed). Echoes the fixture dir.
 make_consumer() {
   local T
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force "$@" < /dev/null ) >/dev/null 2>&1
+  RC_P50_045=$?
+  if [ "$RC_P50_045" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 
@@ -90,6 +92,14 @@ make_consumer() {
 # ARM (a) — fresh installs: the retired script is NOT delivered; the sweep script is
 # ══════════════════════════════════════════════════════════════════════════════
 TA=$(make_consumer)
+if [ -n "$TA" ]; then
+  ok "deliver-gate-scripts: make_consumer install rc=0 (p50-045)"
+else
+  bad "deliver-gate-scripts: make_consumer install failed (empty sentinel), expected rc 0 (p50-045)"
+  echo "deliver-gate-scripts: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 # Positive control: the hooks layer DID run (it delivers .husky/pre-push), so the
 # absence checks below are meaningful rather than a crashed-install vacuous pass.
 if [ -f "$TA/.husky/pre-push" ]; then
@@ -111,6 +121,14 @@ fi
 rm -rf "$TA"
 
 TA2=$(make_consumer --with-aif-suite)
+if [ -n "$TA2" ]; then
+  ok "deliver-gate-scripts: make_consumer install rc=0 (p50-045)"
+else
+  bad "deliver-gate-scripts: make_consumer install failed (empty sentinel), expected rc 0 (p50-045)"
+  echo "deliver-gate-scripts: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 if [ -f "$TA2/$SWEEP_REL" ]; then
   ok "arm (a): $SWEEP_REL delivered on a --with-aif-suite install"
 else
@@ -133,6 +151,14 @@ rm -rf "$TA2"
 # ARM (b) — stale prior-delivery copy → ORPHAN report on --refresh, file never touched
 # ══════════════════════════════════════════════════════════════════════════════
 TB=$(make_consumer)
+if [ -n "$TB" ]; then
+  ok "deliver-gate-scripts: make_consumer install rc=0 (p50-045)"
+else
+  bad "deliver-gate-scripts: make_consumer install failed (empty sentinel), expected rc 0 (p50-045)"
+  echo "deliver-gate-scripts: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 PROBE_B="$TB/$ASK_REL"
 mkdir -p "$TB/scripts"
 # Plant the bytes a pre-C-2 delivery landed (copy_safe delivered the root source as-is, and
@@ -154,6 +180,8 @@ else
 fi
 
 OUT_B=$( cd "$TB" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_046=$?
+if [ "$RC_P50_046" -eq 0 ]; then ok "deliver-gate-scripts: install rc=0 (p50-046)"; else bad "deliver-gate-scripts: install rc=$RC_P50_046, expected 0 (p50-046)"; fi
 
 if grep -qF 'ORPHAN: scripts/check-ask-files.sh' <<<"$OUT_B" \
   && grep -qF 'no longer delivered' <<<"$OUT_B"; then
@@ -174,6 +202,8 @@ fi
 rm -f /tmp/r3dg-stale-b.$$
 
 OUT_BD=$( cd "$TB" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
+RC_P50_047=$?
+if [ "$RC_P50_047" -eq 0 ]; then ok "deliver-gate-scripts: install rc=0 (p50-047)"; else bad "deliver-gate-scripts: install rc=$RC_P50_047, expected 0 (p50-047)"; fi
 if grep -qF 'ORPHAN: scripts/check-ask-files.sh' <<<"$OUT_BD"; then
   ok "arm (b): --refresh --dry-run prints the same report (read-only report, identical under --dry-run)"
 else
@@ -192,6 +222,8 @@ name = "r3-python-consumer"
 version = "0.0.1"
 EOF
 ( cd "$TC" && git init -q && bash "$REPO_ROOT/install.sh" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_048=$?
+if [ "$RC_P50_048" -eq 0 ]; then ok "deliver-gate-scripts: install rc=0 (p50-048)"; else bad "deliver-gate-scripts: install rc=$RC_P50_048, expected 0 (p50-048)"; fi
 if [ ! -e "$TC/$ASK_REL" ]; then
   ok "arm (c): python lane does NOT deliver $ASK_REL (no pre-push arm on non-npm lanes)"
 else
@@ -206,6 +238,14 @@ rm -rf "$TC"
 
 # (c2) profile=env (env+ without factory skills): run-local-ci-sweep NOT delivered.
 TC2=$(make_consumer --profile env)
+if [ -n "$TC2" ]; then
+  ok "deliver-gate-scripts: make_consumer install rc=0 (p50-045)"
+else
+  bad "deliver-gate-scripts: make_consumer install failed (empty sentinel), expected rc 0 (p50-045)"
+  echo "deliver-gate-scripts: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 if [ ! -e "$TC2/$SWEEP_REL" ]; then
   ok "arm (c): profile=env does NOT deliver $SWEEP_REL (harvest ships at factory depth only)"
 else
@@ -223,6 +263,14 @@ rm -rf "$TC2"
 # ARM (d) — do_refresh mirror for run-local-ci-sweep (gated arm incl. presence clause)
 # ══════════════════════════════════════════════════════════════════════════════
 TD=$(make_consumer --with-aif-suite)
+if [ -n "$TD" ]; then
+  ok "deliver-gate-scripts: make_consumer install rc=0 (p50-045)"
+else
+  bad "deliver-gate-scripts: make_consumer install failed (empty sentinel), expected rc 0 (p50-045)"
+  echo "deliver-gate-scripts: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 PROBE_D="$TD/$SWEEP_REL"
 if [ ! -f "$PROBE_D" ]; then
   bad "arm (d) precondition: suite install did not deliver $SWEEP_REL"
@@ -235,6 +283,8 @@ else
   # NOTE: bare `--refresh` resolves PROFILE to core on a non-interactive run — the presence
   # clause (script already on disk = prior opt-in) is exactly what must carry this arm.
   OUT_D=$( cd "$TD" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+  RC_P50_049=$?
+  if [ "$RC_P50_049" -eq 0 ]; then ok "deliver-gate-scripts: install rc=0 (p50-049)"; else bad "deliver-gate-scripts: install rc=$RC_P50_049, expected 0 (p50-049)"; fi
 
   if grep -qF 'overwriting locally-modified file:' <<<"$OUT_D" \
     && grep -qF "$PROBE_D" <<<"$OUT_D"; then
@@ -264,6 +314,8 @@ TE=$(mktemp -d)
 printf '{ "name":"dryrun","version":"0.0.0" }\n' > "$TE/package.json"
 ( cd "$TE" && git init -q ) >/dev/null 2>&1
 OUT_E=$( cd "$TE" && bash "$REPO_ROOT/install.sh" ts-server --dry-run < /dev/null 2>&1 )
+RC_P50_050=$?
+if [ "$RC_P50_050" -eq 0 ]; then ok "deliver-gate-scripts: install rc=0 (p50-050)"; else bad "deliver-gate-scripts: install rc=$RC_P50_050, expected 0 (p50-050)"; fi
 # Vacuity guard first: the dry run DOES announce deliveries, so the absence below means
 # something (a bare absence-check on silent output would be a vacuous negative).
 if grep -qF "[dry-run] would copy:" <<<"$OUT_E"; then
@@ -283,6 +335,8 @@ else
 fi
 
 OUT_E2=$( cd "$TE" && bash "$REPO_ROOT/install.sh" ts-server --dry-run --with-aif-suite < /dev/null 2>&1 )
+RC_P50_051=$?
+if [ "$RC_P50_051" -eq 0 ]; then ok "deliver-gate-scripts: install rc=0 (p50-051)"; else bad "deliver-gate-scripts: install rc=$RC_P50_051, expected 0 (p50-051)"; fi
 if grep -qF "[dry-run] would copy:" <<<"$OUT_E2" && grep -qF "scripts/run-local-ci-sweep.sh" <<<"$OUT_E2"; then
   ok "arm (e): dry-run announces the run-local-ci-sweep delivery (would-copy line)"
 else

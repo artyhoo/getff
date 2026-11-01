@@ -74,13 +74,13 @@ ok()   { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 py_fixture() {
-  local d; d=$(mktemp -d)
+  local d; d=$(mktemp -d) || { echo ""; return 1; }
   printf '[project]\nname = "orphan-consumer"\nversion = "1.0.0"\n' > "$d/pyproject.toml"
   ( cd "$d" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
   echo "$d"
 }
 cargo_fixture() {
-  local d; d=$(mktemp -d)
+  local d; d=$(mktemp -d) || { echo ""; return 1; }
   printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n\n[dependencies]\n' > "$d/Cargo.toml"
   ( cd "$d" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
   echo "$d"
@@ -89,31 +89,41 @@ cargo_fixture() {
 # and a go service in one tree). Both lanes are installed for real — the whole point of arm (5) is
 # that the second lane's --refresh must not name the first lane's live configs stale.
 polyglot_py_go_fixture() {
-  local d; d=$(mktemp -d)
+  local d; d=$(mktemp -d) || { echo ""; return 1; }
   printf '[project]\nname = "poly"\nversion = "1.0.0"\n' > "$d/pyproject.toml"
   printf 'module example.com/poly\n\ngo 1.22\n' > "$d/go.mod"
   ( cd "$d" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
   ( cd "$d" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  RC_P50_149=$?
+  if [ "$RC_P50_149" -ne 0 ]; then echo ""; return 1; fi
   ( cd "$d" && bash "$INSTALL" go     < /dev/null ) >/dev/null 2>&1
+  RC_P50_150=$?
+  if [ "$RC_P50_150" -ne 0 ]; then echo ""; return 1; fi
   echo "$d"
 }
 # An npm/ts consumer — the only lane that receives scripts/fences-fire-fixtures, the cheapest live
 # specimen of a SHARED (non-`framework-exclusive`) directory payload. Same shape as the
 # make_consumer helper in refresh-dir-payload-ownership.test.sh, which pins the sibling L-4 contract.
 ts_fixture() {
-  local d; d=$(mktemp -d)
+  local d; d=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$d/package.json"
   ( cd "$d" && git init -q && bash "$INSTALL" ts-server < /dev/null ) >/dev/null 2>&1
+  RC_P50_151=$?
+  if [ "$RC_P50_151" -ne 0 ]; then echo ""; return 1; fi
   echo "$d"
 }
 # A polyglot consumer carrying the OTHER lane pair from arm (5): a python service and a rust crate.
 polyglot_py_cargo_fixture() {
-  local d; d=$(mktemp -d)
+  local d; d=$(mktemp -d) || { echo ""; return 1; }
   printf '[project]\nname = "poly"\nversion = "1.0.0"\n' > "$d/pyproject.toml"
   printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n\n[dependencies]\n' > "$d/Cargo.toml"
   ( cd "$d" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
   ( cd "$d" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  RC_P50_152=$?
+  if [ "$RC_P50_152" -ne 0 ]; then echo ""; return 1; fi
   ( cd "$d" && bash "$INSTALL" cargo  < /dev/null ) >/dev/null 2>&1
+  RC_P50_153=$?
+  if [ "$RC_P50_153" -ne 0 ]; then echo ""; return 1; fi
   echo "$d"
 }
 
@@ -124,10 +134,15 @@ echo ""
 # @arm:C4:pos no-orphan-residue (dropped in-dir rule vanishes on refresh; delivered set intact)
 echo "  ── (1) in-dir orphan (.getff/astgrep-rules) swept on --refresh ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_154=$?
+if [ "$RC_P50_154" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-154)"; else bad "lane-orphan-residue: install rc=$RC_P50_154, expected 0 (p50-154)"; fi
 printf 'id: getff-stale-rule\nlanguage: python\nrule:\n  pattern: eval($X)\n' > "$P/.getff/astgrep-rules/getff-stale-rule.yml"
 [ -f "$P/.getff/astgrep-rules/getff-stale-rule.yml" ] || bad "(1) fixture: could not plant the orphan rule"
 ( cd "$P" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_155=$?
+if [ "$RC_P50_155" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-155)"; else bad "lane-orphan-residue: install rc=$RC_P50_155, expected 0 (p50-155)"; fi
 [ ! -e "$P/.getff/astgrep-rules/getff-stale-rule.yml" ] \
   && ok "(1) planted orphan rule GONE after --refresh (refresh_safe dir sweep, lib.sh #873 branch)" \
   || bad "(1) orphan rule SURVIVED --refresh — a dropped rule stays silently active (C4 violation)"
@@ -171,10 +186,15 @@ rm -rf "$SRC" "$DST"
 # @arm:C4:neg no-orphan-residue (pre-fix reproduction: silent survival; post-fix: loud ORPHAN report)
 echo "  ── (3) stale getff-owned top-level file → loud ORPHAN report on --refresh (python + cargo) ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_156=$?
+if [ "$RC_P50_156" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-156)"; else bad "lane-orphan-residue: install rc=$RC_P50_156, expected 0 (p50-156)"; fi
 # A file a PRIOR getff version delivered (header-marked) that the current template set does not ship:
 printf '# generated by getff python backend v0 — do not edit by hand\n[legacy]\nban = "old"\n' > "$P/getff-legacy-bans.toml"
-out=$( cd "$P" && bash "$INSTALL" python --refresh < /dev/null 2>&1 ) || true
+out=$( cd "$P" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_157=$?
+if [ "$RC_P50_157" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-157)"; else bad "lane-orphan-residue: install rc=$RC_P50_157, expected 0 (p50-157)"; fi
 [ -e "$P/getff-legacy-bans.toml" ] \
   && ok "(3-py) stale file still present (report-only contract — getff never deletes consumer-tree files)" \
   || bad "(3-py) stale file was DELETED — report-only contract violated (J2 decisions log #8)"
@@ -183,9 +203,14 @@ grep -q "ORPHAN: getff-legacy-bans.toml" <<<"$out" \
   || bad "(3-py) NO orphan report for a stale getff-owned top-level file — it stays silently active (C4 violation): $(echo "$out" | tail -3 | tr '\n' '|')"
 rm -rf "$P"
 C=$(cargo_fixture)
+[ -n "$C" ] || { echo "FATAL: cargo_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+RC_P50_158=$?
+if [ "$RC_P50_158" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-158)"; else bad "lane-orphan-residue: install rc=$RC_P50_158, expected 0 (p50-158)"; fi
 printf '# generated by getff cargo backend v0 — do not edit by hand\n[legacy]\n' > "$C/getff-old-clippy.toml"
-out=$( cd "$C" && bash "$INSTALL" cargo --refresh < /dev/null 2>&1 ) || true
+out=$( cd "$C" && bash "$INSTALL" cargo --refresh < /dev/null 2>&1 )
+RC_P50_159=$?
+if [ "$RC_P50_159" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-159)"; else bad "lane-orphan-residue: install rc=$RC_P50_159, expected 0 (p50-159)"; fi
 grep -q "ORPHAN: getff-old-clippy.toml" <<<"$out" \
   && ok "(3-cargo) cargo --refresh LOUDLY reported the getff-owned orphan (parity with the python lane)" \
   || bad "(3-cargo) NO orphan report on the cargo lane: $(echo "$out" | tail -3 | tr '\n' '|')"
@@ -194,9 +219,14 @@ rm -rf "$C"
 # ── (4) false-positive controls: clean refresh silent; headerless consumer files never flagged ─────
 echo "  ── (4) discriminating, not noise: clean refresh + consumer-authored file → NO orphan report ──"
 P=$(py_fixture)
+[ -n "$P" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_160=$?
+if [ "$RC_P50_160" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-160)"; else bad "lane-orphan-residue: install rc=$RC_P50_160, expected 0 (p50-160)"; fi
 printf '[my]\nown = "config"\n' > "$P/mytool.toml"      # consumer-authored, NO getff header
-out=$( cd "$P" && bash "$INSTALL" python --refresh < /dev/null 2>&1 ) || true
+out=$( cd "$P" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_161=$?
+if [ "$RC_P50_161" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-161)"; else bad "lane-orphan-residue: install rc=$RC_P50_161, expected 0 (p50-161)"; fi
 grep -q "ORPHAN:" <<<"$out" \
   && bad "(4) orphan report fired on a CLEAN refresh (false-positive noise): $(echo "$out" | grep 'ORPHAN:' | tr '\n' '|')" \
   || ok "(4) clean refresh (delivered set current + consumer file headerless) → zero orphan reports"
@@ -209,6 +239,14 @@ rm -rf "$P"
 # @arm:C4:neg no-orphan-residue (RED pre-fix: four ORPHAN lines for LIVE python enforcement)
 echo "  ── (5) polyglot python+go tree: refreshing one lane never flags the other lane's LIVE files ──"
 G=$(polyglot_py_go_fixture)
+if [ -n "$G" ]; then
+  ok "lane-orphan-residue: polyglot_py_go_fixture install rc=0 (p50-149/p50-150)"
+else
+  bad "lane-orphan-residue: polyglot_py_go_fixture install failed (empty sentinel), expected rc 0 (p50-149/p50-150)"
+  echo "lane-orphan-residue: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 # Fixture precondition: BOTH lanes really delivered (otherwise the arm proves nothing by vacancy).
 py_live=0
 for f in ruff.toml sgconfig.yml .getff/ruff-bans.toml .github/workflows/getff-python.yml; do
@@ -222,7 +260,9 @@ done
   || bad "(5) fixture: go lane did not deliver — the polyglot precondition is not met"
 
 # Direction 1 — go --refresh must not name the python lane's live files orphans (the ledger repro).
-out=$( cd "$G" && bash "$INSTALL" go --refresh < /dev/null 2>&1 ) || true
+out=$( cd "$G" && bash "$INSTALL" go --refresh < /dev/null 2>&1 )
+RC_P50_162=$?
+if [ "$RC_P50_162" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-162)"; else bad "lane-orphan-residue: install rc=$RC_P50_162, expected 0 (p50-162)"; fi
 grep -q "ORPHAN:" <<<"$out" \
   && bad "(5-go) go --refresh flagged the LIVE python enforcement as stale (A2-6): $(echo "$out" | grep 'ORPHAN:' | tr '\n' '|')" \
   || ok "(5-go) go --refresh reported ZERO orphans — the other lane's live configs are not named stale"
@@ -231,7 +271,9 @@ for f in ruff.toml sgconfig.yml .getff/ruff-bans.toml .github/workflows/getff-py
 done
 
 # Direction 2 — the symmetric case: python --refresh must not orphan the go lane's live files.
-out=$( cd "$G" && bash "$INSTALL" python --refresh < /dev/null 2>&1 ) || true
+out=$( cd "$G" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_163=$?
+if [ "$RC_P50_163" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-163)"; else bad "lane-orphan-residue: install rc=$RC_P50_163, expected 0 (p50-163)"; fi
 grep -q "ORPHAN:" <<<"$out" \
   && bad "(5-py) python --refresh flagged the LIVE go enforcement as stale: $(echo "$out" | grep 'ORPHAN:' | tr '\n' '|')" \
   || ok "(5-py) python --refresh reported ZERO orphans — symmetric with (5-go)"
@@ -239,7 +281,9 @@ grep -q "ORPHAN:" <<<"$out" \
 # Discriminator — the union must not BLIND the report: a header-marked file that belongs to NO
 # installed lane is still a true orphan and is still named, on the very same polyglot tree.
 printf '# generated by getff python backend v0 — do not edit by hand\n[legacy]\nban = "old"\n' > "$G/getff-legacy-bans.toml"
-out=$( cd "$G" && bash "$INSTALL" go --refresh < /dev/null 2>&1 ) || true
+out=$( cd "$G" && bash "$INSTALL" go --refresh < /dev/null 2>&1 )
+RC_P50_164=$?
+if [ "$RC_P50_164" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-164)"; else bad "lane-orphan-residue: install rc=$RC_P50_164, expected 0 (p50-164)"; fi
 grep -q "ORPHAN: getff-legacy-bans.toml" <<<"$out" \
   && ok "(5-true) a file belonging to NO lane is STILL reported on the polyglot tree (union suppresses false positives, not the report)" \
   || bad "(5-true) the lane union swallowed a TRUE orphan — the C4 report is now blind: $(echo "$out" | tail -3 | tr '\n' '|')"
@@ -253,13 +297,23 @@ rm -rf "$G"
 echo "  ── (6) unattributable file INSIDE scripts/fences-fire-fixtures → named ORPHAN on --refresh ──"
 D6="scripts/fences-fire-fixtures"
 S=$(ts_fixture)
+if [ -n "$S" ]; then
+  ok "lane-orphan-residue: ts_fixture install rc=0 (p50-151)"
+else
+  bad "lane-orphan-residue: ts_fixture install failed (empty sentinel), expected rc 0 (p50-151)"
+  echo "lane-orphan-residue: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 if [ ! -d "$S/$D6" ]; then
   bad "(6) precondition: ts install did not deliver the $D6 directory payload"
 else
   ok "(6) precondition: ts install delivered the $D6 directory payload"
   # Paired negative FIRST, on the very same tree: a clean refresh must name nothing. Run before the
   # plant so it cannot pass by the payload being absent or the refresh never reaching it.
-  out=$( cd "$S" && bash "$INSTALL" --refresh < /dev/null 2>&1 ) || true
+  out=$( cd "$S" && bash "$INSTALL" --refresh < /dev/null 2>&1 )
+  RC_P50_165=$?
+  if [ "$RC_P50_165" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-165)"; else bad "lane-orphan-residue: install rc=$RC_P50_165, expected 0 (p50-165)"; fi
   grep -q "ORPHAN:" <<<"$out" \
     && bad "(6-neg) clean ts refresh emitted ORPHAN lines (false-positive noise from the new in-payload scan): $(echo "$out" | grep 'ORPHAN:' | tr '\n' '|')" \
     || ok "(6-neg) clean ts refresh → ZERO ORPHAN lines (the in-payload scan is discriminating, not noise)"
@@ -273,7 +327,9 @@ else
   printf '{ "rule-id": "local/getff-legacy-fence" }\n' > "$S/$D6/getff-legacy-fence.manifest.json"
   printf 'export const bad = 1;\n'  > "$S/$D6/getff-legacy-fence.bad.ts"
   printf 'export const good = 1;\n' > "$S/$D6/getff-legacy-fence.good.ts"
-  out=$( cd "$S" && bash "$INSTALL" --refresh < /dev/null 2>&1 ) || true
+  out=$( cd "$S" && bash "$INSTALL" --refresh < /dev/null 2>&1 )
+  RC_P50_166=$?
+  if [ "$RC_P50_166" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-166)"; else bad "lane-orphan-residue: install rc=$RC_P50_166, expected 0 (p50-166)"; fi
   named=0
   for _s in manifest.json bad.ts good.ts; do
     grep -qF "getff-legacy-fence.$_s" <<<"$(echo "$out" | grep "ORPHAN:")" && named=$((named+1))
@@ -298,6 +354,14 @@ rm -rf "$S"
 # @arm:C4:neg no-orphan-residue (collateral control for the second lane pair)
 echo "  ── (7) polyglot python+cargo tree: both lanes refresh with ZERO orphan lines ──"
 K=$(polyglot_py_cargo_fixture)
+if [ -n "$K" ]; then
+  ok "lane-orphan-residue: polyglot_py_cargo_fixture install rc=0 (p50-152/p50-153)"
+else
+  bad "lane-orphan-residue: polyglot_py_cargo_fixture install failed (empty sentinel), expected rc 0 (p50-152/p50-153)"
+  echo "lane-orphan-residue: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 py_live=0
 for f in ruff.toml sgconfig.yml .getff/ruff-bans.toml .github/workflows/getff-python.yml; do
   [ -f "$K/$f" ] && grep -q 'generated by getff' "$K/$f" 2>/dev/null && py_live=$((py_live+1))
@@ -309,7 +373,9 @@ done
   && ok "(7) fixture: cargo-lane clippy.toml live in the same tree" \
   || bad "(7) fixture: cargo lane did not deliver — the polyglot precondition is not met"
 for _lane in cargo python; do
-  out=$( cd "$K" && bash "$INSTALL" "$_lane" --refresh < /dev/null 2>&1 ) || true
+  out=$( cd "$K" && bash "$INSTALL" "$_lane" --refresh < /dev/null 2>&1 )
+  RC_P50_167=$?
+  if [ "$RC_P50_167" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-167)"; else bad "lane-orphan-residue: install rc=$RC_P50_167, expected 0 (p50-167)"; fi
   grep -q "ORPHAN:" <<<"$out" \
     && bad "(7-$_lane) $_lane --refresh emitted ORPHAN lines on a clean polyglot tree: $(echo "$out" | grep 'ORPHAN:' | tr '\n' '|')" \
     || ok "(7-$_lane) $_lane --refresh reported ZERO orphans (no collateral from the in-payload scan)"
@@ -370,11 +436,16 @@ rm -rf "$S8" "$D8"
 # @arm:C4:neg no-orphan-residue (pre-fix: unseen by both guards; post-fix: one ⊝ line names it)
 echo "  ── (9) .getff/rules-research/ named as consumer-owned storage when it exists ──"
 P9=$(py_fixture)
+[ -n "$P9" ] || { echo "FATAL: py_fixture returned an empty fixture path — refusing derived-path operations (M10-R5-1)"; exit 1; }
 ( cd "$P9" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_168=$?
+if [ "$RC_P50_168" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-168)"; else bad "lane-orphan-residue: install rc=$RC_P50_168, expected 0 (p50-168)"; fi
 # Paired negative FIRST, on the same fixture: the guard must be silent while the directory does
 # not exist (a clean python consumer has none — only the session-side rule-bootstrap CLI creates
 # it), so the post-fix line below is a real signal, not ambient noise.
-out=$( cd "$P9" && bash "$INSTALL" python --refresh < /dev/null 2>&1 ) || true
+out=$( cd "$P9" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_169=$?
+if [ "$RC_P50_169" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-169)"; else bad "lane-orphan-residue: install rc=$RC_P50_169, expected 0 (p50-169)"; fi
 grep -qF "consumer-owned researched-rule storage" <<<"$out" \
   && bad "(9-neg) the guard fired without .getff/rules-research/ existing (ambient noise): $(echo "$out" | grep -F 'consumer-owned researched-rule storage' | tr '\n' '|')" \
   || ok "(9-neg) no rules-research line on a consumer that never had the directory (discriminating, not noise)"
@@ -384,7 +455,9 @@ RR9="$P9/.getff/rules-research"
 mkdir -p "$RR9"
 printf 'id: getff-researched-legacy\nlanguage: python\nrule:\n  pattern: eval($X)\n' > "$RR9/getff-researched-legacy.yml"
 printf '{ "entryId": "getff-researched-legacy", "practice": "legacy" }\n' > "$RR9/getff-researched-legacy.practice.json"
-out=$( cd "$P9" && bash "$INSTALL" python --refresh < /dev/null 2>&1 ) || true
+out=$( cd "$P9" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_170=$?
+if [ "$RC_P50_170" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-170)"; else bad "lane-orphan-residue: install rc=$RC_P50_170, expected 0 (p50-170)"; fi
 grep -q '^1$' <<<"$(echo "$out" | grep -cF "consumer-owned researched-rule storage")" \
   && ok "(9) refresh names .getff/rules-research/ exactly once as consumer-owned storage (pre-fix: unseen by both guards)" \
   || bad "(9) .getff/rules-research/ not named (or named more than once): $(echo "$out" | grep -cF 'consumer-owned researched-rule storage') line(s)"
@@ -400,7 +473,9 @@ grep -q "ORPHAN:" <<<"$(echo "$out" | grep -F "consumer-owned researched-rule st
   && ok "(9) both planted files still present — report-only contract (nothing in .getff/rules-research/ is deleted)" \
   || bad "(9) a planted file in .getff/rules-research/ was deleted — the irreversible branch"
 # --dry-run twin: the same guard line, and the directory untouched.
-out_dry=$( cd "$P9" && bash "$INSTALL" python --refresh --dry-run < /dev/null 2>&1 ) || true
+out_dry=$( cd "$P9" && bash "$INSTALL" python --refresh --dry-run < /dev/null 2>&1 )
+RC_P50_171=$?
+if [ "$RC_P50_171" -eq 0 ]; then ok "lane-orphan-residue: install rc=0 (p50-171)"; else bad "lane-orphan-residue: install rc=$RC_P50_171, expected 0 (p50-171)"; fi
 grep -q '^1$' <<<"$(echo "$out_dry" | grep -cF "consumer-owned researched-rule storage")" \
   && ok "(9) --dry-run prints the SAME guard line for the directory (preview agrees with the real run)" \
   || bad "(9) --dry-run guard line missing or duplicated: $(echo "$out_dry" | grep -cF 'consumer-owned researched-rule storage')"

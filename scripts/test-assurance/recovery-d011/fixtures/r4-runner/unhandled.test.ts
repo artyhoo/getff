@@ -1,0 +1,1 @@
+import {it,expect} from 'vitest'; it('executed passing assertion plus real unhandled rejection',async()=>{Promise.reject(new Error('TAK_R4_REAL_UNHANDLED')); await new Promise(r=>setTimeout(r,30)); expect(2+2).toBe(4);});

@@ -1,0 +1,61 @@
+DRIVER repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+DRIVER oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978
+DRIVER expectations=2026-10-08 arms=6
+== phase: baseline pre (real CLI over the frozen static matrix) ==
+OBS OK baseline/q1-bads cli files=5 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: 
+OBS OK baseline/q2-bads cli files=4 rc=1 want=1 diag=rules-as-tests/require-effective-assertion :: 
+OBS OK baseline/goods cli files=12 rc=0 want=0 :: 
+OBS OK baseline/fixtures cli files=3 rc=0 want=0 :: 
+OBS OK baseline/wrong-import-honest-admission cli files=1 rc=0 want=0 :: HONEST LIMIT, not a detection claim: the static lane admits the wrong-import bad (no syntax gate may claim dataflow); its reject expectation is review-routed (oracle channel_map.wrong-import) and is evidenced by the named cold-review protocol + blocking dispositions queue, never by this CLI.
+== phase: arm D1-PERM-Q1 (permissive, K=K3) — carrier packages/core/eslint-rules/no-vacuous-assertion.mjs ==
+OBS OK D1-PERM-Q1/pristine cli files=5 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: 
+PATCH D1-PERM-Q1 label="D1: no-vacuous-assertion context.report suppressed (permissive)" sha256=e825a6adbb4261eb83ceabf40dcf35578b31005c8e3f852c2f3e30307401d736 occurrences=1 before=b5659102fcef after=d5c6039d5627
+OBS OK D1-PERM-Q1/mutant cli files=5 rc=0 want=0 :: the bad corpus flips green — corpus verification FAILS under the fault; if the CLI still exits 1 the neutering was NOT detected (arm fails → driver exit 1)
+ARM D1-PERM-Q1 DETECTED (corpus verification fails under the fault; K3)
+RESTORED D1-PERM-Q1 packages/core/eslint-rules/no-vacuous-assertion.mjs sha256=b5659102fceffed8e2cabe780fe20aaea4b73c338650746ac3db6818fe7da46f
+== phase: arm D2-K4-Q2 (over-rejecting, K=K4) — carrier packages/core/eslint-rules/require-effective-assertion.mjs ==
+OBS OK D2-K4-Q2/pristine cli files=2 rc=0 want=0 :: 
+OBS OK D2-K4-Q2/pristine cli files=4 rc=1 want=1 diag=rules-as-tests/require-effective-assertion :: 
+PATCH D2-K4-Q2 label="D2: require-effective-assertion recognizer recognizes nothing (over-rejecting)" sha256=e398a8cd95d0860cd927ae4084014ea23f6f5283f26ed908439af187bc0993b3 occurrences=1 before=2bfe8c78845d after=e28ee1bdf832
+OBS OK D2-K4-Q2/mutant cli files=2 rc=1 want=1 diag=rules-as-tests/require-effective-assertion :: GOOD corpus flips 0→1 — the K4 over-rejection is reached and corpus verification fails
+OBS OK D2-K4-Q2/mutant cli files=4 rc=1 want=1 :: bads STAY rejected — the mutant over-rejects, it does not relieve; a mutant that stops rejecting bads would be a different (permissive) fault
+ARM D2-K4-Q2 DETECTED (corpus verification fails under the fault; K4)
+RESTORED D2-K4-Q2 packages/core/eslint-rules/require-effective-assertion.mjs sha256=2bfe8c78845def1af82ceaec3c0daa74f6dc156d133341617803ae89a764688b
+== phase: arm D3-BOUNDARY-Q1 (boundary-weakening, K=K3) — carrier packages/core/eslint-rules/no-vacuous-assertion.mjs ==
+OBS OK D3-BOUNDARY-Q1/pristine cli files=1 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: 
+PATCH D3-BOUNDARY-Q1 label="D3: no-vacuous-assertion BinaryExpression dropped from pure-literal grammar (boundary)" sha256=da7cb7a2f05cc68c68af1c2eb4fe51ee439a75cb0fde94d855eb8e2fe6f3dc5f occurrences=1 before=b5659102fcef after=cd258f9c7fc9
+OBS OK D3-BOUNDARY-Q1/mutant cli files=1 rc=0 want=0 :: the narrowed class flips green — verification fails under the boundary fault
+OBS OK D3-BOUNDARY-Q1/mutant cli files=4 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: narrowness retainer: the untouched grammar still rejects
+ARM D3-BOUNDARY-Q1 DETECTED (corpus verification fails under the fault; K3)
+RESTORED D3-BOUNDARY-Q1 packages/core/eslint-rules/no-vacuous-assertion.mjs sha256=b5659102fceffed8e2cabe780fe20aaea4b73c338650746ac3db6818fe7da46f
+== phase: arm D4-INVOCATION-Q1 (delivery-invocation-break, K=K5) — carrier eslint.config.mjs ==
+OBS OK D4-INVOCATION-Q1/pristine cli files=5 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: 
+PATCH D4-INVOCATION-Q1 label="D4: root config no-vacuous-assertion severity error->off (invocation break)" sha256=1665e9003f9283c0abda8091b4dc9f96f66053a63fbee7383b80408ec4188e01 occurrences=1 before=01a5f45caa8f after=98824e2635bd
+OBS OK D4-INVOCATION-Q1/mutant cli files=5 rc=0 want=0 :: the CLI goes silent — delivery-silent (K5 broken at the invocation edge)
+ARM D4-INVOCATION-Q1 DETECTED (corpus verification fails under the fault; K5)
+RESTORED D4-INVOCATION-Q1 eslint.config.mjs sha256=01a5f45caa8f6039e9978a0a4da44a8d6c4fbe9c3c07988b2408facfa04c0991
+== phase: arm D5-PERM-GLV (permissive, K=K3) — carrier packages/core/hooks/checks/guard-liveness.ts ==
+OBS OK D5-PERM-GLV/pristine probe=glv-parse-error-probe.mts want="PROBE status=fail" :: healthy matcher: the parse-error input (the only message class reaching the fallthrough) is reported as a miss
+PATCH D5-PERM-GLV label="cf3: guard-liveness matchesViolation permissive (return false -> return true)" sha256=6da3c1c1a80ae38acdc0f56d201277de4f3f1b5ad7eeef617ed7264dfe5aa877 occurrences=1 before=b05a4eb96df9 after=baba87289638
+OBS OK D5-PERM-GLV/mutant probe=glv-parse-error-probe.mts want="PROBE status=pass" :: the miss is no longer reported — the frozen driver probe observes the flip the recorded GLV-1 suite fixture cannot (its clean zero-message input never invokes the matcher); this discharges cf3 as detected-by-driver with the suite-level limit retained as an honest limit
+ARM D5-PERM-GLV DETECTED (corpus verification fails under the fault; K3)
+RESTORED D5-PERM-GLV packages/core/hooks/checks/guard-liveness.ts sha256=b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48
+== phase: arm D6-K4-GLV (over-rejecting, K=K4) — carrier packages/core/hooks/checks/guard-liveness.ts ==
+OBS OK D6-K4-GLV/pristine probe=glv-healthy-rule-probe.mts want="PROBE status=pass" :: healthy rule: its negative-test input genuinely violates and its good example is clean
+PATCH D6-K4-GLV label="D6: guard-liveness good-example violation forced true (over-rejecting)" sha256=10777eab1071d0024808e14d3c7eb9389fe65f96ecd97fb5add4db1e3669690f occurrences=1 before=b05a4eb96df9 after=6ca2f3c0348d
+OBS OK D6-K4-GLV/mutant probe=glv-healthy-rule-probe.mts want="PROBE status=fail" :: the healthy rule flips to fail — the K4 over-rejection is reached and the frozen probe's verification fails under the fault
+ARM D6-K4-GLV DETECTED (corpus verification fails under the fault; K4)
+RESTORED D6-K4-GLV packages/core/hooks/checks/guard-liveness.ts sha256=b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48
+== phase: baseline post (real CLI over the frozen static matrix) ==
+OBS OK baseline/q1-bads cli files=5 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: 
+OBS OK baseline/q2-bads cli files=4 rc=1 want=1 diag=rules-as-tests/require-effective-assertion :: 
+OBS OK baseline/goods cli files=12 rc=0 want=0 :: 
+OBS OK baseline/fixtures cli files=3 rc=0 want=0 :: 
+OBS OK baseline/wrong-import-honest-admission cli files=1 rc=0 want=0 :: HONEST LIMIT, not a detection claim: the static lane admits the wrong-import bad (no syntax gate may claim dataflow); its reject expectation is review-routed (oracle channel_map.wrong-import) and is evidenced by the named cold-review protocol + blocking dispositions queue, never by this CLI.
+MAIN-CHECKOUT carriers porcelain-clean
+DRIVER VERDICT: pass (baseline conforms; every arm reached its frozen flip; gates restored)
+
+real	0m15.157s
+user	0m9.537s
+sys	0m7.607s
+DRIVER_EXIT=0

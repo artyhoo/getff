@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "at": "2026-10-20T16:28:11.119450+00:00",
+  "state": "ACCEPT_QUALIFIED_RECONCILIATION_AND_SCOPE_DECISIONS_WITH_ONE_EXACT_INTAKE_ID_GAP_PREPARATION_ONLY",
+  "inputs": [
+    {
+      "path": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/s2-readonly-prerequisites/final-population-joins-20261020/READONLY-RECONCILIATION-PACKET.json",
+      "sha256": "1fbd5816ec4e1a70bc9a1ce47188b2c5b3a63a1967ee6ce2fb578d0c2c2d002e",
+      "bytes": 7114
+    },
+    {
+      "path": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/s2-readonly-prerequisites/final-population-joins-20261020/CLASS-SCOPE-RECONCILIATION-SUPPLEMENT.json",
+      "sha256": "6716069725dc2f5a153a097f97304b423cbf5085fee46fb1148439a2b74d8bed",
+      "bytes": 3459
+    }
+  ],
+  "sourceCommitReviewed": "4beeda6919f3dc012fc8de9dd84030a75cbe0ac7",
+  "currentPrivateRootAfterAcceptedMF": "23d67e8e646d5a3416bee697a3461b2439cec477",
+  "verification": {
+    "exact73CandidateTo325CallBijection": true,
+    "candidateStatuses": {
+      "verified-structural": 71,
+      "retired": 2
+    },
+    "frozenCallStatuses": {
+      "verified-behavioral": 6,
+      "verified-structural": 317,
+      "not-executed": 1,
+      "intentional-fixture": 1
+    },
+    "allCallFieldsExactFrozenProjection": true,
+    "sevenProseBindingsAllSourceHashesAndCompleteLineRanges": true,
+    "all81OriginalObligationStatusesPreserved": true,
+    "existingNamedObligationIds": 78,
+    "missingStableIds": [
+      {
+        "rowIndex0": 78,
+        "name": "generated-rule validator pipeline (L4 gates + CLI)",
+        "carrier": "packages/core/validator/validate.ts + packages/core/validator/cli.ts",
+        "status": "verified-structural",
+        "proposedStableId": "OBL-079"
+      },
+      {
+        "rowIndex0": 79,
+        "name": "install-time generated-rule mutation gate (D5)",
+        "carrier": "packages/core/audit-self/check-generated-rule-mutation.sh",
+        "status": "verified-structural",
+        "proposedStableId": "OBL-080"
+      },
+      {
+        "rowIndex0": 80,
+        "name": "bash-hook mutation check (on-demand, session-bound)",
+        "carrier": "packages/core/audit-self/run-bash-mutation.sh + run-bash-mutation.test.ts",
+        "status": "verified-structural",
+        "proposedStableId": "OBL-081"
+      }
+    ],
+    "exactNulCensus": {
+      "base": "3d1302297e8849a7b7728831b55ba05701994426",
+      "basePaths": 4133,
+      "target": "4beeda6919f3dc012fc8de9dd84030a75cbe0ac7",
+      "targetPaths": 4171,
+      "added": 38,
+      "removed": 0,
+      "rawByteSequencesIndependentlyReproduced": true
+    },
+    "all37DeclaredInputHashesVerified": true,
+    "all440CommandsIndependentlyReproducedFromActualPackageJSON_YAMLsteps_HookBodies": true,
+    "literalFileHashesVerified": {
+      "first": 315,
+      "next": 196
+    },
+    "all60PrincipleSourceHashesVerified": true,
+    "reviewedLiteralReadArgumentProvenance": 190,
+    "nativeLiteralExpectCallTallyNotExecutionOrSemanticProof": 1479,
+    "M11SourceHashes": 8,
+    "M11ExactBodyBranches": 4
+  },
+  "decisions": [
+    {
+      "class": "M10 original73candidate/325calls",
+      "verdict": "ADOPT_EXACT_SCOPED_MAP",
+      "reason": "All73 source/census joins and all325 indivdual call projection fields match frozen accepted M10. 71 structural candidate dispositions never promote whole files to behavioral. Retire only CAND056 removed comment-masked falsepositive and CAND070 originalzero ratchet sentinel; suites stay inventoried. CAND023 F5 requires separately accepted M09 source renewal, no frozen M10 rewrite."
+    },
+    {
+      "class": "Seven owning prose pins",
+      "verdict": "ADOPT_EXACT_LOCAL_PINS",
+      "reason": "All seven carriers and complete normative line ranges match actualsource/current status. Inline contract is valid authority even without an old Source:-token. No invented GH547 fetch or P28 header rename. Existing81 statuses unchanged; statement81IDs is false because only78 exist."
+    },
+    {
+      "class": "Positive runner chains",
+      "verdict": "ADOPT_POSITIVE_ONLY_RETIRE_CAND108_MISSINGRUNNER_PREMISE",
+      "reason": "Actual CI test:hooks->Vitesthooks->nativePythonwrapper with status0 assertion and separately retained actualwrapperpass disproves its missing-runner premise. Preserve unknown Python childcount. Three canonicalNodefiles have direct CI test:canonical. Protocol53 remains actualmanual evidence; consumer-local Vitest cannot certify rootprotocol automation. No global executable absence/coverage conclusion from315+196literalinputs."
+    },
+    {
+      "class": "Five semantic categories",
+      "verdict": "ADOPT_DECLARED_CHANNELS_NO_NEW_UNIVERSAL_DETECTOR",
+      "reason": "CAND086/088/089/090 remain external-contract in existing review-sidecar/test-quality\u00a74 with required blocking-disposition consumer. CAND087 structural only under existing strict required-case report grammar; intentional skip remains distinct from executed required case. No blanket snapshots/toThrow/mock/async/skip ban or behavior upgrade."
+    },
+    {
+      "class": "M03/P16/P21 and sixty principle sources",
+      "verdict": "ADOPT_NARROW_CLASS_BOUNDARY_NOT_GLOBAL_ORACLE_CERTIFICATE",
+      "reason": "Preserve independently accepted P16ffe4 actualhelper-fault3intendedfail/6pass and normal/restored9, dormant actualhardfailset qualification. All three P21 siblings are individually portability/form/record/parity contracts, with independent knownbad/good structural expectations. The P16T15 and P21tools-validself-marker arms are explicitly structural only. Reviewed all190literalreadinputprovenances against60pinnedsourcefacts;1479expectcalls are sourcecounts, not proof of arbitrary aliases/dataflow/oracle independence. Do not create a new recognizer or certify untouched behavioral claims. Final registry must preserve each existing scoped actual kernel/mechanism proof and named semantic disposition."
+    },
+    {
+      "class": "M11/A12 body versus metadata",
+      "verdict": "ADOPT_CURRENT_BODY_CONTRACT_AND_PROSPECTIVE_METADATA_BOUNDARY",
+      "reason": "Actual owning spec185-194 explicitly Surface3NOhash/futureWI1Surface6. All8 priorcuefiles and4expected-body->regionsMatch->drift1branches are sourceequal. Reuse accepted render-presets actual0/0/1/0 only, other3 source-structural. Preserve historical unknownhash survival as actualcharacterization, not current promisedhashbug or universal integrity. FinalS2adapter must register exactseed characterization and named4bodycarriers without rewritingS1history."
+    }
+  ],
+  "finding": {
+    "severity": "REVISE_FINAL_INTAKE_BEFORE_SOURCE_ADMISSION",
+    "file": "/Users/art/.codex/worktrees/2a8a/rules-as-tests-aif/docs/test-assurance-kernel/s2/obligations.json",
+    "lines": [
+      1163,
+      1176,
+      1189
+    ],
+    "fact": "81 obligation rows contain78 unique stable IDs OBL001..078; last3 validator/mutation obligations have no id field. Packet claim all81IDs preserved is not accepted. This is inherited intake data, not a new runtime defect or M10cycle.",
+    "requiredExactNextBrief": "Preserve all81 rows/statuses/names/carriers and existing78 IDs; propose OBL079/080/081 on the exact3 existing unnamed rows, with schema/coverage validation preventing missing/duplicate IDs. No census shrink, reassignment or invented new obligation. No source edit before exact reviewed finalassemblybrief."
+  },
+  "next": "Original TAK prepares one exact final S2 assembly/adapter/policy brief at actual23d67: reconcile all110candidates/81obligations/12seeds,38pathadds/2new executabletests and original unclosed entryconditions. Reuse existing scripts/test-assurance/verify.mjs for explicit nativeNode--test protocol/M05 execution, exact requiredtest/skip/status observations and missingentry/nonzero/emptyselector controls, not a standalone runner. Show how external-contract findings reach blocking queue and every accepted mechanism proof stays scoped. Provide exact allowed paths/preimages/postimages, independent expected outcomes/normalaffected commands/costbound/tampercontrols/counters. This is PREPARATION ONLY; finalintake authoredcycle remains4/5, no source implementation now.",
+  "basis": [
+    "docs/superpowers/specs/2026-10-08-test-assurance-kernel-design.md:32 (\u00a73 complete inventory and explicit statuses)",
+    "docs/superpowers/specs/2026-10-08-test-assurance-kernel-design.md:63 (\u00a74 semantic channel plus blocking consumer)",
+    "docs/superpowers/specs/2026-10-08-test-assurance-kernel-design.md:102 (\u00a76 reuse bounded native mechanisms)",
+    "scripts/test-assurance/verify.mjs:1 (existing stage replay adapter)",
+    ".agents/rules/test-quality-contracts.md \u00a72\u2013\u00a75"
+  ],
+  "falsifiers": [
+    "Any source or frozenprojection hash changes invalidates same-source reuse.",
+    "A reached non-equivalent surviving fault against a governed behavioral claim still blocks; structural classification cannot waive it.",
+    "Any unrepresented path/candidate/obligation/seed, missingIDs or unconsumed blockingsemanticfinding prevents S2completion."
+  ],
+  "caps": "M04 5/5FINAL; M10 5/5/PARTIAL2/2/evidenceexception1/1exhausted; finalintake4/5 preserved. Preparation uses no authoredcycle or newactor/model/session/probe. No wholeS2/S3/S4/PR/CI/staging/install acceptance or permission."
+}

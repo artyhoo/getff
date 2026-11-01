@@ -1,0 +1,302 @@
+Preparing worktree (detached HEAD 8eef214687c)
+PATCH-LABEL review-A4: intended-diagnostic judging disabled (permissive actual cf2a/cf2b channel)
+PATCH-SHA256 f71e2cc816dabfcc59e9ea85cab57d462088109fa0d15f02fd4f5be9c179fbf5 (review counterexample: f71e2cc816dabfcc59e9ea85cab57d462088109fa0d15f02fd4f5be9c179fbf5)
+PATCH-BEFORE-SHA256 0209717d19508a5596fdbd41ba999c425701cd825b52ea8c341900e4ecf6cd7a (committed blob: 0209717d19508a5596fdbd41ba999c425701cd825b52ea8c341900e4ecf6cd7a)
+== k3 arm pristine: driver run ==
+K3-ARM-RC pristine 0
+K3-ARM PATCH-AFTER-SHA256 dfd455d6474eac22c2179fbd9ef1dcfcac59640853098d0253c4c7a2d20af5d6
+PATCH-OCCURRENCES 1
+== k3 arm mutant: driver run ==
+K3-ARM-RC mutant 1
+RESTORED counterfactual-lib.sh sha256=0209717d19508a5596fdbd41ba999c425701cd825b52ea8c341900e4ecf6cd7a
+== k3 arm restored: driver run ==
+K3-ARM-RC restored 0
+MUTANT-DETECTED pristine=0(0) mutant=1(1) restored=0(0)
+K3-ARM-OK permissive judge caught by the UNCHANGED outer control (reviewer weakening f71e2cc8…; restoration byte-proven)
+----- k3 full receipt (/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-receipt-UhGFTh) -----
+PATCH-LABEL review-A4: intended-diagnostic judging disabled (permissive actual cf2a/cf2b channel)
+PATCH-SHA256 f71e2cc816dabfcc59e9ea85cab57d462088109fa0d15f02fd4f5be9c179fbf5 (review counterexample: f71e2cc816dabfcc59e9ea85cab57d462088109fa0d15f02fd4f5be9c179fbf5)
+PATCH-BEFORE-SHA256 0209717d19508a5596fdbd41ba999c425701cd825b52ea8c341900e4ecf6cd7a (committed blob: 0209717d19508a5596fdbd41ba999c425701cd825b52ea8c341900e4ecf6cd7a)
+== k3 arm pristine: driver run ==
+K3-CONTROL repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-wt-I9tA0X
+K3-CONTROL judge-lib sha256=0209717d19508a5596fdbd41ba999c425701cd825b52ea8c341900e4ecf6cd7a
+== k3 fault 1/2: cf2a age-boundary shift ==
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+== k3 cf2a: baseline (5/5 green incl. both violators) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-y22qz3/stdout-baseline.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts pass
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts pass
+OK k3 baseline 5/5 green
+== k3 cf2a: fault — cf2a: q3 boundary age >= MIN_AGE -> age >= 0 ==
+PATCH-LABEL cf2a: q3 boundary age >= MIN_AGE -> age >= 0
+PATCH-SHA256 233213d4a42aa6ca0ea83956a3accc589ba5589642c8cbe587f124dd45edd0f1
+PATCH-BEFORE-SHA256 de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266
+PATCH-AFTER-SHA256 56091b5bd582fe06c934ced479bf7cab63be1f564854355953f7f1fedfe83f32
+PATCH-OCCURRENCES 1
+== k3 cf2a: counterfactual run ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-y22qz3/stdout-counterfactual.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts fail
+  MSG AssertionError: expected true to be false // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-y22qz3/tests/q3-good-pinned.test.ts:10:25 |     at file:///private/tmp/tak-harvest/am3-src/node_modules/
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts fail
+  MSG AssertionError: expected 'adult' to be 'minor' // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-y22qz3/tests/q3-wrong-diagnostic.test.ts:14:45 |     at file:///private/tmp/tak-harvest/am3-src/nod
+-- judge output cf2a: admit-compliant (rc=0) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-bad-recomputed.test.ts=pass
+OK file-status q3-bad-same-predicate.test.ts=pass
+OK file-status q3-good-pinned.test.ts=fail
+OK intended-assertion q3-good-pinned.test.ts /expected true to be false/
+-- judge output cf2a: refuse-wrong-diagnostic (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-wrong-diagnostic.test.ts=fail
+COUNTERFACTUAL-FAIL: q3-wrong-diagnostic.test.ts failed WITHOUT the intended assertion /expected true to be false/ — a crash-RED is not a kill (K7)
+COUNTERFACTUAL-FAIL: intended-assertion assertion failed: q3-wrong-diagnostic.test.ts /expected true to be false/
+-- judge output cf2a: refuse-survival (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+COUNTERFACTUAL-FAIL: q3-survival-claim.test.ts expected fail, got pass
+COUNTERFACTUAL-FAIL: file-status assertion failed: q3-survival-claim.test.ts want=fail
+K3-RC cf2a admit=0 wrong-diagnostic=1 survival=1
+K3-JUDGE-HEALTHY cf2a: intended kill admitted; wrong-diagnostic and survival credit refused
+== k3 fault 2/2: cf2b constant weakening ==
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+== k3 cf2b: baseline (5/5 green incl. both violators) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-nF26C2/stdout-baseline.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts pass
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts pass
+OK k3 baseline 5/5 green
+== k3 cf2b: fault — cf2b: q3 constant MIN_AGE = 18 -> 0 ==
+PATCH-LABEL cf2b: q3 constant MIN_AGE = 18 -> 0
+PATCH-SHA256 820ae1d8adf8abca65c86b93b075c8a652a1853738a387d702e53450c59642ad
+PATCH-BEFORE-SHA256 de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266
+PATCH-AFTER-SHA256 4fa2d1da8aa6752161b3d123da75f736016d0bda9281dd14d3a93efae3053fa3
+PATCH-OCCURRENCES 1
+== k3 cf2b: counterfactual run ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-nF26C2/stdout-counterfactual.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts fail
+  MSG AssertionError: expected true to be false // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-nF26C2/tests/q3-good-pinned.test.ts:10:25 |     at file:///private/tmp/tak-harvest/am3-src/node_modules/
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts fail
+  MSG AssertionError: expected 'adult' to be 'minor' // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-nF26C2/tests/q3-wrong-diagnostic.test.ts:14:45 |     at file:///private/tmp/tak-harvest/am3-src/nod
+-- judge output cf2b: admit-compliant (rc=0) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-bad-recomputed.test.ts=pass
+OK file-status q3-bad-same-predicate.test.ts=pass
+OK file-status q3-good-pinned.test.ts=fail
+OK intended-assertion q3-good-pinned.test.ts /expected true to be false/
+-- judge output cf2b: refuse-wrong-diagnostic (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-wrong-diagnostic.test.ts=fail
+COUNTERFACTUAL-FAIL: q3-wrong-diagnostic.test.ts failed WITHOUT the intended assertion /expected true to be false/ — a crash-RED is not a kill (K7)
+COUNTERFACTUAL-FAIL: intended-assertion assertion failed: q3-wrong-diagnostic.test.ts /expected true to be false/
+-- judge output cf2b: refuse-survival (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+COUNTERFACTUAL-FAIL: q3-survival-claim.test.ts expected fail, got pass
+COUNTERFACTUAL-FAIL: file-status assertion failed: q3-survival-claim.test.ts want=fail
+K3-RC cf2b admit=0 wrong-diagnostic=1 survival=1
+K3-JUDGE-HEALTHY cf2b: intended kill admitted; wrong-diagnostic and survival credit refused
+K3-CONTROL-OK genuine judge: intended kills admitted (cf2a+cf2b); wrong-diagnostic and survival credit refused
+K3-ARM-RC pristine 0
+K3-ARM PATCH-AFTER-SHA256 dfd455d6474eac22c2179fbd9ef1dcfcac59640853098d0253c4c7a2d20af5d6
+PATCH-OCCURRENCES 1
+== k3 arm mutant: driver run ==
+K3-CONTROL repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-wt-I9tA0X
+K3-CONTROL judge-lib sha256=dfd455d6474eac22c2179fbd9ef1dcfcac59640853098d0253c4c7a2d20af5d6
+== k3 fault 1/2: cf2a age-boundary shift ==
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+== k3 cf2a: baseline (5/5 green incl. both violators) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-8iOzrj/stdout-baseline.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts pass
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts pass
+OK k3 baseline 5/5 green
+== k3 cf2a: fault — cf2a: q3 boundary age >= MIN_AGE -> age >= 0 ==
+PATCH-LABEL cf2a: q3 boundary age >= MIN_AGE -> age >= 0
+PATCH-SHA256 233213d4a42aa6ca0ea83956a3accc589ba5589642c8cbe587f124dd45edd0f1
+PATCH-BEFORE-SHA256 de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266
+PATCH-AFTER-SHA256 56091b5bd582fe06c934ced479bf7cab63be1f564854355953f7f1fedfe83f32
+PATCH-OCCURRENCES 1
+== k3 cf2a: counterfactual run ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-8iOzrj/stdout-counterfactual.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts fail
+  MSG AssertionError: expected true to be false // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-8iOzrj/tests/q3-good-pinned.test.ts:10:25 |     at file:///private/tmp/tak-harvest/am3-src/node_modules/
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts fail
+  MSG AssertionError: expected 'adult' to be 'minor' // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-8iOzrj/tests/q3-wrong-diagnostic.test.ts:14:45 |     at file:///private/tmp/tak-harvest/am3-src/nod
+-- judge output cf2a: admit-compliant (rc=0) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-bad-recomputed.test.ts=pass
+OK file-status q3-bad-same-predicate.test.ts=pass
+OK file-status q3-good-pinned.test.ts=fail
+OK intended-assertion q3-good-pinned.test.ts /expected true to be false/
+-- judge output cf2a: refuse-wrong-diagnostic (rc=0) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-wrong-diagnostic.test.ts=fail
+OK intended-assertion q3-wrong-diagnostic.test.ts /expected true to be false/
+-- judge output cf2a: refuse-survival (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+COUNTERFACTUAL-FAIL: q3-survival-claim.test.ts expected fail, got pass
+COUNTERFACTUAL-FAIL: file-status assertion failed: q3-survival-claim.test.ts want=fail
+K3-RC cf2a admit=0 wrong-diagnostic=0 survival=1
+K3-CONTROL-FAIL cf2a: judge ACCEPTED wrong-diagnostic kill credit — the intended-diagnostic predicate (expect_intended) is disabled or permissively weakened
+== k3 fault 2/2: cf2b constant weakening ==
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+== k3 cf2b: baseline (5/5 green incl. both violators) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-x5VW5t/stdout-baseline.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts pass
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts pass
+OK k3 baseline 5/5 green
+== k3 cf2b: fault — cf2b: q3 constant MIN_AGE = 18 -> 0 ==
+PATCH-LABEL cf2b: q3 constant MIN_AGE = 18 -> 0
+PATCH-SHA256 820ae1d8adf8abca65c86b93b075c8a652a1853738a387d702e53450c59642ad
+PATCH-BEFORE-SHA256 de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266
+PATCH-AFTER-SHA256 4fa2d1da8aa6752161b3d123da75f736016d0bda9281dd14d3a93efae3053fa3
+PATCH-OCCURRENCES 1
+== k3 cf2b: counterfactual run ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-x5VW5t/stdout-counterfactual.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts fail
+  MSG AssertionError: expected true to be false // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-x5VW5t/tests/q3-good-pinned.test.ts:10:25 |     at file:///private/tmp/tak-harvest/am3-src/node_modules/
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts fail
+  MSG AssertionError: expected 'adult' to be 'minor' // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-x5VW5t/tests/q3-wrong-diagnostic.test.ts:14:45 |     at file:///private/tmp/tak-harvest/am3-src/nod
+-- judge output cf2b: admit-compliant (rc=0) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-bad-recomputed.test.ts=pass
+OK file-status q3-bad-same-predicate.test.ts=pass
+OK file-status q3-good-pinned.test.ts=fail
+OK intended-assertion q3-good-pinned.test.ts /expected true to be false/
+-- judge output cf2b: refuse-wrong-diagnostic (rc=0) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-wrong-diagnostic.test.ts=fail
+OK intended-assertion q3-wrong-diagnostic.test.ts /expected true to be false/
+-- judge output cf2b: refuse-survival (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+COUNTERFACTUAL-FAIL: q3-survival-claim.test.ts expected fail, got pass
+COUNTERFACTUAL-FAIL: file-status assertion failed: q3-survival-claim.test.ts want=fail
+K3-RC cf2b admit=0 wrong-diagnostic=0 survival=1
+K3-CONTROL-FAIL cf2b: judge ACCEPTED wrong-diagnostic kill credit — the intended-diagnostic predicate (expect_intended) is disabled or permissively weakened
+K3-CONTROL final: FAIL
+K3-ARM-RC mutant 1
+RESTORED counterfactual-lib.sh sha256=0209717d19508a5596fdbd41ba999c425701cd825b52ea8c341900e4ecf6cd7a
+== k3 arm restored: driver run ==
+K3-CONTROL repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-wt-I9tA0X
+K3-CONTROL judge-lib sha256=0209717d19508a5596fdbd41ba999c425701cd825b52ea8c341900e4ecf6cd7a
+== k3 fault 1/2: cf2a age-boundary shift ==
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+== k3 cf2a: baseline (5/5 green incl. both violators) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-R4AaQS/stdout-baseline.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts pass
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts pass
+OK k3 baseline 5/5 green
+== k3 cf2a: fault — cf2a: q3 boundary age >= MIN_AGE -> age >= 0 ==
+PATCH-LABEL cf2a: q3 boundary age >= MIN_AGE -> age >= 0
+PATCH-SHA256 233213d4a42aa6ca0ea83956a3accc589ba5589642c8cbe587f124dd45edd0f1
+PATCH-BEFORE-SHA256 de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266
+PATCH-AFTER-SHA256 56091b5bd582fe06c934ced479bf7cab63be1f564854355953f7f1fedfe83f32
+PATCH-OCCURRENCES 1
+== k3 cf2a: counterfactual run ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-R4AaQS/stdout-counterfactual.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts fail
+  MSG AssertionError: expected true to be false // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-R4AaQS/tests/q3-good-pinned.test.ts:10:25 |     at file:///private/tmp/tak-harvest/am3-src/node_modules/
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts fail
+  MSG AssertionError: expected 'adult' to be 'minor' // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-R4AaQS/tests/q3-wrong-diagnostic.test.ts:14:45 |     at file:///private/tmp/tak-harvest/am3-src/nod
+-- judge output cf2a: admit-compliant (rc=0) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-bad-recomputed.test.ts=pass
+OK file-status q3-bad-same-predicate.test.ts=pass
+OK file-status q3-good-pinned.test.ts=fail
+OK intended-assertion q3-good-pinned.test.ts /expected true to be false/
+-- judge output cf2a: refuse-wrong-diagnostic (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-wrong-diagnostic.test.ts=fail
+COUNTERFACTUAL-FAIL: q3-wrong-diagnostic.test.ts failed WITHOUT the intended assertion /expected true to be false/ — a crash-RED is not a kill (K7)
+COUNTERFACTUAL-FAIL: intended-assertion assertion failed: q3-wrong-diagnostic.test.ts /expected true to be false/
+-- judge output cf2a: refuse-survival (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+COUNTERFACTUAL-FAIL: q3-survival-claim.test.ts expected fail, got pass
+COUNTERFACTUAL-FAIL: file-status assertion failed: q3-survival-claim.test.ts want=fail
+K3-RC cf2a admit=0 wrong-diagnostic=1 survival=1
+K3-JUDGE-HEALTHY cf2a: intended kill admitted; wrong-diagnostic and survival credit refused
+== k3 fault 2/2: cf2b constant weakening ==
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+== k3 cf2b: baseline (5/5 green incl. both violators) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-fDU3q3/stdout-baseline.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts pass
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts pass
+OK k3 baseline 5/5 green
+== k3 cf2b: fault — cf2b: q3 constant MIN_AGE = 18 -> 0 ==
+PATCH-LABEL cf2b: q3 constant MIN_AGE = 18 -> 0
+PATCH-SHA256 820ae1d8adf8abca65c86b93b075c8a652a1853738a387d702e53450c59642ad
+PATCH-BEFORE-SHA256 de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266
+PATCH-AFTER-SHA256 4fa2d1da8aa6752161b3d123da75f736016d0bda9281dd14d3a93efae3053fa3
+PATCH-OCCURRENCES 1
+== k3 cf2b: counterfactual run ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T//s1-k3-fDU3q3/stdout-counterfactual.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts fail
+  MSG AssertionError: expected true to be false // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-fDU3q3/tests/q3-good-pinned.test.ts:10:25 |     at file:///private/tmp/tak-harvest/am3-src/node_modules/
+FILE q3-survival-claim.test.ts pass
+FILE q3-wrong-diagnostic.test.ts fail
+  MSG AssertionError: expected 'adult' to be 'minor' // Object.is equality |     at /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-fDU3q3/tests/q3-wrong-diagnostic.test.ts:14:45 |     at file:///private/tmp/tak-harvest/am3-src/nod
+-- judge output cf2b: admit-compliant (rc=0) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-bad-recomputed.test.ts=pass
+OK file-status q3-bad-same-predicate.test.ts=pass
+OK file-status q3-good-pinned.test.ts=fail
+OK intended-assertion q3-good-pinned.test.ts /expected true to be false/
+-- judge output cf2b: refuse-wrong-diagnostic (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+OK file-status q3-wrong-diagnostic.test.ts=fail
+COUNTERFACTUAL-FAIL: q3-wrong-diagnostic.test.ts failed WITHOUT the intended assertion /expected true to be false/ — a crash-RED is not a kill (K7)
+COUNTERFACTUAL-FAIL: intended-assertion assertion failed: q3-wrong-diagnostic.test.ts /expected true to be false/
+-- judge output cf2b: refuse-survival (rc=1) --
+CF-LIB repo=/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s1-k3-wt-I9tA0X
+COUNTERFACTUAL-FAIL: q3-survival-claim.test.ts expected fail, got pass
+COUNTERFACTUAL-FAIL: file-status assertion failed: q3-survival-claim.test.ts want=fail
+K3-RC cf2b admit=0 wrong-diagnostic=1 survival=1
+K3-JUDGE-HEALTHY cf2b: intended kill admitted; wrong-diagnostic and survival credit refused
+K3-CONTROL-OK genuine judge: intended kills admitted (cf2a+cf2b); wrong-diagnostic and survival credit refused
+K3-ARM-RC restored 0
+MUTANT-DETECTED pristine=0(0) mutant=1(1) restored=0(0)
+K3-ARM-OK permissive judge caught by the UNCHANGED outer control (reviewer weakening f71e2cc8…; restoration byte-proven)
+EXIT=0

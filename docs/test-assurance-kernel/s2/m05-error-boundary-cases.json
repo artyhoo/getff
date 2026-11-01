@@ -1,0 +1,59 @@
+{
+  "head": "8400408c47b63beabece9d20c15a48c2d4f4efe9",
+  "contract_sources": [
+    "docs/superpowers/specs/2026-10-08-test-assurance-kernel-design.md:127 SeedA05",
+    "packages/preset-react-spa/RULES.react-spa.md:26 policy and :28 in-fileancestor scope",
+    "packages/core/eslint-rules/require-error-boundary.ts:38-43 docs/message"
+  ],
+  "filename": "src/App.tsx",
+  "cases": [
+    {
+      "id": "unrelated-wrapped-before-app",
+      "code": "function Preview(){return <ErrorBoundary><PreviewBody/></ErrorBoundary>;} export function App(){return <main><Router/></main>;}",
+      "expected_diagnostics": 1,
+      "expected_message_id": "missingErrorBoundary"
+    },
+    {
+      "id": "unrelated-wrapped-after-app",
+      "code": "export function App(){return <main><Router/></main>;} function Preview(){return <ErrorBoundary><PreviewBody/></ErrorBoundary>;}",
+      "expected_diagnostics": 1,
+      "expected_message_id": "missingErrorBoundary"
+    },
+    {
+      "id": "fragment-unwrapped-sibling",
+      "code": "export function App(){return <><ErrorBoundary><Router/></ErrorBoundary><aside>Unprotected</aside></>;}",
+      "expected_diagnostics": 1,
+      "expected_message_id": "missingErrorBoundary"
+    },
+    {
+      "id": "both-lexical-roots-wrapped",
+      "code": "function Preview(){return <ErrorBoundary><PreviewBody/></ErrorBoundary>;} export function App(){return <ErrorBoundary><main><Router/></main></ErrorBoundary>;}",
+      "expected_diagnostics": 0,
+      "expected_message_id": null
+    },
+    {
+      "id": "fragment-wrapped-siblings",
+      "code": "export function App(){return <><ErrorBoundary><Router/></ErrorBoundary><ErrorBoundary><aside>Protected</aside></ErrorBoundary></>;}",
+      "expected_diagnostics": 0,
+      "expected_message_id": null
+    },
+    {
+      "id": "member-boundary-both-roots",
+      "code": "function Preview(){return <Sentry.ErrorBoundary><PreviewBody/></Sentry.ErrorBoundary>;} export function App(){return <Sentry.ErrorBoundary fallback={<div>Failed</div>}><Router/></Sentry.ErrorBoundary>;}",
+      "expected_diagnostics": 0,
+      "expected_message_id": null
+    }
+  ],
+  "scope": "Lexical in-file unrelatedcomponent/sibling masking only; no runtime/cross-file/function-call graph. Existing firstJSX wholefile audit:exempt and noJSX cases retained without redesign.",
+  "frozen_before_production_effect": true,
+  "expected_checker_regression": "Reintroducing priorglobalany-boundary presence logic must suppress intended3badcase diagnostics and be caught by unchanged newtestmaterial; compliant3remainadmitted.",
+  "surface_before_hashes": {
+    "packages/core/eslint-rules/require-error-boundary.ts": "0ece1bd57af5ce2d095456a4a953835c9048612fb989ae2b7df2b0e42163693d",
+    "packages/core/eslint-rules/require-error-boundary.mjs": "99f5a670c830cd9ac768689932c7815afabd62a14462787ec6ef4fb9b1173a90",
+    "packages/core/eslint-rules/require-error-boundary.test.ts": "ec55da637c88161ce2f78db21be33e47595d3101cbb4bc8e71536539e3000e51"
+  },
+  "limitations": [
+    "No inferred general correctness of component dataflow; legitimate helper/runtime wrapper cases outside lexicalcontract must remainexplicitlimits, not universal bugclaims",
+    "Independent source/twin regeneration/delivery proof and ordinarygates stillrequired after any repair"
+  ]
+}

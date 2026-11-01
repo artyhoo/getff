@@ -1,0 +1,6 @@
+VERIFY repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+VERIFY stage=S1 require-host=unset sysname=linux
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+VERIFY dispositions RED 1 dispositions finding(s): entry disp-gate5-runtime-bundle-rebuild: promotion-blocking (stale-bundle) but promotion_gate does not name this adapter's --promote-gate run — a MUST note is not a mechanism (attention-is-not-a-mechanism)
+VERIFY-SUMMARY stage=S1 steps=1 pass=0 red=1 infra=0
+VERIFY VERDICT: NOT-ACCEPTED exit=1 (RED steps: dispositions)

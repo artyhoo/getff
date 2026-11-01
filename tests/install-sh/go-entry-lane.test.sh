@@ -96,6 +96,8 @@ fi
 echo "  ── (2) re-run: fingerprint deterministic (same delivered bytes → same sha256) ──"
 if [ "$HAS_SHA_TOOL" -eq 1 ]; then
   ( cd "$G" && bash "$INSTALL" go < /dev/null ) >/dev/null 2>&1
+  RC_P50_129=$?
+  if [ "$RC_P50_129" -eq 0 ]; then ok "go-entry-lane: install rc=0 (p50-129)"; else bad "go-entry-lane: install rc=$RC_P50_129, expected 0 (p50-129)"; fi
   fp2=$(sed -n 's/.*"sourceFingerprint": "sha256:\([0-9a-f]*\)".*/\1/p' "$LOCK" 2>/dev/null)
   { [ -n "$fp1" ] && [ "$fp1" = "$fp2" ]; } \
     && ok "(2) second run produced the identical sourceFingerprint (deterministic record)" \
@@ -122,7 +124,9 @@ echo "  ── (4) npm flow inert (package.json only, no go.mod) ──"
 N=$(mktemp -d)
 printf '{"name":"npm-only","version":"0.0.0"}\n' > "$N/package.json"
 ( cd "$N" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
-out=$( cd "$N" && bash "$INSTALL" ts-server --force < /dev/null 2>&1 ) || true
+out=$( cd "$N" && bash "$INSTALL" ts-server --force < /dev/null 2>&1 )
+RC_P50_130=$?
+if [ "$RC_P50_130" -eq 0 ]; then ok "go-entry-lane: install rc=0 (p50-130)"; else bad "go-entry-lane: install rc=$RC_P50_130, expected 0 (p50-130)"; fi
 { [ ! -e "$N/.golangci.yml" ] && [ ! -e "$N/getff-golangci.yml" ] && [ ! -e "$N/.ai-factory/synthesizer-output/rules-lock.go.json" ]; } \
   && ok "(4) npm lane produced NO go artefacts (47-go.sh inert on npm — activation guard holds)" \
   || bad "(4) go artefact leaked onto the npm lane (activation guard broken)"
@@ -384,7 +388,16 @@ echo "  ── (11) S-3 precedence: a declined offer no longer masks later lanes
 PG=$(mktemp -d)
 printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$PG/Cargo.toml"
 printf 'module demo\n\ngo 1.22\n' > "$PG/go.mod"
-out=$( cd "$PG" && printf 'n\n' | bash "$INSTALL" 2>&1 ) || true
+out=$( cd "$PG" && printf 'n\n' | bash "$INSTALL" 2>&1 )
+RC_P50_131=$?
+# rc contract (reconciled to frozen production, cf. python-entry-lane.test.sh arm 4 + the P2 G1
+# exception at install.sh:746-753): an interactive run whose lane offer was DECLINED keeps the
+# npm-lane no-package.json abort — rc=1 with the named reason, never a bare arbitrary 1.
+if [ "$RC_P50_131" -eq 1 ] && grep -qF 'No package.json found' <<<"$out"; then
+  ok "go-entry-lane: install rc=1 (p50-131) — declined-offer clean abort at the npm precondition"
+else
+  bad "go-entry-lane: install rc=$RC_P50_131, expected 1 + 'No package.json found' (p50-131): $(echo "$out" | tr '\n' '|' | cut -c1-160)"
+fi
 # The pipe is the ONLY stdin: the cargo offer consumes the ACTIVE 'n' decline (the S-3 scenario —
 # declined cargo) and the go offer then reads EOF (declines) — both banners must appear. No
 # `< /dev/null` on this invocation: that redirection would OVERRIDE the pipe, feed BOTH offers
@@ -409,7 +422,14 @@ out=$( cd "$PG2" && printf 'n\ny\n' | bash "$INSTALL" 2>&1 ); rc=$?
   || bad "(11b) polyglot accept path broken: rc=$rc golangci=$( [ -f "$PG2/.golangci.yml" ] && echo y || echo n ) clippy=$( [ -e "$PG2/clippy.toml" ] && echo y || echo n )"
 # (11c) mono-manifest consumer: exactly ONE offer (unchanged by S-3).
 MG=$(go_fixture)
-out=$( cd "$MG" && bash "$INSTALL" < /dev/null 2>&1 ) || true
+out=$( cd "$MG" && bash "$INSTALL" < /dev/null 2>&1 )
+RC_P50_132=$?
+# Same declined-offer contract as p50-131 (EOF declines the mono go offer → npm abort).
+if [ "$RC_P50_132" -eq 1 ] && grep -qF 'No package.json found' <<<"$out"; then
+  ok "go-entry-lane: install rc=1 (p50-132) — EOF-declined offer, clean npm-lane abort"
+else
+  bad "go-entry-lane: install rc=$RC_P50_132, expected 1 + 'No package.json found' (p50-132): $(echo "$out" | tr '\n' '|' | cut -c1-160)"
+fi
 n_offers=$(echo "$out" | grep -c "Detected a \(Python\|Rust\|Go\) project")
 [ "$n_offers" -eq 1 ] && grep -q "Detected a Go project" <<<"$out" \
   && ok "(11c) mono-manifest go.mod consumer: exactly one offer, go (exclusion set intact)" \
@@ -418,7 +438,16 @@ n_offers=$(echo "$out" | grep -c "Detected a \(Python\|Rust\|Go\) project")
 NG=$(mktemp -d)
 printf '{"name":"m","version":"0.0.0"}\n' > "$NG/package.json"
 printf 'module demo\n\ngo 1.22\n' > "$NG/go.mod"
-out=$( cd "$NG" && bash "$INSTALL" < /dev/null 2>&1 ) || true
+out=$( cd "$NG" && bash "$INSTALL" < /dev/null 2>&1 )
+RC_P50_133=$?
+# npm-lane contract (install.sh:814): package.json present, no toolchain offer, EOF at the
+# stack menu → 'Invalid choice' exit 1. The arm's real subject is the ZERO-offers assertion
+# below; the rc binds to the documented menu-EOF abort, so an unrelated 1 cannot pass either.
+if [ "$RC_P50_133" -eq 1 ] && grep -qF 'Invalid choice' <<<"$out"; then
+  ok "go-entry-lane: install rc=1 (p50-133) — npm lane, menu-EOF 'Invalid choice' abort"
+else
+  bad "go-entry-lane: install rc=$RC_P50_133, expected 1 + 'Invalid choice' (p50-133): $(echo "$out" | tr '\n' '|' | cut -c1-160)"
+fi
 grep -q "Detected a " <<<"$out" \
   && bad "(11d) package.json consumer was offered a toolchain lane (npm lane violated)" \
   || ok "(11d) package.json consumer: no toolchain offer (npm lane, unchanged)"

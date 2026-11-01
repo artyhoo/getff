@@ -1,0 +1,4 @@
+{
+  "rule-id": "rules-as-tests/no-vacuous-assertion",
+  "description": "Q1 — expect() over a pure literal inside a test body survives every production fault and must be rejected"
+}

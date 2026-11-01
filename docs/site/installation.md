@@ -13,6 +13,7 @@ sources:
   - docs/site/quick-start.md
   - docs/site/terms.md
   - docs/site/why.md
+  - eslint.config.mjs
   - install.sh
   - package.json
   - packages/core/manifest/maturity.json

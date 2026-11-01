@@ -1,0 +1,61 @@
+{
+  "source_head": "24671be0333fc627e72994678129244d5f55b466",
+  "source_path": "packages/core/principles/38-vitest-include-ci-coverage.test.ts",
+  "source_sha256": "3eaa6ff316ca42efdf8f08b934e75ce985dcadeb980f6434bb46ffc148c83c17",
+  "contract": "P38 promised reachable test commands from workflow steps. Comments, names and echo strings do not execute Vitest. Legitimate YAML run commands and shell line continuations do. Lexical workflow-run command context only, no universal shell CFG/remote Actions resolution.",
+  "scripts": {
+    "test": "vitest run --reporter=default",
+    "test:skills": "vitest run skills/"
+  },
+  "cases": [
+    {
+      "id": "real-npm-run",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npm --prefix packages/core run test:skills\n",
+      "expected_filters": [
+        "skills/"
+      ]
+    },
+    {
+      "id": "real-npm-test-args",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npm --prefix packages/core test --silent -- skills/\n",
+      "expected_filters": [
+        "skills/"
+      ]
+    },
+    {
+      "id": "real-npx-filter",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npx --prefix packages/core vitest run packages/core/skills/\n",
+      "expected_filters": [
+        "skills/"
+      ]
+    },
+    {
+      "id": "real-multiline-npx",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: |\n          npx --prefix packages/core vitest run \\\n            packages/core/skills/\n",
+      "expected_filters": [
+        "skills/"
+      ]
+    },
+    {
+      "id": "workflow-comment-only",
+      "workflow": "jobs:\n  test:\n    steps:\n      # npm --prefix packages/core run test:skills\n      - run: true\n",
+      "expected_filters": []
+    },
+    {
+      "id": "shell-comment-only",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: |\n          # npm --prefix packages/core run test:skills\n          true\n",
+      "expected_filters": []
+    },
+    {
+      "id": "echo-command-string",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: echo \"npm --prefix packages/core run test:skills\"\n",
+      "expected_filters": []
+    },
+    {
+      "id": "step-name-only",
+      "workflow": "jobs:\n  test:\n    steps:\n      - name: npm --prefix packages/core run test:skills\n        run: true\n",
+      "expected_filters": []
+    }
+  ],
+  "frozen_before_measurement_and_source_effect": true
+}

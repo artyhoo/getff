@@ -75,6 +75,8 @@ project() {
 install_into() { # <dir> <log> <args…>
   local d="$1" log="$2"; shift 2
   ( cd "$d" && bash "$REPO_ROOT/install.sh" "$@" </dev/null ) >"$log" 2>&1
+  RC_P50_141=$?
+  if [ "$RC_P50_141" -eq 0 ]; then ok "install-no-manual-step: install rc=0 (p50-141)"; else bad "install-no-manual-step: install rc=$RC_P50_141, expected 0 (p50-141)"; fi
 }
 
 # ── U: JSON writes without jq ──────────────────────────────────────────────────────────────────
@@ -249,6 +251,8 @@ grep -q 'git hooks — not active' "$WORK/v.log" && bad "V: the checked block sa
 O="$WORK/otel"; mkdir -p "$O"; git -C "$O" init -q
 printf '{ "name": "nms", "version": "0.0.0", "dependencies": { "@opentelemetry/api": "^1.0.0" } }\n' > "$O/package.json"
 ( cd "$O" && unset AIF_STRICT_RUNTIME; bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$WORK/o.log" 2>&1
+RC_P50_142=$?
+if [ "$RC_P50_142" -eq 0 ]; then ok "install-no-manual-step: install rc=0 (p50-142)"; else bad "install-no-manual-step: install rc=$RC_P50_142, expected 0 (p50-142)"; fi
 grep -q 'AIF_STRICT_RUNTIME is unset' <<<"$(not_wired "$WORK/o.log" | grep 'R8')" \
   && ok "O: R8 unarmed is a NOT-wired line with its reason" || bad "O: no NOT-wired line for the unarmed R8"
 grep -qE 'Set AIF_STRICT_RUNTIME=1 to' "$WORK/o.log" && bad "O: the install still tells the reader to set AIF_STRICT_RUNTIME" \
@@ -274,6 +278,8 @@ IFS=$_IFS_SAVE
 lane_into() { # <dir> <log> <PATH> <args…>
   local d="$1" log="$2" p="$3"; shift 3
   ( cd "$d" && PATH="$p" bash "$REPO_ROOT/install.sh" "$@" </dev/null ) >"$log" 2>&1
+  RC_P50_143=$?
+  if [ "$RC_P50_143" -eq 0 ]; then ok "install-no-manual-step: install rc=0 (p50-143)"; else bad "install-no-manual-step: install rc=$RC_P50_143, expected 0 (p50-143)"; fi
 }
 # nw_has <arm> <log> <regex> <what> — the lane's NOT-wired summary carries a line matching <regex>.
 nw_has() {
@@ -486,6 +492,8 @@ B="$WORK/factory"; project "$B"; B=$(cd "$B" && pwd -P)
 printf '[{"id":"p-b","name":"factory","rootPath":"%s"},{"id":"p-x","name":"x","rootPath":"/home/www/x"}]' "$B" > "$WORK/b.json"
 ( cd "$B" && PATH="$AIFSTUB:$PATH" AIF_STUB_JSON="$WORK/b.json" AIF_STUB_DOWN="$WORK/none" \
   RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bash "$REPO_ROOT/install.sh" ts-server --profile factory </dev/null ) >"$WORK/b.log" 2>&1
+RC_P50_144=$?
+if [ "$RC_P50_144" -eq 0 ]; then ok "install-no-manual-step: install rc=0 (p50-144)"; else bad "install-no-manual-step: install rc=$RC_P50_144, expected 0 (p50-144)"; fi
 _bs="$B/.claude/settings.json"
 bridge_hook_on "$_bs" PostToolUse && ok "B: the dispatch hook is registered on PostToolUse" || bad "B: no PostToolUse registration: $(grep -i 'runtime-bridge' "$WORK/b.log" | head -3 | tr '\n' '|')"
 bridge_hook_on "$_bs" PostToolUseFailure && ok "B: the dispatch hook is registered on PostToolUseFailure" || bad "B: no PostToolUseFailure registration"
@@ -499,6 +507,8 @@ no_manual B "$WORK/b.log"
 B2="$WORK/factory-down"; project "$B2"; : > "$WORK/down"
 ( cd "$B2" && PATH="$AIFSTUB:$PATH" AIF_STUB_JSON="$WORK/b.json" AIF_STUB_DOWN="$WORK/down" \
   RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bash "$REPO_ROOT/install.sh" ts-server --profile factory </dev/null ) >"$WORK/b2.log" 2>&1
+RC_P50_145=$?
+if [ "$RC_P50_145" -eq 0 ]; then ok "install-no-manual-step: install rc=0 (p50-145)"; else bad "install-no-manual-step: install rc=$RC_P50_145, expected 0 (p50-145)"; fi
 bridge_hook_on "$B2/.claude/settings.json" PostToolUse && ok "B2: aif down, the dispatch hook is still registered" || bad "B2: no registration with aif down"
 nw_has B2 "$WORK/b2.log" 'runtime-bridge.*does not answer at http://aif\.test:3009' "that aif-handoff does not answer"
 no_manual B2 "$WORK/b2.log"
@@ -506,6 +516,8 @@ no_manual B2 "$WORK/b2.log"
 # NOT-wired line is printed (do_refresh exits before 99-finalize, which prints the summary).
 ( cd "$B2" && PATH="$AIFSTUB:$PATH" AIF_STUB_JSON="$WORK/b.json" AIF_STUB_DOWN="$WORK/down" \
   RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bash "$REPO_ROOT/install.sh" --refresh --profile factory </dev/null ) >"$WORK/b3.log" 2>&1
+RC_P50_146=$?
+if [ "$RC_P50_146" -eq 0 ]; then ok "install-no-manual-step: install rc=0 (p50-146)"; else bad "install-no-manual-step: install rc=$RC_P50_146, expected 0 (p50-146)"; fi
 nw_has B3 "$WORK/b3.log" 'runtime-bridge.*does not answer at http://aif\.test:3009' "that aif-handoff does not answer (printed on --refresh)"
 no_manual B3 "$WORK/b3.log"
 

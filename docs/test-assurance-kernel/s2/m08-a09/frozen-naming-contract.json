@@ -1,0 +1,1971 @@
+{
+  "status": "FROZEN_BEFORE_M08_RUNTIME_OR_REPAIR",
+  "profiles": {
+    "root": {
+      "placement": "placed",
+      "naming_count": 56,
+      "case_count": 168,
+      "cases": [
+        {
+          "path": "src/domain/constant.test.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.mts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.mts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.mts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.mts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.mts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.mts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.mts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.mts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.mts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.mts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.mts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.mts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.mts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.mts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.mts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.mts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.mts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.mts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.mts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.mts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.mts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.cts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.cts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.cts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.cts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.cts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.cts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.cts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.cts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.cts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.cts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.cts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.cts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.cts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.cts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.cts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.cts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.cts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.cts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.cts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.cts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.cts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.mjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.mjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.mjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.mjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.mjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.mjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.mjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.mjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.mjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.mjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.mjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.mjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.mjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.mjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.mjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.mjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.mjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.mjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.mjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.mjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.mjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.cjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.cjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.cjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.cjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.cjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.cjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.cjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.cjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.cjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.cjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.cjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.cjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.cjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.cjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.cjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.cjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.cjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.cjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.cjs",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.cjs",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.cjs",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.js",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.js",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.js",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.js",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.js",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.js",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.js",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.js",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.js",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.js",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.js",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.js",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.js",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.js",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.js",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.js",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.js",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.js",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.js",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.js",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.js",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.jsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.jsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.jsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.jsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.jsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.jsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.jsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.jsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.jsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.jsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.jsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.jsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.jsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.jsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.jsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.jsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.jsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.jsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.jsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.jsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.jsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        }
+      ]
+    },
+    "ts-server": {
+      "placement": "placed",
+      "naming_count": 14,
+      "case_count": 42,
+      "cases": [
+        {
+          "path": "src/domain/constant.test.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        }
+      ]
+    },
+    "react-next": {
+      "placement": "placed",
+      "naming_count": 14,
+      "case_count": 42,
+      "cases": [
+        {
+          "path": "src/domain/constant.test.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        }
+      ]
+    },
+    "react-spa": {
+      "placement": "placed",
+      "naming_count": 14,
+      "case_count": 42,
+      "cases": [
+        {
+          "path": "src/domain/constant.test.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        }
+      ]
+    },
+    "expo": {
+      "placement": "not-placed",
+      "naming_count": 14,
+      "case_count": 42,
+      "cases": [
+        {
+          "path": "src/domain/constant.test.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        }
+      ]
+    },
+    "bare-rn": {
+      "placement": "not-placed",
+      "naming_count": 14,
+      "case_count": 42,
+      "cases": [
+        {
+          "path": "src/domain/constant.test.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.ts",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.ts",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.ts",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.test.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.test.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.test.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.spec.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.spec.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.spec.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.unit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.unit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.unit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.audit.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.audit.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.audit.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/constant.integration.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/domain/empty.integration.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/domain/boundary.integration.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from './age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "src/__tests__/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "src/__tests__/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        },
+        {
+          "path": "tests/constant.tsx",
+          "class": "constant",
+          "body": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n"
+        },
+        {
+          "path": "tests/empty.tsx",
+          "class": "empty",
+          "body": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n"
+        },
+        {
+          "path": "tests/boundary.tsx",
+          "class": "boundary",
+          "body": "import { expect, it } from 'vitest';\nimport { isAdult } from '../src/domain/age.js';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+        }
+      ]
+    }
+  },
+  "classes": {
+    "constant": "import { expect, it } from 'vitest';\nit('rejects a constant assertion', () => { expect(true).toBe(true); });\n",
+    "empty": "import { it } from 'vitest';\nit('rejects an empty test', () => {});\n",
+    "boundary": "import { expect, it } from 'vitest';\nimport { isAdult } from 'SUBJECT_IMPORT';\nit('rejects below the age of majority', () => { expect(isAdult(17)).toBe(false); });\nit('accepts at the age of majority', () => { expect(isAdult(18)).toBe(true); });\n"
+  },
+  "source": "export function isAdult(age: number): boolean { return age >= 18; }\n",
+  "expected": {
+    "placed": {
+      "Q1_severity": 2,
+      "Q2_severity": 2,
+      "constant_rule": "rules-as-tests/no-vacuous-assertion",
+      "constant_message": "vacuousAssertion",
+      "empty_rule": "rules-as-tests/require-effective-assertion",
+      "empty_message": "noEffectiveAssertion",
+      "boundary_total_errors": 0
+    },
+    "native": "NOT_PLACED; characterize actual effective config and diagnostics; incidental failures are not Q1/Q2 detections."
+  },
+  "channels": "Actual calculateConfigForFile per concrete fixture path and actual ESLint CLI JSON per class. No Vitest/behavioral/run-discovery claim; accepted A06 actual age runtime proof reused at its own exact scope.",
+  "M08_used": 1,
+  "cap": 5,
+  "PARTIAL_used": 0,
+  "PARTIAL_cap": 2,
+  "source_inputs": {
+    "eslint.config.mjs": "af6b5e37e8d0a3a5e4ecbc72fba718d735f68c3278898795f53cdc0fbe17aa13",
+    "packages/core/audit-self/fixtures/foreign-scan-triage/sandbox/.claude/worktrees/feature-x/eslint.config.mjs": "7b4f6f72a597b6a64f5032c6b09cfea3815e4cde94882852cd9ed57456fcb5e5",
+    "packages/core/audit-self/fixtures/foreign-scan-triage/sandbox/eslint.config.mjs": "15180f75beace16c7c764d8da29e09ff8782ac534f0b18d2c4ef652ef67b9089",
+    "packages/preset-next-15-canonical/templates/eslint.config.react.mjs": "1961c07229416f2654a315f9d3a262112c17b81908d04cefd1356a1e0bf8ce2b",
+    "packages/preset-react-native/templates/eslint.config.bare-rn.mjs": "fb9aa49f64642bd62823e8f76be90936721e2b9eb87ff2f4a9dfd6d137364797",
+    "packages/preset-react-native/templates/eslint.config.expo.mjs": "382a7873c05ec6fd70221b416a3fa10f9d6ffe55548c5716cd75414bdcd9ee5b",
+    "packages/preset-react-native/templates/eslint.config.rn-common.mjs": "5b99143c306c650c85dfd3bb68e6f9083083f88dcdb9c1c71ad790a7de9c8d8a",
+    "packages/preset-react-spa/templates/eslint.config.react.mjs": "eb9b43c39d721910fa3de21d8258188fd6b9ecb79a4209960636b3cb916d4653",
+    "templates/ts-server/eslint.config.mjs": "dd40d657ac8405f7c4d0e883840487e93196fe7c69be33da44c82d8181a27463"
+  }
+}

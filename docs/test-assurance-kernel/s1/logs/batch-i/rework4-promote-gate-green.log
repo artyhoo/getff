@@ -1,0 +1,9 @@
+$ node scripts/test-assurance/verify.mjs --stage S1 --promote-gate
+VERIFY repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+VERIFY stage=S1 require-host=unset sysname=linux
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+PROMOTE-GATE disp-rework4-bundle-carrier-gate: RESOLVED (packages/core/hooks/checks/guard-liveness.ts references the stage arm; bundle freshness: runtime-bundles-drift script-selftests lane (`NODE_ENV=development node scripts/build-runtime-bundles.mjs --check`) proves the committed bundles match their sources — the bundles keep first-party modules external by design, so freshness lives in that lane, not in a symbol-in-bundle probe (rebuild executed on the lockfile-clean host as commit 46c8d1d5f78))
+TAMPER restored packages/core/hooks/checks/guard-liveness.ts sha256=b05a4eb96df9… (byte-identical)
+PROMOTE-GATE disp-rework4-bundle-carrier-gate CONTROL: DETECTED (verdict flipped RESOLVED→BLOCKED under the opposite-state mutation, restoration hash-proven)
+PROMOTE-GATE VERDICT: PASS exit=0 (every promotion gate resolved; every flip control detected)
+EXIT=0

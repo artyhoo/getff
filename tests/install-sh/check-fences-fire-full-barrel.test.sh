@@ -15,13 +15,29 @@
 # ARMS:
 #   (full)    install react-next into a mktemp fixture (real install.sh run), symlink a
 #             node_modules tree, run the INSTALLED scripts/check-fences-fire.sh via its
-#             consumer self-resolution path → MUST exit 0 with PASS=6 FAIL=0 and R12 ACTIVE.
+#             consumer self-resolution path → MUST exit 0 with PASS=9 FAIL=0 and R12 ACTIVE
+#             (8 fixture proofs + 1 load-probe: the producer's TOTALS include the load arm —
+#             CAND005 counter split, check-fences-fire.sh l_ok increments LOAD_OK and the
+#             shared PASS; the fixture and load arms are also asserted separately below).
+#             Counts (final rework 2026-10-10, was 6/5 before the test-assurance-kernel stage):
+#             the barrel is GENERATED AT INSTALL TIME from the tracked rule sources
+#             (generate_eslint_barrel reads packages/*/eslint-rules/*.ts — setup.d/lib.sh), so
+#             the stage's two test-quality rules (no-vacuous-assertion,
+#             require-effective-assertion) join the barrel as soon as their sources ship — 8
+#             fixture triples total on react-next, 7 on ts-server (both new rules are
+#             stack-independent). Measured identical in-container at 3d2e79d49 and on the
+#             lockfile-clean host at 46c8d1d5f78 (coordinator-host commit — enters the PR
+#             lineage via the merge-forward; carrier obligation
+#             disp-rework5-host-commit-merge-carrier). R12 still names no-server-imports-in-client:
+#             the R-numbers are the consumer-catalog numbers of the pre-existing stack rules
+#             (preset RULES.md R12), and the two new rules carry no R-number (unregistered
+#             catalogs — disp-c4-preset-rules-md-catalogs / disp-c5-rules-manifest-registration).
 #   (teeth)   neuter the R12 rule inside the installed barrel (same named export, create()
 #             that never reports) → gate MUST exit non-zero with FENCE SILENT for R12.
 #             Proves arm (full) is non-vacuous: a dead R12 cannot slip through as PASS.
 #   (partial) install ts-server → R12 fixture must be ABSENT from the installed tree
-#             (barrel-filtered by 40-configs.sh) and the gate MUST exit 0 with PASS=5 —
-#             a partial-barrel stack is not false-RED.
+#             (barrel-filtered by 40-configs.sh) and the gate MUST exit 0 with PASS=8
+#             (7 fixture proofs + 1 load-probe) — a partial-barrel stack is not false-RED.
 #
 # SKIP condition: tsx or eslint not resolvable (same graceful-degrade as the gate itself).
 # rc=0 on SKIP, rc=1 on any arm FAIL.
@@ -73,6 +89,8 @@ install_consumer() {
   printf '{"name":"full-barrel-test","version":"0.0.0"}\n' > "$fixture/package.json"
   ( cd "$fixture" && git init -q && git config user.email "test@test.com" && git config user.name "Test" ) >/dev/null 2>&1
   ( cd "$fixture" && bash "$REPO_ROOT/install.sh" "$stack" --force < /dev/null ) > "$fixture/.install.log" 2>&1
+  RC_P50_020=$?
+  if [ "$RC_P50_020" -eq 0 ]; then ok "check-fences-fire-full-barrel: install rc=0 (p50-020)"; else bad "check-fences-fire-full-barrel: install rc=$RC_P50_020, expected 0 (p50-020)"; fi
 }
 
 # ─── Arm (full): react-next FULL barrel — every fence ACTIVE, including R12 ───
@@ -85,11 +103,13 @@ else
   FULL_OUT=$( cd "$FIXTURE_NEXT" && bash scripts/check-fences-fire.sh 2>&1 )
   FULL_RC=$?
   if [ "$FULL_RC" -eq 0 ] \
-     && grep -q 'PASS=6 FAIL=0' <<<"$FULL_OUT" \
+     && grep -q 'PASS=9 FAIL=0' <<<"$FULL_OUT" \
+     && grep -q 'manifests=8 proved=8 failed=0 skipped=0' <<<"$FULL_OUT" \
+     && grep -q 'ok=1 failed=0 skipped=0' <<<"$FULL_OUT" \
      && grep -q '\[no-server-imports-in-client\].*ACTIVE' <<<"$FULL_OUT"; then
-    ok "(full) react-next FULL barrel: gate exits 0, PASS=6 FAIL=0, R12 no-server-imports-in-client ACTIVE"
+    ok "(full) react-next FULL barrel: gate exits 0, PASS=9 FAIL=0 (8 fixture + 1 load-probe), R12 no-server-imports-in-client ACTIVE"
   else
-    bad "(full) react-next FULL barrel: expected rc=0 + PASS=6 + R12 ACTIVE, got rc=$FULL_RC"
+    bad "(full) react-next FULL barrel: expected rc=0 + PASS=9 (fixture 8/8 manifests+proved, failed=0 skipped=0; load ok=1 failed=0 skipped=0) + R12 ACTIVE, got rc=$FULL_RC"
     echo "    gate output: $(echo "$FULL_OUT" | tail -8 | tr '\n' '|')"
   fi
 
@@ -124,10 +144,12 @@ else
   ln -sf "$NM_SRC" "$FIXTURE_TS/node_modules"
   PART_OUT=$( cd "$FIXTURE_TS" && bash scripts/check-fences-fire.sh 2>&1 )
   PART_RC=$?
-  if [ "$PART_RC" -eq 0 ] && grep -q 'PASS=5 FAIL=0' <<<"$PART_OUT"; then
-    ok "(partial) ts-server partial barrel: gate exits 0 with PASS=5 FAIL=0 — no false-RED on a stack without R12"
+  if [ "$PART_RC" -eq 0 ] && grep -q 'PASS=8 FAIL=0' <<<"$PART_OUT" \
+     && grep -q 'manifests=7 proved=7 failed=0 skipped=0' <<<"$PART_OUT" \
+     && grep -q 'ok=1 failed=0 skipped=0' <<<"$PART_OUT"; then
+    ok "(partial) ts-server partial barrel: gate exits 0 with PASS=8 FAIL=0 (7 fixture + 1 load-probe) — no false-RED on a stack without R12"
   else
-    bad "(partial) ts-server partial barrel: expected rc=0 + PASS=5 FAIL=0, got rc=$PART_RC"
+    bad "(partial) ts-server partial barrel: expected rc=0 + PASS=8 (fixture 7/7 manifests+proved, failed=0 skipped=0; load ok=1 failed=0 skipped=0), got rc=$PART_RC"
     echo "    gate output: $(echo "$PART_OUT" | tail -8 | tr '\n' '|')"
   fi
 fi

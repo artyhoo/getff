@@ -1,0 +1,144 @@
+# baseline principles run (UNTOUCHED tree) — 2026-10-08T10:41:18Z
+$ npm --prefix packages/core run test:principles
+
+> @rules-as-tests/core@0.1.0 test:principles
+> vitest run principles/
+
+
+ RUN  v4.1.8 /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core
+
+ ❯ principles/24-plugin-manifest-integrity.test.ts (0 test)
+ ❯ principles/37-make-target-claim-liveness.test.ts (10 tests | 1 failed) 83ms
+     × every `make <target>` claim in tests/ + scripts/ is true 40ms
+ ❯ principles/48-skill-description-budget.test.ts (24 tests | 1 failed) 38ms
+     × holds for every skill this repo authors or ships 18ms
+fatal: bad boolean config value 'maybe' for 'core.bare'
+fatal: bad boolean config value 'maybe' for 'core.bare'
+ ❯ principles/14-skill-drift-detection.test.ts (2 tests | 1 failed) 2824ms
+     × detects 0 broken refs and 0 missing frontmatter in current repo state 2820ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  principles/24-plugin-manifest-integrity.test.ts [ principles/24-plugin-manifest-integrity.test.ts ]
+Error: Cannot find module 'js-yaml'
+Require stack:
+- /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/principles/24-plugin-manifest-integrity.test.ts
+ ❯ principles/24-plugin-manifest-integrity.test.ts:52:29
+     50| // it a runtime resolution, sidestepping the absent @types/js-yaml so …
+     51| const nodeRequire = createRequire(import.meta.url);
+     52| const { load: parseYaml } = nodeRequire('js-yaml') as { load: (s: stri…
+       |                             ^
+     53|
+     54| const HERE = dirname(fileURLToPath(import.meta.url));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  principles/14-skill-drift-detection.test.ts > Principle 14 — skill drift detection (D-AuditC-5 channel 3 / CI last resort) > detects 0 broken refs and 0 missing frontmatter in current repo state
+AssertionError: script stdout:
+=== Skill drift check: broken internal refs ===
+BROKEN-REF: .claude/skills/aif-skill-generator/SKILL.md → templates/
+BROKEN-REF: .claude/skills/aif-docs/SKILL.md → prev.md
+BROKEN-REF: .claude/skills/aif-docs/SKILL.md → <docs-to-readme-link>
+BROKEN-REF: .claude/skills/aif-docs/SKILL.md → next.md
+FAIL: 4 broken ref(s) found.
+
+=== Skill drift check: frontmatter completeness ===
+OK: all skill/agent files have name: and description: frontmatter.
+
+=== Skill drift check: invocation-channel contract ===
+CONTRACT-MISSING: .claude/skills/aif-roadmap/SKILL.md (has disable-model-invocation: true, lacks the canonical line)
+CONTRACT-MISSING: .claude/skills/aif-ci/SKILL.md (has disable-model-invocation: true, lacks the canonical line)
+CONTRACT-MISSING: .claude/skills/aif-explore/SKILL.md (has disable-model-invocation: true, lacks the canonical line)
+CONTRACT-MISSING: .claude/skills/aif-evolve/SKILL.md (has disable-model-invocation: true, lacks the canonical line)
+CONTRACT-MISSING: .claude/skills/aif-grounded/SKILL.md (has disable-model-invocation: true, lacks the canonical line)
+CONTRACT-MISSING: .claude/skills/aif-loop/SKILL.md (has disable-model-invocation: true, lacks the canonical line)
+CONTRACT-MISSING: .claude/skills/aif-rules/SKILL.md (has disable-model-invocation: true, lacks the canonical line)
+FAIL: 7 file(s) with a wrong or missing invocation-channel contract.
+
+check-skill-drift: FAIL (2 error category/categories)
+
+stderr:
+
+=== Skill drift check: trigger-overlap inventory (WARN only) ===
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ principles/14-skill-drift-detection.test.ts:52:7
+     50|       result.status,
+     51|       `script stdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+     52|     ).toBe(0);
+       |       ^
+     53|   });
+     54| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  principles/37-make-target-claim-liveness.test.ts > Principle 37 — make-target claim liveness > every `make <target>` claim in tests/ + scripts/ is true
+AssertionError: A shell script documents a make target that does not actually run it.
+Fix ONE of:
+  (a) wire the script into that target in the Makefile, or
+  (b) correct the comment to name the channel that really runs it, or
+  (c) if the comment documents the ABSENCE of a target, add the escape token
+      `# make-claim: allow <why, ≥20 chars>` on the same line.: expected [ …(3) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "tests/consumer-matrix/getff-dist-cell.sh:29 — claims `make consumer-matrix-getff-dist`, but no such target exists in the Makefile",
++   "tests/consumer-matrix/npm-tarball-cell.sh:41 — claims `make consumer-matrix`, but no such target exists in the Makefile",
++   "tests/consumer-matrix/pnpm-monorepo-cell.sh:47 — claims `make consumer-matrix`, but no such target exists in the Makefile",
++ ]
+
+ ❯ principles/37-make-target-claim-liveness.test.ts:226:7
+    224|         '  (c) if the comment documents the ABSENCE of a target, add t…
+    225|         `      \`# make-claim: allow <why, ≥${MIN_RATIONALE_CHARS} cha…
+    226|     ).toEqual([]);
+       |       ^
+    227|   });
+    228|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  principles/48-skill-description-budget.test.ts > principle 48 — skill description budget > holds for every skill this repo authors or ships
+AssertionError: .claude/skills: model-visible descriptions total 11372 B, budget 6800 B (largest: orchestrator 1188 B, self-reflection 765 B, tool-bootstrapping 617 B): expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   ".claude/skills: model-visible descriptions total 11372 B, budget 6800 B (largest: orchestrator 1188 B, self-reflection 765 B, tool-bootstrapping 617 B)",
++ ]
+
+ ❯ principles/48-skill-description-budget.test.ts:89:43
+     87|   it('holds for every skill this repo authors or ships', () => {
+     88|     const problems = evaluate(RULES, (p) => measurePopulation(REPO_ROO…
+     89|     expect(problems, problems.join('\n')).toEqual([]);
+       |                                           ^
+     90|   });
+     91|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  4 failed | 53 passed (57)
+      Tests  3 failed | 648 passed | 1 skipped (652)
+   Start at  10:41:18
+   Duration  8.85s (transform 4.05s, setup 784ms, import 5.42s, tests 34.81s, environment 6ms)
+
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+EXIT=1
