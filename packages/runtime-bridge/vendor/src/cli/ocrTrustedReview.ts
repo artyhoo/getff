@@ -1313,7 +1313,14 @@ export async function runTrustedReview(
       try {
         requestBytes = readFileSync(opts.requestFile);
       } catch (err) {
-        throw new Error(
+        // A missing/unreadable request is a request-lifetime failure of the
+        // same family as digest/shape holds (the brief: "a changed, missing,
+        // unreadable or incompatible request cannot become compatible") — it
+        // must surface as a named HOLD the consumer can account for, not an
+        // anonymous exit 1 with verdict:null. Mirrors runtime-config-unreadable
+        // and executable-absent for other unreadable caller-supplied inputs.
+        return holdResult(
+          'request-unreadable',
           `--request-file ${opts.requestFile} cannot be read: ${
             err instanceof Error ? err.message : String(err)
           }`,

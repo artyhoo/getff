@@ -1925,14 +1925,19 @@ for (const [label, mod] of twins) {
       }
     });
 
-    it('treats a missing request file as invocation IO (exit 1), never compatibility', async () => {
+    // Single production change that flips this case: the readFileSync catch in
+    // the local profile returning holdResult('request-unreadable', …) instead
+    // of throwing. The request sha stays pinned by writeLocalRequest; only the
+    // file's bytes are removed — no sibling input can flip the case.
+    it('holds request-unreadable when the request file is missing or unreadable (exit 2), never compatibility', async () => {
       const sc = buildScenario();
       const req = writeLocalRequest(sc);
       rmSync(req.path);
       const r = await run(mod, sc, { local: req });
-      expect(r.out.exitCode).toBe(1);
-      expect(r.out.verdict).toBeNull();
-      expect(r.out.stderrLine).toMatch(/request|ENOENT/i);
+      expect(r.out.exitCode).toBe(2);
+      expect(r.out.verdict?.status).toBe('hold');
+      expect(r.out.verdict?.holdReason).toBe('request-unreadable');
+      expect(r.out.stderrLine).toMatch(/request-unreadable/);
       expect(r.record.reviewCalls).toBe(0);
     });
 
