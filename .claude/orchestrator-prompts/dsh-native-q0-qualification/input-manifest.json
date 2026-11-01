@@ -1,7 +1,7 @@
 {
   "version": 1,
   "featureId": "dsh-native-q0-qualification",
-  "scope": "Q0 only; complete listed explicit inputs plus the existing whole getff checkout at the immutable execution revision supplied by the release binding.",
+  "scope": "Revised Q0 only: retained OpenMaus + DSH coordinator investigation; all explicit listed inputs plus existing complete getff checkout at actual immutable execution revision. Historical R1 records are provenance, not release.",
   "preparationBaseCommit": "bc8e758d2863aabbaa1062492a142662bdaa11d8",
   "observedStagingCommit": "bc8e758d2863aabbaa1062492a142662bdaa11d8",
   "files": [
@@ -47,7 +47,7 @@
     },
     {
       "path": ".claude/orchestrator-prompts/dsh-native-q0-qualification/kickoff.md",
-      "sha256": "1bd86f73aac466d6b9d8e6a6830739a6b802a9fe19ee99cb0c310369e052939a"
+      "sha256": "aba51bdd1bae57c4222a50b0ad9efb1c38fe6b36bc91f24693186ade34ed8eaf"
     },
     {
       "path": "AGENTS.md",
@@ -63,15 +63,23 @@
     },
     {
       "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md",
-      "sha256": "1adc905b57e1d78dc2ed2c54b2cc3edd7b39fe361e3ad5d4afb8e88f683fb03b"
+      "sha256": "5b7acf5db05c9d1140e08cb25f09c9c2fa03b67ed7e4e92845dd94c5bec1aad4"
     },
     {
       "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-prd.md",
-      "sha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da"
+      "sha256": "ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/admission-receipt-r2.json",
+      "sha256": "c291d8b1ba739e2b7a9ad730fb1e6536f6d1d31cacee55d05a2e4a2e7bdcb3ce"
     },
     {
       "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/admission-receipt.json",
       "sha256": "14c4cab461b39fd97968547d43e9edc295cffe4cc6a102ed717fe49e3e30081c"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/approval-receipt-r2.json",
+      "sha256": "506d94928515911ee156ad27c81acac974e8b804eec43bfe7c16277a2bf696ed"
     },
     {
       "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/approval-receipt.json",
@@ -80,6 +88,10 @@
     {
       "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/authorized-q0-contract.txt",
       "sha256": "a8a2f79e9768463dc1a34d52bf22b537891bcd401cdb34c6dde9e3f38c0e02b1"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval-r2.md",
+      "sha256": "f1297216cba71ecfd8bfd9704af98f3b11a23bfbeb31c5538962b4ee758c7adb"
     },
     {
       "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval.md",
@@ -94,12 +106,40 @@
       "sha256": "ded8a8b0fb5f3e40c55f63acc3342de492efb82e3d986f2fff78bb130078a477"
     },
     {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/intent-spec-r2.json",
+      "sha256": "8ac407db356de52552387a0affbf5e265b4cf8f733629601347b3d6e6c61c06a"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/intent-spec-r2.md",
+      "sha256": "7e5c0d9530de96990939d4eb6d69ef5a07ba438383c5854e8195c137c1fcd05c"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/q0-openmaus-contract-r2.md",
+      "sha256": "9292006b6fe12a58d791673bc97c151f90bbd6b0b943f42b7101c0b2dba1d83d"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/qualification-design-r1.md",
+      "sha256": "1adc905b57e1d78dc2ed2c54b2cc3edd7b39fe361e3ad5d4afb8e88f683fb03b"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/scope-correction-r2.md",
+      "sha256": "3efaef8ed6288b324366f4e057131feebc7f5d13aa1c813d804d01790f055b3d"
+    },
+    {
       "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-baseline.md",
       "sha256": "cbe189f1541b595e5d712a1dedb9aa599f2d50363e12d8b7c9192c0ec3599719"
     },
     {
       "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-provenance.json",
       "sha256": "8fe9673ba41ce3f70d714e6e60913d553ecbf3857ab26fec044ea2451a2bc10b"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement-r2.md",
+      "sha256": "9f4a7abd378e19587972987ce20d31e406c4f610500798242d1e95e282a172fa"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement-receipt-r2.json",
+      "sha256": "329ae9fb8c2752993a14b61569bbe72b221ec5f4510ddd1e5b35700c845368a5"
     },
     {
       "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement-receipt.json",
@@ -112,6 +152,14 @@
     {
       "path": "docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da.md",
       "sha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da"
+    },
+    {
+      "path": "docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8.md",
+      "sha256": "ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8"
+    },
+    {
+      "path": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md",
+      "sha256": "ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721"
     },
     {
       "path": "scripts/host-verify.sh",

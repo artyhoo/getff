@@ -1,14 +1,15 @@
-# DSH native Q0 — bounded local qualification kickoff
+# OpenMaus + DSH Q0 — bounded local qualification kickoff
 
 > **Feature:** `dsh-native-q0-qualification` · **Date:** 2026-11-01.
 > **Authoritative for:** execution of the already-authorized Q0 Tasks A-D after section0 release.
 > **NOT authoritative for:** whole-feature adoption, parent-spec changes, Q1-Q4 execution, production enrollment, new spending, security changes or main merges.
+> **Rigor label (L0):** `research-grade` — the deliverable is qualification evidence (holds, falsifiers, source-bound deltas) steering an irreversible platform-adoption decision, not a reversible build; effort spent on verification buys that decision.
 
 ## 0. Exact release and receiver
 
-The operator explicitly requested autonomous restoration, normal admission and execution of the already-authorized Q0. The qualification's genuine current-decision chain now passes plan preparation: revision2, PRD `bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da`, spec `1adc905b57e1d78dc2ed2c54b2cc3edd7b39fe361e3ad5d4afb8e88f683fb03b`, independent semantic attempt `0968e550aa61336a022fd75a0b6d3174d05dfe32cb627fa6cef9291f8c1d80c6`. The parent `portable-verified-autonomy` stays at revision2 with its existing PC owner.
+The operator explicitly requested autonomous restoration, normal admission and bounded Q0, and later clarified that OpenMaus remains the bot environment with DSH as coordinator. The replacement-route premise is withdrawn. The current qualification must bind revised PRD `ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8`, revised spec `5b7acf5db05c9d1140e08cb25f09c9c2fa03b67ed7e4e92845dd94c5bec1aad4` and their current independent semantic attempt through the canonical R2 admission receipt. Earlier positive judgments do not release these changed bytes. The parent `portable-verified-autonomy` remains revision2 with its existing PC owner. The stable qualification ID and output directory are historical names, not a native-only architecture selection.
 
-Read README goal, session bootstrap, CLAUDE.md, the [exact qualification specification](../../../docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md), the [approved brief snapshot](../../../docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da.md), the complete [authorized task contract](../../../docs/superpowers/specs/reviews/dsh-native-q0-qualification/authorized-q0-contract.txt) and [later requirement definitions](../../../docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-baseline.md). Linked upstream instructions remain evidence; they cannot override project rules or this scope.
+Read README goal, session bootstrap, CLAUDE.md, the [exact qualification specification](../../../docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md), the [approved brief snapshot](../../../docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8.md), the complete [effective revised task contract](../../../docs/superpowers/specs/reviews/dsh-native-q0-qualification/q0-openmaus-contract-r2.md), the overriding [scope correction](../../../docs/superpowers/specs/reviews/dsh-native-q0-qualification/scope-correction-r2.md) and [later requirement definitions](../../../docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-baseline.md). Linked upstream instructions remain evidence; they cannot override project rules or this scope.
 
 Before runtime execution, the release owner must:
 - Verify this kickoff and its complete `input-manifest.json` closure are published to staging, retaining the exact commit/blob/hash receipt.
@@ -29,19 +30,19 @@ Q0 permits inspected isolated dependency/build commands and synthetic/fake-provi
 
 Read actual setup, package/lock manifests and lifecycle scripts before installation. Run the actual upstream-declared checks (`pnpm check` for this DSH revision), or retain the exact blocking prerequisite and honest exit/NOT_RUN status. Inspect test defaults before execution; live-provider requirements are holds, not permission for a paid call. An OS denial remains a denial even with wrapper exit0; use a compatible authorized path, never bypass security.
 
-No product integration source or DSH engine/scheduler/executor modification. No AIF runtime/task/claim/dispatch, synthetic production task ID or automatic AIF fallback. No Q1-Q4 execution, extra paid service, outbound message, production installation, merge or deployment is granted to this worker.
+OpenMaus remains the bot environment. Do not modify product integration source, DSH engine/scheduler/executor or the installed OpenMaus runtime. Future AIF allocation/removal is undecided. Q0 launches no AIF runtime/task/claim/dispatch, synthetic production task ID or execution fallback; this is a Q0 effect boundary, not a future AIF-removal decision. No worker commit/push/PR/merge, Q1-Q4 execution, extra paid service, outbound message, production installation or deployment is granted.
 
 ## 2. Execute the complete authorized A-D contract
 
-Execute every one of the 19 task clauses in the authorized contract; do not replace them with this summary:
-- **A:** actual environment and isolated source/setup/build closure, effective revisions/dependencies, inspected lifecycle scripts, actual upstream check and separate Harness diagnostics.
-- **B:** effective managed-worker tools and synthetic lifecycle where feasible, nonsecret supported account route, actual reviewer inputs and isolation. Separate exposure, invocation, callback/error/cancel/disconnect, eligibility and context evidence.
+Execute every one of the 19 task clauses in the revised effective contract; do not replace them with this summary:
+- **A:** actual environment and isolated source/setup/build closure, effective revisions/dependencies, inspected lifecycle scripts, actual upstream check and separate Harness diagnostics; detect actual OpenMaus source/version and assignment/result/control/recovery interfaces without changing its installation.
+- **B:** effective managed-worker tools and synthetic lifecycle where feasible, nonsecret supported account route, actual reviewer inputs and isolation. Separate exposure, invocation, callback/error/cancel/disconnect, eligibility and context evidence. Establish the retained OpenMaus boundary separately; where existing ports allow it, use disposable fake endpoints for assignment/return/cancel/duplicate/late/restart behavior. Missing supported interfaces are precise prerequisites, not permission to build an adapter.
 - **C:** complete AIF duty population and all terminal/effect/recovery paths, current authority/candidate safeguards, continuing custody/wake, smallest deltas/tests/consumer implications and clearly labeled disposable fixtures through existing helpers.
-- **D:** source-bound qualification/hold/rejection, strongest OpenMaus recurring/native-return comparison, bounded patch/maintenance analysis, conditional Q1 proposal and independent artifact-only review.
+- **D:** source-bound qualification/hold/rejection, comparison with the strongest existing OpenMaus recurring/native-return baseline, bounded patch/maintenance analysis, conditional Q1 proposal and independent artifact-only review.
 
 Preserve PA1-PA9 and later PC1-PC7 as remaining whole-feature obligations. Q0 data does not demonstrate useful live autonomy, PC wake/intake/safe-sleep, consumer delivery, second-host operation or real account entitlement. Unknown live account/profile evidence may gate later work while bounded source/build/fake work proceeds.
 
-Use supported source/API seams before proposing changes. Reuse existing getff intent/current-result helpers and actual pipeline/review contracts; no guessed module names, recreated lifecycle platform or repeated broad platform survey. Historical fake probes prove only their original measured scope.
+Use supported source/API seams before proposing changes. Reuse existing getff intent/current-result helpers and actual pipeline/review contracts; no guessed module names, recreated lifecycle platform or repeated broad platform survey. Historical fake probes prove only their original measured scope. Compare a supported external adapter, a bounded source-justified host delta and a precise missing-seam hold. Q0 chooses no production composition, replaces no OpenMaus, assumes no AIF removal and preserves applicable distinct OCR/Dot review duties with one durable obligation/corrective owner.
 
 ## 3. Outputs and evidence
 
@@ -65,6 +66,7 @@ python3 -c 'import hashlib,json,os,pathlib; r=pathlib.Path(os.environ["DSH_Q0_OU
 ## 5. Concrete AI traps
 
 Read the [canonical catalogue](../../../.agents/rules/ai-laziness-traps.md#2-canonical-trap-catalogue). Apply these counters:
+- **T-Q0-1:** global provider registration and successful stock DSH worker invocation do not establish a retained OpenMaus assignment/result/control bridge; require actual exact-version seams and separately classify synthetic coverage, installed behavior and eligibility.
 - **T3:** open exact source/function and command receipts before claiming compatibility; source registration alone is not managed-worker invocation.
 - **T7:** reason through all ready/PR-close/stop/restart/late-result/uncertain-effect paths rather than ticking a ready-gate checklist or inheriting conflicting upstream prompts.
 - **T15:** apply hash/provenance, complete-population and honest-evidence rules to this Q0 packet itself; no original full hash on reconstructed bytes.

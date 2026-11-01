@@ -1,4 +1,4 @@
-# DSH native Q0 qualification specification
+# OpenMaus + DSH Q0 qualification specification
 
 > **Feature:** `dsh-native-q0-qualification`.
 > **Parent:** `portable-verified-autonomy`; parent revision2 and the existing PC owner remain unchanged.
@@ -7,7 +7,7 @@
 
 ## 0. Scope and release
 
-The operator requested execution of the original Q0 Tasks A-D, then explicitly requested autonomous local restoration from cloud history and pinned sources and normal admission. This specification binds that same bounded investigation to a separate qualification identity. It neither reconstructs missing full-design clauses nor records agreement to the unavailable original full-design hash.
+The operator requested autonomous local restoration and bounded Q0 execution, then explicitly clarified that OpenMaus remains and DSH should coordinate its bots. The cloud correction withdraws the old replacement premise. This revision qualifies that retained composition; it does not implement the integration or decide AIF removal. This specification binds that same bounded investigation to a separate qualification identity. It neither reconstructs missing full-design clauses nor records agreement to the unavailable original full-design hash.
 
 Before preparing an executable handoff, the normal current-decision chain for THIS qualification must resolve its exact approved brief, independent current semantic specification review and actual scoped agreement. Use the existing intent publishers/recorders with the genuine shared orchestration home `/Users/art/.claude-coordination/rules-as-tests-aif` and captured per-feature revisions. The parent feature's green gate proves only the parent chain; it is not this qualification's release.
 
@@ -17,9 +17,9 @@ The executing packet must identify its admitted Q0 phase and exact receipts. His
 
 ## 1. Authoritative task contract and source boundary
 
-The complete authorized task and output contract is preserved in `reviews/dsh-native-q0-qualification/authorized-q0-contract.txt`, SHA256 `a8a2f79e9768463dc1a34d52bf22b537891bcd401cdb34c6dde9e3f38c0e02b1`. It contains the original kickoff sections1-5, including every Q0 Task A-D clause, output artifact, acceptance condition and later-stage boundary. Its clause text matches the observed source prefix; only final blank section separators were normalized to one final LF.
+The effective task/output/acceptance contract is `reviews/dsh-native-q0-qualification/q0-openmaus-contract-r2.md`, SHA256 `9292006b6fe12a58d791673bc97c151f90bbd6b0b943f42b7101c0b2dba1d83d`. It preserves the 19 original A-D clauses and nine output obligations, with explicit source-first OpenMaus assignment/result/control/recovery qualification and the operator's corrected premise. Execute that complete revised contract, not the historical replacement-route excerpt. `scope-correction-r2.md` retains the exact operator evidence and withdrawn assumptions.
 
-Execute those Tasks A-D under this section0 release and the boundaries below. Old references to kickoff section0 mean this specification's release contract for this separate qualification. Relative URLs embedded in the plain-text source excerpt locate the historical cloud preparation corpus; they are source locators, not a claim that those old files were all recovered or published locally. Use the verified local input manifest and pinned primary-source captures for actual work. Mark every unavailable historical artifact explicitly and reproduce only necessary missing facts from primary sources; do not repeat the whole platform survey.
+The unchanged `authorized-q0-contract.txt` is historical source evidence only. Its old embedded cloud locators do not claim recovered local files. Use the actual input manifest and pinned captures; identify missing sources precisely and reproduce only required facts. Do not repeat the whole platform survey.
 
 The original full-design SHA256 `cb971d0995e6f53efba312ee44cd8370312b53b46779ce16555c5a44cd79ebee` and kickoff SHA256 `c98e43cf2c70992847269dbe203e43e4e13ec2237d23682669a942828b90f7ae` are historical reported bindings. Missing source ranges prevent verifying those full bytes locally. This specification and the qualified task contract carry their own hashes; missing-line drafts cannot be admitted as operational specifications.
 
@@ -31,8 +31,9 @@ Use the complete DSH application at trial commit `6337fc823ce20251c8de8085948165
 | --- | --- |
 | Q0-P1 | Task A records actual destination/profile/tool identity, inspected setup and lifecycle scripts, pinned source/build closure, upstream-declared checks with complete command receipts, and concrete failures/prerequisites. |
 | Q0-P2 | Task B distinguishes global provider registration, effective managed-worker exposure, successful fake/synthetic invocation, lifecycle callbacks/error/cancel/disconnect, legitimate account-route evidence and actual reviewer inputs/isolation. |
-| Q0-P3 | Task C inventories every AIF replacement duty and terminal/effect/recovery path, acceptance guard, continuing owner/wake, minimal delta, tests/consumer impact and missing prerequisites; existing authority helpers run only on clearly labeled disposable fixtures. |
-| Q0-P4 | Task D returns a source-bound qualification/hold/rejection, complete artifacts/raw receipts/manifest, the strongest existing OpenMaus recurring/native-return comparison, a concrete Q1 proposal only when feasible, and fresh artifact-only independent review. |
+| Q0-P3 | Task C inventories every existing AIF/getff duty and proposed retained/moved/removed allocation and terminal/effect/recovery path, acceptance guard, continuing owner/wake, minimal delta, tests/consumer impact and missing prerequisites; existing authority helpers run only on clearly labeled disposable fixtures. |
+| Q0-P4 | Task D returns a source-bound qualification/hold/rejection, complete artifacts/raw receipts/manifest, comparison with the strongest existing OpenMaus recurring/native-return baseline, a concrete Q1 proposal only when feasible, and fresh artifact-only independent review. |
+| Q0-P5 | Tasks A-C identify actual OpenMaus source/version and assignment/result/cancel/recovery APIs, distinguish them from stock DSH worker activation, and map a single coordinator/worker obligation with preserved OCR/Dot review and corrective custody. Task D compares supported adapter, bounded host delta and missing-seam hold without choosing OpenMaus/AIF removal or claiming an installed bridge. |
 
 Preserve the original output population: `Q0-REPORT.md`, `environment.json`, `sources.json`, `providers-and-context.md`, `replacement-map.csv`, `terminal-paths.csv`, sanitized `raw/`, `output-manifest.json` excluding itself, and `Q1-PLAN.md` only when feasible. The report must name missing required artifacts; missing output is never hidden by a manifest over a smaller population. Use the actual run date and keep secret-bearing/host-private traces local.
 
@@ -46,9 +47,15 @@ Read upstream setup and package/lock manifests, including lifecycle scripts, bef
 
 Q0 invokes no paid DSH/provider model, performs no login, copies no credentials or whole private configuration, enrolls no production destination, and changes no production PC/power/access state. Existing-subscription GLM is the retained investigation executor under its standing launch policy; this is distinct from testing DSH's coordinator/child billing or eligibility. Unknown DSH entitlement remains UNKNOWN and gates the relevant later work.
 
-The candidate task path uses no AIF runtime/task/claim/dispatch and no automatic AIF fallback. Existing unrelated AIF users remain with their owners. Product integration source, DSH scheduler/engine/executor, new general registries/routers/observers and Q1-Q4 execution are outside Q0. Existing workflow/admission/acceptance responsibilities must be mapped rather than waived.
+Q0 launches no AIF runtime/task/claim/dispatch or fallback. This execution restriction is not a decision about the future composition: OpenMaus is retained and AIF responsibility/removal remains open. Existing AIF users remain with their owners. DSH is the proposed coordination responsibility, not proof of a supported OpenMaus plugin. Product integration source, DSH scheduler/engine/executor, new general registries/routers/observers and Q1-Q4 execution are outside Q0. Existing workflow/admission/acceptance responsibilities must be mapped rather than waived.
 
-## 4. Truthful disposition and continuation
+## 4. Composition alternatives and investigation boundary
+
+The explicit operator decision is retained OpenMaus with DSH coordinating its bots. The owner-selected investigation approach compares (1) a supported external DSH/OpenMaus adapter through existing assignment/result/control ports, (2) a bounded host delta only if required by actual source contracts, and (3) HOLD if no bounded compatible seam exists. These are Q0 research alternatives, not operator-approved implementation choices. Prefer supported interfaces; measure the delta and upgrade surface before proposing a Q1 selection. Replacing OpenMaus is excluded; AIF allocation is undecided. Unknown OpenMaus source/API access is a precise prerequisite, never invented compatibility.
+
+The contract must bind work/assignment/candidate identity, accepted current result, cancel/late/duplicate/unknown outcome, restart/custody/wake and review finding return to the sole corrective owner. Existing helpers and disposable fake fixtures may establish only their measured scope. No live production bot, reviewer account, plugin or integration is enrolled by Q0.
+
+## 5. Truthful disposition and continuation
 
 Return `QUALIFIED_FOR_Q1`, `HOLD_PREREQUISITE` or `REJECT_PRESENT_CONSTRAINTS` with source-bound reasons. A required new paid route or a plan to recreate the host lifecycle contradicts present constraints; identify the concrete cause and bounded alternative. Missing evidence or an unavailable profile/account is not automatically an incompatibility or a favorable result.
 
