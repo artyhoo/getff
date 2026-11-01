@@ -4264,7 +4264,9 @@ gen_mut_not_armed_why() {
 # project_hook_checks — the record command of each PROJECT_HOOK_CHECKS script this project has.
 project_hook_checks() {
   local f
-  for f in "${PROJECT_HOOK_CHECKS[@]}"; do [ -f "$PROJECT_ROOT/scripts/$f" ] && echo "bash scripts/$f"; done
+  # ${A[@]+…} guard: install.sh:1820 assigns PROJECT_HOOK_CHECKS=() for stack «generic», so the
+  # array can be empty — bash <4.4 aborts the bare expansion under set -u (B32-EMPTY).
+  for f in ${PROJECT_HOOK_CHECKS[@]+"${PROJECT_HOOK_CHECKS[@]}"}; do [ -f "$PROJECT_ROOT/scripts/$f" ] && echo "bash scripts/$f"; done
   return 0
 }
 
@@ -4272,7 +4274,7 @@ project_hook_checks() {
 # package.json (nothing without a package.json or node).
 project_check_scripts() {
   [ -f "$PROJECT_ROOT/package.json" ] && command -v node >/dev/null 2>&1 || return 0
-  GETFF_PKG="$PROJECT_ROOT/package.json" GETFF_NAMES="${PROJECT_CHECKS[*]}" node -e '
+  GETFF_PKG="$PROJECT_ROOT/package.json" GETFF_NAMES="${PROJECT_CHECKS[*]+"${PROJECT_CHECKS[*]}"}" node -e '
     const s = JSON.parse(require("fs").readFileSync(process.env.GETFF_PKG, "utf8")).scripts || {};
     for (const n of process.env.GETFF_NAMES.split(" "))
       if (typeof s[n] === "string") console.log(n + "\t" + s[n].replace(/[\t\n]/g, " "));' 2>/dev/null || true
