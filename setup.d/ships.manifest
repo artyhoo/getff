@@ -52,6 +52,7 @@ skill	story	ships	factory	no	no runtime reason: the operator product call of 202
 skill	intent	ships	factory	no	S1 delivers the product-only /intent boundary at factory depth — its helper + scoped route are validated there first (intent-first-result kickoff §2); env/native delivery is the S3 outline, not yet verified
 skill	self-reflection	internal	no	no	internal, because it is the §1.7 PR self-review discipline of getff's own development process, not a consumer capability
 skill	docs-author	internal	no	no	internal, because it writes pages of the getff.ai site under docs/site/ (scripts/docs-check.mjs:83 binds it to that tree)
+skill	getff-experience	internal	no	no	internal, because it is the getff contributor experience-recall workflow bound to the operator's local MemHub installation (one governed lookup per work unit); consumer rollout is deferred pending OpenMausBot access and roles
 skill	using-getff	ships	no	yes	plugin entry point: tells a plugin session how to find the getff skills; an installer consumer reads AGENTS.md and the installed skills instead
 skill	installing-enforcement	ships	no	yes	plugin-only bridge to the installer: wires the hard layer for a plugin user; an installer run IS that wiring, so it has nothing to do there
 hook	ask-question-reminder	ships	core	yes	-

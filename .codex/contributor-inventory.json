@@ -36,6 +36,11 @@
       "explicit": false
     },
     {
+      "name": "getff-experience",
+      "source": ".agents/procedures/getff-experience",
+      "explicit": false
+    },
+    {
       "name": "harvest",
       "source": ".agents/procedures/harvest",
       "explicit": true
@@ -366,6 +371,16 @@
       "path": ".agents/skills/getff/references",
       "kind": "symlink",
       "fingerprint": "../../procedures/getff/references"
+    },
+    {
+      "path": ".agents/skills/getff-experience/SKILL.md",
+      "kind": "text",
+      "fingerprint": "ce6b82499fbe70c0932a7f12e7aa91ce9839cde3f4e83670d6c3443a3ea55ad1"
+    },
+    {
+      "path": ".agents/skills/getff-experience/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
     },
     {
       "path": ".agents/skills/harvest/SKILL.md",

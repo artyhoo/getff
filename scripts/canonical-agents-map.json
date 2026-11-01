@@ -467,6 +467,11 @@
       "entry": "link"
     },
     {
+      "legacy": ".claude/skills/getff-experience/SKILL.md",
+      "owner": ".agents/procedures/getff-experience/SKILL.md",
+      "entry": "link"
+    },
+    {
       "legacy": ".claude/skills/harvest/SKILL.md",
       "owner": ".agents/procedures/harvest/SKILL.md",
       "entry": "link"

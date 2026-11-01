@@ -158,6 +158,25 @@
       "example": null
     },
     {
+      "name": "getff-experience",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Use when beginning substantive implementation, debugging, integration, or design work in the getff repository and about to choose an approach — before writing code, fixing an unfamiliar failure, or committing to a plan. Triggers: starting a feature, bugfix, gate/CI/hook/renderer/tooling change in getff; a distinctive build, test, or runtime error. Not for trivial edits, mechanical continuation of in-flight work, or when the current task already supplies the needed prior solution.",
+      "source": {
+        "path": ".agents/procedures/getff-experience/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/getff-experience/SKILL.md"
+      },
+      "example": null
+    },
+    {
       "name": "harvest",
       "kind": "skill",
       "shipsTo": {
