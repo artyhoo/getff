@@ -45,7 +45,7 @@ import {
   realpathSync,
   writeFileSync,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { parseCliArgs, CliArgError, isMain } from './cliEntry.js';
 import type { CliArgSpec } from './cliEntry.js';
 import { getTask } from './aifHttp.js';
@@ -1382,7 +1382,18 @@ export async function runTrustedReview(
         `merge-base(${base}, ${head}) did not resolve to a full commit id`,
       );
     }
-    if (!commitIdsEqual(head, requestedHead)) {
+    // Local profile: the request must name the FULL candidate commit. The
+    // prefix form exists for the AIF binding only; in a SHA-256 repository a
+    // 40-hex request.head passes shape validation and prefix-matches the
+    // 64-hex HEAD — a request that never specified the exact candidate would
+    // become compatible. Local demands equal-length, case-insensitive exact
+    // equality (native review finding, run 867a3091).
+    const headMatches =
+      opts.profile === 'local'
+        ? head.length === requestedHead.length &&
+          head.toLowerCase() === requestedHead.toLowerCase()
+        : commitIdsEqual(head, requestedHead);
+    if (!headMatches) {
       return holdResult(
         'head-mismatch',
         opts.profile === 'aif'
@@ -1442,6 +1453,20 @@ export async function runTrustedReview(
       opts.ruleFile !== undefined ? realOf(resolve(opts.ruleFile)) : null;
     const requestFileAbs =
       opts.profile === 'local' ? realOf(resolve(opts.requestFile)) : null;
+    // Symlinked caller files keep TWO identities: realOf() above resolves an
+    // in-repo symlink to its external TARGET, while git status lists the
+    // lexical ENTRY itself. Admitting only the target would false-HOLD the
+    // explicitly declared entry as undeclared context (native review finding,
+    // run 867a3091). entryOf() preserves the canonical-parent/lexical-leaf
+    // form git reports; only the exact supplied entries are exempted — an
+    // unrelated symlink elsewhere stays undeclared context.
+    const entryOf = (p: string): string =>
+      join(realOf(dirname(p)), basename(p));
+    const manifestEntry = entryOf(resolve(opts.materials));
+    const ruleFileEntry =
+      opts.ruleFile !== undefined ? entryOf(resolve(opts.ruleFile)) : null;
+    const requestFileEntry =
+      opts.profile === 'local' ? entryOf(resolve(opts.requestFile)) : null;
     const statusOf = async (): Promise<{
       dirty: boolean;
       untracked: string[];
@@ -1460,9 +1485,17 @@ export async function runTrustedReview(
     ): string[] =>
       untracked.filter((rel) => {
         const abs = resolve(repoReal, rel);
-        if (abs === manifestAbs) return false;
-        if (ruleFileAbs !== null && abs === ruleFileAbs) return false;
-        if (requestFileAbs !== null && abs === requestFileAbs) return false;
+        if (abs === manifestAbs || abs === manifestEntry) return false;
+        if (
+          ruleFileAbs !== null &&
+          (abs === ruleFileAbs || abs === ruleFileEntry)
+        )
+          return false;
+        if (
+          requestFileAbs !== null &&
+          (abs === requestFileAbs || abs === requestFileEntry)
+        )
+          return false;
         if (runDir !== null && (abs === runDir || abs.startsWith(`${runDir}/`)))
           return false;
         if (materialPaths.has(rel)) return false;

@@ -80,8 +80,11 @@ interface Scenario {
 const tmpDirs: string[] = [];
 
 /** A minimal, fully-deterministic candidate repo: rename (space + Unicode names),
- *  deletion, addition of a leading-dash path, one modification, one material. */
-function buildScenario(): Scenario {
+ *  deletion, addition of a leading-dash path, one modification, one material.
+ *  `objectFormat: 'sha256'` builds the same shape with 64-hex commit ids. */
+function buildScenario(
+  opts: { objectFormat?: 'sha1' | 'sha256' } = {},
+): Scenario {
   const tmp = mkdtempSync(join(tmpdir(), 'otr-'));
   tmpDirs.push(tmp);
   const home = join(tmp, 'home');
@@ -100,7 +103,13 @@ function buildScenario(): Scenario {
   };
   const git = (args: string[], cwd: string = repo): string =>
     execFileSync('git', args, { cwd, env: gitEnv }).toString().trim();
-  git(['-c', 'init.defaultBranch=main', 'init', '-q']);
+  git([
+    '-c',
+    'init.defaultBranch=main',
+    'init',
+    '-q',
+    ...(opts.objectFormat === 'sha256' ? ['--object-format=sha256'] : []),
+  ]);
   writeFileSync(join(repo, 'README.md'), 'readme\n');
   writeFileSync(join(repo, 'dep.txt'), 'dep v1\n');
   writeFileSync(join(repo, 'old name.md'), 'old content\n');
@@ -2062,6 +2071,69 @@ for (const [label, mod] of twins) {
       const r = await run(mod, sc, { local: req });
       expect(r.out.exitCode).toBe(0);
       expect(r.out.verdict?.untracked0).toContain('request-inside.json');
+    });
+
+    // Single production change that flips this case: the local-profile head
+    // comparison demanding equal-length exact equality instead of the AIF
+    // prefix form. The request sha stays pinned by writeLocalRequest; the ONLY
+    // mutated input is head = sc.head.slice(0, 40) — shape-valid 40-hex against
+    // a 64-hex SHA-256 HEAD (a SHA-256 repo, not a mutated SHA-1 one, is the
+    // one fixture where both shapes are simultaneously valid).
+    it('holds head-mismatch when local request.head is a 40-hex prefix of a SHA-256 HEAD (exit 2)', async () => {
+      const sc = buildScenario({ objectFormat: 'sha256' });
+      expect(sc.head).toMatch(/^[0-9a-f]{64}$/i);
+      const req = writeLocalRequest(sc, (b) => {
+        b.head = (b.head as string).slice(0, 40);
+      });
+      const r = await run(mod, sc, { local: req });
+      expect(r.out.exitCode).toBe(2);
+      expect(r.out.verdict?.status).toBe('hold');
+      expect(r.out.verdict?.holdReason).toBe('head-mismatch');
+      expect(r.out.stderrLine).toMatch(/head-mismatch/);
+      expect(r.record.reviewCalls).toBe(0);
+    });
+
+    // Control: exact 64-hex equality still runs in a SHA-256 repository.
+    it('accepts an exact 64-hex local request.head in a SHA-256 repository', async () => {
+      const sc = buildScenario({ objectFormat: 'sha256' });
+      const req = writeLocalRequest(sc);
+      const r = await run(mod, sc, { local: req });
+      expect(r.out.exitCode).toBe(0);
+      expect(r.out.verdict?.status).toBe('compatible');
+      expect(r.out.verdict?.request?.head).toBe(sc.head);
+    });
+
+    // Single production change that flips this case: admitting the
+    // canonical-parent/lexical-leaf entry of the supplied request alongside its
+    // realpath. Pins: the request bytes are written once outside the repo and
+    // read through the link (digest identical, sha pinned by writeLocalRequest)
+    // — only the untracked symlink ENTRY distinguishes this fixture from the
+    // compatible happy path.
+    it('admits an in-repo symlink to the pinned local request instead of holding undeclared-untracked-input', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      const link = join(sc.repo, 'request-link.json');
+      symlinkSync(req.path, link);
+      const r = await run(mod, sc, { local: { path: link, sha256: req.sha256 } });
+      expect(r.out.verdict?.untracked0).toContain('request-link.json');
+      expect(r.out.exitCode).toBe(0);
+      expect(r.out.verdict?.status).toBe('compatible');
+      expect(r.out.verdict?.request?.path).toBe(link);
+    });
+
+    // Negative control for the entry exemption: only the SUPPLIED entry is
+    // admitted — a second, unrelated in-repo symlink stays undeclared context.
+    it('still holds undeclared-untracked-input for an unrelated in-repo symlink', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      const link = join(sc.repo, 'request-link.json');
+      symlinkSync(req.path, link);
+      symlinkSync(req.path, join(sc.repo, 'other-link.json'));
+      const r = await run(mod, sc, { local: { path: link, sha256: req.sha256 } });
+      expect(r.out.exitCode).toBe(2);
+      expect(r.out.verdict?.holdReason).toBe('undeclared-untracked-input');
+      expect(r.out.verdict?.untracked0).toContain('other-link.json');
+      expect(r.record.reviewCalls).toBe(0);
     });
 
     it('holds stale-inspection when the T1 applied rule changes (F-3, local profile)', async () => {
