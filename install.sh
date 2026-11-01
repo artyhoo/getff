@@ -797,9 +797,18 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
     # record_add_unlisted): only lines between the owned begin/end markers are this
     # installer's record — the first `stack:` line INSIDE that block wins, everything
     # outside the fence is foreign text the writer preserves but the reader ignores.
+    # FID2-D1 (fidelity round 2; addendum «Required dispatch behavior» item 4): the
+    # record is OPTIONAL dispatch input — an unreadable owned value selects no exception
+    # and keeps the original fallback below. Under set -euo pipefail (install.sh:52) an
+    # unguarded assignment would propagate awk's read failure (exit 2, e.g. EACCES on a
+    # regular-but-unreadable file) and abort plain --refresh BEFORE the classifier chain
+    # (measured on 5d67de0e723: refresh exit 2, no stack resolution at all).
+    # `|| _refresh_record_stack=""` converts a failed or partial read into «no recorded
+    # value» — empty never matches `generic)` — and 2>/dev/null makes the unreadable
+    # case as silent as the missing-file case above.
     _refresh_record_stack=$(awk -v b='<!-- aif:project-checks:begin -->' -v e='<!-- aif:project-checks:end -->' '
       {sub(/\r$/,"")} $0==b{f=1;next} $0==e{f=0} f && /^stack:/ {sub(/^stack:[[:space:]]*/,""); print; exit}' \
-      "$PROJECT_ROOT/.ai-factory/tool-decisions.md")
+      "$PROJECT_ROOT/.ai-factory/tool-decisions.md" 2>/dev/null) || _refresh_record_stack=""
   fi
   case "$_refresh_record_stack" in
     generic)

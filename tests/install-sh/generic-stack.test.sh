@@ -882,4 +882,43 @@ grep -q 'stack: generic' <<<"$out" && ! grep -q 'stack: ts-server' <<<"$out" \
   && ok "(19) explicit positional generic wins over the recorded ts-server" \
   || bad "(19) positional priority lost: $(grep 'stack:' <<<"$out" | head -1)"
 
+# ── (20) FID2-D1 (fidelity round 2; addendum «Required dispatch behavior» item 4): an
+# unreadable owned record is an UNAVAILABLE optional value — plain --refresh must keep the
+# original legacy fallback instead of aborting. The fixture carries a VALID owned generic
+# inside the fence, so only the failed read may suppress it; the react-next passport makes
+# the consumer otherwise classifiable (fallback twin of the D19C control). chmod 000
+# exercises EACCES for the normal non-root runner — under root the read succeeds and this
+# arm fails loudly rather than false-passing.
+D20=$(mktemp -d); TMPS+=("$D20")
+drivable_fixture "$D20"
+mkdir -p "$D20/.ai-factory"
+printf '%s\n' '<!-- aif:project-checks:begin -->' 'stack: generic' '<!-- aif:project-checks:end -->' \
+  > "$D20/.ai-factory/tool-decisions.md"
+printf '# react-next rules\n' > "$D20/.ai-factory/RULES.react-next.md"
+( cd "$D20" && git init -q && git config user.email t@t && git config user.name t ) >/dev/null 2>&1
+# healthy control: the readable valid owned generic outranks the passport (addendum item 2)
+out=$( cd "$D20" && bash "$INSTALL" --refresh < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] && grep -q 'Refresh stack from the installer-owned project-checks record: stack: generic' <<<"$out" \
+  && ok "(20) healthy control: readable owned generic takes the exception (exit 0)" \
+  || bad "(20) healthy control failed: exit $rc (tail: $(tail -3 <<<"$out" | tr '\n' '|'))"
+grep -q 'stack: generic' <<<"$out" && ! grep -q 'stack: react-next' <<<"$out" \
+  && ok "(20) healthy control: generic route reached (record outranks passport)" \
+  || bad "(20) healthy control: route $(grep 'stack:' <<<"$out" | head -1)"
+# unreadable owned record: the fallback must run (passport decides), never abort
+chmod 000 "$D20/.ai-factory/tool-decisions.md"
+out=$( cd "$D20" && bash "$INSTALL" --refresh < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] \
+  && ok "(20) unreadable owned record: plain refresh exits 0 (no abort)" \
+  || bad "(20) unreadable owned record: refresh aborted exit $rc (tail: $(tail -3 <<<"$out" | tr '\n' '|'))"
+grep -q 'stack: react-next' <<<"$out" && ! grep -q 'Refresh stack from the installer-owned project-checks record' <<<"$out" \
+  && ok "(20) unreadable owned record: legacy fallback ran (react-next passport; record ignored)" \
+  || bad "(20) unreadable owned record: resolution $(grep 'stack:' <<<"$out" | head -1)"
+# recovery control: restore readability — the same record takes the exception again, so the
+# guard cannot have swallowed healthy reads
+chmod 644 "$D20/.ai-factory/tool-decisions.md"
+out=$( cd "$D20" && bash "$INSTALL" --refresh < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] && grep -q 'Refresh stack from the installer-owned project-checks record: stack: generic' <<<"$out" \
+  && ok "(20) recovery control: readable again — exception restored" \
+  || bad "(20) recovery control failed: exit $rc (tail: $(tail -3 <<<"$out" | tr '\n' '|'))"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
