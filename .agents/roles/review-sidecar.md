@@ -232,7 +232,12 @@ asks for the trusted native OCR review of an exact committed candidate, you may 
 producer ONCE. Everything else about this role stays report-only.
 
 ```bash
-npx tsx .agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts \
+# Producer entry selection — installed consumer entry first, authoring source second.
+ENTRY=".agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts"
+[ -f "$ENTRY" ] || ENTRY="packages/runtime-bridge/src/cli/ocrTrustedReview.ts"
+[ -f "$ENTRY" ] || { echo 'producer never executed: no ocrTrustedReview.ts at either deployment location' >&2; exit 1; }
+echo "producer entry: $ENTRY; loader: local tsx (npx --no-install)" >&2
+npx --no-install tsx "$ENTRY" \
   --repo "$PWD" \
   --request-file /ABS/request.json --request-sha256 <sha256-of-request-bytes> \
   --base-ref <review-base-ref> \
@@ -244,8 +249,17 @@ npx tsx .agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts \
 - The request file is `{kind:'getff.ocr-review-request/v1', id, title, description, plan, head}`
   (`plan` may be `null`); `head` must equal the candidate HEAD. You never invent AIF task
   fields — the local profile makes no AIF HTTP call at all.
-- `tsx` ships with the install's offered devDependencies; if that consent was declined, obtain
-  `tsx` deliberately before invoking — never let a bare `npx` registry-fetch a floating copy.
+- The producer ships at exactly two deployment locations: the installed consumer entry
+  `.agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts` (selected when present) and the
+  authoring-framework source `packages/runtime-bridge/src/cli/ocrTrustedReview.ts`. Selection
+  happens once, before the single invocation, and the selected path + loader go in the receipt.
+  If the selected producer RUNS and exits non-zero, report that outcome — never re-run through
+  the other location. If neither location exists, report producer-never-executed before any
+  native/model use.
+- `npx --no-install` keeps the loader local: `tsx` ships with the install's offered
+  devDependencies (the authoring checkout resolves it from the root `node_modules`); if that
+  consent was declined, obtain `tsx` deliberately before invoking — never drop `--no-install`
+  to let a bare `npx` registry-fetch a floating copy.
 - Materials are the caller's review requirements, passed through as data. Do not add
   host-routing or run-OCR-again instructions to them, and do not swap them for summaries.
 - Full scope comes from the caller rule file. The native's default item selection skips
