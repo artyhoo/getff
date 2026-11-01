@@ -793,10 +793,13 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:698          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:719          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:747          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:662          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:687          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:707          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:738          rewrite_vitest_source_roots  → vitest-layout
+# (preset labels keep these rows textually distinct: the R11 shift moved react-native
+# off its old number while next-15-canonical moved onto it, and byte-identical row
+# texts made the blame-anchored citation check misread the rewritten row as unchanged)
+#   setup.d/40-configs.sh:662          rewrite_vitest_source_roots  → vitest-layout (ts-server)
+#   setup.d/40-configs.sh:687          rewrite_vitest_source_roots  → vitest-layout (next-15-canonical)
+#   setup.d/40-configs.sh:707          rewrite_vitest_source_roots  → vitest-layout (react-spa)
+#   setup.d/40-configs.sh:738          rewrite_vitest_source_roots  → vitest-layout (react-native)
 #   setup.d/lib.sh:2217               appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         tool-decisions copy_safe       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1815          tool-decisions copy_safe       → suppress-no-entry (proved)
