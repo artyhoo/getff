@@ -613,7 +613,23 @@ if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would run each check getff adds once, arm the green ones, and record them in .ai-factory/tool-decisions.md"
 else
   _pc_scripts=""
-  [ "${STACK:-}" = "generic" ] || _pc_scripts=$(project_check_scripts)
+  if [ "${STACK:-}" = "generic" ]; then
+    # F3: a drivable generic install (own eslint/oxlint + own lint script) still gets its OWN
+    # lint enumerated — lint only, nothing else (the same two-signal gate as 40-configs/50-hooks).
+    # Scope PROJECT_CHECKS around the existing enumerator: it sees just `lint`, so the arm pass
+    # below runs and arms (or records not-armed) exactly the project's own lint; a plain generic
+    # keeps the empty enumeration (no getff checks run at install). bash-3.2-safe restore guard.
+    _g99_linter=$(project_linter "$PROJECT_ROOT")
+    if { [ "${_g99_linter}" = "eslint" ] || [ "${_g99_linter}" = "oxlint" ]; } \
+       && [ -n "$(project_lint_command "$PROJECT_ROOT")" ]; then
+      _pc_saved_checks=(${PROJECT_CHECKS[@]+"${PROJECT_CHECKS[@]}"})
+      PROJECT_CHECKS=(lint)
+      _pc_scripts=$(project_check_scripts)
+      PROJECT_CHECKS=(${_pc_saved_checks[@]+"${_pc_saved_checks[@]}"})
+    fi
+  else
+    _pc_scripts=$(project_check_scripts)
+  fi
   _pc_log=$(mktemp)
   [ -z "$_pc_scripts" ] || echo "▶ arming getff's checks: each runs once on your code; only a green one blocks"
   while IFS=$'\t' read -r _pc_n _pc_v; do

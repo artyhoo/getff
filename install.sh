@@ -765,7 +765,40 @@ fi
 
 # For --refresh: auto-detect the stack from the consumer's existing files so the
 # interactive prompt is skipped (refresh is non-interactive by design — opt-in flag).
+# M1 dispatch repair (Root 8707663; arm-16 live RED 2026-10-29, 247 pass / 16 fail): the
+# installer-OWNED project-checks record is consulted FIRST — the `stack:` line inside the
+# <!-- aif:project-checks:begin/end --> block of .ai-factory/tool-decisions.md (written by
+# this installer: setup.d/lib.sh record_project_checks / record_unrun_checks /
+# setup.d/99-finalize.sh) names the stack the install actually used. The fence scope is
+# load-bearing (Root 2067-MAPPING-R9-STACK-READER-OWNED-FENCE): record_project_checks
+# preserves every line outside its block byte-for-byte, so another tool's `stack:` line
+# elsewhere in the same file — before the owned block, after it, or with no owned block at
+# all — is not this installer's record and must not steer dispatch; a missing, foreign-only
+# or malformed owned record keeps the heuristic chain below byte-identical (its promised
+# legacy fallback). Why the record outranks the heuristics at all: since route B (drivable
+# generic, 40-configs) delivers the eslint-rules-local barrel, the #2047 file heuristic
+# below reads getff's OWN barrel as an npm passport and misroutes a recorded-generic
+# project to ts-server, where the npm-bound refresh arm rewrites .husky/pre-commit with no
+# ownership gate and never reaches the generic M1/M2/R6 gates at all — that one misroute
+# produced every arm-16 refresh failure (the workflow ones as stale-fresh-pin cascades: the
+# npm arm delivers no getff-rules.yml).
 if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
+  _refresh_record_stack=""
+  if [ -f "$PROJECT_ROOT/.ai-factory/tool-decisions.md" ]; then
+    # Same fence semantics as the established record reader (setup.d/lib.sh
+    # record_add_unlisted): only lines between the owned begin/end markers are this
+    # installer's record — the first `stack:` line INSIDE that block wins, everything
+    # outside the fence is foreign text the writer preserves but the reader ignores.
+    _refresh_record_stack=$(awk -v b='<!-- aif:project-checks:begin -->' -v e='<!-- aif:project-checks:end -->' '
+      {sub(/\r$/,"")} $0==b{f=1;next} $0==e{f=0} f && /^stack:/ {sub(/^stack:[[:space:]]*/,""); print; exit}' \
+      "$PROJECT_ROOT/.ai-factory/tool-decisions.md")
+  fi
+  case "$_refresh_record_stack" in
+    generic|ts-server|react-next|react-spa|react-native)
+      echo "  ▶ Refresh stack from the installer-owned project-checks record: stack: $_refresh_record_stack (.ai-factory/tool-decisions.md)"
+      STACK="$_refresh_record_stack"
+      ;;
+    *)
   if [ -f "$PROJECT_ROOT/.ai-factory/RULES.react-next.md" ] || \
      [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md" ]; then
     STACK="react-next"
@@ -789,6 +822,7 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
   else
     STACK="ts-server"
   fi
+  esac
   if [ "$STACK" != "generic" ]; then
     STACK_NAME="$STACK"
   else
@@ -1320,6 +1354,20 @@ do_refresh() {
       refresh_safe "$PKG_ROOT/packages/core/audit-self/prove-rules.mjs" "$PROJECT_ROOT/scripts/prove-rules.mjs"
       refresh_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
       [ ! -f "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" ] || chmod_safe +x "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" 2>/dev/null || true
+      # R1: the record runner — validate (CI's gate step) / probe / fold (the generic pre-commit).
+      refresh_safe "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
+      # R11-KEEP (Root 0494f7b6): the old `-f` guard was this arm's R6 leak — a kept regular
+      # .override.md-backed runner and a kept external/custom link's regular target BOTH
+      # satisfy -f, and chmod then flips the consumer's mode (through the link on the link
+      # arm). chmod only after an ACTUAL owned write — the same gate shape as the R6
+      # hook/workflow arms below: not --dry-run, no .override.md sibling, no refused link.
+      if [ "$DRY_RUN" != "--dry-run" ] \
+        && [ ! -e "$PROJECT_ROOT/scripts/run-armed.sh.override.md" ] \
+        && { [ ! -L "$PROJECT_ROOT/scripts/run-armed.sh" ] \
+             || _canonical_link_target "$PROJECT_ROOT/scripts/run-armed.sh" >/dev/null 2>&1; } \
+        && [ -f "$PROJECT_ROOT/scripts/run-armed.sh" ]; then
+        chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
+      fi
       mkdir_safe "$PROJECT_ROOT/eslint-rules-local"
       for _rl in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
         case "$_rl" in *.test.ts|*.d.ts|*/index.ts) continue ;; esac
@@ -1329,12 +1377,106 @@ do_refresh() {
         [ ! -f "$_rlstem.d.ts" ] || refresh_safe "$_rlstem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$_rlbn.d.ts"
       done
       generate_eslint_barrel
+      # R2: the persistence pre-commit (N1, probe→fold — never blocking). Ownership preflight
+      # first (M1, Root review 8707663): the keep decision must GATE the write, not merely log
+      # it. husky_note_consumer_hooks lists a .husky/pre-commit whose bytes are neither the
+      # shipped template nor a marker-carried getff delivery — a listed hook is the consumer's,
+      # kept byte-for-byte exactly as the fresh path keeps it (50-hooks.sh F2: copy_safe
+      # skip-if-exists); a refresh_safe backup copy does not preserve the ACTIVE destination.
+      # The generic template carries the '@aif-shield: pre-commit' identity marker since this
+      # change, so getff's OWN generic delivery stays framework-owned and refreshes while a
+      # consumer's own hook never does. Then activate core.hooksPath (the same helper the npm
+      # lane below runs, refresh sweep G2). No dispatcher, no fallback, no bundle.
+      mkdir_safe "$PROJECT_ROOT/.husky"
+      husky_note_consumer_hooks "$PKG_ROOT" "$PROJECT_ROOT"
+      _g40_pc_consumer=0
+      case " ${HUSKY_CONSUMER_HOOKS:-} " in *" pre-commit "*) _g40_pc_consumer=1 ;; esac
+      for _ch in ${HUSKY_CONSUMER_HOOKS:-}; do
+        case "$_ch" in
+          pre-commit) _ch_what="the armed-record persistence (run-armed probe→fold)" ;;
+          *)          _ch_what="getff's rule checks (packages/core/hooks/pre-push.bundle.mjs)" ;;
+        esac
+        note_not_wired "framework $_ch shield — your own .husky/$_ch is kept and runs none of the framework checks ($_ch_what); getff does not change a git hook the project already has"
+      done
+      if [ "$_g40_pc_consumer" = "1" ]; then
+        # M1: read-only keep — identical under --dry-run (neither mode touches the file).
+        echo "  ⊝ $PROJECT_ROOT/.husky/pre-commit (consumer-owned — kept, not refreshed)"
+      else
+        refresh_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit-generic.sh" "$PROJECT_ROOT/.husky/pre-commit"
+        # R6 (Root 68bf3519, delegate-keep parity): the identity marker is metadata ownership,
+        # not proof an owned write happened — refresh_safe itself KEEPS (returns 0 without
+        # writing) a sibling .husky/pre-commit.override.md (Layer 3) and an external/custom
+        # compatibility link (lib.sh _canonical_link_target refusal). chmod after such a keep
+        # would alter a file the delegate just preserved — and on a link chmod FOLLOWS it,
+        # touching the consumer's target outside the tree. chmod only after an ACTUAL owned
+        # write: the same gate shape as the agent-refresh postprocessing above (not dry-run,
+        # no .override.md sibling, regular file), plus the link term transform_internal_refs
+        # carries internally (lib.sh) but a bare chmod cannot.
+        if [ "$DRY_RUN" != "--dry-run" ] \
+          && [ ! -e "$PROJECT_ROOT/.husky/pre-commit.override.md" ] \
+          && { [ ! -L "$PROJECT_ROOT/.husky/pre-commit" ] \
+               || _canonical_link_target "$PROJECT_ROOT/.husky/pre-commit" >/dev/null 2>&1; } \
+          && [ -f "$PROJECT_ROOT/.husky/pre-commit" ]; then
+          chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" 2>/dev/null || true
+        fi
+      fi
+      activate_husky_hookspath
+      # R3: the CI workflow through the same delivery path as the fresh install (F1b):
+      # deliver_getff_workflow substitutes the default branch. M1 (Root review 8707663): a
+      # pre-existing getff-rules.yml WITHOUT the getff identity header ('generated by getff' —
+      # the same marker report_getff_orphans greps) is the consumer's; the fresh path keeps it
+      # (copy_safe skip-if-exists), so the refresh keeps it too — the write is SKIPPED, not
+      # backup-then-replace. M2: the GETFF-SUBST-NODE pin follows EVERY owned workflow
+      # write/refresh — gating it on the destination being absent left the SECOND refresh of a
+      # no-.nvmrc project holding the literal template's node-version-file: '.nvmrc' (setup-node
+      # would stop before dependency installation). Every owned refresh re-pins '20' unless the
+      # project's own .nvmrc wins; a consumer-kept file is never transformed; --dry-run never
+      # rewrites bytes.
+      mkdir_safe "$PROJECT_ROOT/.github/workflows"
+      _g40_wf_dst="$PROJECT_ROOT/.github/workflows/getff-rules.yml"
+      _g40_wf_consumer=0
+      if [ -e "$_g40_wf_dst" ] && ! grep -q 'generated by getff' "$_g40_wf_dst" 2>/dev/null; then
+        _g40_wf_consumer=1
+      fi
+      if [ "$_g40_wf_consumer" = "1" ]; then
+        # M1: read-only keep — identical under --dry-run (neither mode touches the file).
+        echo "  ⊝ $_g40_wf_dst (consumer-owned — kept, not refreshed)"
+      else
+        GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow "$PKG_ROOT/packages/core/templates/shared/getff-rules-generic.yml" "$_g40_wf_dst"
+        # R6 (Root 68bf3519, delegate-keep parity): deliver_getff_workflow has no keep path of
+        # its own — every no-write outcome is the refresh_safe delegate KEEP (a sibling
+        # getff-rules.yml.override.md, Layer 3; or an external/custom compatibility link), and
+        # the 'generated by getff' header is metadata ownership, not proof of an actual owned
+        # write. The M2 pin runs only after an ACTUAL owned write: the same gate shape as the
+        # agent-refresh postprocessing above, plus the link term transform_internal_refs carries
+        # internally (lib.sh). Without it the sed/cat below rewrites a kept .override.md file
+        # (discarding the consumer's Layer-3 node-version choice) or writes THROUGH a custom
+        # link into its target; --dry-run and an own .nvmrc never rewrite bytes, as before.
+        if [ "$DRY_RUN" != "--dry-run" ] \
+          && [ ! -e "${_g40_wf_dst}.override.md" ] \
+          && { [ ! -L "$_g40_wf_dst" ] || _canonical_link_target "$_g40_wf_dst" >/dev/null 2>&1; } \
+          && [ -f "$_g40_wf_dst" ] && [ ! -f "$PROJECT_ROOT/.nvmrc" ]; then
+          sed "s#node-version-file: '.nvmrc'.*#node-version: '20'#" \
+            "$_g40_wf_dst" > "$PROJECT_ROOT/.github/workflows/.getff-rules.g40.tmp"
+          cat "$PROJECT_ROOT/.github/workflows/.getff-rules.g40.tmp" > "$_g40_wf_dst"
+          rm -f "$PROJECT_ROOT/.github/workflows/.getff-rules.g40.tmp"
+        fi
+      fi
     fi
     for _ga in "check scripts (rule, fence and lint-staged gates, run-armed.sh and the project-checks record)" \
                "pre-push bundle (packages/core/hooks/pre-push.bundle.mjs)" \
                "git hooks (.husky/pre-commit, .husky/pre-push)" \
                ".prettierignore managed block" \
                "package.json scripts (getff's lint, typecheck, test, check:* and validate scripts)"; do
+      case "$_ga" in
+        # R5: the drivable subset refreshes exactly these two — name them only for a plain generic.
+        "check scripts"*) [ -n "$_g40_drivable" ] && continue ;;
+        "git hooks"*)
+          if [ -n "$_g40_drivable" ]; then
+            note_not_wired "git hooks (.husky/pre-push) — not refreshed: stack «generic» delivers no pre-push (CI is the blocking channel); .husky/pre-commit is refreshed above only when getff owns it (a consumer-owned hook is kept, M1)"
+            continue
+          fi ;;
+      esac
       note_not_wired "$_ga — not refreshed: stack «generic» has no npm toolchain getff placed, so --refresh skips it"
     done
     if [ -z "$_g40_drivable" ]; then
@@ -1643,12 +1785,28 @@ do_refresh() {
   # The install merges the canonical scripts (setup.d/70-deps.sh §7), so a script a newer getff
   # ships (a new check:* gate, say) reached fresh installs only. Refresh mode adds scripts alone:
   # a devDependency with no install breaks the lockfile, so a missing one is named instead.
-  # Stack «generic» gets none of them at install (setup.d/70-deps.sh returns before the merge), so the
-  # refresh adds none either: its `validate` runs scripts/run-armed.sh, which generic never gets. The
-  # generic arm of «Scripts» above names this skip as NOT wired.
+  # Stack «generic» gets none of them at install (setup.d/70-deps.sh returns before the merge), so
+  # the refresh adds none either. The drivable subset's `validate` runs scripts/run-armed.sh (R1
+  # refreshes it); a plain generic never gets it — the generic arm of «Scripts» above names that
+  # skip as NOT wired.
   # The record follows the merge: a check script it just added must be listed before validate or a
   # hook runs it (run-armed.sh runs a command its record does not list).
-  [ "$STACK" = "generic" ] || { merge_canonical_scripts refresh; record_unrun_checks; }
+  if [ "$STACK" = "generic" ]; then
+    # REWORK-LINT-SCOPE (rev-2 §2.1): the drivable generic refresh upserts ONLY the own lint
+    # line. Scope BOTH enumerator arrays around the existing helper (zero new code paths):
+    # project_check_scripts (lib.sh) then sees just `lint`, project_hook_checks (lib.sh) sees
+    # nothing — so no build/test/typecheck script and no hook check is ever enumerated, added,
+    # probed or armed here. merge_canonical_scripts stays skipped (no package.json scripts are
+    # placed on generic). `${arr[@]+…}` guards = bash-3.2-safe empty-array expansion under set -u.
+    if [ -n "${_g40_drivable:-}" ]; then
+      _ru_pc=(${PROJECT_CHECKS[@]+"${PROJECT_CHECKS[@]}"}) _ru_phc=(${PROJECT_HOOK_CHECKS[@]+"${PROJECT_HOOK_CHECKS[@]}"})
+      PROJECT_CHECKS=(lint) PROJECT_HOOK_CHECKS=()
+      record_unrun_checks
+      PROJECT_CHECKS=(${_ru_pc[@]+"${_ru_pc[@]}"}) PROJECT_HOOK_CHECKS=(${_ru_phc[@]+"${_ru_phc[@]}"})
+    fi
+  else
+    merge_canonical_scripts refresh; record_unrun_checks
+  fi
 
   # ── CI gates a kept workflow lacks (report only) — refresh sweep G6 ──
   # The install names these (setup.d/60-ci.sh §6c) and wires them only on --wire-ci or a yes at its
