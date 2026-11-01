@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "featureId": "dsh-native-q0-qualification",
+  "scope": "Q0 only; complete listed explicit inputs plus the existing whole getff checkout at the immutable execution revision supplied by the release binding.",
+  "preparationBaseCommit": "bc8e758d2863aabbaa1062492a142662bdaa11d8",
+  "observedStagingCommit": "bc8e758d2863aabbaa1062492a142662bdaa11d8",
+  "files": [
+    {
+      "path": ".agents/procedures/intent/helpers/check-result-review.mjs",
+      "sha256": "959223659d6d9119e877b85935ad5f1151e95d67168199ead4e5a2760fe1357c"
+    },
+    {
+      "path": ".agents/procedures/intent/helpers/current-decisions.mjs",
+      "sha256": "da8d177e952fae26768e30c71bdd35d139c14b0c7b965049081d342ba5df450f"
+    },
+    {
+      "path": ".agents/procedures/intent/helpers/publish-spec-review.mjs",
+      "sha256": "3971596ecf0bec4f4de5f5be24a4e73239610fa7f2611540bf38bd2b5424d93a"
+    },
+    {
+      "path": ".agents/procedures/intent/references/product-brief.md",
+      "sha256": "9af17c360799bf7bd1a0f01a9250b86fd36c5151c4c618773201e975d5b6d809"
+    },
+    {
+      "path": ".agents/procedures/intent/references/result-review.md",
+      "sha256": "f2b2d6d5b6016ec57b7a5a55225e150901f55071807cd868044ea4dccf387bda"
+    },
+    {
+      "path": ".agents/procedures/intent/references/spec-review.md",
+      "sha256": "9d5a03afad43f10a8452d6d7e57662d178b104002748de8eeb8bea0804dc2aca"
+    },
+    {
+      "path": ".agents/rules/ai-laziness-traps.md",
+      "sha256": "925a4fba638c379ca4663330c6123618200fded5f24611b18258a37f26580d4a"
+    },
+    {
+      "path": ".agents/rules/destination-environment-verification.md",
+      "sha256": "1d8424ebe5dfed03b3d426791e12ce1847c8a55b804b96d1dc2458cfb8a67550"
+    },
+    {
+      "path": ".agents/rules/kickoff-staging-placement.md",
+      "sha256": "3ab50fa943f06cf479665858f2127503c73c36fbb0dede1ab61b92c66934cdc2"
+    },
+    {
+      "path": ".agents/session-bootstrap.md",
+      "sha256": "0e2cc2af9aa94e2dcd90ed83e9c5ecb601fd734a1d78723d341b66d7c6b021d5"
+    },
+    {
+      "path": ".claude/orchestrator-prompts/dsh-native-q0-qualification/kickoff.md",
+      "sha256": "1bd86f73aac466d6b9d8e6a6830739a6b802a9fe19ee99cb0c310369e052939a"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "e335609dba3dd34be94f38ee3d5fbf77771e4b44f651efa1e07908576844da43"
+    },
+    {
+      "path": "CLAUDE.md",
+      "sha256": "ac8f72d507595fa4dac8e140c8494fa2d8009f9b483d750a50d524a75094595a"
+    },
+    {
+      "path": "README.md",
+      "sha256": "a0de3c63452d594bd328299dcb9a2d4be0ae70136fdb2198bef16e8578049f18"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md",
+      "sha256": "1adc905b57e1d78dc2ed2c54b2cc3edd7b39fe361e3ad5d4afb8e88f683fb03b"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-prd.md",
+      "sha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/admission-receipt.json",
+      "sha256": "14c4cab461b39fd97968547d43e9edc295cffe4cc6a102ed717fe49e3e30081c"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/approval-receipt.json",
+      "sha256": "334108b1a281d3048e528b8dab6930664b8ef75f17f7fdbd28b28111baedfec7"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/authorized-q0-contract.txt",
+      "sha256": "a8a2f79e9768463dc1a34d52bf22b537891bcd401cdb34c6dde9e3f38c0e02b1"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval.md",
+      "sha256": "ba2ab6e57a988f54650bc18730096683edd168d2b20a408e306e7809418c716e"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/intent-spec-r1.json",
+      "sha256": "3b0c76efaaebc60a530fa0666d332c23497a627a01432a06165b1a119cb1320e"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/intent-spec-r1.md",
+      "sha256": "ded8a8b0fb5f3e40c55f63acc3342de492efb82e3d986f2fff78bb130078a477"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-baseline.md",
+      "sha256": "cbe189f1541b595e5d712a1dedb9aa599f2d50363e12d8b7c9192c0ec3599719"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-provenance.json",
+      "sha256": "8fe9673ba41ce3f70d714e6e60913d553ecbf3857ab26fec044ea2451a2bc10b"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement-receipt.json",
+      "sha256": "2e3979910110817c4b006e9b097dab9014333a7dda1932602f056d18c3b689a0"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement.md",
+      "sha256": "d24b353e34b555ebeee5ab0e572f747a5c6b19c81cb1a1d33758e0c740bb0e28"
+    },
+    {
+      "path": "docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da.md",
+      "sha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da"
+    },
+    {
+      "path": "scripts/host-verify.sh",
+      "sha256": "c11100510656618a643c70c56e14a596e9b3ad82174fd4bac8c547836b584c52"
+    }
+  ],
+  "manifestExcludesItself": true,
+  "executionRevision": "Bound separately after exact staging publication; no self-referential commit/hash claim.",
+  "externalReceiverPolicy": "Operator-local coordinator standing mode and GLM launch policy remain required at the legitimate local receiver; they are neither replaced nor published as repository configuration."
+}
