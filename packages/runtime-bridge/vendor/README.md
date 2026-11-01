@@ -124,9 +124,22 @@ a stub native. The caller wiring that exists (C2): the shipped review-sidecar co
 card invokes this copy ONCE per admitted local request and consumes the original findings;
 core/env installs receive this tree through `setup.d/portable-bindings.sh` when
 review-sidecar is present, with the native binary offered detect-first via
-`setup.d/companions.manifest` (no pin, official installer). Real productive
-Dot/OpenMaus/getff callers and a real native result inside an installed consumer remain
-UNVERIFIED. Stub-green source compatibility
+`setup.d/companions.manifest` (no pin, official installer).
+
+Real-run record (operator repo, getff-ocr-reuse C2, 2026-11-01): run 1 HELD
+`invocation-nonzero` — the host had no native provider config, because the route
+qualification checked binary/auth/--version but never executed a review, so the tool's
+documented non-secret `ocr config set provider chatgpt` step had never run. Run 2 executed
+the native engine to `complete` over 5/28 paths (gpt-6.1-sol, 349k tokens) and the producer
+HELD `incomplete-coverage`: the native's DEFAULT item selection skips tests, Markdown
+docs, vendor twins, manifests and fingerprints (extension + default-path checks; upstream
+`internal/agent/selection.go`). The full-scope route is the existing `--rule-file` with
+`{"rules":[],"include":["**"]}` — a matching include is honored before the
+extension/default-path checks; a non-LLM `ocr review --preview` on the C2 range showed all
+28 required paths `will_review:true` (root receipts under
+`upstream-public-scope-preview/`). The connection card documents this as the normal route
+for mandatory-scope reviews. Real productive Dot/OpenMaus/getff callers and a real native
+result inside an installed consumer remain UNVERIFIED. Stub-green source compatibility
 is not a real OCR review. A `compatible` verdict attests bounded process/input/coverage
 compatibility with the pinned public contract; it is not semantic-duty acceptance and not
 a merge/integration grant.

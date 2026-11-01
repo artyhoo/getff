@@ -237,6 +237,7 @@ npx tsx .agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts \
   --request-file /ABS/request.json --request-sha256 <sha256-of-request-bytes> \
   --base-ref <review-base-ref> \
   --materials /ABS/materials-manifest.json \
+  --rule-file /ABS/full-scope-rule.json \
   --ocr-bin /ABS/opencodereview --ocr-sha256 <pinned-native-sha256> --json
 ```
 
@@ -247,6 +248,15 @@ npx tsx .agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts \
   `tsx` deliberately before invoking — never let a bare `npx` registry-fetch a floating copy.
 - Materials are the caller's review requirements, passed through as data. Do not add
   host-routing or run-OCR-again instructions to them, and do not swap them for summaries.
+- Full scope comes from the caller rule file. The native's default item selection skips
+  tests, Markdown docs, vendor twins, manifests and fingerprints (extension + default-path
+  checks); a matching `include` is honored BEFORE those checks (upstream
+  `internal/agent/selection.go`). For a mandatory-scope review pass `--rule-file` with
+  `{"rules":[],"include":["**"]}` — non-LLM `--preview` verified 28/28 required paths
+  `will_review:true` on the getff-ocr-reuse C2 range. When the range or inputs change,
+  re-check with the native's non-LLM `ocr review --preview` first; only spend the review
+  once every required path shows `will_review:true`. Keep any real caller exclusions —
+  the include overrides default-path skips, not deliberate ones.
 - Authoritative output is the `--json` stdout plus the process exit code. Exit 2 is a HOLD —
   report the hold reason verbatim; never present a HOLD, a non-execution, or a malformed run
   as a passed review. The verdict file under `.ai-factory/ocr/<uuid>/trusted-review-verdict.json`
