@@ -1,6 +1,6 @@
 ---
 name: review-sidecar
-description: "Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix. Uses read-only Bash for diff inspection (git diff/log/show, ls) — no mutations, no worktrees, no pushes (GH #1516)."
+description: "Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix. Uses read-only Bash for diff inspection (git diff/log/show, ls) — no mutations, no worktrees, no pushes (GH #1516). One bounded exception: a single trusted native OCR producer invocation when the caller hands over an explicit local request (getff-ocr-reuse C2)."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.
