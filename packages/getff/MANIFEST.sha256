@@ -1094,7 +1094,7 @@ ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/
 82209c725f43abceae5d0fe1effaca01823b88434f022366beebe240bb898f28  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 4eabacf7329386d40e48b3762b49b92d05b97a7f64d0369468936d24f9e21f92  packages/core/principles/37-required-context-completeness.test.ts
-03a0d3673f0ffc87d86f2227649aec34cb1ea82392b5c3980de496950767671e  packages/core/principles/38-vitest-include-ci-coverage.test.ts
+c19d22cb869663b8ba215332e0b7d314e05e81e9d40fa24b53241c0c57c5272b  packages/core/principles/38-vitest-include-ci-coverage.test.ts
 46883d301f33ea89dffd19d2ad34139a3ee79baa99669c79f1d09338375905d3  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts

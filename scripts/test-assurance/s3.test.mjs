@@ -6,7 +6,7 @@
 // evidence is authored here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -18,6 +18,12 @@ import {
   validateCompanionResult, evaluateReceipt, codeScopeEquivalent, buildStageSteps,
   validateHistoricalClosure, validatePredecessors,
   loadReviewedIntegration, validateReviewedIntegration, reconcileUpstreamLineage,
+  reconcileCurrentTransfer, loadPortableReference, hydratePortableReferenceStore, makeIsolatedGit,
+  portableReferenceStore, sharedHistoricalReader, storeFallbackGit,
+  evaluateLedgerChannel, governedPathVerdicts, currentLedgerChannel,
+  LEDGER_BINDING_ADDED_PATHS, LEDGER_BINDING_MODIFIED_PATHS, LEDGER_BINDING_NEW_MODIFIED_PATHS,
+  CURRENT_TRANSFER_CHECKPOINT, ADMITTED_CURRENT_REPLACEMENTS, PENDING_CURRENT_SOURCE_PROPOSALS,
+  PORTABLE_REFERENCE_TUPLES, PORTABLE_REFERENCE_REL, PORTABLE_REFERENCE_BYTES,
   S2_REVIEWED_INTEGRATION_REL, S2_REVIEWED_INTEGRATION_SHA256,
   UPSTREAM_STAGING_HEAD, UPSTREAM_STAGING_TREE, ACCEPTED_TOPIC_HEAD, ACCEPTED_TOPIC_TREE,
   ORIGINAL_S2_BASE_HEAD, ORIGINAL_S2_BASE_TREE, PRESERVED_INTEGRATION_INDEX_TREE,
@@ -32,9 +38,14 @@ const sha = (s) => createHash('sha256').update(s).digest('hex');
 // patch identities to real commit/tree objects, not mocks.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const realGit = (args) => {
-  const r = spawnSync('git', ['-C', REPO_ROOT, ...args], { encoding: 'buffer' });
+  const r = spawnSync('git', ['-C', REPO_ROOT, ...args], { encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 });
   return { rc: r.status ?? 1, stdout: r.stdout ?? Buffer.from(''), stderr: r.stderr ?? Buffer.from('') };
 };
+// Unit-37 §2/§4: HISTORICAL reads in the real-graph tests route through the SAME shared
+// owner the production consumer uses (storeFallbackGit over the ambient runner) — a fresh
+// single-branch checkout serves 932/cd3/cf64 objects from the owned isolated store while
+// every live HEAD read stays live. Live-only sites keep the plain realGit runner.
+const realGitHistorical = storeFallbackGit(REPO_ROOT, realGit);
 
 // ---------- bounded temporal trust repair: frozen independent expected fixtures ----------
 // The independent expected map and the owner-frozen decision table are fixed OUTSIDE every
@@ -577,12 +588,12 @@ test('ROOT-S4-R4: REVISE verdicts, failed CI, author-session reuse and arbitrary
     // a review whose reviewedPatchSha256 is not sha256(diff anchoredBase..head) reviews some
     // OTHER patch — proven against the REAL repository graph and the REAL diff bytes.
     const realHead = realGit(['rev-parse', 'HEAD']).stdout.toString().trim();
-    const realDiff = realGit(['diff', `${ANCHORED_HEAD}..${realHead}`, '--']).stdout.toString();
+    const realDiff = realGitHistorical(['diff', `${ANCHORED_HEAD}..${realHead}`, '--']).stdout.toString();
     const realLedger = okLedger();
     // the independent descriptor is FIXED here (frozen positive map, reviewer identity =
     // FROZEN_REVIEWER/FROZEN_REVIEWER_SESSION/ACCEPT) so the targeted arms below are the ONLY
     // things that can fail — payloads vary, the caller's expected context never does.
-    const realCtx = { repoRoot: tmp, ledger: realLedger, git: realGit, sourceSignature: hex64('9'), expectedInputs: frozenPositiveExpected({ INDEPENDENT_QUALITY_REVIEW: { admission: 'ACCEPTED_NATIVE', actualReviewRecord: { reviewer: FROZEN_REVIEWER, reviewerSession: FROZEN_REVIEWER_SESSION, verdict: 'ACCEPT', headSHA: realHead, reviewedPatchSha256: sha(realDiff), sourceSubject: realHead } } }) };
+    const realCtx = { repoRoot: tmp, ledger: realLedger, git: realGitHistorical, sourceSignature: hex64('9'), expectedInputs: frozenPositiveExpected({ INDEPENDENT_QUALITY_REVIEW: { admission: 'ACCEPTED_NATIVE', actualReviewRecord: { reviewer: FROZEN_REVIEWER, reviewerSession: FROZEN_REVIEWER_SESSION, verdict: 'ACCEPT', headSHA: realHead, reviewedPatchSha256: sha(realDiff), sourceSubject: realHead } } }) };
     const wrongPatch = evaluateReceipt('s4/quality-review.json', { ...base, kind: 'quality-review', schema: 'getff.root.affected-review/v1', headSHA: realHead, artifact: { reviewedPatchSha256: sha(realDiff + 'x'), verdict: 'ACCEPT' } }, 'quality-review', realCtx);
     assert.ok(wrongPatch.some((x) => x.includes('reviews some other patch')), wrongPatch.join('|'));
     const rightPatch = evaluateReceipt('s4/quality-review.json', { ...base, kind: 'quality-review', schema: 'getff.root.affected-review/v1', headSHA: realHead, artifact: { reviewedPatchSha256: sha(realDiff), verdict: 'ACCEPT' } }, 'quality-review', realCtx);
@@ -600,8 +611,17 @@ test('ROOT-S4-R4: REVISE verdicts, failed CI, author-session reuse and arbitrary
     // covers the OLD head/patch; the candidate keeps reviewer/session/verdict but replays
     // them onto the CURRENT diff/head — must refuse on the SUBJECT, not the identity. The
     // pinned runner holds HEAD at the old subject for the same-exact-subject positive.
-    const OLD_HEAD = 'e89d47adac73cbe0b2565a30c1a9edc5c4ac3d6a';
-    const pinnedOld = (args) => realGit(args.map((a) => a === 'HEAD' ? OLD_HEAD : a.startsWith('HEAD:') ? OLD_HEAD + a.slice(4) : a));
+    // Unit-37 §2/§4: the OLD subject is the PRIOR CANDIDATE head (a genuine ancestor of the
+    // current HEAD), not the original d547-era topic head — that historical head is
+    // unreachable from the current line and outside the reviewed portable reference, so a
+    // fresh single-branch checkout (the §4 fixture) cannot resolve it through ANY runner.
+    // The replay semantics are unchanged: an older accepted subject with a DIFFERENT
+    // anchored diff, replayed onto the current head, must refuse on the SUBJECT.
+    const OLD_HEAD = '666346c8846b4b640212ff9d7033da75393e91be';
+    // The pinned runner composes with the shared owner (pin FIRST, then the store fallback)
+    // — a fresh checkout serves the OLD subject's objects from the owned store while the
+    // HEAD→OLD_HEAD pin semantics stay byte-identical.
+    const pinnedOld = (args) => realGitHistorical(args.map((a) => a === 'HEAD' ? OLD_HEAD : a.startsWith('HEAD:') ? OLD_HEAD + a.slice(4) : a));
     const oldDiff = pinnedOld(['diff', `${ANCHORED_HEAD}..${OLD_HEAD}`, '--']).stdout.toString();
     const subjectCtx = { ...realCtx, expectedInputs: frozenPositiveExpected({ INDEPENDENT_SPEC_REVIEW: { admission: 'ACCEPTED_NATIVE', actualReviewRecord: { reviewer: FROZEN_REVIEWER, reviewerSession: FROZEN_REVIEWER_SESSION, verdict: 'ACCEPT', headSHA: OLD_HEAD, reviewedPatchSha256: sha(oldDiff), sourceSubject: OLD_HEAD } } }) };
     const replayed = evaluateReceipt('s4/spec-review.json', { ...base, kind: 'spec-review', schema: 'getff.root.affected-review/v1', headSHA: realHead, artifact: { reviewedPatchSha256: sha(realDiff), verdict: 'ACCEPT' } }, 'spec-review', subjectCtx);
@@ -1090,7 +1110,7 @@ test('ROOT-S4-R3: changed live source bytes change the signature and break ledge
     // R3 (Root978 prerequisite): S4 needs the genuine ORDERED ACCEPTED S2→S3 chain bound to
     // this exact code line. Unit subpredicates over the REAL repository graph:
     // missing declarations refuse…
-    const noPrereq = validatePredecessors(okLedger(), tmp, realGit);
+    const noPrereq = validatePredecessors(okLedger(), tmp, realGitHistorical);
     assert.ok(!noPrereq.ok && noPrereq.problems.some((x) => x.includes('ordered predecessor declarations (s2 then s3) missing')), noPrereq.problems.join('|'));
     // …a delivered-RED S3 verdict record keeps S4 nonPASS (the honest current state)…
     const s3RedBody = JSON.stringify({ stage: 'S3', verdict: 'RED', head: realGit(['rev-parse', 'HEAD']).stdout.toString().trim(), openItems: ['rule-538-to-430.4', 'ci'] });
@@ -1102,14 +1122,14 @@ test('ROOT-S4-R3: changed live source bytes change the signature and break ledge
       s2: { acceptedEvidence: { path: 'docs/test-assurance-kernel/s3/predecessor-s2.json', sha256: sha(s2AccBody) } },
       s3: { verdictRecord: { path: 'docs/test-assurance-kernel/s3/predecessor-s3.json', sha256: sha(s3RedBody) } },
     };
-    const redPrereq = validatePredecessors(redLedger, tmp, realGit);
+    const redPrereq = validatePredecessors(redLedger, tmp, realGitHistorical);
     assert.ok(!redPrereq.ok && redPrereq.problems.some((x) => x.includes('S4 certificates require the ordered ACCEPTED S2 then S3 chain')), redPrereq.problems.join('|'));
     // …a stale/unrelated S2 base head refuses…
     const s2StaleBody = JSON.stringify({ stage: 'S2', verdict: 'ACCEPTED', baseHead: hex40('f') });
     writeFileSync(join(tmp, 'docs/test-assurance-kernel/s3/predecessor-s2.json'), s2StaleBody);
     const staleLedger = okLedger();
     staleLedger.predecessors = { ...redLedger.predecessors, s2: { acceptedEvidence: { path: 'docs/test-assurance-kernel/s3/predecessor-s2.json', sha256: sha(s2StaleBody) } } };
-    const stalePrereq = validatePredecessors(staleLedger, tmp, realGit);
+    const stalePrereq = validatePredecessors(staleLedger, tmp, realGitHistorical);
     assert.ok(!stalePrereq.ok && stalePrereq.problems.some((x) => x.includes(`base head ${hex40('f')} does not exist as a commit`)), stalePrereq.problems.join('|'));
     // …and the positive subpredicate is reachable on the REAL graph: the anchored S2 base and
     // an accepted S3 verdict at the live HEAD (TESTONLY synthetic verdict bodies) — but ONLY
@@ -1124,8 +1144,8 @@ test('ROOT-S4-R3: changed live source bytes change the signature and break ledge
       s2: { acceptedEvidence: { path: 'docs/test-assurance-kernel/s3/predecessor-s2.json', sha256: sha(s2AccBody) } },
       s3: { verdictRecord: { path: 'docs/test-assurance-kernel/s3/predecessor-s3.json', sha256: sha(s3AccBody) } },
     };
-    const anchoredTree = realGit(['rev-parse', `${ANCHORED_HEAD}^{tree}`]).stdout.toString().trim();
-    const verifyBlob = realGit(['cat-file', 'blob', `${ANCHORED_HEAD}:scripts/test-assurance/verify.mjs`]).stdout.toString();
+    const anchoredTree = realGitHistorical(['rev-parse', `${ANCHORED_HEAD}^{tree}`]).stdout.toString().trim();
+    const verifyBlob = realGitHistorical(['cat-file', 'blob', `${ANCHORED_HEAD}:scripts/test-assurance/verify.mjs`]).stdout.toString();
     // the LIVE producer at the covered checkout equals the accepted postimage (write the exact
     // anchored blob bytes into the fixture checkout) — plus the receipt pin, the readable
     // dependency closure and the CURRENT covered subject fields.
@@ -1138,7 +1158,51 @@ test('ROOT-S4-R3: changed live source bytes change the signature and break ledge
       S2_CANONICAL_ACCEPTED: { admission: 'ACCEPTED_FOR_ITS_EXACT_COVERED_SUBJECT_ONLY', head: ANCHORED_HEAD, tree: anchoredTree, producerPostimages: { 'scripts/test-assurance/verify.mjs': sha(verifyBlob) }, receipt: { path: 'docs/test-assurance-kernel/s3/predecessor-s2.json', sha256: sha(s2AccBody) }, dependenciesAndProfile: { path: 'docs/test-assurance-kernel/s3/predecessor-deps.json', sha256: sha(predDepsBody) } },
       S3_ACCEPTED_PREDECESSOR: { admission: 'ACCEPTED_NATIVE', acceptedVerdictRecord: { path: 'docs/test-assurance-kernel/s3/predecessor-s3.json', sha256: sha(s3AccBody) }, head: liveHeadNow, sourceSubject: liveHeadNow, dependencySubject: sha(predDepsBody) },
     });
-    assert.deepEqual(validatePredecessors(accLedger, tmp, realGit, { expectedInputs: frozenPredExpected }), { ok: true, problems: [] });
+    // Root unit-35 item 5: the anchored S2 base is a HISTORICAL portable object, provably NOT
+    // an ancestor of the live integration HEAD — the plain predicate refuses by default with
+    // the frozen original message, and only the EXPLICIT accepted conditional current-transfer
+    // fixture satisfies it through the reviewed composite (generation->cf64 historical proof
+    // via the portable store bound to the real transport root + the complete finite LIVE
+    // current transfer + actual bc8/checkpoint ancestry of the live HEAD). A broken fixture
+    // leg keeps the original refusal.
+    const defaultPred = validatePredecessors(accLedger, tmp, realGitHistorical, { expectedInputs: frozenPredExpected });
+    assert.ok(!defaultPred.ok && defaultPred.problems.some((x) => x.includes('s2 predecessor base head is not an ancestor of the live HEAD — stale/unrelated accepted evidence')), defaultPred.problems.join('|'));
+    const condPredExpected = frozenPositiveExpected({
+      S2_CANONICAL_ACCEPTED: { admission: 'ACCEPTED_FOR_ITS_EXACT_COVERED_SUBJECT_ONLY', head: ANCHORED_HEAD, tree: anchoredTree, producerPostimages: { 'scripts/test-assurance/verify.mjs': sha(verifyBlob) }, receipt: { path: 'docs/test-assurance-kernel/s3/predecessor-s2.json', sha256: sha(s2AccBody) }, dependenciesAndProfile: { path: 'docs/test-assurance-kernel/s3/predecessor-deps.json', sha256: sha(predDepsBody) } },
+      S3_ACCEPTED_PREDECESSOR: { admission: 'ACCEPTED_NATIVE', acceptedVerdictRecord: { path: 'docs/test-assurance-kernel/s3/predecessor-s3.json', sha256: sha(s3AccBody) }, head: liveHeadNow, sourceSubject: liveHeadNow, dependencySubject: sha(predDepsBody) },
+      S4_CONDITIONAL_CURRENT_TRANSFER: { admission: 'ACCEPTED_STRUCTURAL', s2BaseHead: ANCHORED_HEAD, checkpoint: CURRENT_TRANSFER_CHECKPOINT, replacements: ADMITTED_CURRENT_REPLACEMENTS },
+    });
+    // Without a real transport root the composite leg fails closed (the fixture checkout
+    // carries no canonical carrier/bundle) — the honest stale-binding refusal is preserved.
+    const noTransport = validatePredecessors(accLedger, tmp, realGitHistorical, { expectedInputs: condPredExpected });
+    assert.ok(!noTransport.ok && noTransport.problems.some((x) => x.includes('stale/unrelated accepted evidence')), noTransport.problems.join('|'));
+    // A self-issued fixture whose pins do not equal the reviewed constants never substitutes.
+    const brokenPins = structuredClone(condPredExpected);
+    brokenPins.facts.S4_CONDITIONAL_CURRENT_TRANSFER.checkpoint = { ...CURRENT_TRANSFER_CHECKPOINT, tree: hex40('b') };
+    const brokenPred = validatePredecessors(accLedger, tmp, realGitHistorical, { expectedInputs: brokenPins });
+    assert.ok(!brokenPred.ok && brokenPred.problems.some((x) => x.includes('pins do not equal the reviewed constants')), brokenPred.problems.join('|'));
+    // Root unit-36 item C: with the REAL transport root the composite reaches its intended
+    // logic — historical proof, complete row/mode/content/extra/missing reconciliation and
+    // live-HEAD ancestry all hold — and the ONLY remaining refusal is the honest finite
+    // pending class: the typed current-source postimage proposals awaiting actual Root
+    // admission. Never a silent pass, never a stale/unrelated mislabel, never an oldref
+    // object error. (The reviewed carrier itself is a byte-identical copy of the admitted
+    // artifact pinned by its sha256 — a mutated carrier would refuse inside
+    // loadReviewedIntegration.)
+    mkdirSync(join(tmp, 'docs/test-assurance-kernel/s2'), { recursive: true });
+    writeFileSync(join(tmp, S2_REVIEWED_INTEGRATION_REL), readFileSync(join(REPO_ROOT, S2_REVIEWED_INTEGRATION_REL)));
+    // Root unit-38 F1: the composite reads the LIVE scope-extension ledger from the fixture
+    // checkout AND the committed live HEAD row (unit-38 F2) — pin BOTH to the FIXED
+    // unactivated cd3 baseline (disk bytes + the live-tree ledger row rewritten to the cd3
+    // object through a pass-through adapter) so the pending oracle stays meaningful before
+    // AND after the canonical activation: the only refusal remains the honest pending class,
+    // never an activation-dependent channel flip or a disk/committed divergence.
+    mkdirSync(join(tmp, 'docs/test-assurance-kernel/s3'), { recursive: true });
+    writeFileSync(join(tmp, S3_LEDGER_REL), CD3_LEDGER_BYTES);
+    const condPending = validatePredecessors(accLedger, tmp, pinLiveLedgerRowToBaseline(realGitHistorical), { expectedInputs: condPredExpected, portableTransportRoot: REPO_ROOT });
+    assert.ok(!condPending.ok, 'the conditional composite refuses while postimage proposals are unadmitted');
+    assert.ok(condPending.problems.some((x) => x.includes('remain unadmitted (explicit admission-pending refusal, never a silent pass)')), condPending.problems.join('|'));
+    assert.ok(condPending.problems.every((x) => !x.includes('stale/unrelated accepted evidence') && !x.includes('does not reconcile')), condPending.problems.join('|'));
     // R3 evidence-only repair controls on a NATIVE Git fixture (the owner overreject shape,
     // b8f341ad): the accepted subject stays covered across an evidence-only descendant
     // commit — no exact-HEAD fixed point — while a scoped-source change after the accepted
@@ -1230,7 +1294,7 @@ test('ROOT-S4-R3: changed live source bytes change the signature and break ledge
     const r3OwnerP = validatePredecessors(accLedger, tmp, realGit, { expectedInputs: frozenOwnerShapeExpected() });
     assert.ok(!r3OwnerP.ok && r3OwnerP.problems.some((x) => x.includes('author-authored ACCEPTED verdict record never substitutes') || x.includes('accepted S3 predecessor as MISSING')), r3OwnerP.problems.join('|'));
     // and without the independent descriptor the ordered chain fails closed
-    const r3NoExp = validatePredecessors(accLedger, tmp, realGit);
+    const r3NoExp = validatePredecessors(accLedger, tmp, realGitHistorical);
     assert.ok(!r3NoExp.ok && r3NoExp.problems.some((x) => x.includes('no independently selected expected inputs')), r3NoExp.problems.join('|'));
     // a CHANGED producer postimage (different bytes pinned by the independent descriptor
     // than the anchored commit actually carries) refuses — changed deps/producer never passes
@@ -1623,17 +1687,18 @@ test('UPSTREAM-LINEAGE: the pinned Root-reviewed carrier validates clean and loa
   assert.equal(sha(readFileSyncTail(join(REPO_ROOT, S2_REVIEWED_INTEGRATION_REL))), S2_REVIEWED_INTEGRATION_SHA256);
 });
 test('UPSTREAM-LINEAGE: legacy no-integration behavior is unchanged when the carrier is absent', () => {
+  // 2026-11-01 U33-RETENTION-1: this fixture (and the malformed-carrier one below) is a newly
+  // added companion fixture — its directory is deliberately RETAINED (no rmSync teardown);
+  // only the pre-existing teardowns elsewhere in this file are unchanged and allowed.
   const tmp = mkdtempSync(join(tmpdir(), 'tak-lineage-legacy-'));
-  try {
-    const loaded = loadReviewedIntegration(tmp);
-    assert.equal(loaded.absent, true);
-    assert.equal(loaded.ok, false);
-    assert.deepEqual(loaded.problems, []);
-    // The consumer maps absent => the exact legacy expectation formula (verify.mjs keeps
-    // the no-carrier branch byte-identical to the pre-integration inventory math).
-    const { carrier, rows } = syntheticCarrier();
-    assert.deepEqual(reconcileUpstreamLineage({ repoRoot: tmp, git: fakeUpstreamGit(rows), carrier: { ok: true, data: carrier }, basePaths: [], additivePaths: [] }), []);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  const loaded = loadReviewedIntegration(tmp);
+  assert.equal(loaded.absent, true);
+  assert.equal(loaded.ok, false);
+  assert.deepEqual(loaded.problems, []);
+  // The consumer maps absent => the exact legacy expectation formula (verify.mjs keeps
+  // the no-carrier branch byte-identical to the pre-integration inventory math).
+  const { carrier, rows } = syntheticCarrier();
+  assert.deepEqual(reconcileUpstreamLineage({ repoRoot: tmp, git: fakeUpstreamGit(rows), carrier: { ok: true, data: carrier }, basePaths: [], additivePaths: [] }), []);
 });
 test('UPSTREAM-LINEAGE: an unknown extra or missing reviewed upstream path refuses', () => {
   const { carrier, rows } = syntheticCarrier();
@@ -1662,26 +1727,25 @@ test('UPSTREAM-LINEAGE: swapped/duplicate admission against the historical scope
   assert.ok(p.some((x) => x.includes('collides with the historical/additive scope')), p.join('|'));
 });
 test('UPSTREAM-LINEAGE: malformed or unpinned carrier admission refuses (sha/schema/tuple drift)', () => {
+  // 2026-11-01 U33-RETENTION-1: newly added companion fixture — directory RETAINED, no rmSync.
   const tmp = mkdtempSync(join(tmpdir(), 'tak-lineage-drift-'));
-  try {
-    mkdirSync(join(tmp, 'docs/test-assurance-kernel/s2'), { recursive: true });
-    const pinned = readFileSyncTail(join(REPO_ROOT, S2_REVIEWED_INTEGRATION_REL));
-    const drifted = Buffer.from(pinned.toString('utf8').replace('"stagingPaths": 4475', '"stagingPaths": 4474'));
-    writeFileSync(join(tmp, S2_REVIEWED_INTEGRATION_REL), drifted);
-    const shaDrift = loadReviewedIntegration(tmp);
-    assert.equal(shaDrift.ok, false);
-    assert.ok(shaDrift.problems.some((x) => x.includes('drifted from the pinned Root review')), shaDrift.problems.join('|'));
-    const { carrier } = syntheticCarrier();
-    const badSchema = structuredClone(carrier);
-    badSchema.schema = 'tak.evil/v9';
-    assert.ok(validateReviewedIntegration(badSchema).some((x) => x.includes('unexpected carrier schema')));
-    const badTuple = structuredClone(carrier);
-    badTuple.sourceRefs.upstreamStaging = hex40('e');
-    assert.ok(validateReviewedIntegration(badTuple).some((x) => x.includes('upstream staging tuple mismatch')));
-    const badM04 = structuredClone(carrier);
-    badM04.m04IndependentDefaultsRenewal.originalRecordMustRemainUnchanged = false;
-    assert.ok(validateReviewedIntegration(badM04).some((x) => x.includes('original record to stay unchanged')));
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  mkdirSync(join(tmp, 'docs/test-assurance-kernel/s2'), { recursive: true });
+  const pinned = readFileSyncTail(join(REPO_ROOT, S2_REVIEWED_INTEGRATION_REL));
+  const drifted = Buffer.from(pinned.toString('utf8').replace('"stagingPaths": 4475', '"stagingPaths": 4474'));
+  writeFileSync(join(tmp, S2_REVIEWED_INTEGRATION_REL), drifted);
+  const shaDrift = loadReviewedIntegration(tmp);
+  assert.equal(shaDrift.ok, false);
+  assert.ok(shaDrift.problems.some((x) => x.includes('drifted from the pinned Root review')), shaDrift.problems.join('|'));
+  const { carrier } = syntheticCarrier();
+  const badSchema = structuredClone(carrier);
+  badSchema.schema = 'tak.evil/v9';
+  assert.ok(validateReviewedIntegration(badSchema).some((x) => x.includes('unexpected carrier schema')));
+  const badTuple = structuredClone(carrier);
+  badTuple.sourceRefs.upstreamStaging = hex40('e');
+  assert.ok(validateReviewedIntegration(badTuple).some((x) => x.includes('upstream staging tuple mismatch')));
+  const badM04 = structuredClone(carrier);
+  badM04.m04IndependentDefaultsRenewal.originalRecordMustRemainUnchanged = false;
+  assert.ok(validateReviewedIntegration(badM04).some((x) => x.includes('original record to stay unchanged')));
 });
 test('UPSTREAM-LINEAGE: wrong ancestry refuses (bc8 not an ancestor of the candidate head)', () => {
   const { carrier, rows } = syntheticCarrier();
@@ -1701,4 +1765,557 @@ test('UPSTREAM-LINEAGE: healthy real-repo lineage reconciles the complete review
   assert.equal(loaded.ok, true);
   const p = reconcileUpstreamLineage({ repoRoot: REPO_ROOT, git: realGit, carrier: loaded, head: 'HEAD', basePaths: [], additivePaths: [] });
   assert.deepEqual(p, [], p.join('|'));
+});
+
+// ---------- 2026-11-01 reviewed current transfer + portable historical reference ----------
+// Fake git over an isolated fixture tree for reconcileCurrentTransfer. treeRows carry an
+// optional .content Buffer served by `cat-file blob` (the three admitted replacements use
+// the REAL repo file bytes so the content-sha arm exercises real hashing).
+// The fixed-checkpoint (cd3) baseline ledger OBJECT and the five governed rows at their exact
+// cd3 blob identities — fetched once from the REAL repository graph so fixture trees serve the
+// same objects the production channel reads (unit-37 §3 paired-before/after-activation tests).
+const CD3_LEDGER_BYTES = realGit(['cat-file', 'blob', `${CURRENT_TRANSFER_CHECKPOINT.head}:${S3_LEDGER_REL}`]).stdout;
+const cd3GovernedRows = () => [...LEDGER_BINDING_ADDED_PATHS, ...LEDGER_BINDING_MODIFIED_PATHS, ...LEDGER_BINDING_NEW_MODIFIED_PATHS].map((path) => {
+  const gitBlob = realGit(['rev-parse', `${CURRENT_TRANSFER_CHECKPOINT.head}:${path}`]).stdout.toString().trim();
+  return { path, mode: '100644', kind: 'blob', gitBlob, content: realGit(['cat-file', 'blob', gitBlob]).stdout };
+});
+const CD3_LEDGER_GITBLOB = realGit(['rev-parse', `${CURRENT_TRANSFER_CHECKPOINT.head}:${S3_LEDGER_REL}`]).stdout.toString().trim();
+const governedPaths = [...LEDGER_BINDING_ADDED_PATHS, ...LEDGER_BINDING_MODIFIED_PATHS, ...LEDGER_BINDING_NEW_MODIFIED_PATHS];
+const governedContentMap = (rows) => new Map(governedPaths.map((p) => [p, rows.find((r) => r.path === p)?.content ?? Buffer.alloc(0)]));
+// Root unit-38 F1: every fixture arm that exercises the ledger channel reads it from a FIXED
+// root on disk (never the ambient live repo checkout), so the arms stay meaningful before
+// AND after the canonical activation. Fixture roots are retained (no deletion primitive).
+const fixtureLedgerRoot = (bytes) => {
+  const root = mkdtempSync(join(tmpdir(), 'tak-ledger-root-'));
+  mkdirSync(join(root, 'docs/test-assurance-kernel/s3'), { recursive: true });
+  writeFileSync(join(root, S3_LEDGER_REL), bytes);
+  return root;
+};
+let baselineLedgerRootDir = null;
+const ensureBaselineLedgerRoot = () => (baselineLedgerRootDir ??= fixtureLedgerRoot(CD3_LEDGER_BYTES));
+// An ACTIVATED-form fixture ledger over GIVEN governed contents: every pin binds exactly
+// those bytes (hashes computed from the fixture data, never typed), plus exactly the two new
+// modifiedPaths rows (path+sha256 only) — the honest finite admission shape.
+const activatedLedgerFixture = (governedContents) => {
+  const L = JSON.parse(CD3_LEDGER_BYTES.toString('utf8'));
+  for (const row of L.addedPaths) if (LEDGER_BINDING_ADDED_PATHS.includes(row.path)) row.sha256 = sha(governedContents.get(row.path));
+  L.modifiedPaths = L.modifiedPaths.map((row) => (LEDGER_BINDING_MODIFIED_PATHS.includes(row.path) ? { ...row, sha256: sha(governedContents.get(row.path)) } : row));
+  L.modifiedPaths = [...L.modifiedPaths, ...LEDGER_BINDING_NEW_MODIFIED_PATHS.map((p) => ({ path: p, sha256: sha(governedContents.get(p)) }))];
+  return Buffer.from(JSON.stringify(L));
+};
+// A pass-through runner wrapper pinning ONLY the live-HEAD ls-tree ledger row to the fixed
+// cd3 baseline object (the Root probe's own bounded-adapter technique, kept as a permanent
+// fixture): the R3 predecessor fixture becomes a coherent permanently-UNACTIVATED snapshot —
+// disk baseline, committed baseline row, real governed live rows — so its pending oracle
+// survives the canonical activation unchanged. Every other call passes through untouched.
+const pinLiveLedgerRowToBaseline = (runner) => {
+  const liveHead = runner(['rev-parse', 'HEAD']).stdout.toString().trim();
+  return (args) => {
+    const r = runner(args);
+    if (args[0] !== 'ls-tree' || String(args[args.length - 1]) !== `${liveHead}^{tree}` || r.rc !== 0) return r;
+    const pinned = r.stdout.toString('utf8').split('\0').filter(Boolean).map((e) => {
+      const m = /^(\d+) (blob|tree|commit) ([0-9a-f]{40})\t(.*)$/s.exec(e);
+      return m && m[4] === S3_LEDGER_REL ? `${m[1]} ${m[2]} ${CD3_LEDGER_GITBLOB}\t${m[4]}` : e;
+    }).join('\0');
+    return { ...r, stdout: Buffer.from(`${pinned}\0`) };
+  };
+};
+const fakeTransferGit = (treeRows, { treeOf = CURRENT_TRANSFER_CHECKPOINT.tree, parentLine = CURRENT_TRANSFER_CHECKPOINT.parent, ancOk = true, treeOk = true, liveRows = null, baselineRows = null, topicRows = null, ancHeadOk = null } = {}) => (args) => {
+  if (args[0] === 'rev-parse') {
+    if (String(args[1]).endsWith('^{tree}')) return { rc: treeOk ? 0 : 128, stdout: Buffer.from(treeOk ? treeOf : ''), stderr: Buffer.from(treeOk ? '' : 'fatal: bad object') };
+    return { rc: 0, stdout: Buffer.from(hex40('a')), stderr: Buffer.from('') };
+  }
+  if (args[0] === 'log') return { rc: 0, stdout: Buffer.from(parentLine), stderr: Buffer.from('') };
+  if (args[0] === 'merge-base') {
+    const headArm = args[3] === hex40('a'); // the fake live-HEAD hex returned by rev-parse HEAD
+    const ok = headArm && ancHeadOk !== null ? ancHeadOk : ancOk;
+    return { rc: ok ? 0 : 1, stdout: Buffer.from(''), stderr: Buffer.from('') };
+  }
+  if (args[0] === 'ls-tree') {
+    const target = String(args[args.length - 1]);
+    let rows = treeRows;
+    if (target === CURRENT_TRANSFER_CHECKPOINT.tree) rows = treeRows;
+    else if (target === CURRENT_TRANSFER_CHECKPOINT.parent) rows = baselineRows ?? treeRows;
+    else if (target === ACCEPTED_TOPIC_HEAD) rows = topicRows ?? treeRows;
+    else rows = liveRows ?? treeRows;
+    return { rc: treeOk ? 0 : 128, stdout: Buffer.from(rows.map((r) => `${r.mode} ${r.kind} ${r.gitBlob}\t${r.path}`).join('\0')), stderr: Buffer.from(treeOk ? '' : 'fatal: bad object') };
+  }
+  if (args[0] === 'cat-file' && args[1] === 'blob') {
+    if (args[2] === `${CURRENT_TRANSFER_CHECKPOINT.head}:${S3_LEDGER_REL}`) return { rc: 0, stdout: CD3_LEDGER_BYTES, stderr: Buffer.from('') };
+    const row = [...treeRows, ...(liveRows ?? [])].find((r) => r.gitBlob === args[2]);
+    if (!row?.content) return { rc: 128, stdout: Buffer.from(''), stderr: Buffer.from('fatal: bad object') };
+    return { rc: 0, stdout: row.content, stderr: Buffer.from('') };
+  }
+  return { rc: 1, stdout: Buffer.from(''), stderr: Buffer.from('unexpected git call') };
+};
+// A bad-but-otherwise-valid isolated fixture: healthy synthetic carrier whose first three
+// rows are the REAL admitted replacements (real checkpoint gitBlobs + real repo bytes), and
+// row 10's tree blob is quietly swapped — intact provenance everywhere except one object.
+const transferFixture = () => {
+  const { carrier, rows } = syntheticCarrier();
+  const treeRows = rows.map((r) => ({ ...r }));
+  ADMITTED_CURRENT_REPLACEMENTS.forEach((rep, i) => {
+    const content = readFileSync(join(REPO_ROOT, rep.path));
+    treeRows[i] = { path: rep.path, mode: '100644', kind: 'blob', gitBlob: rep.gitBlob, content };
+    carrier.currentLineageOnlyScope.upstreamAdditions[i] = { path: rep.path, mode: '100644', kind: 'blob', gitBlob: rep.gitBlob, sha256: rep.sha256, bytes: content.length };
+  });
+  // Unit-37 §3: the fixture trees carry the five ledger-governed source rows at their exact
+  // cd3 blob identities, so the channel verdicts exercise their real pins and content reads.
+  treeRows.push(...cd3GovernedRows());
+  // Root unit-38 F1/F2: the fixture trees also carry the LEDGER row at its exact cd3 identity
+  // with its real bytes — the committed-ledger binding reads the live tree row and its blob,
+  // so every fixture arm serves the same object the production channel reads.
+  treeRows.push({ path: S3_LEDGER_REL, mode: '100644', kind: 'blob', gitBlob: CD3_LEDGER_GITBLOB, content: CD3_LEDGER_BYTES });
+  return { carrier, treeRows };
+};
+test('UPSTREAM-TRANSFER: the pinned Root-reviewed current-transfer checkpoint reconciles the complete 571-row set as 568 preserved bc8-origin blobs plus exactly three admitted assertion-preserving replacements', () => {
+  const loaded = loadReviewedIntegration(REPO_ROOT);
+  assert.equal(loaded.ok, true);
+  const p = reconcileCurrentTransfer({ repoRoot: REPO_ROOT, git: realGitHistorical, carrier: loaded });
+  const liveChannel = currentLedgerChannel({ repoRoot: REPO_ROOT, git: realGitHistorical });
+  if (liveChannel.ok && liveChannel.activated) {
+    // Root unit-38 F1: after the ACTUAL canonical activation the same real-repo relation is
+    // exactly clean — and the acceptance is EXPLICIT and independently verified, never an
+    // oracle taken from the detector's own verdict: the activated ledger IS the committed
+    // live HEAD blob, and every governed pin binds the actual live bytes it governs.
+    assert.deepEqual(p, [], p.join('|'));
+    const committed = realGitHistorical(['cat-file', 'blob', `HEAD:${S3_LEDGER_REL}`]);
+    assert.equal(committed.rc, 0);
+    assert.ok(committed.stdout.equals(readFileSync(join(REPO_ROOT, S3_LEDGER_REL))), 'the activated ledger must be identical to the committed live HEAD blob');
+    for (const path of governedPaths) {
+      const row = [...(liveChannel.liveLedger.addedPaths ?? []), ...(liveChannel.liveLedger.modifiedPaths ?? [])].find((r) => r?.path === path);
+      assert.ok(row && /^[0-9a-f]{64}$/.test(row.sha256 ?? ''), `the activated ledger must pin ${path}`);
+      const blob = realGitHistorical(['cat-file', 'blob', `HEAD:${path}`]);
+      assert.equal(blob.rc, 0);
+      assert.equal(sha(blob.stdout), row.sha256, `the activated pin for ${path} must bind the actual live bytes`);
+    }
+  } else {
+    // Root unit-36 item C (pre-admission state): the warm real-repo relation ends at the
+    // honest finite pending state — every row/mode/content/extra/missing check passes and
+    // the ONLY remaining problems are the typed PENDING current-source proposals awaiting
+    // actual Root admission (exactly the five paths of Root's ACTUAL-FIVE-POSTIMAGE-PINS
+    // receipts, paths only), with the channel itself valid and unactivated.
+    assert.equal(liveChannel.ok, true, liveChannel.problems.join('|'));
+    assert.equal(liveChannel.activated, false);
+    assert.equal(p.length, PENDING_CURRENT_SOURCE_PROPOSALS.length, p.join('|'));
+    assert.ok(p.every((x) => x.startsWith('pending actual Root admission')), p.join('|'));
+    for (const path of PENDING_CURRENT_SOURCE_PROPOSALS) {
+      assert.equal(p.filter((x) => x.includes(`${path} `)).length, 1, `${path} must be reported by exactly one pending problem: ${p.join('|')}`);
+    }
+  }
+  // The three admitted paths really are the only rows whose checkpoint blob differs from
+  // the bc8 origin — the fixture arm below refuses any fourth difference. The synthetic
+  // fixture tree equals its own live tree and reads its ledger from a FIXED baseline root,
+  // so no pending problems arise there before OR after the canonical activation.
+  const { carrier, treeRows } = transferFixture();
+  assert.deepEqual(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows), carrier: { ok: true, data: carrier } }), []);
+});
+test('UPSTREAM-TRANSFER: a changed, missing, mode-swapped or extra upstream-origin path without an admitted replacement refuses, and a wrong checkpoint head/tree/parent refuses', () => {
+  const { carrier, treeRows } = transferFixture();
+  const badCarrier = structuredClone(carrier);
+  const changed = treeRows.map((r) => ({ ...r }));
+  changed[10] = { ...changed[10], gitBlob: hex40('c') };
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(changed), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('changed upstream-origin path without an admitted replacement')));
+  const missing = treeRows.filter((_, i) => i !== 20);
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(missing), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('missing from the checkpoint tree')));
+  const modeSwap = treeRows.map((r, i) => (i === 30 ? { ...r, mode: '120000' } : r));
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(modeSwap), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('mode/kind mismatch')));
+  const noReplacement = structuredClone(carrier);
+  noReplacement.currentLineageOnlyScope.upstreamAdditions[1] = { ...noReplacement.currentLineageOnlyScope.upstreamAdditions[1], path: 'upstream/fake-999.md' };
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows), carrier: { ok: true, data: noReplacement } }).some((x) => x.includes('admitted current replacements must appear')));
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { treeOf: hex40('e') }), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('does not resolve to the reviewed tree')));
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { parentLine: `${hex40('d')} ${hex40('9')}` }), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('parent must be exactly')));
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { ancOk: false }), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('must be an actual ancestor')));
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows), carrier: { ok: false, data: badCarrier } }).some((x) => x.includes('requires a valid reviewed carrier')));
+});
+test('UPSTREAM-TRANSFER: the finite LIVE leg — a live-only extra path, a live-tree change without an admitted replacement, a live-tree missing row and broken live-HEAD ancestry each refuse, and the cf64-union-bc8 lineage surface stays exactly covered', () => {
+  // Root unit-35 item 3: the checkpoint tree alone proves only the old checkpoint. The LIVE
+  // HEAD tree is checked per row (missing/mode/content), and every live path must belong to
+  // the reviewed cf64-union-bc8 surface (rows, admitted replacements, admitted carriers,
+  // accepted topic tip tree, upstream staging bc8 tree) — anything else is an unknown extra
+  // current path and refuses.
+  const { carrier, treeRows } = transferFixture();
+  const badCarrier = structuredClone(carrier);
+  const extraLive = [...treeRows, { path: 'upstream/rogue-live-extra.md', mode: '100644', kind: 'blob', gitBlob: hex40('e') }];
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: extraLive }), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('unknown upstream-origin current path without a reviewed row: upstream/rogue-live-extra.md')), 'a live-only extra path outside the union surface refuses');
+  const changedLive = treeRows.map((r) => ({ ...r }));
+  changedLive[10] = { ...changedLive[10], gitBlob: hex40('f') };
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: changedLive }) , carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('changed upstream-origin path without an admitted replacement in the live HEAD tree')), 'a live-tree change the checkpoint does not carry refuses');
+  const missingLive = treeRows.filter((_, i) => i !== 40);
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: missingLive }), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('missing from the live HEAD tree')), 'a row missing from the live HEAD tree refuses');
+  assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { ancHeadOk: false }), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('must be an actual ancestor of the live HEAD')), 'a live HEAD that does not descend from the checkpoint and bc8 refuses');
+  // The same live leg reconciles clean when the live tree equals the reviewed surface.
+  assert.deepEqual(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: treeRows.map((r) => ({ ...r })) }), carrier: { ok: true, data: badCarrier } }), [], 'the unchanged live leg reconciles clean');
+});
+test('UPSTREAM-TRANSFER (unit 36): the complete finite current subject — an unknown non-row byte or mode mutation refuses, a missing original path refuses, and a typed pending path reports the honest admission-pending class instead of passing or erroring', () => {
+  // Root unit-36 item C: pathname membership alone is not content custody. The checkpoint
+  // (cd3) and live HEAD trees are compared path by path over the WHOLE finite surface, not
+  // only the 571 rows: an unknown byte/mode mutation of an original path refuses, a deleted
+  // original path refuses, and the five typed PENDING paths (delivery-committed postimage
+  // proposals) are reported as explicit admission-pending problems — never a silent pass,
+  // never an unknown-object error, never a blanket expected-map exception.
+  const { carrier, treeRows } = transferFixture();
+  const badCarrier = structuredClone(carrier);
+  const ordinary = { path: 'docs/test-assurance-kernel/s3/ordinary-current-file.md', mode: '100644', kind: 'blob', gitBlob: hex40('1') };
+  const pendingPath = PENDING_CURRENT_SOURCE_PROPOSALS[4];
+  const withExtra = [...treeRows.map((r) => ({ ...r })), { ...ordinary }, { path: pendingPath, mode: '100644', kind: 'blob', gitBlob: hex40('2') }];
+  const run = (liveRows) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(withExtra, { liveRows }), carrier: { ok: true, data: badCarrier } });
+  // Clean baseline: the whole finite surface identical in checkpoint and live trees.
+  assert.deepEqual(run(withExtra.map((r) => ({ ...r }))), []);
+  const mutated = withExtra.map((r) => (r.path === ordinary.path ? { ...r, gitBlob: hex40('3') } : r));
+  const pm = run(mutated);
+  assert.ok(pm.some((x) => x.includes(`changed current source path without an admitted replacement or governed binding: ${ordinary.path}`)), pm.join('|'));
+  const dropped = withExtra.filter((r) => r.path !== ordinary.path);
+  const pd = run(dropped);
+  assert.ok(pd.some((x) => x.includes(`original current path missing from the live HEAD tree: ${ordinary.path}`)), pd.join('|'));
+  const modeSwap = withExtra.map((r) => (r.path === ordinary.path ? { ...r, mode: '100755' } : r));
+  const pms = run(modeSwap);
+  assert.ok(pms.some((x) => x.includes(`changed current source path without an admitted replacement or governed binding: ${ordinary.path}`)), pms.join('|'));
+  const pendChanged = withExtra.map((r) => (r.path === pendingPath ? { ...r, gitBlob: hex40('4') } : r));
+  const pp = run(pendChanged);
+  assert.equal(pp.length, 1, pp.join('|'));
+  assert.ok(pp[0].startsWith('pending actual Root admission'), pp.join('|'));
+  const pendAdded = [...withExtra.map((r) => ({ ...r })), { path: PENDING_CURRENT_SOURCE_PROPOSALS[2], mode: '100644', kind: 'blob', gitBlob: hex40('5') }];
+  const pa = run(pendAdded);
+  assert.ok(pa.some((x) => x.startsWith('pending actual Root admission') && x.includes(PENDING_CURRENT_SOURCE_PROPOSALS[2])), pa.join('|'));
+  assert.ok(pa.every((x) => !x.includes('unknown upstream-origin current path')), pa.join('|'));
+});
+test('LEDGER-CHANNEL (unit 37): the exact existing v1 channel — baseline is valid-unactivated, the exact proposed activated ledger L validates with exactly two new rows, and any other field/member/order/hash change refuses', () => {
+  // Paired BEFORE activation: the live ledger equals the fixed-checkpoint (cd3) baseline —
+  // the channel is valid and UNACTIVATED (zero new rows), which is the honest current state.
+  const baseline = JSON.parse(CD3_LEDGER_BYTES.toString('utf8'));
+  const before = evaluateLedgerChannel({ liveLedger: structuredClone(baseline), baselineLedger: baseline });
+  assert.equal(before.ok, true, before.problems.join('|'));
+  assert.equal(before.activated, false);
+  // The exact ACTIVATED proposal L: the two existing s3-source pins, the existing verify pin
+  // and EXACTLY TWO new modifiedPaths rows (P38 + MANIFEST, path+sha256 only) — nothing else.
+  const PIN_A = 'a'.repeat(64); const PIN_B = 'b'.repeat(64); const PIN_N1 = 'c'.repeat(63) + '1'; const PIN_N2 = 'c'.repeat(63) + '2'; const PIN_N9 = 'c'.repeat(63) + '9';
+  const L = structuredClone(baseline);
+  for (const row of L.addedPaths) if (LEDGER_BINDING_ADDED_PATHS.includes(row.path)) row.sha256 = PIN_A;
+  L.modifiedPaths = L.modifiedPaths.map((row) => (LEDGER_BINDING_MODIFIED_PATHS.includes(row.path) ? { ...row, sha256: PIN_B } : row));
+  L.modifiedPaths = [...L.modifiedPaths, { path: LEDGER_BINDING_NEW_MODIFIED_PATHS[0], sha256: PIN_N1 }, { path: LEDGER_BINDING_NEW_MODIFIED_PATHS[1], sha256: PIN_N2 }];
+  const after = evaluateLedgerChannel({ liveLedger: L, baselineLedger: baseline });
+  assert.equal(after.ok, true, after.problems.join('|'));
+  assert.equal(after.activated, true);
+  assert.equal(after.newRows.length, 2);
+  // One new row alone is still a VALID but UNACTIVATED ledger (partial proposal state).
+  const partial = structuredClone(L);
+  partial.modifiedPaths = partial.modifiedPaths.slice(0, -1);
+  const partialVerdict = evaluateLedgerChannel({ liveLedger: partial, baselineLedger: baseline });
+  assert.equal(partialVerdict.ok, true, partialVerdict.problems.join('|'));
+  assert.equal(partialVerdict.activated, false);
+  // Everything else refuses: any non-normalized field change, member order change, extra
+  // field on a new row, malformed sha, duplicate new rows, or a baseline carrying the rows.
+  const tamperedNote = structuredClone(L); tamperedNote.note = `${baseline.note ?? ''} plus self-service`;
+  assert.equal(evaluateLedgerChannel({ liveLedger: tamperedNote, baselineLedger: baseline }).ok, false);
+  const tamperedEvidence = structuredClone(L); tamperedEvidence.evidenceComplete = !(baseline.evidenceComplete);
+  assert.equal(evaluateLedgerChannel({ liveLedger: tamperedEvidence, baselineLedger: baseline }).ok, false);
+  const reordered = structuredClone(L); reordered.addedPaths = [...reordered.addedPaths.slice(1), reordered.addedPaths[0]];
+  assert.equal(evaluateLedgerChannel({ liveLedger: reordered, baselineLedger: baseline }).ok, false);
+  const extraField = structuredClone(L); extraField.modifiedPaths = extraField.modifiedPaths.map((r) => (r.path === LEDGER_BINDING_NEW_MODIFIED_PATHS[0] ? { ...r, class: 's3-source' } : r));
+  assert.equal(evaluateLedgerChannel({ liveLedger: extraField, baselineLedger: baseline }).ok, false);
+  const badSha = structuredClone(L); badSha.modifiedPaths = badSha.modifiedPaths.map((r) => (r.path === LEDGER_BINDING_NEW_MODIFIED_PATHS[1] ? { ...r, sha256: 'zz' } : r));
+  assert.equal(evaluateLedgerChannel({ liveLedger: badSha, baselineLedger: baseline }).ok, false);
+  const dupRows = structuredClone(L); dupRows.modifiedPaths = [...dupRows.modifiedPaths, { path: LEDGER_BINDING_NEW_MODIFIED_PATHS[0], sha256: PIN_N9 }];
+  assert.equal(evaluateLedgerChannel({ liveLedger: dupRows, baselineLedger: baseline }).ok, false);
+  const baselineCarrying = structuredClone(baseline); baselineCarrying.modifiedPaths = [...baselineCarrying.modifiedPaths, { path: LEDGER_BINDING_NEW_MODIFIED_PATHS[0], sha256: PIN_N1 }];
+  assert.equal(evaluateLedgerChannel({ liveLedger: baselineCarrying, baselineLedger: baselineCarrying }).ok, false);
+});
+test('LEDGER-CHANNEL (unit 37): governed verdicts are paired before/after activation — activated content-bound discharges, activated pin-mismatch refuses, unactivated mismatch defers to the caller pending class, and missing/mode-wrong/legacy-pinless rows refuse', () => {
+  const unactivated = { ok: true, activated: false };
+  const activated = { ok: true, activated: true };
+  const PIN = 'd'.repeat(64); const OTHER = 'e'.repeat(64);
+  const desc = (path, over = {}) => ({ path, checkpointEntry: { mode: '100644', kind: 'blob', oid: hex40('1') }, liveEntry: { mode: '100644', kind: 'blob', oid: hex40('2') }, pin: PIN, liveSha: PIN, ...over });
+  const governed = [...LEDGER_BINDING_ADDED_PATHS, ...LEDGER_BINDING_MODIFIED_PATHS, ...LEDGER_BINDING_NEW_MODIFIED_PATHS].map((p) => desc(p));
+  // AFTER activation with matching bytes: fully discharged — zero problems.
+  assert.deepEqual(governedPathVerdicts({ channel: activated, governed }), []);
+  // AFTER activation with a mismatching pin: a purported binding that does not bind refuses.
+  const mismatch = governed.map((g) => ({ ...g, liveSha: OTHER }));
+  const pm = governedPathVerdicts({ channel: activated, governed: mismatch });
+  assert.equal(pm.length, governed.length, pm.join('|'));
+  assert.ok(pm.every((x) => x.includes('does not match the actual live bytes')), pm.join('|'));
+  // BEFORE activation the SAME mismatch stays silent in the verdicts — the caller reports the
+  // finite pending class (proved end-to-end by the healthy real-repo and fixture arms above).
+  assert.deepEqual(governedPathVerdicts({ channel: unactivated, governed: mismatch }), []);
+  // A legacy row without a structurally guaranteed pin refuses; a NEW row without a pin is
+  // pending territory (pre-activation proposal state), never a silent pass and never a crash.
+  const pinless = governed.map((g) => ({ ...g, pin: null }));
+  const pl = governedPathVerdicts({ channel: unactivated, governed: pinless });
+  assert.equal(pl.length, LEDGER_BINDING_ADDED_PATHS.length + LEDGER_BINDING_MODIFIED_PATHS.length, pl.join('|'));
+  assert.ok(pl.every((x) => x.includes('lacks an exact 64-hex sha256 pin')), pl.join('|'));
+  // Missing checkpoint entry, missing live entry, mode/kind change each refuse regardless of pins.
+  assert.ok(governedPathVerdicts({ channel: activated, governed: governed.map((g) => ({ ...g, checkpointEntry: null })) }).every((x) => x.includes('missing from the admitted checkpoint tree')));
+  assert.ok(governedPathVerdicts({ channel: activated, governed: governed.map((g) => ({ ...g, liveEntry: null })) }).every((x) => x.includes('missing from the live HEAD tree')));
+  assert.ok(governedPathVerdicts({ channel: activated, governed: governed.map((g) => ({ ...g, liveEntry: { ...g.liveEntry, mode: '120000' } })) }).every((x) => x.includes('mode/kind changed')));
+});
+test('LEDGER-CHANNEL (unit 37): a tampered live ledger refuses end-to-end through reconcileCurrentTransfer — selfIndexed normalization is the only admission, never a blanket exception', () => {
+  const { carrier, treeRows } = transferFixture();
+  const badCarrier = structuredClone(carrier);
+  // The checkpoint tree carries the ledger at its exact cd3 identity (transferFixture) and
+  // the live tree's ledger row is swapped to a DIFFERENT committed blob whose content IS the
+  // tampered bytes — an honestly committed bad ledger (disk and committed agree, both wrong
+  // beyond the finite normalization), so the channel is INVALID and the selfIndexed path
+  // refuses instead of riding a blanket exception.
+  const wrongNote = Buffer.from(JSON.stringify({ ...JSON.parse(CD3_LEDGER_BYTES.toString('utf8')), note: 'self-service note' }));
+  const swapLedger = (rows, gitBlob, content) => rows.map((r) => (r.path === S3_LEDGER_REL ? { path: S3_LEDGER_REL, mode: '100644', kind: 'blob', gitBlob, content } : r));
+  const tamperedRows = swapLedger(treeRows, hex40('8'), wrongNote);
+  const tmp = mkdtempSync(join(tmpdir(), 'tak-ledger-tamper-'));
+  mkdirSync(join(tmp, 'docs/test-assurance-kernel/s3'), { recursive: true });
+  writeFileSync(join(tmp, S3_LEDGER_REL), wrongNote);
+  const p = reconcileCurrentTransfer({ repoRoot: tmp, git: fakeTransferGit(treeRows, { liveRows: tamperedRows }), carrier: { ok: true, data: badCarrier } });
+  assert.ok(p.some((x) => x.includes('scope-extension ledger changed outside the finite existing-ledger binding channel')), p.join('|'));
+  assert.ok(p.some((x) => x.includes('existing-ledger binding channel invalid')), p.join('|'));
+  // The HONEST normalization positive (unit-38 F2 semantics: committed and working bytes
+  // AGREE): an activated-form byte change — exactly the two new rows plus the three governed
+  // pin swaps, every pin computed from the fixture's own governed contents — admits through
+  // normalization. The changed ledger bytes are judged ONLY by the normalized comparison,
+  // never by their difference from the checkpoint blob: no refusal for the selfIndexed path.
+  const activatedBytes = activatedLedgerFixture(governedContentMap(treeRows));
+  const activatedRows = swapLedger(treeRows, hex40('9'), activatedBytes);
+  const tmp2 = mkdtempSync(join(tmpdir(), 'tak-ledger-clean-'));
+  mkdirSync(join(tmp2, 'docs/test-assurance-kernel/s3'), { recursive: true });
+  writeFileSync(join(tmp2, S3_LEDGER_REL), activatedBytes);
+  const p2 = reconcileCurrentTransfer({ repoRoot: tmp2, git: fakeTransferGit(treeRows, { liveRows: activatedRows }), carrier: { ok: true, data: badCarrier } });
+  assert.ok(p2.every((x) => !x.includes('scope-extension ledger')), p2.join('|'));
+});
+test('LEDGER-CHANNEL (unit 38): the committed live HEAD ledger object is bound — wrong-note, unresolvable, deleted or mode-swapped committed entries refuse, and healthy baseline/activated twins admit', () => {
+  const { carrier, treeRows } = transferFixture();
+  const badCarrier = structuredClone(carrier);
+  const swapLedger = (rows, over) => rows.map((r) => (r.path === S3_LEDGER_REL ? { ...r, ...over } : r));
+  const run = (liveRows, repoRoot = ensureBaselineLedgerRoot()) => reconcileCurrentTransfer({ repoRoot, git: fakeTransferGit(treeRows, { liveRows }), carrier: { ok: true, data: badCarrier } });
+  // Root unit-38 F2 falsifiers, made permanent negatives: the DISK ledger stays the valid
+  // fixed baseline in every arm — only the COMMITTED side changes — so a valid on-disk
+  // ledger can no longer mask the committed object.
+  // (1) wrong-note committed blob: readable but byte-DIFFERENT from the working file — the
+  //     exact Root counterfactual (disk stays valid) — refuses.
+  const wrongNote = Buffer.from(JSON.stringify({ ...JSON.parse(CD3_LEDGER_BYTES.toString('utf8')), note: 'committed self-service note' }));
+  const pw = run(swapLedger(treeRows, { gitBlob: hex40('6'), content: wrongNote }));
+  assert.ok(pw.some((x) => x.includes('scope-extension ledger working file is not the committed live HEAD blob')), pw.join('|'));
+  // (2) unresolvable committed blob: the tree row exists, its object does not — refuses.
+  const pu = run(swapLedger(treeRows, { gitBlob: hex40('7'), content: undefined }));
+  assert.ok(pu.some((x) => x.includes('scope-extension ledger committed blob') && x.includes('unreadable through the shared git runner')), pu.join('|'));
+  // (3) deletion: the live HEAD tree drops the ledger row entirely — refuses; the disk-only
+  //     channel never substitutes for the committed object.
+  const pd = run(treeRows.filter((r) => r.path !== S3_LEDGER_REL));
+  assert.ok(pd.some((x) => x.includes('scope-extension ledger missing from the live HEAD tree')), pd.join('|'));
+  // (4) wrong mode on the committed entry (symlink swap): refuses both the original
+  //     100644/blob binding and the selfIndexed mode/kind preservation.
+  const pm = run(swapLedger(treeRows, { mode: '120000' }));
+  assert.ok(pm.some((x) => x.includes('scope-extension ledger live HEAD entry is not the original 100644/blob form')), pm.join('|'));
+  assert.ok(pm.some((x) => x.includes('scope-extension ledger mode/kind changed')), pm.join('|'));
+  // (5) healthy baseline twin: committed == disk == the fixed cd3 baseline — exactly clean.
+  assert.deepEqual(run(treeRows.map((r) => ({ ...r }))), []);
+  // (6) activated twin: committed == disk == an activated-form ledger whose pins bind the
+  //     fixture's own NEW governed bytes — the finite admission shape discharges everything.
+  const activatedContents = new Map(governedPaths.map((p, i) => [p, Buffer.from(`unit-38 activated fixture subject ${i}: ${p}\n`)]));
+  const activatedBytes = activatedLedgerFixture(activatedContents);
+  const activatedLive = treeRows.map((r) => {
+    if (activatedContents.has(r.path)) return { path: r.path, mode: '100644', kind: 'blob', gitBlob: hex40('abcde'[governedPaths.indexOf(r.path)]), content: activatedContents.get(r.path) };
+    return r.path === S3_LEDGER_REL ? { ...r, gitBlob: hex40('5'), content: activatedBytes } : { ...r };
+  });
+  const pa = run(activatedLive, fixtureLedgerRoot(activatedBytes));
+  assert.deepEqual(pa, [], pa.join('|'));
+});
+// Root unit-41 current-only generated F1 successor controls. The expected tuple below is the
+// frozen independent Root admission data, NEVER derived from the detector or from a fresh
+// generator run; the two byte anchors (reviewed cd3 original + actual admitted generated
+// postimage) are pinned by their full identities so any drift in either anchor refuses.
+const F1_REL = 'docs/site/reference/F1.md';
+const F1_REVIEWED = { gitBlob: 'ef0d8840c302cc8bb101b272fd7bde2d9efc063e', sha256: 'cbba1e3774a3a8d7a4a0b5a06d6168a190ad38957eb6357a04e0f935cc1edc57', bytes: 16459 };
+const F1_GENERATED = { gitBlob: 'c290363a90fbd2b32e185786a03a320f5379f6ff', sha256: 'f9620981c2224074825899429e900acbeff664fb7b97a958a7d3bf78895efa69', bytes: 16596 };
+const CD3_F1_BYTES = realGit(['cat-file', 'blob', `${CURRENT_TRANSFER_CHECKPOINT.head}:${F1_REL}`]).stdout;
+assert.equal(sha(CD3_F1_BYTES), F1_REVIEWED.sha256);
+assert.equal(CD3_F1_BYTES.length, F1_REVIEWED.bytes);
+const LIVE_F1_BYTES = readFileSync(join(REPO_ROOT, F1_REL));
+assert.equal(sha(LIVE_F1_BYTES), F1_GENERATED.sha256, 'the committed live F1.md must be the exact Root-admitted generated postimage');
+assert.equal(LIVE_F1_BYTES.length, F1_GENERATED.bytes);
+const f1Fixture = () => {
+  const { carrier, treeRows } = transferFixture();
+  carrier.currentLineageOnlyScope.upstreamAdditions.push({ path: F1_REL, mode: '100644', kind: 'blob', gitBlob: F1_REVIEWED.gitBlob, sha256: F1_REVIEWED.sha256, bytes: F1_REVIEWED.bytes });
+  treeRows.push({ path: F1_REL, mode: '100644', kind: 'blob', gitBlob: F1_REVIEWED.gitBlob, content: CD3_F1_BYTES });
+  return { carrier, treeRows };
+};
+const f1Run = (treeRows, liveRows, carrier) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows }), carrier: { ok: true, data: carrier } });
+const f1Live = (rows, over) => rows.map((r) => (r.path === F1_REL ? { ...r, ...over } : { ...r }));
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): the unchanged reviewed baseline twin — original blob on both legs — admits', () => {
+  const { carrier, treeRows } = f1Fixture();
+  assert.deepEqual(f1Run(treeRows, treeRows.map((r) => ({ ...r })), carrier), []);
+});
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): the exact Root-admitted generated postimage on the live leg admits', () => {
+  const { carrier, treeRows } = f1Fixture();
+  assert.deepEqual(f1Run(treeRows, f1Live(treeRows, { gitBlob: F1_GENERATED.gitBlob, content: LIVE_F1_BYTES }), carrier), []);
+});
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): the generated successor appearing in the cd3 checkpoint leg refuses — the historical baseline never updates', () => {
+  const { carrier, treeRows } = f1Fixture();
+  const checkpointRows = f1Live(treeRows, { gitBlob: F1_GENERATED.gitBlob, content: LIVE_F1_BYTES });
+  const p = f1Run(checkpointRows, checkpointRows.map((r) => ({ ...r })), carrier);
+  assert.ok(p.some((x) => x.includes(`current-only successor path ${F1_REL} carries ${F1_GENERATED.gitBlob} in the checkpoint tree`)), p.join('|'));
+});
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): counterfeit bytes served under the generated OID refuse', () => {
+  const { carrier, treeRows } = f1Fixture();
+  const p = f1Run(treeRows, f1Live(treeRows, { gitBlob: F1_GENERATED.gitBlob, content: CD3_F1_BYTES }), carrier);
+  assert.ok(p.some((x) => x.includes(`serves counterfeit bytes under ${F1_GENERATED.gitBlob}`)), p.join('|'));
+});
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): counterfeit bytes served under the reviewed original OID refuse', () => {
+  const { carrier, treeRows } = f1Fixture();
+  // The fake runner resolves cat-file by gitBlob (tree rows first), so the old-OID counterfeit
+  // is planted in the shared row itself: the reviewed OID is presented while the bytes served
+  // are the generated postimage — a pass here would mean OID trust without content binding.
+  const forged = f1Live(treeRows, { content: LIVE_F1_BYTES });
+  const p = f1Run(forged, forged.map((r) => ({ ...r })), carrier);
+  assert.ok(p.some((x) => x.includes(`serves counterfeit bytes under ${F1_REVIEWED.gitBlob}`)), p.join('|'));
+});
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): a mode or kind swap on the successor path refuses', () => {
+  const { carrier, treeRows } = f1Fixture();
+  const p = f1Run(treeRows, f1Live(treeRows, { gitBlob: F1_GENERATED.gitBlob, content: LIVE_F1_BYTES, mode: '120000' }), carrier);
+  assert.ok(p.some((x) => x.includes(`current-transfer mode/kind mismatch at ${F1_REL} in the live HEAD tree`)), p.join('|'));
+});
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): the successor row missing from the live tree refuses', () => {
+  const { carrier, treeRows } = f1Fixture();
+  const p = f1Run(treeRows, treeRows.filter((r) => r.path !== F1_REL).map((r) => ({ ...r })), carrier);
+  assert.ok(p.some((x) => x.includes(`current-transfer row missing from the live HEAD tree: ${F1_REL}`)), p.join('|'));
+});
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): an unreadable successor blob refuses', () => {
+  const { carrier, treeRows } = f1Fixture();
+  const p = f1Run(treeRows, f1Live(treeRows, { gitBlob: F1_GENERATED.gitBlob, content: undefined }), carrier);
+  assert.ok(p.some((x) => x.includes(`current-only successor path ${F1_REL} blob ${F1_GENERATED.gitBlob} unreadable through the shared git runner`)), p.join('|'));
+});
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): the successor pattern applied to any other unadmitted path refuses — no wildcard, class or prefix', () => {
+  const { carrier, treeRows } = f1Fixture();
+  // The generated successor OID presented under a DIFFERENT reviewed row's live entry must
+  // hit the generic unadmitted-replacement refusal — the exception is bound to exactly one
+  // path, never to an OID, a filename prefix or a "generated file" class.
+  const other = treeRows.find((r) => r.path !== F1_REL && r.path !== S3_LEDGER_REL && !ADMITTED_CURRENT_REPLACEMENTS.some((rep) => rep.path === r.path));
+  const liveRows = treeRows.map((r) => (r === other ? { ...r, gitBlob: F1_GENERATED.gitBlob, content: LIVE_F1_BYTES } : { ...r }));
+  const p = f1Run(treeRows, liveRows, carrier);
+  assert.ok(p.some((x) => x.includes('changed upstream-origin path without an admitted replacement in the live HEAD tree')), p.join('|'));
+});
+test('CURRENT-ONLY F1 SUCCESSOR (unit 41): a tampered checkpoint origin (neither reviewed nor admitted OID) refuses', () => {
+  const { carrier, treeRows } = f1Fixture();
+  const checkpointRows = f1Live(treeRows, { gitBlob: hex40('f'), content: CD3_F1_BYTES });
+  const p = f1Run(checkpointRows, checkpointRows.map((r) => ({ ...r })), carrier);
+  assert.ok(p.some((x) => x.includes(`current-only successor path ${F1_REL} carries ${hex40('f')} in the checkpoint tree`)), p.join('|'));
+});
+test('UPSTREAM-TRANSFER: the actual lineage detector disabled counterfactual - intact refuses a bad isolated fixture, the narrowly disabled detector incorrectly allows it, restored bytes refuse again', async () => {
+  // U33-K3-1 / Root unit-35 item 4: a failing git process is NOT a disabled mechanism (that
+  // arm lives above as the producer-off refusal), and a production rowDetector seam is NOT a
+  // mechanism-disabled consumer (the seam is gone from production). The ACTUAL detector is
+  // narrowly disabled in a RETAINED IN-MEMORY SOURCE COPY of the production module — the
+  // per-row loop neutralized by one exact unique replacement guarded by an occurrence-count
+  // assertion — and the copy is imported and exercised through the same public consumer:
+  // intact refuses, the disabled copy incorrectly allows (the frozen negative assertion
+  // fails), and the untouched original module still refuses afterward. No file on disk is
+  // modified; real workflow bytes stay unchanged.
+  const { carrier, treeRows } = transferFixture();
+  const badCarrier = structuredClone(carrier);
+  const changed = treeRows.map((r) => ({ ...r }));
+  changed[10] = { ...changed[10], gitBlob: hex40('c') };
+  const git = fakeTransferGit(changed);
+  const frozenNegative = (problems) => problems.some((x) => x.includes('changed upstream-origin path without an admitted replacement'));
+  const intact = reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git, carrier: { ok: true, data: badCarrier } });
+  assert.ok(frozenNegative(intact), intact.join('|'));
+  const sourcePath = join(REPO_ROOT, 'scripts/test-assurance/s3.mjs');
+  const healthySource = readFileSync(sourcePath, 'utf8');
+  const M02T_FROM = 'for (const { map, label } of [checkpointTree, liveTree]) {';
+  const M02T_TO = 'for (const { map, label } of []) { // NEUTRALIZED-guard-live-transfer-row-detector';
+  const loopCount = healthySource.split(M02T_FROM).length - 1;
+  assert.equal(loopCount, 1, 'the production per-row detector loop must appear exactly once');
+  const disabledSource = healthySource.replace(M02T_FROM, M02T_TO);
+  assert.equal(disabledSource.split(M02T_TO).length - 1, loopCount, 'the neutralized guard replaces the loop exactly');
+  const disabledModule = await import(`data:text/javascript;base64,${Buffer.from(disabledSource, 'utf8').toString('base64')}`);
+  const disabled = disabledModule.reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git, carrier: { ok: true, data: badCarrier } });
+  assert.equal(frozenNegative(disabled), false, 'the narrowly disabled detector copy incorrectly allows the bad fixture — the SAME frozen negative assertion fails, which is exactly why the intact detector is load-bearing');
+  const restored = reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git, carrier: { ok: true, data: badCarrier } });
+  assert.ok(frozenNegative(restored), restored.join('|'));
+});
+test('PORTABLE-REFERENCE: the admitted bundle artifact is byte-pinned and a truncated, corrupted or foreign artifact refuses before any transport', () => {
+  const loaded = loadPortableReference(REPO_ROOT);
+  assert.equal(loaded.absent, false);
+  assert.equal(loaded.ok, true, loaded.problems?.join('|'));
+  // Retained fixture tree (no rmSync — new fixtures stay on disk per the retention rule).
+  const tmp = mkdtempSync(join(tmpdir(), 'tak-portable-bytes-'));
+  mkdirSync(join(tmp, 'docs/test-assurance-kernel/s2'), { recursive: true });
+  const good = readFileSync(join(REPO_ROOT, PORTABLE_REFERENCE_REL));
+  const truncated = Buffer.from(good.subarray(0, PORTABLE_REFERENCE_BYTES - 1));
+  writeFileSync(join(tmp, PORTABLE_REFERENCE_REL), truncated);
+  const t1 = loadPortableReference(tmp);
+  assert.equal(t1.ok, false);
+  assert.ok(t1.problems.some((x) => x.includes('is not the admitted 1034715')), t1.problems.join('|'));
+  const corrupted = Buffer.from(good);
+  corrupted[200000] ^= 0xff;
+  writeFileSync(join(tmp, PORTABLE_REFERENCE_REL), corrupted);
+  const t2 = loadPortableReference(tmp);
+  assert.equal(t2.ok, false);
+  assert.ok(t2.problems.some((x) => x.includes('sha drifted from the admitted Root bytes')), t2.problems.join('|'));
+  writeFileSync(join(tmp, PORTABLE_REFERENCE_REL), Buffer.alloc(PORTABLE_REFERENCE_BYTES, 0x41));
+  const t3 = loadPortableReference(tmp);
+  assert.equal(t3.ok, false);
+  assert.ok(t3.problems.some((x) => x.includes('sha drifted from the admitted Root bytes')), t3.problems.join('|'));
+});
+// One shared, retained, uniquely owned hydrated store for the hydration/custody arms (built
+// once; the mkdtemp directory deliberately persists — no deletion primitive is introduced).
+let hydratedStore = null;
+const ensureHydratedStore = () => {
+  if (hydratedStore) return hydratedStore;
+  const storeDir = mkdtempSync(join(tmpdir(), 'tak-portable-store-'));
+  const result = hydratePortableReferenceStore({ repoRoot: REPO_ROOT, storeDir });
+  assert.deepEqual(result.problems, [], result.problems.join('|'));
+  assert.equal(result.ok, true);
+  hydratedStore = { storeDir, result };
+  return hydratedStore;
+};
+test('PORTABLE-REFERENCE: hydration from published objects only builds a uniquely owned isolated store - six objects absent before, exact tuples after, real chain preserved, generation NOT ancestor of published staging', () => {
+  const sharedRefsBefore = realGit(['for-each-ref', '--format=%(refname)']).stdout.toString().trim().split('\n').filter(Boolean);
+  const { storeDir } = ensureHydratedStore();
+  const g = makeIsolatedGit(storeDir);
+  for (const t of PORTABLE_REFERENCE_TUPLES) {
+    const tree = g(['rev-parse', `${t.commit}^{tree}`]);
+    assert.equal(tree.rc, 0);
+    assert.equal(tree.stdout.toString().trim(), t.tree, `${t.commit} must hydrate to its exact reviewed tree`);
+  }
+  const refs = g(['for-each-ref', '--format=%(refname)']).stdout.toString().trim().split('\n').filter(Boolean).sort();
+  assert.deepEqual(refs, ['refs/heads/cf64-reference-evidence', 'refs/heads/published-staging'].sort());
+  // Historical generation is NOT an ancestor of published staging (portability never
+  // rewrites ancestry); the prerequisite IS (that is what makes the bundle transportable).
+  for (const t of PORTABLE_REFERENCE_TUPLES) {
+    assert.notEqual(g(['merge-base', '--is-ancestor', t.commit, 'refs/heads/published-staging']).rc, 0, `${t.commit} must not be an ancestor of published staging`);
+  }
+  const sharedRefsAfter = realGit(['for-each-ref', '--format=%(refname)']).stdout.toString().trim().split('\n').filter(Boolean);
+  assert.deepEqual(sharedRefsAfter, sharedRefsBefore, 'hydration must not write any ref into the shared repository');
+});
+test('PORTABLE-REFERENCE: a corrupted pack refuses natively and no shared git state is written (store custody stays private and retained)', () => {
+  const { storeDir } = ensureHydratedStore();
+  const g = makeIsolatedGit(storeDir);
+  assert.equal(existsSync(join(storeDir, 'objects', 'info', 'alternates')), false, 'the isolated store must not borrow objects through alternates');
+  // Corrupted copy: byte-pinned transport refuses at the artifact gate...
+  const tmp = mkdtempSync(join(tmpdir(), 'tak-portable-corrupt-'));
+  const corruptedPath = join(tmp, 'corrupted-reference.bundle');
+  const good = readFileSync(join(REPO_ROOT, PORTABLE_REFERENCE_REL));
+  const corrupted = Buffer.from(good);
+  corrupted[200000] ^= 0xff;
+  writeFileSync(corruptedPath, corrupted);
+  const refused = hydratePortableReferenceStore({ repoRoot: REPO_ROOT, storeDir: mkdtempSync(join(tmpdir(), 'tak-portable-refuse-')), bundlePath: corruptedPath });
+  assert.equal(refused.ok, false);
+  assert.ok(refused.problems.some((x) => x.includes('transport source is not the admitted artifact')), refused.problems.join('|'));
+  // ...and stock git itself refuses the corrupted pack natively at transport time. A fetch
+  // from this bundle short-circuits in THIS store (the advertised commit is already present,
+  // so no pack bytes are read and git reports success); `git bundle unbundle` always hands
+  // the pack to index-pack regardless of what the store already holds, so the corrupted
+  // stream dies natively — direct native status and stderr preserved.
+  const nativeUnbundle = g(['bundle', 'unbundle', corruptedPath]);
+  assert.notEqual(nativeUnbundle.rc, 0, 'a real unpack of the corrupted bundle must fail natively in index-pack');
+  assert.ok(nativeUnbundle.stderr.toString().includes('index-pack'), nativeUnbundle.stderr.toString());
+  assert.equal(g(['rev-parse', '--verify', 'refs/heads/corrupt-probe']).rc !== 0, true, 'the failed transport must leave no probe ref behind');
+  // Wrong provenance: a well-formed bundle from an unrelated scratch history is not the
+  // admitted artifact and never reaches transport.
+  const scratch = mkdtempSync(join(tmpdir(), 'tak-portable-scratch-'));
+  const sg = makeIsolatedGit(scratch);
+  assert.equal(sg(['init', '--quiet']).rc, 0);
+  const commit = sg(['-c', 'user.email=fixture@example.invalid', '-c', 'user.name=fixture', 'commit', '--allow-empty', '-m', 'unrelated']);
+  assert.equal(commit.rc, 0, commit.stderr.toString());
+  const wrongBundle = join(scratch, 'wrong.bundle');
+  assert.equal(sg(['bundle', 'create', wrongBundle, '--all']).rc, 0);
+  const wrong = hydratePortableReferenceStore({ repoRoot: REPO_ROOT, storeDir: mkdtempSync(join(tmpdir(), 'tak-portable-wrong-')), bundlePath: wrongBundle });
+  assert.equal(wrong.ok, false);
+  assert.ok(wrong.problems.some((x) => x.includes('transport source is not the admitted artifact')), wrong.problems.join('|'));
 });

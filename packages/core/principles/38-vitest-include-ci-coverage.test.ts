@@ -814,42 +814,154 @@ describe('Principle 38 — execution context: a credit must come from an actual 
     ).toEqual([]);
 
     // Faulted direction — execution replaced by `true`, old command retained ONLY as a comment.
-    // The resolver must stop crediting the comment: every skills file whose ONLY coverage was
-    // the faulted command drops out. Files covered by a DIFFERENT real lane stay covered — a
-    // second real run is not comment-only evidence (2026-11-01 union: audit-self.yml runs
-    // packages/core/skills/pipeline-park-contract.test.ts directly in another job). The
-    // exception set is derived mechanically by the same frozen resolver over the non-faulted
-    // sources — never hand-listed, never observed-output: population + both directions stay
-    // pinned to the exact reviewed expected set.
-    const faultedSources = readWorkflows().map((s) =>
-      s === healthy ? faulted : s,
-    );
-    const otherLaneFilters = parseCiVitestFilters(
-      readWorkflows().map((s) =>
-        s === healthy ? healthy.replace(M02_REPLACEMENT_FROM, '') : s,
-      ),
-      readScripts(),
-    );
-    const coveredByOtherLanes = skillsFiles.filter(
-      (f) => uncoveredFiles([f], otherLaneFilters).length === 0,
-    );
+    // U33-P38-1 (Root counterexample fb195f9e…, 2026-11-01): an expected oracle DERIVED by the
+    // same resolver (a dynamic covered-by-other-lanes set) survives a disabled detector — the
+    // oracle must instead be the FIXED reviewed population. The controlled fault therefore
+    // neutralizes BOTH real lanes that would still cover skills/ files — the faulted test:skills
+    // run AND the redundant direct pipeline-park-contract argument (audit-self.yml:3093,
+    // kickoff-checks job) — each replaced by an exact unique guard, and then requires the
+    // ENTIRE fixed 39 to be uncovered. Real workflow bytes on disk stay unchanged: every
+    // manipulation below happens on the in-memory copies handed to the resolver.
+    const M02_DIRECT_ARG = 'packages/core/skills/pipeline-park-contract.test.ts';
+    const M02_GUARD_DIRECT_ARG = 'NEUTRALIZED-guard-direct-pipeline-park-argument';
+    const directCount = healthy.split(M02_DIRECT_ARG).length - 1;
+    expect(
+      directCount,
+      'the direct pipeline-park-contract argument must be present in the real workflow bytes',
+    ).toBeGreaterThan(0);
+    const faultedSources = readWorkflows().map((s) => {
+      if (s !== healthy) return s;
+      const withGuards = faulted.replaceAll(M02_DIRECT_ARG, M02_GUARD_DIRECT_ARG);
+      expect(
+        withGuards.split(M02_GUARD_DIRECT_ARG).length - 1,
+        'each neutralized lane leaves exactly one unique guard behind',
+      ).toBe(directCount);
+      return withGuards;
+    });
     const missing = uncoveredFiles(
       skillsFiles,
       parseCiVitestFilters(faultedSources, readScripts()),
     );
     expect(
       missing,
-      'comment-only evidence of the test:skills command must leave every skills/ test ' +
-        'uncovered except those a different real lane still covers',
-    ).toEqual(
-      M02_EXPECTED_SKILLS_POPULATION.filter(
-        (f) => !coveredByOtherLanes.includes(f),
-      ),
+      'with BOTH real lanes neutralized by unique guards, comment-only evidence of the ' +
+        'test:skills command must leave the ENTIRE fixed expected population uncovered — ' +
+        'the oracle is the fixed reviewed set, never a dynamically derived covered-set',
+    ).toEqual(M02_EXPECTED_SKILLS_POPULATION);
+  });
+
+  it('(i2) fault-control vacuity: a disabled coverage detector or an always-missing detector fails the oracle it must serve', () => {
+    // U33-P38-1 companion controls: prove the (i) oracle pair is not satisfiable by a broken
+    // detector. A detector that always reports "covered" (uncoveredFiles forced to []) would
+    // hand the fault control an empty missing-set, FAILING its fixed-population assertion;
+    // an always-missing detector would hand the healthy control a full missing-set, FAILING
+    // its empty assertion. Both counterfactuals are evaluated against the same FIXED
+    // oracles (never a resolver-derived expectation), in memory only.
+    const faultOracleHoldsUnder = (uncovered: string[]) =>
+      JSON.stringify([...uncovered].sort()) ===
+      JSON.stringify(M02_EXPECTED_SKILLS_POPULATION);
+    const healthyOracleHoldsUnder = (uncovered: string[]) =>
+      uncovered.length === 0;
+    expect(
+      faultOracleHoldsUnder([]),
+      'a whole-workflow coverage-disable false credit ([] uncovered) must FAIL the fault oracle',
+    ).toBe(false);
+    expect(
+      healthyOracleHoldsUnder([...M02_EXPECTED_SKILLS_POPULATION]),
+      'an always-missing detector (every file uncovered) must FAIL the healthy oracle',
+    ).toBe(false);
+    // The real detector satisfies BOTH fixed oracles in (i) — these counterfactuals are the
+    // falsifiers that would expose a resolver following a disabled detector.
+  });
+
+  it('(i3) input-lane controls: the UNCHANGED whole-workflow callback driven through counterfactual coverage-disabled and always-missing INPUT states fails the oracle it must not satisfy, and the restored source passes', () => {
+    // Root unit-36 relabel (2026-11-01, source-caption correction only — the callback,
+    // detector and workflow bytes are UNCHANGED, and P38 detector liveness is separately
+    // CLOSED by actual Root verification ROOT-ACTUAL-UNIT35-P38-DETECTOR-DISABLE-OVERREJECT-RESTORE.json):
+    // these are INPUT-LANE controls, not detector-disable evidence — the two counterfactual
+    // states are constructed on the callback's INPUTS (in-memory workflow/script bytes),
+    // never by disabling the detector machinery itself. The (i2) array illustration is not a
+    // replacement for them: the unchanged production callback — parseCiVitestFilters +
+    // uncoveredFiles over the REAL workflow bytes and the REAL scripts — is driven through
+    // the two counterfactual INPUT states, and the SAME frozen fault/healthy assertions from
+    // (i) are evaluated against its real outputs. All manipulation happens on in-memory
+    // copies; the workflow files on disk are never written (restored-source arm re-reads
+    // them from disk).
+    const faultOracleHoldsUnder = (uncovered: string[]) =>
+      JSON.stringify([...uncovered].sort()) ===
+      JSON.stringify(M02_EXPECTED_SKILLS_POPULATION);
+    const healthyOracleHoldsUnder = (uncovered: string[]) =>
+      uncovered.length === 0;
+    const skillsFiles = population()
+      .filter((f) => f.startsWith('skills/'))
+      .sort();
+    expect(skillsFiles).toEqual(M02_EXPECTED_SKILLS_POPULATION);
+
+    // State 1 — coverage disabled: EVERY `vitest run` occurrence across ALL real workflow
+    // files is neutralized by one unique guard, and the test:skills script body is reduced
+    // to an echo (no Vitest anywhere). The unchanged callback must then report the ENTIRE
+    // fixed population uncovered: the healthy assertion FAILS (no false green from a
+    // workflow that stopped running Vitest) while the fault assertion still HOLDS (the
+    // fault control is not vacuous under the disabled state).
+    const M02_TOTAL_GUARD = 'NEUTRALIZED-guard-total-vitest-coverage';
+    const laneCounts = readWorkflows().map((s) => ({
+      lanes: s.split('vitest run').length - 1,
+    }));
+    expect(
+      laneCounts.reduce((a, c) => a + c.lanes, 0),
+      'the real workflows must carry a non-empty population of vitest run lanes to disable',
+    ).toBeGreaterThan(0);
+    const disabledSources = readWorkflows().map((s, i) => {
+      const guarded = s.replaceAll('vitest run', M02_TOTAL_GUARD);
+      expect(
+        guarded.split(M02_TOTAL_GUARD).length - 1,
+        `workflow ${i}: every neutralized lane leaves exactly one unique guard behind`,
+      ).toBe(laneCounts[i].lanes);
+      return guarded;
+    });
+    const disabledScripts: Record<string, string> = {
+      ...readScripts(),
+      'test:skills': 'echo "NEUTRALIZED-guard-test-skills-body"',
+    };
+    const disabledFilters = parseCiVitestFilters(disabledSources, disabledScripts);
+    expect(
+      disabledFilters.filter((f) => f.startsWith('skills/')),
+      'with every Vitest lane guarded away, no skills/ filter may remain credited',
+    ).toEqual([]);
+    const disabledUncovered = uncoveredFiles(skillsFiles, disabledFilters);
+    expect(
+      healthyOracleHoldsUnder(disabledUncovered),
+      'coverage disabled: the unchanged callback must FAIL the healthy (empty-uncovered) assertion',
+    ).toBe(false);
+    expect(
+      faultOracleHoldsUnder(disabledUncovered),
+      'coverage disabled: the fault assertion still holds — the fault control is not vacuous',
+    ).toBe(true);
+
+    // State 2 — always-missing: no filter covers anything (the empty-filter extreme of the
+    // same unchanged callback over the real population). The healthy assertion FAILS again,
+    // in the always-missing direction.
+    const alwaysMissing = uncoveredFiles(skillsFiles, []);
+    expect(
+      healthyOracleHoldsUnder(alwaysMissing),
+      'always-missing: the unchanged callback must FAIL the healthy assertion',
+    ).toBe(false);
+    expect(alwaysMissing).toEqual(M02_EXPECTED_SKILLS_POPULATION);
+
+    // Restored source — the workflow bytes on disk were never modified: re-reading them and
+    // running the unchanged callback must pass the healthy assertion again.
+    const restoredUncovered = uncoveredFiles(
+      skillsFiles,
+      parseCiVitestFilters(readWorkflows(), readScripts()),
     );
     expect(
-      [...missing, ...coveredByOtherLanes].sort(),
-      'uncovered-by-fault plus covered-by-other-real-lanes must partition the exact expected population',
-    ).toEqual(M02_EXPECTED_SKILLS_POPULATION);
+      healthyOracleHoldsUnder(restoredUncovered),
+      'restored source: the unchanged callback over the untouched on-disk bytes must pass',
+    ).toBe(true);
+    expect(
+      faultOracleHoldsUnder(restoredUncovered),
+      'restored source: the fault oracle is not satisfied by the healthy state (falsifiability)',
+    ).toBe(false);
   });
 });
 

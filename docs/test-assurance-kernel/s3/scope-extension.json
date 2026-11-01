@@ -9,12 +9,12 @@
     {
       "path": "scripts/test-assurance/s3.mjs",
       "class": "s3-source",
-      "sha256": "2ecbf73fceaaae07a9b8687853f407525e496edf9b8bd0f855cc939526f40ff2"
+      "sha256": "c1f74f7f702d03f4044c360cad4398ffa08b233d132a0d165705553ecfb757b1"
     },
     {
       "path": "scripts/test-assurance/s3.test.mjs",
       "class": "s3-source",
-      "sha256": "3d5fb66466f495169eb0669f8439bf3c6de394ae476fcb16ecd1524e7761f3aa"
+      "sha256": "ef9cb542d5a9a1d9d86af5fb18f4ffe121e19aaab934894ee76e2c33bb453ed8"
     },
     {
       "path": "docs/test-assurance-kernel/s3/scope-extension.json",
@@ -311,7 +311,15 @@
   "modifiedPaths": [
     {
       "path": "scripts/test-assurance/verify.mjs",
-      "sha256": "61cab826c26b03fe041787ba7db4abbf9180d83bb640265ff198e56d4ff4f68c"
+      "sha256": "65135bb6f3f6d4fdbbfbe8584bad42d2f094417f96c52057294a4f079e3969f3"
+    },
+    {
+      "path": "packages/core/principles/38-vitest-include-ci-coverage.test.ts",
+      "sha256": "c19d22cb869663b8ba215332e0b7d314e05e81e9d40fa24b53241c0c57c5272b"
+    },
+    {
+      "path": "packages/getff/MANIFEST.sha256",
+      "sha256": "a2dc968b4389a4688dcd50e7db2a85c1f4f89bc9399404246408277983ee20e4"
     }
   ],
   "s4EvidenceIndex": {

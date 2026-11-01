@@ -30,9 +30,11 @@
 //  R7 the s4EvidenceIndex is a typed bounded enumeration admitted into the additive
 //     inventory: every allowed future S4 file is an exact pinned object entry; unknown,
 //     missing, renamed, deleted, duplicate or symlink-escaping paths refuse everywhere.
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 export const S3_LEDGER_REL = 'docs/test-assurance-kernel/s3/scope-extension.json';
 export const S3_POLICY_REL = 'docs/test-assurance-kernel/s3/frozen-policy.json';
@@ -129,6 +131,28 @@ export const REQUIRED_COMPANION_CONTROLS = [
   "UPSTREAM-LINEAGE: wrong ancestry refuses (bc8 not an ancestor of the candidate head)",
   "UPSTREAM-LINEAGE: producer-off inventory/lineage git failure is a refusal, never permissive green",
   "UPSTREAM-LINEAGE: healthy real-repo lineage reconciles the complete reviewed 571-row set",
+  "UPSTREAM-TRANSFER: the pinned Root-reviewed current-transfer checkpoint reconciles the complete 571-row set as 568 preserved bc8-origin blobs plus exactly three admitted assertion-preserving replacements",
+  "UPSTREAM-TRANSFER: a changed, missing, mode-swapped or extra upstream-origin path without an admitted replacement refuses, and a wrong checkpoint head/tree/parent refuses",
+  "UPSTREAM-TRANSFER: the finite LIVE leg — a live-only extra path, a live-tree change without an admitted replacement, a live-tree missing row and broken live-HEAD ancestry each refuse, and the cf64-union-bc8 lineage surface stays exactly covered",
+  "UPSTREAM-TRANSFER (unit 36): the complete finite current subject — an unknown non-row byte or mode mutation refuses, a missing original path refuses, and a typed pending path reports the honest admission-pending class instead of passing or erroring",
+  "LEDGER-CHANNEL (unit 37): the exact existing v1 channel — baseline is valid-unactivated, the exact proposed activated ledger L validates with exactly two new rows, and any other field/member/order/hash change refuses",
+  "LEDGER-CHANNEL (unit 37): governed verdicts are paired before/after activation — activated content-bound discharges, activated pin-mismatch refuses, unactivated mismatch defers to the caller pending class, and missing/mode-wrong/legacy-pinless rows refuse",
+  "LEDGER-CHANNEL (unit 37): a tampered live ledger refuses end-to-end through reconcileCurrentTransfer — selfIndexed normalization is the only admission, never a blanket exception",
+  "LEDGER-CHANNEL (unit 38): the committed live HEAD ledger object is bound — wrong-note, unresolvable, deleted or mode-swapped committed entries refuse, and healthy baseline/activated twins admit",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): the unchanged reviewed baseline twin — original blob on both legs — admits",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): the exact Root-admitted generated postimage on the live leg admits",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): the generated successor appearing in the cd3 checkpoint leg refuses — the historical baseline never updates",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): counterfeit bytes served under the generated OID refuse",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): counterfeit bytes served under the reviewed original OID refuse",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): a mode or kind swap on the successor path refuses",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): the successor row missing from the live tree refuses",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): an unreadable successor blob refuses",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): the successor pattern applied to any other unadmitted path refuses — no wildcard, class or prefix",
+  "CURRENT-ONLY F1 SUCCESSOR (unit 41): a tampered checkpoint origin (neither reviewed nor admitted OID) refuses",
+  "UPSTREAM-TRANSFER: the actual lineage detector disabled counterfactual - intact refuses a bad isolated fixture, the narrowly disabled detector incorrectly allows it, restored bytes refuse again",
+  "PORTABLE-REFERENCE: the admitted bundle artifact is byte-pinned and a truncated, corrupted or foreign artifact refuses before any transport",
+  "PORTABLE-REFERENCE: hydration from published objects only builds a uniquely owned isolated store - six objects absent before, exact tuples after, real chain preserved, generation NOT ancestor of published staging",
+  "PORTABLE-REFERENCE: a corrupted pack refuses natively and no shared git state is written (store custody stays private and retained)",
 ];
 
 const sha256buf = (buf) => createHash('sha256').update(buf).digest('hex');
@@ -235,7 +259,18 @@ export function admittedPaths(ledger) {
   ].map((r) => r.path);
 }
 
-export function verifyRegisteredFiles(repoRoot, ledger, problems) {
+export function rowPathCount(integration) {
+  return integration?.ok ? (integration.data.currentLineageOnlyScope.upstreamAdditions ?? []).length : 0;
+}
+
+// Optional pendingBindings ({channel, paths}): with a VALID but UNACTIVATED existing-ledger
+// channel, a sha-pin drift on one of the five governed source paths is the honest finite
+// PENDING diagnostic instead of a hard mismatch — the discharge requires actual Root final
+// admission of the activated ledger. Without the parameter (the S4 fail-closed gate) every
+// drift stays HARD: receipts never bless changed code.
+export function verifyRegisteredFiles(repoRoot, ledger, problems, pendingBindings) {
+  const pend = (path) => !!(pendingBindings && pendingBindings.channel?.ok && !pendingBindings.channel.activated && pendingBindings.paths?.has(path));
+  const pendingLabel = (path) => `pending actual Root admission: ${path} live bytes differ from the unactivated ledger pin — the five pending entries discharge only through actual Root final admission of the activated ledger`;
   const rows = [
     ...ledger.addedPaths,
     ...(ledger.declaredPendingEvidence ?? []),
@@ -255,22 +290,28 @@ export function verifyRegisteredFiles(repoRoot, ledger, problems) {
     if (st.isSymbolicLink() || !st.isFile()) { problems.push(`registered path is not a regular file: ${row.path}`); continue; }
     if (row.selfIndexed === true) continue;
     if (!HEX64.test(row.sha256 ?? '')) { problems.push(`required sha pin missing at landed path ${row.path}`); continue; }
-    try { if (sha256buf(readFileSync(file)) !== row.sha256) problems.push(`pinned sha mismatch at ${row.path}`); }
+    try { if (sha256buf(readFileSync(file)) !== row.sha256) problems.push(pend(row.path) ? pendingLabel(row.path) : `pinned sha mismatch at ${row.path}`); }
     catch { problems.push(`registered path unreadable: ${row.path}`); }
   }
   for (const row of ledger.modifiedPaths ?? []) {
     const file = join(repoRoot, row.path);
     if (!existsSync(file)) problems.push(`modifiedPaths entry absent on disk: ${row.path}`);
-    else { try { if (sha256buf(readFileSync(file)) !== row.sha256) problems.push(`modified path drifted from pinned sha: ${row.path}`); } catch { problems.push(`modified path unreadable: ${row.path}`); } }
+    else { try { if (sha256buf(readFileSync(file)) !== row.sha256) problems.push(pend(row.path) ? pendingLabel(row.path) : `modified path drifted from pinned sha: ${row.path}`); } catch { problems.push(`modified path unreadable: ${row.path}`); } }
   }
 }
 
-export function reconcileInventory({ repoRoot, basePaths, rulingPath, livePaths, ledger }) {
+export function reconcileInventory({ repoRoot, basePaths, rulingPath, livePaths, ledger, integration, pendingBindings }) {
   const problems = [...validateLedgerShape(ledger)];
   const base = new Set([...basePaths, rulingPath]);
   const admitted = new Set(admittedPaths(ledger));
   for (const p of admitted) if (base.has(p)) problems.push(`registered path collides with historical scope: ${p}`);
-  const expected = new Set([...base, ...admitted]);
+  // Root unit-37 §2: in INTEGRATION MODE ONLY (a valid reviewed carrier on disk) the finite
+  // current surface is admitted into the expected set — the exact 571 reviewed upstream-origin
+  // row paths plus the two data carriers. Outside integration mode the original expected set
+  // is untouched (legacy no-integration behavior preserved byte-for-byte).
+  const rowPaths = integration?.ok ? (integration.data.currentLineageOnlyScope.upstreamAdditions ?? []).map((r) => r.path) : [];
+  const carriers = integration?.ok ? [S2_REVIEWED_INTEGRATION_REL, PORTABLE_REFERENCE_REL] : [];
+  const expected = new Set([...base, ...admitted, ...rowPaths, ...carriers]);
   for (const p of livePaths) if (!expected.has(p)) problems.push(`unregistered live path refused: ${p}`);
   for (const p of expected) if (!livePaths.includes(p)) {
     const boundedFuture = (ledger.declaredPendingEvidence ?? []).some((r) => r.path === p)
@@ -278,7 +319,7 @@ export function reconcileInventory({ repoRoot, basePaths, rulingPath, livePaths,
     if (boundedFuture && !ledger.evidenceComplete) continue;
     problems.push(`registered path missing from live scope: ${p}`);
   }
-  verifyRegisteredFiles(repoRoot, ledger, problems);
+  verifyRegisteredFiles(repoRoot, ledger, problems, pendingBindings);
   return problems;
 }
 
@@ -381,6 +422,706 @@ export function reconcileUpstreamLineage({ repoRoot, git, carrier, head, basePat
     if (live.mode !== row.mode || live.kind !== row.kind || live.oid !== row.gitBlob) problems.push(`upstream blob metadata mismatch at ${row.path}: reviewed ${row.mode}/${row.kind}/${row.gitBlob} vs pinned-tree ${live.mode}/${live.kind}/${live.oid}`);
     const size = git(['cat-file', '-s', row.gitBlob]);
     if (size.rc !== 0 || Number(size.stdout.toString().trim()) !== row.bytes) problems.push(`upstream blob byte length mismatch at ${row.path}: reviewed ${row.bytes} vs pinned-object ${size.rc === 0 ? size.stdout.toString().trim() : 'unresolvable'}`);
+  }
+  return problems;
+}
+
+// ---- portable historical reference + reviewed current transfer (Root admission 2026-11-01) --
+// The admitted portable reference-data carrier: exact bundle bytes pinned below (proposal
+// 01decee5, Root consult 50967da7, direct native DATA proof retained in the packet). It is
+// REFERENCE DATA for historical object portability — never s3-source/s3-evidence class, never
+// behavioral evidence, never a waiver. Hydration writes ONLY into a uniquely owned isolated
+// object store built from published objects plus this exact bundle; no shared git config,
+// ref, index, object store or alternates is ever touched. Note: PRESERVED_INTEGRATION_INDEX_TREE
+// above stays historical provenance inside the b055 carrier only — it is never required as a
+// runtime object (a clean clone needs none of it).
+export const PORTABLE_REFERENCE_REL = 'docs/test-assurance-kernel/s2/reference-objects.cf64.bundle';
+export const PORTABLE_REFERENCE_SHA256 = 'a053210a8044ae2b670789d3768712c2c55717593992b9ccd0e6df1a8afa5dd0';
+export const PORTABLE_REFERENCE_BYTES = 1034715;
+export const PORTABLE_REFERENCE_PREREQUISITE = '35738554faf029e9fe3b8b4c25bfdde242f65c66';
+export const PORTABLE_REFERENCE_REF = 'refs/heads/cf64-reference-evidence';
+// The exact reviewed six commit/tree tuples: recovered 4fa -> source 1cb -> generation
+// ac175 -> preserved cf64, plus the original S2 base 23d67e8e and the S2 measured head
+// 932ef452 — every one an ancestor of preserved cf64, none an ancestor of published staging.
+export const PORTABLE_REFERENCE_TUPLES = [
+  { commit: '4fa71b5d0429720244da763de1c62cc885d99c39', tree: '4229a3a350c844813388c6844f995ea6b1434a7d' },
+  { commit: '1cb4a51d3e71534403a4769ee3a80577ce2505ff', tree: '63a480cad56fb2c254b93a78748effd817ccaec6' },
+  { commit: 'ac17594f1f1edaad7d98b0acb2ddcd08e748518f', tree: 'a5da6f4068f948381bdae3e9aeafd680db6bb799' },
+  { commit: '23d67e8e646d5a3416bee697a3461b2439cec477', tree: '8008fd9a34a96ec0231c753f3cd2eb9bb0ee5f87' },
+  { commit: '932ef452c5e9639293eb8c0d17e443b4d2acf6f1', tree: '4ca080adc480be6972d9adce9b1faadbb619e4e4' },
+  { commit: 'cf64dd7fb2d52d3eaea5966f9abd0e61717ba981', tree: '36791c84d4e6a5aceb1800f8a4e10bff2136a918' },
+];
+// The reviewed current-transfer checkpoint: the first normal integration commit on the
+// delivery branch — exact head/tree/single parent, real bc8 ancestry. Exactly three of the
+// 571 upstream-origin current blobs differ from their bc8 origin (the Root-reviewed
+// assertion-preserving renames); every other row must still carry its bc8-origin blob at
+// the checkpoint. This relation is STRUCTURAL routing only: it never certifies behavior,
+// performance or CI, and evidence-only descent (codeScopeEquivalent) keeps its identical
+// scoped-blob requirement unchanged.
+export const CURRENT_TRANSFER_CHECKPOINT = {
+  head: 'cd3fc6041337ecea3596143867d1dc517a927911',
+  tree: 'a5593c8d8f69c6954b4b68b4da323a300f8e5939',
+  parent: 'bc8e758d2863aabbaa1062492a142662bdaa11d8',
+};
+export const ADMITTED_CURRENT_REPLACEMENTS = [
+  { path: 'scripts/dot-relay/executor.test.mjs', sha256: 'd9023a3d780cd6fe0ca044d3a8365e5680ea66c1dfb801f76bea9992b5248e6e', gitBlob: 'c1c38edfc3f3915bac1e62a92f7f16d9892daa86' },
+  { path: 'scripts/plugin-native-binding.test.mjs', sha256: 'df3c889e15fd984fa24ddd10bc4ae066b991766d226154d0e8ea27ef199cb8b6', gitBlob: '8061e5bd5ba01e55fe02b27490db55cb77f894b7' },
+  { path: 'tests/aif-init/runtime-output.test.mjs', sha256: '2a70692e66173568596e1d5957053136f19b1053099ca2447f6abeb9713a2963', gitBlob: '1e7501bc256091c77fcce9e6db7037f426a1dde5' },
+];
+// Root unit-36 item C: the finite pending-admission set — PATHS ONLY, never hashes. These
+// are the current-subject paths changed by the delivery commits (2f978/f15cf/0899) after the
+// admitted cd3 checkpoint, matching Root's ACTUAL-FIVE-POSTIMAGE-PINS receipts. Until actual
+// Root boundary-2 admission they are PROPOSALS: the reconciliation reports each as an
+// explicit admission-pending problem (public diagnostics stay honest) instead of silently
+// passing or hard-refusing as unknown. No expected-map exception and no circular own-hash —
+// the exact postimage identities live in Root's immutable pin receipts, never typed here.
+export const PENDING_CURRENT_SOURCE_PROPOSALS = [
+  'packages/core/principles/38-vitest-include-ci-coverage.test.ts',
+  'packages/getff/MANIFEST.sha256',
+  'scripts/test-assurance/s3.mjs',
+  'scripts/test-assurance/s3.test.mjs',
+  'scripts/test-assurance/verify.mjs',
+];
+// Root unit-41 admission (2026-11-01): the ONE exact current-only generated successor. The
+// cd3 integration squash added .agents/rules/test-quality-contracts.md without regenerating
+// the docs/site/reference/F1.md F1-table fence, so the reviewed upstream-origin row and the
+// normal live generator output now legitimately differ on exactly this path. The checkpoint
+// identities stay frozen historical data (the reviewed row — the successor appearing in the
+// cd3 checkpoint tree is a refusal, never an updated historical baseline); the live leg may
+// carry the reviewed original OR the exact admitted generated successor. Every expected
+// identity below is Root's immutable reviewed tuple, never derived from this detector or
+// from a fresh generator run. Deliberately NOT an ADMITTED_CURRENT_REPLACEMENTS entry: those
+// apply one expectation to BOTH trees and would demand future generated bytes in old cd3.
+// Structural admission of the original baseline here is not a freshness waiver — the
+// s2-body-carriers step still demands the live generator output for final delivery.
+export const ADMITTED_CURRENT_ONLY_SUCCESSORS = [
+  {
+    path: 'docs/site/reference/F1.md',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: 'ef0d8840c302cc8bb101b272fd7bde2d9efc063e', sha256: 'cbba1e3774a3a8d7a4a0b5a06d6168a190ad38957eb6357a04e0f935cc1edc57', bytes: 16459 },
+    live: { mode: '100644', kind: 'blob', gitBlob: 'c290363a90fbd2b32e185786a03a320f5379f6ff', sha256: 'f9620981c2224074825899429e900acbeff664fb7b97a958a7d3bf78895efa69', bytes: 16596 },
+  },
+];
+// Root unit-37 §3 (Root-admitted EXISTING-LEDGER channel, 7c6b46e3 contract): the five
+// governed source rows map onto the EXISTING scope-extension.json v1 ledger — the two
+// existing s3-source addedPaths rows (s3.mjs, s3.test.mjs), the existing verify.mjs
+// modifiedPaths row, and exactly TWO new modifiedPaths rows (P38, MANIFEST.sha256) that
+// exist only in the PROPOSED activated ledger L (never activated before actual Root final
+// admission). This is a finite DATA channel, not an accepted namespace or evidence waiver.
+export const LEDGER_BINDING_ADDED_PATHS = ['scripts/test-assurance/s3.mjs', 'scripts/test-assurance/s3.test.mjs'];
+export const LEDGER_BINDING_MODIFIED_PATHS = ['scripts/test-assurance/verify.mjs'];
+export const LEDGER_BINDING_NEW_MODIFIED_PATHS = ['packages/core/principles/38-vitest-include-ci-coverage.test.ts', 'packages/getff/MANIFEST.sha256'];
+
+// Evaluate the EXISTING-ledger binding channel state from two PARSED ledgers: the live
+// ledger and the fixed-checkpoint (cd3) baseline object. Normalization per the admitted
+// contract — ONLY (a) the sha256 of the two exact existing module/test addedPaths rows,
+// (b) the sha256 of the existing verify modifiedPaths row, (c) removing the exactly-two
+// newly allowed P38/MANIFEST modifiedPaths rows. Everything else — fields, array
+// members/order, types, hashes, predecessor receipts, evidenceComplete, anchors, S4 index,
+// note — must equal the actual baseline byte-for-field. Returns activated / unactivated /
+// invalid. Pure: no I/O, so tests drive it with independently fixed fixture ledgers.
+export function evaluateLedgerChannel({ liveLedger, baselineLedger }) {
+  const problems = [...validateLedgerShape(liveLedger)];
+  if (problems.length) return { ok: false, activated: false, problems };
+  const isAdded = (row) => LEDGER_BINDING_ADDED_PATHS.includes(row?.path) && row?.class === 's3-source';
+  const isModified = (row) => LEDGER_BINDING_MODIFIED_PATHS.includes(row?.path);
+  const isNewModified = (row) => LEDGER_BINDING_NEW_MODIFIED_PATHS.includes(row?.path);
+  const addedCount = (ledger) => (ledger.addedPaths ?? []).filter(isAdded).length;
+  const modifiedCount = (ledger) => (ledger.modifiedPaths ?? []).filter(isModified).length;
+  if (addedCount(liveLedger) !== LEDGER_BINDING_ADDED_PATHS.length || addedCount(baselineLedger) !== LEDGER_BINDING_ADDED_PATHS.length) {
+    return { ok: false, activated: false, problems: ['the two existing s3-source addedPaths rows must be present exactly once each in both ledgers'] };
+  }
+  if (modifiedCount(liveLedger) !== LEDGER_BINDING_MODIFIED_PATHS.length || modifiedCount(baselineLedger) !== LEDGER_BINDING_MODIFIED_PATHS.length) {
+    return { ok: false, activated: false, problems: ['the existing verify.mjs modifiedPaths row must be present exactly once in both ledgers'] };
+  }
+  const newRows = (ledger) => (ledger.modifiedPaths ?? []).filter(isNewModified);
+  const liveNew = newRows(liveLedger);
+  const baseNew = newRows(baselineLedger);
+  if (baseNew.length) return { ok: false, activated: false, problems: ['the fixed-checkpoint baseline must not carry the two new modifiedPaths rows'] };
+  for (const row of liveNew) {
+    const keys = Object.keys(row).sort();
+    if (keys.length !== 2 || keys[0] !== 'path' || keys[1] !== 'sha256') return { ok: false, activated: false, problems: [`new modifiedPaths row ${row.path} must carry only path+sha256 (got ${keys.join(',')})`] };
+    if (!HEX64.test(row.sha256 ?? '')) return { ok: false, activated: false, problems: [`new modifiedPaths row ${row.path} sha256 must be exact 64-hex`] };
+  }
+  if (liveNew.length !== new Set(liveNew.map((r) => r.path)).size) return { ok: false, activated: false, problems: ['duplicate new modifiedPaths rows refuse'] };
+  const normalize = (ledger) => {
+    const clone = structuredClone(ledger);
+    for (const row of clone.addedPaths) if (isAdded(row)) row.sha256 = '*';
+    clone.modifiedPaths = clone.modifiedPaths.filter((row) => !isNewModified(row)).map((row) => (isModified(row) ? { ...row, sha256: '*' } : row));
+    return clone;
+  };
+  const equal = JSON.stringify(normalize(liveLedger)) === JSON.stringify(normalize(baselineLedger));
+  if (!equal) return { ok: false, activated: false, problems: ['scope-extension ledger changed outside the finite existing-ledger binding channel (normalized comparison with the fixed-checkpoint baseline failed)'] };
+  return { ok: true, activated: liveNew.length === LEDGER_BINDING_NEW_MODIFIED_PATHS.length, newRows: liveNew, problems: [] };
+}
+
+// Governed-path verdicts for the five ledger-bound source rows (pure half of the channel):
+// each descriptor carries the checkpoint (cd3) mode/kind, the live mode/kind, the live
+// content sha256 and the LIVE ledger row pin. Wrong mode/kind/symlink/gitlink, deletion or
+// unknown path refuses regardless of any supplied hash; a pin that matches the actual live
+// bytes is content-bound; an ACTIVATED ledger whose pin mismatches the bytes refuses
+// (a tampered purported binding never passes); an UNACTIVATED (baseline) ledger whose pin
+// the live bytes no longer match yields the honest finite PENDING diagnostic.
+export function governedPathVerdicts({ channel, governed }) {
+  const problems = [];
+  for (const g of governed) {
+    if (!g.checkpointEntry) { problems.push(`ledger binding path missing from the admitted checkpoint tree: ${g.path} — unknown path refuses regardless of any supplied hash`); continue; }
+    if (!g.liveEntry) { problems.push(`ledger binding path missing from the live HEAD tree: ${g.path} — deletion refuses regardless of any supplied hash`); continue; }
+    if (g.liveEntry.mode !== g.checkpointEntry.mode || g.liveEntry.kind !== g.checkpointEntry.kind) {
+      problems.push(`ledger binding path ${g.path} mode/kind changed (checkpoint ${g.checkpointEntry.mode}/${g.checkpointEntry.kind} -> live ${g.liveEntry.mode}/${g.liveEntry.kind}) — wrong mode, symlink or gitlink refuses`);
+      continue;
+    }
+    const legacyRow = LEDGER_BINDING_ADDED_PATHS.includes(g.path) || LEDGER_BINDING_MODIFIED_PATHS.includes(g.path);
+    if (!g.pin || !HEX64.test(g.pin ?? '')) {
+      // The three EXISTING rows are structurally guaranteed by every valid v1 ledger (the
+      // channel counts them exactly) — a missing/malformed one means the ledger or the pin
+      // lookup broke and refuses. The two NEW rows exist only in the activated proposal L —
+      // pre-activation their absence is exactly the pending state, reported by the caller.
+      if (legacyRow) problems.push(`ledger binding row for ${g.path} lacks an exact 64-hex sha256 pin`);
+      continue;
+    }
+    if (g.liveSha === g.pin && channel.activated) continue; // content-bound discharge requires the ACTIVATED ledger
+    if (channel.activated) problems.push(`activated ledger pin for ${g.path} does not match the actual live bytes (${g.liveSha} != ${g.pin}) — a purported binding that does not bind refuses`);
+    // unactivated ledger (any pin state) with changed live bytes: reported by the caller as PENDING
+  }
+  return problems;
+}
+
+// IO half of the ledger channel: reads the LIVE scope-extension.json from disk and the
+// FIXED-CHECKPOINT (cd3) baseline ledger object through the SAME shared git runner the caller
+// uses for its other historical reads (so a fresh checkout serves it from the owned store),
+// then evaluates the pure channel. Any unreadable or unparseable side fails CLOSED — never a
+// silent pass, never an accidental "activated". Exported for direct fixture tests.
+export function currentLedgerChannel({ repoRoot, git }) {
+  let liveRaw = null;
+  try { liveRaw = readFileSync(join(repoRoot, S3_LEDGER_REL)); } catch { /* reported below */ }
+  const base = git(['cat-file', 'blob', `${CURRENT_TRANSFER_CHECKPOINT.head}:${S3_LEDGER_REL}`]);
+  const problems = [];
+  if (liveRaw === null) problems.push(`live scope-extension ledger unreadable at ${S3_LEDGER_REL}`);
+  if (base.rc !== 0) problems.push(`fixed-checkpoint baseline ledger object ${CURRENT_TRANSFER_CHECKPOINT.head}:${S3_LEDGER_REL} unreadable through the shared git runner (rc ${base.rc})`);
+  let liveLedger = null;
+  let baselineLedger = null;
+  if (liveRaw !== null) {
+    try { liveLedger = JSON.parse(liveRaw.toString('utf8')); } catch (e) { problems.push(`live scope-extension ledger is not valid JSON: ${e.message}`); }
+  }
+  if (base.rc === 0) {
+    try { baselineLedger = JSON.parse(base.stdout.toString('utf8')); } catch (e) { problems.push(`baseline scope-extension ledger object is not valid JSON: ${e.message}`); }
+  }
+  if (problems.length) return { ok: false, activated: false, liveLedger, baselineLedger, problems };
+  return { ...evaluateLedgerChannel({ liveLedger, baselineLedger }), liveLedger, baselineLedger };
+}
+
+export function loadPortableReference(repoRoot) {
+  const file = join(repoRoot, PORTABLE_REFERENCE_REL);
+  if (!existsSync(file)) return { absent: true, ok: false, problems: [] };
+  let raw;
+  try { raw = readFileSync(file); } catch (e) { return { absent: false, ok: false, problems: [`portable reference unreadable: ${e.message}`] }; }
+  const problems = [];
+  if (raw.length !== PORTABLE_REFERENCE_BYTES) problems.push(`portable reference byte length ${raw.length} is not the admitted ${PORTABLE_REFERENCE_BYTES} (truncated or foreign data refuses)`);
+  if (sha256buf(raw) !== PORTABLE_REFERENCE_SHA256) problems.push(`portable reference sha drifted from the admitted Root bytes (${PORTABLE_REFERENCE_REL}); changed reference data needs a new corresponding review, never silent tuple movement`);
+  return { absent: false, ok: problems.length === 0, problems };
+}
+
+// Clean scrubbed Git environment for the isolated store: nothing inherited from the ambient
+// repository (no GIT_DIR / GIT_INDEX_FILE / GIT_OBJECT_DIRECTORY / GIT_ALTERNATE_OBJECT_DIRECTORIES
+// / GIT_COMMON_DIR), no system or global config reads, file transport only, no prompts.
+export function isolatedGitEnv() {
+  return {
+    PATH: process.env.PATH ?? '/usr/bin:/bin',
+    HOME: process.env.HOME,
+    GIT_CONFIG_NOSYSTEM: '1',
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_CONFIG_SYSTEM: '/dev/null',
+    GIT_TERMINAL_PROMPT: '0',
+    LC_ALL: 'C',
+  };
+}
+
+// A git runner bound to the isolated store with the scrubbed environment. The native status
+// is returned exactly as produced (never re-derived after another command).
+export function makeIsolatedGit(storeDir) {
+  const env = isolatedGitEnv();
+  return (args) => {
+    // maxBuffer parity with every other runner in this module (64 MiB): the store serves the
+    // SAME query class as the live runner, and the anchored-base full-diff recompute alone is
+    // ~16 MiB — the spawnSync default (1 MiB) kills the child mid-stream (rc null), which a
+    // fresh single-branch checkout would misreport as an unresolvable relation.
+    const r = spawnSync('git', args, { cwd: storeDir, env, maxBuffer: 64 * 1024 * 1024 });
+    return { rc: r.status, stdout: r.stdout ?? Buffer.alloc(0), stderr: r.stderr ?? Buffer.alloc(0) };
+  };
+}
+
+// Hydrate a uniquely owned isolated object store from ONLY the published objects plus the
+// admitted bundle. Verifies artifact bytes first, then: published staging head is the pinned
+// bc8; the bundle prerequisite is a real ancestor of it; all six historical objects are
+// ABSENT before transport (fresh closure); the bundle transports under its single advertised
+// ref; the exact six commit/tree tuples exist afterward; the real chain 4fa->1cb->ac175->
+// cf64 holds with source->generation a direct parent; and the historical generation is NOT
+// an ancestor of published staging (portability never rewrites ancestry). Any native failure
+// is a refusal (fail-closed). The store is retained caller-owned fixture state.
+export function hydratePortableReferenceStore({ repoRoot, storeDir, bundlePath, currentHead }) {
+  const canonical = loadPortableReference(repoRoot);
+  if (canonical.absent) return { ok: false, problems: ['portable reference carrier absent from the repo (nothing to hydrate from)'] };
+  if (!canonical.ok) return { ok: false, problems: canonical.problems };
+  const bundle = bundlePath ?? join(repoRoot, PORTABLE_REFERENCE_REL);
+  let raw;
+  try { raw = readFileSync(bundle); } catch (e) { return { ok: false, problems: [`portable reference bundle unreadable: ${e.message}`] }; }
+  if (raw.length !== PORTABLE_REFERENCE_BYTES || sha256buf(raw) !== PORTABLE_REFERENCE_SHA256) {
+    return { ok: false, problems: [`transport source is not the admitted artifact (length ${raw.length}, sha ${sha256buf(raw)}) — truncated, corrupted or foreign data refuses before any transport`] };
+  }
+  // Uniquely owned store: the directory exists BEFORE any command runs with it as cwd
+  // (spawnSync with a missing cwd is a native ENOENT, not a git refusal).
+  mkdirSync(storeDir, { recursive: true });
+  const git = makeIsolatedGit(storeDir);
+  const init = git(['init', '--bare', '--quiet', storeDir]);
+  if (init.rc !== 0) return { ok: false, problems: [`isolated store init failed natively (exit ${init.rc}): ${init.stderr.toString().trim().slice(0, 160)}`] };
+  const problems = [];
+  // Strict native-status discipline (Root unit-35 qualification): `merge-base
+  // --is-ancestor` answers with exactly exit 0 (yes) or exit 1 (no). Exit 128, a null
+  // status or a signal is a native I/O or repository ERROR — never proof of ancestry and
+  // never proof of non-ancestry — so it refuses instead of silently counting as the
+  // convenient side.
+  const expectAncestor = (a, b, label, wantYes) => {
+    const r = git(['merge-base', '--is-ancestor', a, b]);
+    if (r.rc !== 0 && r.rc !== 1) { problems.push(`${label}: native status ${r.rc ?? 'null'} (stderr ${r.stderr.toString().trim().slice(0, 120) || 'empty'}) is an I/O or repository error, not a ${wantYes ? 'proof of ancestry' : 'proof of non-ancestry'} — fail-closed`); return; }
+    if (wantYes && r.rc !== 0) problems.push(label);
+    if (!wantYes && r.rc === 0) problems.push(label);
+  };
+  // Stock pinned-SHA pack transport (Root unit-36 item B; the already-admitted DATA
+  // collector algorithm in prepare-native-reference-evidence.py): `git pack-objects
+  // --stdout --revs` fed the RAW pinned sha needs NO ambient named ref — a fresh
+  // single-branch PR checkout carries refs only at the delivery head while the pinned
+  // published head stays a reachable commit — and the pack bytes are indexed into the
+  // uniquely owned store with `git index-pack --stdin`, then pinned by `update-ref` inside
+  // that owned store only. No network, no auto-fetch, no shared refs/config/objects
+  // writes, no local clone/hardlinks/alternates/shallow/replace.
+  const packOut = spawnSync('git', ['-C', repoRoot, 'pack-objects', '--stdout', '--revs'], { input: `${UPSTREAM_STAGING_HEAD}\n`, env: isolatedGitEnv(), maxBuffer: 64 * 1024 * 1024 });
+  if ((packOut.status ?? -1) !== 0 || packOut.stdout.length === 0) return { ok: false, problems: [`pinned published-commit pack transport failed natively (exit ${packOut.status}, signal ${packOut.signal ?? 'none'}): ${String(packOut.stderr ?? '').trim().slice(0, 160)} — the pinned published graph is not available through stock local transport (no auto-fetch, no network)`] };
+  const indexed = spawnSync('git', ['--git-dir=' + storeDir, 'index-pack', '--stdin'], { input: packOut.stdout, env: isolatedGitEnv(), maxBuffer: 64 * 1024 * 1024 });
+  if ((indexed.status ?? -1) !== 0) return { ok: false, problems: [`owned-store index-pack of the pinned published graph failed natively (exit ${indexed.status}, signal ${indexed.signal ?? 'none'}): ${String(indexed.stderr ?? '').trim().slice(0, 160)}`] };
+  const setPublishedRef = git(['update-ref', 'refs/heads/published-staging', UPSTREAM_STAGING_HEAD]);
+  if (setPublishedRef.rc !== 0) return { ok: false, problems: [`owned-store update-ref of the pinned published head failed natively (exit ${setPublishedRef.rc}): ${setPublishedRef.stderr.toString().trim().slice(0, 160)}`] };
+  if (problems.length) return { ok: false, problems };
+  const publishedHead = git(['rev-parse', 'refs/heads/published-staging']);
+  if (publishedHead.rc !== 0 || publishedHead.stdout.toString().trim() !== UPSTREAM_STAGING_HEAD) problems.push(`published staging head is not the pinned ${UPSTREAM_STAGING_HEAD} (wrong provenance)`);
+  expectAncestor(PORTABLE_REFERENCE_PREREQUISITE, 'refs/heads/published-staging', `bundle prerequisite ${PORTABLE_REFERENCE_PREREQUISITE} is not an ancestor of published staging (wrong provenance)`, true);
+  const beforeRefs = git(['for-each-ref', '--format=%(refname)']);
+  if (beforeRefs.rc !== 0 || beforeRefs.stdout.toString().trim() !== 'refs/heads/published-staging') problems.push(`fresh store carries unexpected refs before hydration: ${beforeRefs.stdout.toString().trim()}`);
+  const absent = PORTABLE_REFERENCE_TUPLES.map((t) => git(['cat-file', '-e', `${t.commit}^{commit}`]));
+  const already = PORTABLE_REFERENCE_TUPLES.filter((t, i) => absent[i].rc === 0);
+  if (already.length) problems.push(`historical objects already present before hydration (store not fresh): ${already.map((t) => t.commit).join(', ')}`);
+  if (problems.length) return { ok: false, problems };
+  const unbundle = git(['fetch', '--quiet', '--no-tags', bundle, `+${PORTABLE_REFERENCE_REF}:${PORTABLE_REFERENCE_REF}`]);
+  if (unbundle.rc !== 0) problems.push(`bundle transport refused natively (exit ${unbundle.rc}): ${unbundle.stderr.toString().trim().slice(0, 160)}`);
+  if (problems.length) return { ok: false, problems };
+  for (const t of PORTABLE_REFERENCE_TUPLES) {
+    const tree = git(['rev-parse', `${t.commit}^{tree}`]);
+    if (tree.rc !== 0 || tree.stdout.toString().trim() !== t.tree) problems.push(`historical tuple ${t.commit}/${t.tree} did not hydrate exactly (got ${tree.rc === 0 ? tree.stdout.toString().trim() : 'unresolvable'})`);
+  }
+  const refHead = git(['rev-parse', PORTABLE_REFERENCE_REF]);
+  if (refHead.rc !== 0 || refHead.stdout.toString().trim() !== ACCEPTED_TOPIC_HEAD) problems.push(`bundle ref ${PORTABLE_REFERENCE_REF} is not the preserved cf64 head`);
+  const CHAIN = [[0, 1], [1, 2], [2, 5]];
+  for (const [a, b] of CHAIN) {
+    expectAncestor(PORTABLE_REFERENCE_TUPLES[a].commit, PORTABLE_REFERENCE_TUPLES[b].commit, `historical chain link ${PORTABLE_REFERENCE_TUPLES[a].commit} -> ${PORTABLE_REFERENCE_TUPLES[b].commit} is not an ancestor relation`, true);
+  }
+  const directParent = git(['rev-parse', `${PORTABLE_REFERENCE_TUPLES[2].commit}^`]);
+  if (directParent.rc !== 0 || directParent.stdout.toString().trim() !== PORTABLE_REFERENCE_TUPLES[1].commit) problems.push('source -> generation direct-parent relation is not preserved');
+  for (const t of PORTABLE_REFERENCE_TUPLES.slice(0, 5)) {
+    expectAncestor(t.commit, ACCEPTED_TOPIC_HEAD, `historical object ${t.commit} is not an ancestor of preserved cf64`, true);
+  }
+  for (const t of PORTABLE_REFERENCE_TUPLES) {
+    expectAncestor(t.commit, 'refs/heads/published-staging', `historical object ${t.commit} must NOT be an ancestor of published staging (portability never rewrites ancestry)`, false);
+  }
+  // Root unit-37 §2 (mixed-graph semantics): a SINGLE native relation such as
+  // `merge-base <historical> HEAD` needs BOTH graphs in the SAME object database — running
+  // original args unchanged against a store that holds only bc8+cf64 cannot compose one
+  // query from two databases. Seed the ACTUAL current caller commit graph (the live HEAD
+  // resolved by the caller, never the bare store's own HEAD) with the same stock reachable
+  // RAW-SHA pack transport, pinned inside the owned store only. The cache is keyed on the
+  // exact current commit (see portableReferenceStore), so every new commit rehydrates a
+  // fresh owned store. Expected native statuses stay exactly 0/1; 128/null/error refuses.
+  if (currentHead && HEX40RE.test(currentHead)) {
+    const currentPack = spawnSync('git', ['-C', repoRoot, 'pack-objects', '--stdout', '--revs'], { input: `${currentHead}\n`, env: isolatedGitEnv(), maxBuffer: 64 * 1024 * 1024 });
+    if ((currentPack.status ?? -1) !== 0 || currentPack.stdout.length === 0) return { ok: false, problems: [`current caller graph pack transport failed natively (exit ${currentPack.status}, signal ${currentPack.signal ?? 'none'}): ${String(currentPack.stderr ?? '').trim().slice(0, 160)}`] };
+    const currentIndexed = spawnSync('git', ['--git-dir=' + storeDir, 'index-pack', '--stdin'], { input: currentPack.stdout, env: isolatedGitEnv(), maxBuffer: 64 * 1024 * 1024 });
+    if ((currentIndexed.status ?? -1) !== 0) return { ok: false, problems: [`owned-store index-pack of the current caller graph failed natively (exit ${currentIndexed.status}, signal ${currentIndexed.signal ?? 'none'}): ${String(currentIndexed.stderr ?? '').trim().slice(0, 160)}`] };
+    const setCurrentRef = git(['update-ref', 'refs/heads/current-workspace', currentHead]);
+    if (setCurrentRef.rc !== 0) return { ok: false, problems: [`owned-store update-ref of the current caller head failed natively (exit ${setCurrentRef.rc}): ${setCurrentRef.stderr.toString().trim().slice(0, 160)}`] };
+    expectAncestor(UPSTREAM_STAGING_HEAD, 'refs/heads/current-workspace', `published staging must remain an ancestor of the seeded current workspace head (wrong current graph)`, true);
+  }
+  return { ok: problems.length === 0, problems, store: storeDir };
+}
+
+// Production store custody (Root unit-35 item 2): the shared store is an OWNED mkdtemp
+// lifetime bound to the actual repository + the admitted carrier bytes + provenance pins.
+// The cache key covers exactly that triple, so a mutated canonical carrier, a different
+// repository or changed provenance pins NEVER reuse a hydrated store — and every call
+// re-validates the canonical artifact bytes plus the store's live state (each required
+// tuple resolvable to its exact tree, the bundle ref intact, no alternates borrowed) so a
+// pre-existing known tuple can never bypass current validation. Stores are retained
+// caller-owned fixtures (no deletion, no shared or symlinked location).
+let PORTABLE_STORE_CACHE = null;
+export function portableReferenceStore(repoRoot, opts = {}) {
+  const canonical = loadPortableReference(repoRoot);
+  if (canonical.absent) return { ok: false, absent: true, problems: ['portable reference carrier absent'] };
+  if (!canonical.ok) return { ok: false, absent: false, problems: canonical.problems };
+  const currentHead = HEX40RE.test(String(opts.currentHead ?? '')) ? String(opts.currentHead) : null;
+  const key = JSON.stringify([
+    resolve(repoRoot),
+    PORTABLE_REFERENCE_SHA256,
+    PORTABLE_REFERENCE_BYTES,
+    PORTABLE_REFERENCE_PREREQUISITE,
+    UPSTREAM_STAGING_HEAD,
+    ACCEPTED_TOPIC_HEAD,
+    PORTABLE_REFERENCE_TUPLES,
+    currentHead,
+  ]);
+  if (PORTABLE_STORE_CACHE?.key === key) {
+    const git = makeIsolatedGit(PORTABLE_STORE_CACHE.storeDir);
+    const state = PORTABLE_REFERENCE_TUPLES.every((t) => {
+      const tree = git(['rev-parse', `${t.commit}^{tree}`]);
+      return tree.rc === 0 && tree.stdout.toString().trim() === t.tree;
+    });
+    const refHead = git(['rev-parse', PORTABLE_REFERENCE_REF]);
+    // Root unit-36 item B (binding qualification): reuse must revalidate the EXACT admitted
+    // published identity — `rev-parse refs/heads/published-staging` EQUALS the pinned
+    // UPSTREAM_STAGING_HEAD — never a mere existence `cat-file -e` (a moved or replaced ref
+    // would pass that), plus owned custody: no alternates borrowed and no symlinked store.
+    const publishedNow = git(['rev-parse', 'refs/heads/published-staging']);
+    const currentNow = currentHead ? git(['rev-parse', 'refs/heads/current-workspace']) : { rc: 0, stdout: Buffer.from(currentHead ?? '') };
+    if (state && refHead.rc === 0 && refHead.stdout.toString().trim() === ACCEPTED_TOPIC_HEAD
+      && publishedNow.rc === 0 && publishedNow.stdout.toString().trim() === UPSTREAM_STAGING_HEAD
+      && currentNow.stdout.toString().trim() === (currentHead ?? '')
+      && !existsSync(join(PORTABLE_STORE_CACHE.storeDir, 'objects', 'info', 'alternates'))
+      && !lstatSync(PORTABLE_STORE_CACHE.storeDir).isSymbolicLink()) {
+      return { ok: true, storeDir: PORTABLE_STORE_CACHE.storeDir, reused: true };
+    }
+    // wrong state — a pre-existing known tuple does NOT bypass current validation: hydrate
+    // a fresh owned store instead of trusting the stale one.
+  }
+  const storeDir = mkdtempSync(join(tmpdir(), 'tak-portable-store-'));
+  const h = hydratePortableReferenceStore({ repoRoot, storeDir, currentHead });
+  if (!h.ok) return { ok: false, absent: false, problems: h.problems };
+  PORTABLE_STORE_CACHE = { key, storeDir };
+  return { ok: true, storeDir, reused: false };
+}
+
+// The shared isolated historical-reference reader (Root unit-35 item 1): ONE owner serving
+// every real consumer — M15 commit/tree, the recovered->source->generation chain, the
+// direct generation parent, the manifest-only diff and manifest bytes, the S2 original-23d
+// inventory and the S3/S4 anchor/predecessor reads. Each predicate tries the caller's live
+// git runner FIRST and falls back to the owned isolated store only when the live checkout
+// cannot resolve the object — never a dangling-link boolean alone. Ancestry answers carry
+// the strict 0/1 native-status discipline; any other status refuses.
+export function sharedHistoricalReader({ repoRoot, git }) {
+  const live = (args) => git(args);
+  const store = () => portableReferenceStore(repoRoot);
+  const liveResolves = (sha) => {
+    const t = live(['cat-file', '-t', `${sha}^{commit}`]);
+    return t.rc === 0 && t.stdout.toString().trim() === 'commit';
+  };
+  const viaStore = (sha, args, label) => {
+    const s = store();
+    if (!s.ok) return { ok: false, problems: [`${label}: the shared isolated store cannot serve it (${s.problems.join(' | ')})`] };
+    const g = makeIsolatedGit(s.storeDir);
+    const r = g(args);
+    return { ok: r.rc === 0, rc: r.rc, stdout: r.stdout, stderr: r.stderr, storeDir: s.storeDir };
+  };
+  return {
+    commitType(sha) {
+      if (liveResolves(sha)) return { ok: true, type: 'commit', via: 'live' };
+      const s = store();
+      if (!s.ok) return { ok: false, problems: s.problems };
+      const g = makeIsolatedGit(s.storeDir);
+      const t = g(['cat-file', '-t', `${sha}^{commit}`]);
+      if (t.rc === 0 && t.stdout.toString().trim() === 'commit') return { ok: true, type: 'commit', via: 'store' };
+      return { ok: false, problems: [`commit ${sha} resolves neither in the live checkout nor in the shared isolated store`] };
+    },
+    treeOf(sha) {
+      const lt = live(['rev-parse', `${sha}^{tree}`]);
+      if (lt.rc === 0) return { ok: true, tree: lt.stdout.toString().trim(), via: 'live' };
+      const st = viaStore(sha, ['rev-parse', `${sha}^{tree}`], `tree of ${sha}`);
+      return st.ok ? { ok: true, tree: st.stdout.toString().trim(), via: 'store' } : st;
+    },
+    parentOf(sha) {
+      const lp = live(['rev-parse', `${sha}^`]);
+      if (lp.rc === 0) return { ok: true, parent: lp.stdout.toString().trim(), via: 'live' };
+      const sp = viaStore(sha, ['rev-parse', `${sha}^`], `parent of ${sha}`);
+      return sp.ok ? { ok: true, parent: sp.stdout.toString().trim(), via: 'store' } : sp;
+    },
+    // status: 'yes' | 'no' | 'error' — 'error' is NEVER proof of either side.
+    isAncestor(a, b) {
+      const r = live(['merge-base', '--is-ancestor', a, b]);
+      if (r.rc === 0 || r.rc === 1) return { ok: true, status: r.rc === 0 ? 'yes' : 'no', via: 'live', rc: r.rc };
+      const s = store();
+      if (!s.ok) return { ok: false, status: 'error', problems: s.problems };
+      const g = makeIsolatedGit(s.storeDir);
+      const sr = g(['merge-base', '--is-ancestor', a, b]);
+      if (sr.rc === 0 || sr.rc === 1) return { ok: true, status: sr.rc === 0 ? 'yes' : 'no', via: 'store', rc: sr.rc };
+      return { ok: false, status: 'error', problems: [`ancestry ${a} -> ${b}: native status ${sr.rc ?? 'null'} is an I/O or repository error, not a proof — fail-closed`] };
+    },
+    diffNameOnly(a, b) {
+      const ld = live(['diff', '--name-only', `${a}..${b}`]);
+      if (ld.rc === 0) return { ok: true, paths: ld.stdout.toString().split('\n').filter(Boolean), via: 'live' };
+      const sd = viaStore(a, ['diff', '--name-only', `${a}..${b}`], `diff ${a}..${b}`);
+      return sd.ok ? { ok: true, paths: sd.stdout.toString().split('\n').filter(Boolean), via: 'store' } : sd;
+    },
+    catFile(sha, path) {
+      const lc = live(['cat-file', '-p', `${sha}:${path}`]);
+      if (lc.rc === 0) return { ok: true, bytes: lc.stdout, via: 'live' };
+      const sc = viaStore(sha, ['cat-file', '-p', `${sha}:${path}`], `cat-file ${sha}:${path}`);
+      return sc.ok ? { ok: true, bytes: sc.stdout, via: 'store' } : sc;
+    },
+    // Root unit-36 item A: the full recursive path listing of a tree (the s2-inventory
+    // accepted-scope read): live checkout git first, the shared owned store when the live
+    // object database genuinely cannot resolve the historical tree (fresh single-branch
+    // checkout). One shared owned reader serves the real object reads.
+    listTreePaths(treeIsh) {
+      const lt = live(['ls-tree', '-r', '--name-only', '-z', treeIsh]);
+      if (lt.rc === 0) return { ok: true, paths: lt.stdout.toString('utf8').split('\0').filter(Boolean), via: 'live' };
+      const st = viaStore(treeIsh, ['ls-tree', '-r', '--name-only', '-z', treeIsh], `tree listing of ${treeIsh}`);
+      return st.ok ? { ok: true, paths: st.stdout.toString('utf8').split('\0').filter(Boolean), via: 'store' } : st;
+    },
+    storeDirOf() { const s = store(); return s.ok ? s.storeDir : null; },
+  };
+}
+
+// Root unit-36 item A: a git-runner multiplexer for composite consumers that need BOTH the
+// live checkout objects and historical/published objects in one relation (the reviewed
+// upstream lineage and current-transfer reconciliations). The caller's live git runs first;
+// only a native 128 "object (or ref) not resolvable here" falls back to ONE retry through
+// the shared owned store (which — after the unit-36 pack transport — holds the pinned
+// published bc8 graph AND the admitted portable historical tuples). Every other status
+// passes through untouched: 0/1 stay exact, real I/O errors stay errors. When both the
+// historical and current graphs are needed, the CURRENT newbranch graph resolves in the
+// live checkout itself (cd3..HEAD are ancestors of the checkout HEAD) while the historical
+// and published graphs resolve in the owned store — never a shared mutation.
+export function storeFallbackGit(repoRoot, git) {
+  return (args) => {
+    const live = git(args);
+    if (live.rc !== 128) return live;
+    // Root unit-37 §2: live revision operands resolve to ACTUAL caller OIDs before any
+    // store retry — a private bare store has no HEAD, and pretending the two databases
+    // compose one native query is exactly what this must not do. The current caller graph
+    // is seeded into the SAME owned store (cache-bound to the exact current commit), so a
+    // single mixed relation (merge-base <historical> <live-OID>, diff, ls-tree) executes
+    // against one object database with native 0/1 statuses.
+    const headOid = git(['rev-parse', 'HEAD']);
+    if (headOid.rc !== 0 || !HEX40RE.test(headOid.stdout.toString().trim())) return live;
+    const oid = headOid.stdout.toString().trim();
+    const mapped = args.map((a) => (typeof a === 'string' && (a === 'HEAD' || a.startsWith('HEAD^') || a.startsWith('HEAD~')) ? oid + a.slice(4) : a));
+    const s = portableReferenceStore(repoRoot, { currentHead: oid });
+    if (!s.ok) return live;
+    return makeIsolatedGit(s.storeDir)(mapped);
+  };
+}
+
+// M15/S3 consumption: resolve one of the reviewed historical commits through the pinned
+// portable reference when it is absent from the live checkout. Delegates to the OWNED
+// shared store (never a fixed shared path); hydration failure keeps the original
+// dangling-object refusal.
+export function portableCommitResolves({ repoRoot, sha }) {
+  const known = PORTABLE_REFERENCE_TUPLES.find((t) => t.commit === sha);
+  if (!known) return { ok: false, reason: 'not one of the reviewed portable tuples' };
+  const s = portableReferenceStore(repoRoot);
+  if (!s.ok) return { ok: false, reason: s.problems.join(' | ') };
+  const git = makeIsolatedGit(s.storeDir);
+  const tree = git(['rev-parse', `${sha}^{tree}`]);
+  if (tree.rc !== 0 || tree.stdout.toString().trim() !== known.tree) return { ok: false, reason: 'hydrated tuple tree mismatch' };
+  return { ok: true, store: s.storeDir };
+}
+
+// The reviewed finite LIVE current transfer (Root unit-35 item 3): the checkpoint is the
+// FIXED reviewed constant — no caller checkpoint override — and the relation checks the
+// ACTUAL current tracked subject, not only the old cd3 tree. Invariants: exact checkpoint
+// head/tree/single bc8 parent; real checkpoint AND bc8 ancestry of the live HEAD; the
+// complete cf64-union-bc8 path/mode/content lineage over BOTH the checkpoint tree and the
+// live HEAD tree — every reviewed row carries its bc8-origin blob or one of exactly three
+// admitted content-pinned replacements (content sha verified through cat-file); unknown
+// missing/changed/mode-swapped/symlink rows refuse; upstream-origin paths appearing in the
+// live tree WITHOUT a reviewed row refuse (extras never ride in). This relation is
+// STRUCTURAL routing only: it never renews behavioral, performance or CI evidence, and
+// changed current source binds only through actual Root-admitted postimages.
+export function reconcileCurrentTransfer({ repoRoot, git, carrier }) {
+  if (!carrier?.ok) return ['current transfer requires a valid reviewed carrier'];
+  const checkpoint = CURRENT_TRANSFER_CHECKPOINT;
+  const problems = [];
+  const head = checkpoint.head;
+  const treeOf = git(['rev-parse', `${head}^{tree}`]);
+  if (treeOf.rc !== 0 || treeOf.stdout.toString().trim() !== checkpoint.tree) return [`current-transfer checkpoint ${head} does not resolve to the reviewed tree ${checkpoint.tree} (unrelated or wrong head refuses)`];
+  const parents = git(['log', '-1', '--format=%P', head]);
+  if (parents.rc !== 0 || parents.stdout.toString().trim() !== checkpoint.parent) problems.push(`current-transfer checkpoint parent must be exactly ${checkpoint.parent} (got ${parents.rc === 0 ? parents.stdout.toString().trim() || 'none' : 'unresolvable'})`);
+  const expectAnc = (a, b, label) => {
+    const r = git(['merge-base', '--is-ancestor', a, b]);
+    if (r.rc !== 0 && r.rc !== 1) { problems.push(`${label}: native status ${r.rc ?? 'null'} is an I/O or repository error, not an ancestry proof — fail-closed`); return; }
+    if (r.rc !== 0) problems.push(label);
+  };
+  expectAnc(checkpoint.parent, head, `upstream staging ${checkpoint.parent} must be an actual ancestor of the current-transfer checkpoint`);
+  const liveHeadRev = git(['rev-parse', 'HEAD']);
+  if (liveHeadRev.rc !== 0) return ['git cannot resolve the live HEAD (producer-off is a refusal, never a pass)'];
+  const liveHead = liveHeadRev.stdout.toString().trim();
+  expectAnc(checkpoint.head, liveHead, `current-transfer checkpoint ${checkpoint.head} must be an actual ancestor of the live HEAD ${liveHead}`);
+  expectAnc(checkpoint.parent, liveHead, `upstream staging ${checkpoint.parent} must be an actual ancestor of the live HEAD ${liveHead}`);
+  const rows = carrier.data.currentLineageOnlyScope.upstreamAdditions;
+  const admitted = new Map(ADMITTED_CURRENT_REPLACEMENTS.map((r) => [r.path, r]));
+  const rowPaths = new Set(rows.map((r) => r.path));
+  const readTree = (treeIsh, label) => {
+    const tree = git(['ls-tree', '-r', '-z', treeIsh]);
+    if (tree.rc !== 0) return null;
+    const map = new Map();
+    for (const entry of tree.stdout.toString('utf8').split('\0').filter(Boolean)) {
+      const meta = /^(\d+) (blob|tree|commit) ([0-9a-f]{40})\t(.*)$/s.exec(entry);
+      if (meta) map.set(meta[4], { mode: meta[1], kind: meta[2], oid: meta[3] });
+    }
+    return { map, label };
+  };
+  const checkpointTree = readTree(checkpoint.tree, 'checkpoint');
+  const liveTree = readTree(`${liveHead}^{tree}`, 'live HEAD');
+  if (!checkpointTree) return [`git cannot resolve the checkpoint tree ${checkpoint.tree} (producer-off is a refusal, never a pass)`];
+  if (!liveTree) return [`git cannot resolve the live HEAD tree (producer-off is a refusal, never a pass)`];
+  let admittedSeen = 0;
+  const currentOnly = new Map(ADMITTED_CURRENT_ONLY_SUCCESSORS.map((s) => [s.path, s]));
+  for (const row of rows) {
+    const replacement = admitted.get(row.path);
+    if (replacement) admittedSeen += 1;
+    const expected = replacement ?? row;
+    const successor = currentOnly.get(row.path) ?? null;
+    if (successor && successor.checkpoint.gitBlob !== row.gitBlob) problems.push(`current-only successor frozen checkpoint identity ${successor.checkpoint.gitBlob} disagrees with the reviewed row ${row.gitBlob} at ${row.path} — the successor must extend, not rewrite, the reviewed origin`);
+    for (const { map, label } of [checkpointTree, liveTree]) {
+      const entry = map.get(row.path);
+      if (!entry) { problems.push(`current-transfer row missing from the ${label} tree: ${row.path}`); continue; }
+      if (entry.mode !== row.mode || entry.kind !== row.kind) problems.push(`current-transfer mode/kind mismatch at ${row.path} in the ${label} tree: reviewed ${row.mode}/${row.kind} vs ${entry.mode}/${entry.kind} (a symlink or permission swap refuses)`);
+      if (successor) {
+        // Root unit-41 current-only successor relation: the checkpoint leg keeps the original
+        // reviewed blob; the live leg may carry the reviewed original OR the one exact admitted
+        // generated successor. Whichever OID a leg presents, the blob it actually serves must
+        // hash to that leg's frozen Root-reviewed identity — counterfeit bytes under either
+        // OID refuse, and a missing/unreadable object refuses.
+        const liveLeg = label === 'live HEAD';
+        const permitted = liveLeg ? [row.gitBlob, successor.live.gitBlob] : [successor.checkpoint.gitBlob];
+        if (!permitted.includes(entry.oid)) {
+          problems.push(`current-only successor path ${row.path} carries ${entry.oid} in the ${label} tree — the checkpoint must retain the reviewed ${successor.checkpoint.gitBlob} and the live leg may carry only the reviewed original ${row.gitBlob} or the exact admitted generated successor ${successor.live.gitBlob}`);
+          continue;
+        }
+        const identity = entry.oid === successor.live.gitBlob ? successor.live : successor.checkpoint;
+        const blob = git(['cat-file', 'blob', entry.oid]);
+        if (blob.rc !== 0) { problems.push(`current-only successor path ${row.path} blob ${entry.oid} unreadable through the shared git runner (rc ${blob.rc}) in the ${label} tree`); continue; }
+        const served = Buffer.isBuffer(blob.stdout) ? blob.stdout : Buffer.from(String(blob.stdout ?? ''), 'utf8');
+        if (sha256buf(served) !== identity.sha256 || served.length !== identity.bytes) problems.push(`current-only successor path ${row.path} serves counterfeit bytes under ${entry.oid} in the ${label} tree (sha256 ${sha256buf(served).slice(0, 12)}, ${served.length}B; expected the frozen reviewed ${identity.sha256.slice(0, 12)}, ${identity.bytes}B)`);
+      } else if (entry.oid !== expected.gitBlob) problems.push(`changed upstream-origin path without an admitted replacement in the ${label} tree: ${row.path} carries ${entry.oid}, expected the reviewed ${expected.gitBlob}`);
+    }
+    if (replacement) {
+      const content = git(['cat-file', 'blob', replacement.gitBlob]);
+      if (content.rc !== 0 || sha256buf(content.stdout) !== replacement.sha256) problems.push(`admitted current-replacement content-sha mismatch at ${row.path}`);
+    }
+  }
+  if (admittedSeen !== ADMITTED_CURRENT_REPLACEMENTS.length) problems.push(`exactly ${ADMITTED_CURRENT_REPLACEMENTS.length} admitted current replacements must appear in the reviewed row set (saw ${admittedSeen})`);
+  // Unknown EXTRA upstream-origin current paths: a path the live HEAD tree carries that is
+  // NOT part of the reviewed cf64-union-bc8 lineage surface — not a reviewed row, not one of
+  // the three admitted replacements, not an admitted carrier, not present in the accepted
+  // topic tip tree nor in the upstream staging (bc8) tree — refuses. Extras never ride the
+  // transfer in; the union surface is exactly what the carrier's exactUnionOfBothTips
+  // reconciliation admitted (topic-only additions are topic-tree paths, staging content is
+  // bc8-tree paths, and the rows themselves are the 571 upstream-origin paths whose current
+  // blobs must stay exact).
+  const stagingTree = readTree(checkpoint.parent, 'bc8 staging baseline');
+  const topicTree = readTree(ACCEPTED_TOPIC_HEAD, 'accepted topic tip');
+  if (!stagingTree) return [`git cannot resolve the bc8 staging tree ${checkpoint.parent} (producer-off is a refusal, never a pass)`];
+  if (!topicTree) return [`git cannot resolve the accepted topic tip ${ACCEPTED_TOPIC_HEAD} (producer-off is a refusal, never a pass)`];
+  const admittedCarriers = new Set([S2_REVIEWED_INTEGRATION_REL, PORTABLE_REFERENCE_REL]);
+  // Root unit-37 §3: the five governed source rows bind through the EXISTING ledger channel
+  // (live scope-extension.json vs the fixed-checkpoint cd3 baseline object, read through the
+  // SAME shared git runner so a fresh checkout serves it from the owned store). The channel
+  // decides pending vs discharged; everything outside it keeps the unit-36 hard refusals.
+  const ledgerChannel = currentLedgerChannel({ repoRoot, git });
+  if (!ledgerChannel.ok) problems.push(...ledgerChannel.problems.map((x) => `existing-ledger binding channel invalid: ${x}`));
+  // Root unit-38 F2 (committed-ledger binding): the selfIndexed ledger's LIVE HEAD entry is
+  // itself load-bearing — the disk-only channel can never substitute for the committed
+  // object. The live tree must carry the ledger at its original 100644/blob form, the
+  // committed blob must be readable, and the ACTUAL working-file bytes must BE that committed
+  // blob — so a valid on-disk ledger cannot hide a different tampered committed ledger, an
+  // unresolvable committed object, a mode swap or the ledger's deletion.
+  const committedLedger = liveTree.map.get(S3_LEDGER_REL) ?? null;
+  let diskLedgerRaw = null;
+  try { diskLedgerRaw = readFileSync(join(repoRoot, S3_LEDGER_REL)); } catch { /* the channel already reports the unreadable disk side */ }
+  if (!committedLedger) {
+    problems.push(`scope-extension ledger missing from the live HEAD tree: ${S3_LEDGER_REL} — deleting the committed selfIndexed ledger refuses; a disk-only ledger cannot substitute for the committed object`);
+  } else {
+    if (committedLedger.mode !== '100644' || committedLedger.kind !== 'blob') problems.push(`scope-extension ledger live HEAD entry is not the original 100644/blob form (${committedLedger.mode}/${committedLedger.kind}) — mode, symlink or gitlink swaps refuse`);
+    const committedBlob = git(['cat-file', 'blob', committedLedger.oid]);
+    if (committedBlob.rc !== 0) problems.push(`scope-extension ledger committed blob ${committedLedger.oid} unreadable through the shared git runner (rc ${committedBlob.rc}) — an unresolvable committed ledger refuses`);
+    else {
+      // Encoding-proof byte comparison: some stage runners hand back utf8 strings (the ledger
+      // is ASCII JSON, so the round-trip is exact), native runners hand back Buffers.
+      const committedBytes = Buffer.isBuffer(committedBlob.stdout) ? committedBlob.stdout : Buffer.from(String(committedBlob.stdout ?? ''), 'utf8');
+      if (diskLedgerRaw !== null && !diskLedgerRaw.equals(committedBytes)) problems.push(`scope-extension ledger working file is not the committed live HEAD blob ${committedLedger.oid} — a valid on-disk ledger cannot mask a different committed ledger (disk sha256 ${sha256buf(diskLedgerRaw).slice(0, 12)}, committed sha256 ${sha256buf(committedBytes).slice(0, 12)})`);
+    }
+  }
+  const governedSet = new Set([...LEDGER_BINDING_ADDED_PATHS, ...LEDGER_BINDING_MODIFIED_PATHS, ...LEDGER_BINDING_NEW_MODIFIED_PATHS]);
+  const pinOf = (path) => {
+    const live = ledgerChannel.liveLedger;
+    if (!live) return null;
+    const row = (live.addedPaths ?? []).find((r) => r.path === path) ?? (live.modifiedPaths ?? []).find((r) => r.path === path);
+    return row?.sha256 ?? null;
+  };
+  const blobSha = (oid) => {
+    const b = git(['cat-file', 'blob', oid]);
+    return b.rc === 0 ? sha256buf(b.stdout) : null;
+  };
+  problems.push(...governedPathVerdicts({
+    channel: ledgerChannel,
+    governed: [...governedSet].map((path) => ({
+      path,
+      checkpointEntry: checkpointTree.map.get(path) ?? null,
+      liveEntry: liveTree.map.get(path) ?? null,
+      pin: pinOf(path),
+      liveSha: liveTree.map.get(path) ? blobSha(liveTree.map.get(path).oid) : null,
+    })),
+  }));
+  if (ledgerChannel.ok && !ledgerChannel.activated) {
+    for (const path of governedSet) {
+      const was = checkpointTree.map.get(path);
+      const live = liveTree.map.get(path);
+      if (!was || !live || was.oid === live.oid) continue; // unchanged, or already refused by the verdicts
+      problems.push(`pending actual Root admission: current source ${path} differs from the admitted checkpoint (${was.mode} ${was.oid} -> ${live.mode} ${live.oid}) — the five pending entries discharge ONLY through actual Root final admission of the activated ledger, never a self-edited unactivated pin`);
+    }
+  }
+  for (const [path, entry] of liveTree.map) {
+    // The five governed paths are judged by the ledger channel above — never mislabeled as
+    // an unknown upstream extra or an arbitrary mutation while their binding is pending.
+    if (governedSet.has(path)) continue;
+    if (rowPaths.has(path) || admitted.has(path) || admittedCarriers.has(path) || stagingTree.map.has(path) || topicTree.map.has(path)) continue;
+    problems.push(`unknown upstream-origin current path without a reviewed row: ${path} (${entry.mode} ${entry.kind}) — extras refuse`);
+  }
+  // Root unit-36 item C: the COMPLETE finite current subject, not only the 571 rows plus a
+  // pathname-membership union. The admitted checkpoint (cd3) tree is compared with the live
+  // HEAD tree path by path under exact mode+content identity: keeping a pathname is not
+  // keeping the content — an unknown byte/mode mutation of a checkpoint path refuses, and a
+  // missing original path refuses. Survivors beyond the identical paths: the reviewed rows
+  // and three admitted replacements (exact row checks above), the two admitted carriers, the
+  // five ledger-governed paths (channel above) and the selfIndexed ledger itself (finite
+  // normalization only — Root unit-37 §3).
+  for (const [path, was] of checkpointTree.map) {
+    if (rowPaths.has(path) || governedSet.has(path)) continue; // governed exactly by the checks above
+    if (path === S3_LEDGER_REL) continue; // selfIndexed: judged by the channel normalization below
+    if (!liveTree.map.has(path)) problems.push(`original current path missing from the live HEAD tree: ${path} (${was.mode} ${was.kind} ${was.oid} at the admitted checkpoint) — deletions refuse`);
+  }
+  for (const [path, live] of liveTree.map) {
+    if (rowPaths.has(path) || admittedCarriers.has(path) || governedSet.has(path)) continue;
+    const was = checkpointTree.map.get(path);
+    if (path === S3_LEDGER_REL) {
+      // The ledger is the ONLY documented selfIndexed path: its changed bytes are admitted
+      // ONLY through the exact channel normalization (original mode/kind preserved, valid
+      // v1 shape, normalized-equal to the fixed-checkpoint baseline). Anything else refuses.
+      if (was && (was.oid !== live.oid) && !ledgerChannel.ok) problems.push(`scope-extension ledger changed outside the finite existing-ledger binding channel (${live.mode} ${live.oid}) — selfIndexed normalization is the only admission, never a blanket exception`);
+      else if (was && (was.mode !== live.mode || was.kind !== live.kind)) problems.push(`scope-extension ledger mode/kind changed (${was.mode}/${was.kind} -> ${live.mode}/${live.kind}) — the selfIndexed exception preserves the original mode/kind`);
+      continue;
+    }
+    if (!was) {
+      if (stagingTree.map.has(path) || topicTree.map.has(path)) problems.push(`restored or added current path inside the reviewed union without a checkpoint record, admitted carrier or governed binding: ${path} (${live.mode} ${live.kind} ${live.oid}) — refuses`);
+      continue; // outside the union: already refused by the extras loop above
+    }
+    if (was.oid === live.oid && was.mode === live.mode) continue;
+    problems.push(`changed current source path without an admitted replacement or governed binding: ${path} carries ${live.mode} ${live.oid}, the admitted checkpoint carries ${was.mode} ${was.oid} — arbitrary byte/mode changes refuse`);
   }
   return problems;
 }
@@ -1180,7 +1921,44 @@ export function validatePredecessors(ledger, repoRoot, git, opts = {}) {
           if (ex.rc !== 0) p.push(`s2 predecessor base head ${rec.baseHead} does not exist as a commit`);
           else {
             const anc = git(['merge-base', '--is-ancestor', rec.baseHead, 'HEAD']);
-            if (anc.rc !== 0) p.push('s2 predecessor base head is not an ancestor of the live HEAD — stale/unrelated accepted evidence');
+            if (anc.rc === 0) { /* the plain predicate holds — nothing more needed */ }
+            else if (anc.rc === 1) {
+              // Root unit-35 item 5: the S2 base is a HISTORICAL portable object provably NOT
+              // an ancestor of any current integration HEAD — the plain predicate is
+              // impossible in integration mode and MUST NOT be laundered by dropping it. The
+              // explicit accepted conditional current-transfer fixture satisfies it through
+              // the reviewed composite ONLY: generation->cf64 historical proof + the complete
+              // finite LIVE current transfer + actual bc8/checkpoint ancestry of the live
+              // HEAD. Defaults (no fixture) keep the original refusal verbatim; a broken
+              // composite leg keeps it too.
+              const refused = 's2 predecessor base head is not an ancestor of the live HEAD — stale/unrelated accepted evidence';
+              const cond = facts?.S4_CONDITIONAL_CURRENT_TRANSFER;
+              const isPortableBase = PORTABLE_REFERENCE_TUPLES.some((t) => t.commit === rec.baseHead);
+              if (!cond || cond.admission !== 'ACCEPTED_STRUCTURAL' || !isPortableBase || cond.s2BaseHead !== rec.baseHead) {
+                p.push(refused);
+              } else if (JSON.stringify(cond.checkpoint) !== JSON.stringify(CURRENT_TRANSFER_CHECKPOINT) || JSON.stringify(cond.replacements) !== JSON.stringify(ADMITTED_CURRENT_REPLACEMENTS)) {
+                p.push(`${refused} (the conditional current-transfer fixture pins do not equal the reviewed constants — a self-issued map never substitutes)`);
+              } else {
+                const transportRoot = opts.portableTransportRoot ?? repoRoot;
+                const store = portableReferenceStore(transportRoot);
+                if (!store.ok) p.push(`${refused} (generation->cf64 historical proof unavailable: ${store.problems.join(' | ')})`);
+                else {
+                  const carrier = loadReviewedIntegration(repoRoot);
+                  const transferProblems = carrier.ok ? reconcileCurrentTransfer({ repoRoot, git, carrier }) : ['reviewed integration carrier invalid or absent'];
+                  // Root unit-36 item C: pending-class problems (typed PENDING paths awaiting
+                  // actual Root boundary-2 admission) refuse honestly as unadmitted source
+                  // proposals — never silently passed, never mislabeled as a broken transfer.
+                  const hardProblems = transferProblems.filter((m) => !m.startsWith('pending actual Root admission'));
+                  if (hardProblems.length) p.push(`${refused} (the reviewed current transfer does not reconcile: ${hardProblems.slice(0, 3).join(' | ')})`);
+                  else if (transferProblems.length) p.push(`s2 predecessor conditional current transfer structurally reconciles but ${transferProblems.length} current-source postimage proposal(s) remain unadmitted (explicit admission-pending refusal, never a silent pass): ${transferProblems.slice(0, 3).join(' | ')}`);
+                  else {
+                    const a1 = git(['merge-base', '--is-ancestor', CURRENT_TRANSFER_CHECKPOINT.parent, 'HEAD']);
+                    const a2 = git(['merge-base', '--is-ancestor', CURRENT_TRANSFER_CHECKPOINT.head, 'HEAD']);
+                    if (a1.rc !== 0 || a2.rc !== 0) p.push(`${refused} (bc8/checkpoint ancestry of the live HEAD does not hold under the conditional fixture)`);
+                  }
+                }
+              }
+            } else p.push('s2 predecessor ancestry native status is an I/O or repository error, not a proof — fail-closed');
           }
         } else p.push('s2 predecessor ancestry cannot be established without a git runner');
         // Exact accepted-S2 byte/subject/dependency subpredicate: the canonical acceptance
@@ -1333,8 +2111,8 @@ const red = (msg) => ({ status: 'RED', msg });
 const pass = (msg) => ({ status: 'PASS', msg });
 const infra = (msg) => ({ status: 'INFRA', msg });
 
-function lsTree(runFn, gitEnv, rev, repoRoot) {
-  const res = runFn('git', ['ls-tree', '-r', '--name-only', '-z', rev], { cwd: repoRoot, env: gitEnv ? gitEnv() : undefined });
+function lsTree(git, rev) {
+  const res = git(['ls-tree', '-r', '--name-only', '-z', rev]);
   if (res.rc !== 0) return null;
   return res.stdout.toString().split('\0').filter(Boolean);
 }
@@ -1342,20 +2120,29 @@ function lsTree(runFn, gitEnv, rev, repoRoot) {
 export function buildStageSteps(stage, ctx) {
   const { repoRoot, runFn, gitEnv, expectedInputs } = ctx;
   const gitCli = (args) => runFn('git', args, { cwd: repoRoot, env: gitEnv ? gitEnv() : undefined });
+  // Root unit-37 §2: ONE shared owner for every historical stage read — the ambient gitCli
+  // stays the live runner, and the multiplexer retries a native 128 (object not resolvable
+  // here) through the owned isolated store with live revision operands resolved to actual
+  // caller OIDs. A fresh single-branch checkout therefore serves 932/cd3/bc8 reads from the
+  // owned store while keeping its actual current HEAD/cwd identity.
+  const git = storeFallbackGit(repoRoot, gitCli);
   if (stage === 'S3') {
     return [
       ['s3-scope-extension', () => {
         const loaded = loadScopeExtension(repoRoot);
         if (loaded.absent) return red('S3 scope-extension ledger missing — the additive post-S2 inventory contract is not registered');
         if (!loaded.ok) return red(`invalid scope-extension ledger: ${loaded.problems.join(' | ')}`);
-        const tree = gitCli(['rev-parse', `${ANCHORED_HEAD}^{tree}`]);
+        const tree = git(['rev-parse', `${ANCHORED_HEAD}^{tree}`]);
         if (tree.rc !== 0 || tree.stdout.toString().trim() !== ANCHORED_TREE) return infra('anchored base commit/tree does not resolve — git cannot confirm the 932ef452/tree4ca080 predecessor');
-        const basePaths = lsTree(runFn, gitEnv, ANCHORED_HEAD, repoRoot);
-        const livePaths = lsTree(runFn, gitEnv, 'HEAD', repoRoot);
+        const basePaths = lsTree(git, ANCHORED_HEAD);
+        const livePaths = lsTree(git, 'HEAD');
         if (!basePaths || !livePaths) return infra('git ls-tree failed for anchored base or live HEAD');
-        const problems = reconcileInventory({ repoRoot, basePaths, rulingPath: S2_RULING_PATH, livePaths, ledger: loaded.ledger });
-        if (problems.length) return red(`additive inventory reconciliation refused: ${problems.slice(0, 6).join(' | ')}`);
-        return pass(`live scope = historical committed scope + exactly ${admittedPaths(loaded.ledger).length} declared post-S2 paths (s3 added/pending + typed s4 index), every landed one sha-pinned (selfIndexed ledger excepted by contract); structural registration is not behavioral certification`);
+        const integration = loadReviewedIntegration(repoRoot);
+        const channel = currentLedgerChannel({ repoRoot, git });
+        const problems = reconcileInventory({ repoRoot, basePaths, rulingPath: S2_RULING_PATH, livePaths, ledger: loaded.ledger, integration, pendingBindings: { channel, paths: new Set([...LEDGER_BINDING_ADDED_PATHS, ...LEDGER_BINDING_MODIFIED_PATHS, ...LEDGER_BINDING_NEW_MODIFIED_PATHS]) } });
+        if (!channel.ok) problems.push(...channel.problems.map((x) => `existing-ledger binding channel invalid: ${x}`));
+        if (problems.length) return red(`additive inventory reconciliation refused: ${problems.slice(0, 6).join(' | ')}${problems.length > 6 ? ` (+${problems.length - 6} more)` : ''}`);
+        return pass(`live scope = historical committed scope + exactly ${admittedPaths(loaded.ledger).length} declared post-S2 paths (s3 added/pending + typed s4 index)${integration.ok ? ` + the finite admitted current surface (${rowPathCount(integration)} reviewed upstream-origin rows + 2 data carriers, integration mode)` : ''}, every landed one sha-pinned (selfIndexed ledger excepted by contract); structural registration is not behavioral certification`);
       }],
       ['s3-policy-units', () => {
         const file = join(repoRoot, S3_POLICY_REL);
@@ -1389,7 +2176,7 @@ export function buildStageSteps(stage, ctx) {
         else {
           try {
             const perf = JSON.parse(readFileSync(join(repoRoot, S3_PERF_REL), 'utf8'));
-            const v = validatePerformanceRecord(perf, repoRoot, { git: gitCli, expectedInputs });
+            const v = validatePerformanceRecord(perf, repoRoot, { git, expectedInputs });
             if (!v.ok) open.push(`paired matrix not structurally accepted: ${v.problems.slice(0, 4).join(' | ')}`);
           } catch (e) { open.push(`performance.json unreadable: ${e.message}`); }
         }
@@ -1402,7 +2189,7 @@ export function buildStageSteps(stage, ctx) {
             if (!item) { open.push(`required historical obligation ${id} MISSING from the registry — an emptied registry never closes obligations`); continue; }
             if (item.status === 'closed') {
               // R2: obligation-specific semantic closure — a sha proves bytes, never discharge.
-              const problems = validateHistoricalClosure(item, repoRoot, { git: gitCli, expectedInputs });
+              const problems = validateHistoricalClosure(item, repoRoot, { git, expectedInputs });
               if (problems.length) open.push(`${id}: closure refused — ${problems.slice(0, 3).join(' | ')}`);
             } else open.push(`${id}: ${item.status} — ${item.detail ?? ''}`);
           }
@@ -1422,7 +2209,7 @@ export function buildStageSteps(stage, ctx) {
               if (HEX64.test(e.sha256 ?? '') && sha256buf(readFileSync(file)) !== e.sha256) { problems.push(`ci-record pin mismatch: ${e.path}`); continue; }
               let receipt;
               try { receipt = JSON.parse(readFileSync(file, 'utf8')); } catch (err) { problems.push(`ci-record unreadable: ${e.path} (${err.message})`); continue; }
-              problems.push(...evaluateReceipt(e.path, receipt, 'ci-record', { repoRoot, ledger: loaded.ledger, git: gitCli, sourceSignature: sig, expectedInputs }));
+              problems.push(...evaluateReceipt(e.path, receipt, 'ci-record', { repoRoot, ledger: loaded.ledger, git, sourceSignature: sig, expectedInputs }));
             }
             if (problems.length) open.push(`CI receipt not accepted: ${problems.slice(0, 3).join(' | ')}`);
             else ciClosed = true;
@@ -1445,14 +2232,14 @@ export function buildStageSteps(stage, ctx) {
         if (pinProblems.length) return red(`live scope/pin validation refused (receipts cannot bless drifted code): ${pinProblems.slice(0, 4).join(' | ')}`);
         // R3: no six-receipt combination can certify S4 without the genuine ORDERED chain of
         // ACCEPTED S2 then ACCEPTED S3 predecessor evidence bound to this exact code line.
-        const prereq = validatePredecessors(loaded.ledger, repoRoot, gitCli, { expectedInputs });
+        const prereq = validatePredecessors(loaded.ledger, repoRoot, git, { expectedInputs });
         if (!prereq.ok) return red(`ordered accepted S2→S3 predecessors not established — S4 stays nonPASS: ${prereq.problems.slice(0, 3).join(' | ')}`);
-        const tree = gitCli(['rev-parse', `${ANCHORED_HEAD}^{tree}`]);
+        const tree = git(['rev-parse', `${ANCHORED_HEAD}^{tree}`]);
         if (tree.rc !== 0 || tree.stdout.toString().trim() !== ANCHORED_TREE) return infra('anchored predecessor tree does not resolve');
-        const head = gitCli(['rev-parse', 'HEAD']);
+        const head = git(['rev-parse', 'HEAD']);
         if (head.rc !== 0) return infra('git cannot resolve live HEAD');
         const ctx = {
-          repoRoot, ledger: loaded.ledger, git: gitCli,
+          repoRoot, ledger: loaded.ledger, git,
           headSHA: head.stdout.toString().trim(),
           sourceSignature: sourceSignature(repoRoot, loaded.ledger), // live bytes (R3)
           expectedInputs, // conditional data-validation input; never authentication
