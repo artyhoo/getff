@@ -289,12 +289,17 @@ _portable_workflow_resources() {
     _portable_copy "$PKG_ROOT/scripts/snapshot-for-seat.sh" "$PROJECT_ROOT/scripts/snapshot-for-seat.sh"
     _portable_copy "$PKG_ROOT/scripts/check-arch-retell.mjs" "$PROJECT_ROOT/scripts/check-arch-retell.mjs"
   fi
-  # getff-ocr-reuse C2: the shipped review-sidecar connection card invokes the vendored
-  # ocrTrustedReview producer via `npx tsx`, so a core/env install (review-sidecar is a core
-  # agent) needs the vendor tree + tsx closure WITHOUT the factory dispatch hook or the AIF
-  # service — aif-doctor remains the factory-depth trigger it always was.
-  if [ -f "$PROJECT_ROOT/.agents/procedures/aif-doctor/SKILL.md" ] \
-    || [ -f "$PROJECT_ROOT/.agents/roles/review-sidecar.md" ]; then
+  # getff-ocr-reuse C2 (core-delivery repair, root option A 2026-11-01): factory depth
+  # (aif-doctor) keeps the COMPLETE vendor tree + bridge-health — the advertised factory
+  # payload, unchanged. A core/env install (review-sidecar present) receives ONLY the
+  # measured import/dependency closure of vendor/src/cli/ocrTrustedReview.ts — cliEntry
+  # (arg parsing), aifHttp (statically imported profile helper) -> backend (BackendError)
+  # -> types (type-only), ocrCoverage (comparator), plus the vendor package.json (type:module
+  # ESM metadata + declared tsx peer). No factory execution CLI (park/harvest/dispatch/
+  # claim/...), dispatch hook or bridge-health is collateral-delivered to core/env.
+  # Payload selection only: same advertised entry, same vendor bytes, no second
+  # implementation (consumer-resource-closure.test.mjs gates both directions).
+  if [ -f "$PROJECT_ROOT/.agents/procedures/aif-doctor/SKILL.md" ]; then
     src="$PKG_ROOT/packages/runtime-bridge/vendor"
     while IFS= read -r -d '' file; do
       rel="${file#"$src"/}"
@@ -302,6 +307,12 @@ _portable_workflow_resources() {
     done < <(find -L "$src" -type f -print0)
     _portable_copy "$PKG_ROOT/packages/runtime-bridge/scripts/bridge-health.sh" \
       "$PROJECT_ROOT/.agents/tools/runtime-bridge/scripts/bridge-health.sh"
+  elif [ -f "$PROJECT_ROOT/.agents/roles/review-sidecar.md" ]; then
+    src="$PKG_ROOT/packages/runtime-bridge/vendor"
+    for rel in package.json src/cli/ocrTrustedReview.ts src/cli/cliEntry.ts \
+      src/cli/aifHttp.ts src/backend.ts src/types.ts src/ocrCoverage.ts; do
+      _portable_copy "$src/$rel" "$PROJECT_ROOT/.agents/tools/runtime-bridge/$rel"
+    done
   fi
 }
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -30,6 +30,34 @@ test('one core install delivers both interfaces and mandatory read-only role res
     '.agents/tools/synthesizer/synthesis-plan.schema.json']) assert.ok(existsSync(join(dir, file)), file);
   assert.ok(!existsSync(join(dir, '.agents/procedures/docs-author/SKILL.md')), 'support data does not promote contributor workflow');
   assert.ok(!existsSync(join(dir, '.agents/tools/runtime-bridge/src/cli/park.ts')), 'factory capability stays gated');
+  // getff-ocr-reuse C2 core/env closure (root repair 2026-11-01, SSOT #317): a core
+  // consumer receives EXACTLY the measured import/dependency closure of the advertised
+  // ocrTrustedReview entry — cliEntry (arg parsing), aifHttp -> backend -> types
+  // (type-only), ocrCoverage (comparator), plus the vendor package.json (type:module
+  // ESM metadata + declared tsx peer). The exact-set assertion forbids collateral
+  // factory execution CLIs (park/harvest/dispatch/claim/...), the dispatch hook,
+  // bridge-health and the vendor README in one check.
+  const closure = ['package.json', 'src/backend.ts', 'src/cli/aifHttp.ts', 'src/cli/cliEntry.ts',
+    'src/cli/ocrTrustedReview.ts', 'src/ocrCoverage.ts', 'src/types.ts'].sort();
+  const deliveredTree = [];
+  const walk = rel => {
+    for (const ent of readdirSync(join(dir, '.agents/tools/runtime-bridge', rel), { withFileTypes: true })) {
+      const child = rel ? `${rel}/${ent.name}` : ent.name;
+      if (ent.isDirectory()) walk(child); else deliveredTree.push(child);
+    }
+  };
+  walk('');
+  assert.deepEqual(deliveredTree.sort(), closure, 'core profile must deliver exactly the measured OCR closure');
+  // The delivered entry must load through the advertised local tsx path (this repo's
+  // devDependency loader, no registry fetch). A bad invocation must reach the producer's
+  // own arg parser — exit 1 + its [runtime-bridge] diagnostic — which a missing loader or
+  // unresolved import cannot produce.
+  const producer = join(dir, '.agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts');
+  const bad = spawnSync(process.execPath, ['--import', 'tsx/esm', producer, '--definitely-not-an-option'],
+    { cwd: root, encoding: 'utf8', timeout: 60_000 });
+  assert.equal(bad.status, 1,
+    `bad invocation of the delivered producer must exit 1 (got ${bad.status})\nstderr: ${bad.stderr}\nstdout: ${bad.stdout}`);
+  assert.match(bad.stderr, /\[runtime-bridge\] ocrTrustedReview: Unknown option '--definitely-not-an-option'/);
   assert.equal(readFileSync(join(dir, '.codex/config.toml'), 'utf8'), userConfig);
   const checker = join(dir, 'scripts/docs-check.mjs');
   r = spawnSync('node', [checker, '--help'], { cwd: dir, encoding: 'utf8' });
