@@ -452,14 +452,19 @@ export const PORTABLE_REFERENCE_TUPLES = [
   { commit: 'cf64dd7fb2d52d3eaea5966f9abd0e61717ba981', tree: '36791c84d4e6a5aceb1800f8a4e10bff2136a918' },
 ];
 // The reviewed current-transfer checkpoint: the first normal integration commit on the
-// delivery branch — exact head/tree/single parent, real bc8 ancestry. Exactly three of the
-// 571 upstream-origin current blobs differ from their bc8 origin (the Root-reviewed
-// assertion-preserving renames); every other row must still carry its bc8-origin blob at
-// the checkpoint. This relation is STRUCTURAL routing only: it never certifies behavior,
-// performance or CI, and evidence-only descent (codeScopeEquivalent) keeps its identical
-// scoped-blob requirement unchanged.
+// delivery branch — exact head/tree/single parent, real bc8 ancestry. The historical
+// original cd3fc6041337ecea3596143867d1dc517a927911 stays preserved verbatim on the retired
+// delivery graph (honestly NOT an ancestor of this branch after the S17 own-body repair);
+// the current head below is the native-gated identical-tree checkpoint C0 — the same
+// reviewed tree, the same sole bc8 parent, the same byte-identical baseline ledger blob,
+// regenerated through the ordinary hooked three-way squash under the Root content-bound GO.
+// Exactly three of the 571 upstream-origin current blobs differ from their bc8 origin (the
+// Root-reviewed assertion-preserving renames); every other row must still carry its
+// bc8-origin blob at the checkpoint. This relation is STRUCTURAL routing only: it never
+// certifies behavior, performance or CI, and evidence-only descent (codeScopeEquivalent)
+// keeps its identical scoped-blob requirement unchanged.
 export const CURRENT_TRANSFER_CHECKPOINT = {
-  head: 'cd3fc6041337ecea3596143867d1dc517a927911',
+  head: '8fdb2ee87aff0dbca11a1dbb650b18f9400e65db',
   tree: 'a5593c8d8f69c6954b4b68b4da323a300f8e5939',
   parent: 'bc8e758d2863aabbaa1062492a142662bdaa11d8',
 };
@@ -587,7 +592,8 @@ export function governedPathVerdicts({ channel, governed }) {
 }
 
 // IO half of the ledger channel: reads the LIVE scope-extension.json from disk and the
-// FIXED-CHECKPOINT (cd3) baseline ledger object through the SAME shared git runner the caller
+// FIXED-CHECKPOINT (the current native-gated head; same baseline blob the historical cd3
+// carried) ledger object through the SAME shared git runner the caller
 // uses for its other historical reads (so a fresh checkout serves it from the owned store),
 // then evaluates the pure channel. Any unreadable or unparseable side fails CLOSED — never a
 // silent pass, never an accidental "activated". Exported for direct fixture tests.
