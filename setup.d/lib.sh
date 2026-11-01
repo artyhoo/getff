@@ -786,17 +786,17 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1586                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1745                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1840          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:621          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:647          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:668          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:696          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:611          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:636          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:656          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:672          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:698          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:719          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:747          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:662          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:687          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:707          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:738          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:2217               appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         tool-decisions copy_safe       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1815          tool-decisions copy_safe       → suppress-no-entry (proved)
@@ -2930,7 +2930,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:398-403); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:449-454); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just

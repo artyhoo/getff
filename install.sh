@@ -696,7 +696,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:977 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:1028 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -1678,7 +1678,7 @@ do_refresh() {
   fi
 
   # ── Husky hook dispatchers → .husky/ (#869-class: framework-owned) ──
-  # 50-hooks.sh:34-35 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
+  # 50-hooks.sh:70-71 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
   # exists). They are NOT consumer config — husky-pre-push.sh is "the TS-core dispatcher shipped
   # by install.sh". Its routing changes with the hook it starts (a tsx-ESM probe for pre-push.ts,
   # #636/#638; plain `node` for pre-push.bundle.mjs since 2026-09-28), and a brownfield consumer
