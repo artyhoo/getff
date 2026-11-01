@@ -34,11 +34,11 @@
 #       transform_internal_refs link rewrite (45-python.sh:1774 → lib.sh:218-270) —
 #       asserted as equality modulo link targets, with zero dangling ](../ refs left.
 #   G5  native binding: no node on PATH → the dependency-specific notice
-#       'Codex hooks not wired: node is not on PATH' (portable-bindings.sh:404) and NO
+#       'Codex hooks not wired: node is not on PATH' (portable-bindings.sh:409) and NO
 #       .codex/hooks.json, install still completes; a consumer's pre-existing custom
 #       .claude/settings.json hook definition survives; WITH node, a consumer-owned
 #       custom .codex/hooks.json is kept (never clobbered) and the shared adapter still
-#       lands (portable-bindings.sh:385-427).
+#       lands (portable-bindings.sh:390-431).
 #   G6  global consent via the wrapper (it owns the companion loop — engine.sh; kind=mcp
 #       rows are handled inside install.sh's 05-mcp layer): plain ./setup -y makes ZERO
 #       machine-global stub calls (claude plugin/mcp, npm -g) and prints the machine-global
