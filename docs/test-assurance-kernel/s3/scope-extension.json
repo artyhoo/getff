@@ -9,7 +9,7 @@
     {
       "path": "scripts/test-assurance/s3.mjs",
       "class": "s3-source",
-      "sha256": "c1f74f7f702d03f4044c360cad4398ffa08b233d132a0d165705553ecfb757b1"
+      "sha256": "b4adfce9b06be27bff442510447a4502ad09f7d20098567334c2de916f0bab7b"
     },
     {
       "path": "scripts/test-assurance/s3.test.mjs",
