@@ -1,0 +1,14 @@
+{
+  "featureId": "dsh-native-q0-qualification",
+  "decision": "approved",
+  "approvedSha256": "ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8",
+  "snapshotRef": {
+    "path": "docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8.md",
+    "sha256": "ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8"
+  },
+  "approvalRecordRef": {
+    "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval-r2.md",
+    "sha256": "f1297216cba71ecfd8bfd9704af98f3b11a23bfbeb31c5538962b4ee758c7adb"
+  },
+  "approver": "Codex under explicit operator-delegated exact product-brief approval authority for corrected OpenMaus-retained Q0"
+}
