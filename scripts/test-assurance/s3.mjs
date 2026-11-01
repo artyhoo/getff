@@ -457,7 +457,10 @@ export const PORTABLE_REFERENCE_TUPLES = [
 // delivery graph (honestly NOT an ancestor of this branch after the S17 own-body repair);
 // the current head below is the native-gated identical-tree checkpoint C0 — the same
 // reviewed tree, the same sole bc8 parent, the same byte-identical baseline ledger blob,
-// regenerated through the ordinary hooked three-way squash under the Root content-bound GO.
+// recreated through cherry-pick --no-commit of the original single-parent cd3 delta
+// followed by a normal hooked commit under the Root content-bound GO — a recorded method
+// deviation (not merge --squash), accepted by the Root review as an equivalent ordinary
+// non-destructive construction.
 // Exactly three of the 571 upstream-origin current blobs differ from their bc8 origin (the
 // Root-reviewed assertion-preserving renames); every other row must still carry its
 // bc8-origin blob at the checkpoint. This relation is STRUCTURAL routing only: it never
