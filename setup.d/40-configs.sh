@@ -74,9 +74,22 @@ if [ "$STACK" = "generic" ]; then
     # GETFF-SUBST-NODE — the only install-time substitution. Generic installs place no .nvmrc
     # (§6a below is npm-bound), so a foreign node-version-file reference would fail setup-node;
     # a project's own .nvmrc wins when present, else pin the getff-known Node floor '20'.
-    # Applied only to a file THIS install delivered, never to a consumer-kept one.
-    if [ "$_g40_wf_absent" = "1" ] && [ -f "$PROJECT_ROOT/.github/workflows/getff-rules.yml" ] \
-       && [ ! -f "$PROJECT_ROOT/.nvmrc" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+    # Applied only after a write THIS install actually admitted, never to a consumer-kept one.
+    # D1 (fidelity round 1): destination-absence is not the only admitted write — copy_safe's
+    # --force arm overwrites an existing regular destination too, and a forced re-install of an
+    # existing workflow left the freshly-written template's dangling node-version-file: '.nvmrc'
+    # in place (setup-node would stop before the admitted lint gate). The write condition is the
+    # F2 runner gate's shape above (absent, or --force); the link/dry-run/file terms are R6
+    # delegate-keep parity — an external/custom link is refused BEFORE force (copy_safe's first
+    # guard outranks its force arm) and --dry-run writes nothing, so neither is a write and
+    # neither may be postprocessed.
+    _g40_wf_write=0
+    { [ "$_g40_wf_absent" = "1" ] || [ "$FORCE" = "--force" ]; } && _g40_wf_write=1
+    if [ "$_g40_wf_write" = "1" ] && [ "$DRY_RUN" != "--dry-run" ] \
+       && { [ ! -L "$PROJECT_ROOT/.github/workflows/getff-rules.yml" ] \
+            || _canonical_link_target "$PROJECT_ROOT/.github/workflows/getff-rules.yml" >/dev/null 2>&1; } \
+       && [ -f "$PROJECT_ROOT/.github/workflows/getff-rules.yml" ] \
+       && [ ! -f "$PROJECT_ROOT/.nvmrc" ]; then
       sed "s#node-version-file: '.nvmrc'.*#node-version: '20'#" \
         "$PROJECT_ROOT/.github/workflows/getff-rules.yml" > "$PROJECT_ROOT/.github/workflows/.getff-rules.g40.tmp"
       cat "$PROJECT_ROOT/.github/workflows/.getff-rules.g40.tmp" > "$PROJECT_ROOT/.github/workflows/getff-rules.yml"

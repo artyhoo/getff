@@ -775,13 +775,21 @@ fi
 # elsewhere in the same file — before the owned block, after it, or with no owned block at
 # all — is not this installer's record and must not steer dispatch; a missing, foreign-only
 # or malformed owned record keeps the heuristic chain below byte-identical (its promised
-# legacy fallback). Why the record outranks the heuristics at all: since route B (drivable
-# generic, 40-configs) delivers the eslint-rules-local barrel, the #2047 file heuristic
-# below reads getff's OWN barrel as an npm passport and misroutes a recorded-generic
-# project to ts-server, where the npm-bound refresh arm rewrites .husky/pre-commit with no
-# ownership gate and never reaches the generic M1/M2/R6 gates at all — that one misroute
-# produced every arm-16 refresh failure (the workflow ones as stale-fresh-pin cascades: the
-# npm arm delivers no getff-rules.yml).
+# legacy fallback).
+# K1 (fidelity round 1; resolved by the Root generic-only addendum 2026-11-01): the record
+# exception is GENERIC-ONLY — the ONLY recorded value that outranks the file-based
+# classifier. Why generic alone: since route B (drivable generic, 40-configs) delivers the
+# eslint-rules-local barrel, the #2047 file heuristic below reads getff's OWN barrel as an
+# npm passport and misroutes a recorded-generic project to ts-server, where the npm-bound
+# refresh arm rewrites .husky/pre-commit with no ownership gate and never reaches the
+# generic M1/M2/R6 gates at all — that one misroute produced every arm-16 refresh failure
+# (the workflow ones as stale-fresh-pin cascades: the npm arm delivers no getff-rules.yml).
+# That barrel misroute exists ONLY on the generic side: every other recorded stack is
+# already resolved correctly by the file-based passports below (RULES.react-*.md /
+# ARCHITECTURE.*.md — the legacy npm consumers' classifier contract), so a recorded
+# non-generic value gains NO independent precedence and runs the ORIGINAL heuristic order
+# unchanged. An explicit positional STACK (parsed above) still outranks the record; a
+# foreign, missing, unreadable or invalid owned value selects no exception at all.
 if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
   _refresh_record_stack=""
   if [ -f "$PROJECT_ROOT/.ai-factory/tool-decisions.md" ]; then
@@ -794,7 +802,7 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
       "$PROJECT_ROOT/.ai-factory/tool-decisions.md")
   fi
   case "$_refresh_record_stack" in
-    generic|ts-server|react-next|react-spa|react-native)
+    generic)
       echo "  ▶ Refresh stack from the installer-owned project-checks record: stack: $_refresh_record_stack (.ai-factory/tool-decisions.md)"
       STACK="$_refresh_record_stack"
       ;;
