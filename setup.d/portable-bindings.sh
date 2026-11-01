@@ -289,7 +289,12 @@ _portable_workflow_resources() {
     _portable_copy "$PKG_ROOT/scripts/snapshot-for-seat.sh" "$PROJECT_ROOT/scripts/snapshot-for-seat.sh"
     _portable_copy "$PKG_ROOT/scripts/check-arch-retell.mjs" "$PROJECT_ROOT/scripts/check-arch-retell.mjs"
   fi
-  if [ -f "$PROJECT_ROOT/.agents/procedures/aif-doctor/SKILL.md" ]; then
+  # getff-ocr-reuse C2: the shipped review-sidecar connection card invokes the vendored
+  # ocrTrustedReview producer via `npx tsx`, so a core/env install (review-sidecar is a core
+  # agent) needs the vendor tree + tsx closure WITHOUT the factory dispatch hook or the AIF
+  # service — aif-doctor remains the factory-depth trigger it always was.
+  if [ -f "$PROJECT_ROOT/.agents/procedures/aif-doctor/SKILL.md" ] \
+    || [ -f "$PROJECT_ROOT/.agents/roles/review-sidecar.md" ]; then
     src="$PKG_ROOT/packages/runtime-bridge/vendor"
     while IFS= read -r -d '' file; do
       rel="${file#"$src"/}"

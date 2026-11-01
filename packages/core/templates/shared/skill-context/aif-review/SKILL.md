@@ -40,3 +40,23 @@ Read the changed code as if you had never seen it and did **not** write it. The 
 ## Output augmentation
 
 In addition to AIF's standard review summary, include a section `### Test-Quality Review` listing each finding as: severity (`BLOCKER` correctness/data-integrity incl. tautological test on a critical path / `MAJOR` anti-pattern at scale / `MINOR` style), `file:line`, "what I saw", "why it's a problem", and a concrete one-line fix. One issue per finding; do not bundle. Report only — never modify code.
+
+## Trusted native OCR review connection card (getff-ocr-reuse C2)
+
+One bounded capability grant: when the caller hands the review an explicit local review request and asks for the trusted native OCR review of an exact committed candidate, the producer may be invoked ONCE. Everything else stays report-only.
+
+```bash
+npx tsx .agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts \
+  --repo "$PWD" \
+  --request-file /ABS/request.json --request-sha256 <sha256-of-request-bytes> \
+  --base-ref <review-base-ref> \
+  --materials /ABS/materials-manifest.json \
+  --ocr-bin /ABS/opencodereview --ocr-sha256 <pinned-native-sha256> --json
+```
+
+- The request file is `{kind:'getff.ocr-review-request/v1', id, title, description, plan, head}` (`plan` may be `null`); `head` must equal the candidate HEAD. Never invent AIF task fields — the local profile makes no AIF HTTP call at all.
+- `tsx` ships with the install's offered devDependencies; if that consent was declined, obtain `tsx` deliberately before invoking — never let a bare `npx` registry-fetch a floating copy.
+- Materials are the caller's review requirements, passed through as data. Do not add host-routing or run-OCR-again instructions to them, and do not swap them for summaries.
+- Authoritative output is the `--json` stdout plus the process exit code. Exit 2 is a HOLD — report the hold reason verbatim; never present a HOLD, a non-execution, or a malformed run as a passed review. The verdict file under `.ai-factory/ocr/<uuid>/trusted-review-verdict.json` is best-effort, never proof by itself.
+- Exit 0 attests only a compatible invocation at its snapshot — it is not semantic approval. Consume the ORIGINAL findings: report them as returned, plus any omissions or errors. Do not run a second whole semantic review of the same diff on top of the native one, and do not re-render its evidence.
+- If the producer never executed (spawn error, missing binary), the first line of the report says exactly that — an absent run cannot look like an empty successful review.

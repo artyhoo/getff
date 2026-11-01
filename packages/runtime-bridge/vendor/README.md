@@ -101,10 +101,10 @@ against ships inside the `intent` skill tree (factory delivery), not this copy.
 
 ### OCR-reuse modules (getff-ocr-reuse C1a+C1b, 2026-10-29)
 
-| File                          | Reached from                                                      |
-| ----------------------------- | ----------------------------------------------------------------- |
-| `src/ocrCoverage.ts`          | `src/cli/ocrTrustedReview.ts` → `../ocrCoverage.js`               |
-| `src/cli/ocrTrustedReview.ts` | nothing in this copy — operator/agent-run CLI, caller wiring open |
+| File                          | Reached from                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `src/ocrCoverage.ts`          | `src/cli/ocrTrustedReview.ts` → `../ocrCoverage.js`                                                       |
+| `src/cli/ocrTrustedReview.ts` | `.agents/roles/review-sidecar.md` connection card (C2) — invoked once via `npx tsx` on the installed copy |
 
 `src/ocrCoverage.ts` compares a parsed public OCR (`@alibaba-group/open-code-review`
 v1.13.3 manifest shapes) result against an independent caller expectation. It is vendored
@@ -113,13 +113,20 @@ coverage gate.
 
 `src/cli/ocrTrustedReview.ts` is the admitted C1b producer slice: one native OCR review
 invocation bound to a current, complete declared input set (identity/range/materials/
-criteria minting/executable binding/inspection/T0-T1 staleness holds). The caller's
+criteria minting/executable binding/inspection/T0-T1 staleness holds), extended in C2 with
+the explicit local-request profile (`--request-file` + `--request-sha256`; no AIF HTTP
+call, no invented task fields). The caller's
 authoritative output is the machine `--json` stdout + exit code; the verdict file under
 `<repo>/.ai-factory/ocr/<uuid>/trusted-review-verdict.json` is best-effort, not
 guaranteed. It is a `cliEntry`-family entrypoint (family H in `docs/site/reference/H.json`),
 byte-identical in source and vendor, exercised by `test/ocr-trusted-review.test.ts` against
-a stub native. Nothing in this copy invokes it yet: real productive Dot/OpenMaus/getff
-callers and installed consumer delivery remain UNVERIFIED. Stub-green source compatibility
+a stub native. The caller wiring that exists (C2): the shipped review-sidecar connection
+card invokes this copy ONCE per admitted local request and consumes the original findings;
+core/env installs receive this tree through `setup.d/portable-bindings.sh` when
+review-sidecar is present, with the native binary offered detect-first via
+`setup.d/companions.manifest` (no pin, official installer). Real productive
+Dot/OpenMaus/getff callers and a real native result inside an installed consumer remain
+UNVERIFIED. Stub-green source compatibility
 is not a real OCR review. A `compatible` verdict attests bounded process/input/coverage
 compatibility with the pinned public contract; it is not semantic-duty acceptance and not
 a merge/integration grant.

@@ -1,21 +1,34 @@
 /**
  * ocrTrustedReview.ts — one native OCR review invocation bound to a current, complete declared input set.
  *
- * Usage (getff-ocr-reuse C1b; closed argv, no passthrough):
+ * Usage (getff-ocr-reuse C1b; closed argv, no passthrough) — AIF profile:
  *   tsx ocrTrustedReview.ts --task ID --aif-url URL --repo ABSOLUTE_REPO
  *     --backend-root ABSOLUTE_BACKEND_PREFIX --native-root ABSOLUTE_NATIVE_PREFIX
  *     --base-ref REF --materials ABSOLUTE_MANIFEST_JSON
  *     --ocr-bin ABSOLUTE_NATIVE_EXECUTABLE --ocr-sha256 EXPECTED_SHA256
  *     [--rule-file ABSOLUTE_INLINE_RULE_JSON] [--exclude PATTERNS] [--json]
  *
- * What this is: a thin producer adapter. It reads a CURRENT AIF task, binds an
- * explicit local view of its candidate checkout (backend/native root mapping,
- * full commit identity, tracked-clean policy), delivers the COMPLETE declared
- * review inputs through OCR's PUBLIC rule-file interface, runs the ready full
- * OCR product ONCE, and checks the response with the accepted C1a comparison.
- * Upstream performs its own pipeline — no queue, retry controller, session
- * store, chunker, private OCR imports, copied rule resolver or producer-hash
- * clone lives here.
+ * C2 local-request profile (the one closed alternative; never mixed with the
+ * AIF flags — mixed/partial invocations are rejected at parse time):
+ *   tsx ocrTrustedReview.ts --repo ABSOLUTE_REPO
+ *     --request-file ABSOLUTE_REQUEST_JSON --request-sha256 EXPECTED_SHA256
+ *     --base-ref REF --materials ABSOLUTE_MANIFEST_JSON
+ *     --ocr-bin ABSOLUTE_NATIVE_EXECUTABLE --ocr-sha256 EXPECTED_SHA256
+ *     [--rule-file ABSOLUTE_INLINE_RULE_JSON] [--exclude PATTERNS] [--json]
+ * The request is a small versioned local input
+ * {kind:'getff.ocr-review-request/v1', id, title, description, plan, head}:
+ * this profile makes NO AIF HTTP call, needs no backend/native mapping and no
+ * invented task identifier, and the verdict carries a distinct `request`
+ * binding (never a fabricated AIF `task` binding).
+ *
+ * What this is: a thin producer adapter. It binds the review identity (a
+ * CURRENT AIF task, or an explicit pinned local request), binds an explicit
+ * local view of the candidate checkout (full commit identity, tracked-clean
+ * policy), delivers the COMPLETE declared review inputs through OCR's PUBLIC
+ * rule-file interface, runs the ready full OCR product ONCE, and checks the
+ * response with the accepted C1a comparison. Upstream performs its own
+ * pipeline — no queue, retry controller, session store, chunker, private OCR
+ * imports, copied rule resolver or producer-hash clone lives here.
  *
  * What this is NOT: exit 0 means only "compatible native invocation at its T1
  * snapshot" — neither a semantic ResultReview, approval, fulfilled project
@@ -139,12 +152,9 @@ export function defaultDeps(): TrustedDeps {
   };
 }
 
-export interface TrustedReviewOptions {
-  task: string;
-  aifUrl: string;
+/** Flags shared by both closed profiles. */
+interface CommonReviewOptions {
   repo: string;
-  backendRoot: string;
-  nativeRoot: string;
   baseRef: string;
   materials: string;
   ocrBin: string;
@@ -153,6 +163,34 @@ export interface TrustedReviewOptions {
   exclude?: string;
   json: boolean;
 }
+
+/** AIF profile (C1b behavior, unchanged): identity comes from a CURRENT task
+ *  fetched over HTTP and mapped through the explicit backend/native root pair. */
+export interface AifReviewOptions extends CommonReviewOptions {
+  profile: 'aif';
+  task: string;
+  aifUrl: string;
+  backendRoot: string;
+  nativeRoot: string;
+}
+
+/** Local profile (C2): identity comes from an explicit pinned request file —
+ *  no AIF HTTP call, no backend/native mapping, no invented task identifier. */
+export interface LocalReviewOptions extends CommonReviewOptions {
+  profile: 'local';
+  requestFile: string;
+  requestSha256: string;
+}
+
+export type TrustedReviewOptions = AifReviewOptions | LocalReviewOptions;
+
+const AIF_PROFILE_FLAGS = [
+  'task',
+  'aif-url',
+  'backend-root',
+  'native-root',
+] as const;
+const LOCAL_PROFILE_FLAGS = ['request-file', 'request-sha256'] as const;
 
 const CLI_SPEC: CliArgSpec = {
   options: {
@@ -168,11 +206,15 @@ const CLI_SPEC: CliArgSpec = {
     'rule-file': { type: 'string' },
     exclude: { type: 'string' },
     json: { type: 'boolean' },
+    'request-file': { type: 'string' },
+    'request-sha256': { type: 'string' },
   },
 };
 
 /** Strict argv parse (cliEntry rejects unknown flags — `--provider` and any
- *  passthrough die here — empty values, and positional junk). */
+ *  passthrough die here — empty values, and positional junk). Exactly ONE of
+ *  the two closed profiles may carry the identity; mixed and partial profile
+ *  invocations are rejected here, never half-interpreted. */
 export function parseTrustedReviewArgs(
   argv: readonly string[],
 ): TrustedReviewOptions {
@@ -190,12 +232,8 @@ export function parseTrustedReviewArgs(
     const v = values[name];
     return typeof v === 'string' && v !== '' ? v : undefined;
   };
-  const opts: TrustedReviewOptions = {
-    task: str('task'),
-    aifUrl: str('aif-url'),
+  const common = () => ({
     repo: str('repo'),
-    backendRoot: str('backend-root'),
-    nativeRoot: str('native-root'),
     baseRef: str('base-ref'),
     materials: str('materials'),
     ocrBin: str('ocr-bin'),
@@ -203,17 +241,62 @@ export function parseTrustedReviewArgs(
     ruleFile: optional('rule-file'),
     exclude: optional('exclude'),
     json: values['json'] === true,
-  };
+  });
+  const aifPresent = AIF_PROFILE_FLAGS.filter((k) => values[k] !== undefined);
+  const localPresent = LOCAL_PROFILE_FLAGS.filter(
+    (k) => values[k] !== undefined,
+  );
+  let opts: TrustedReviewOptions;
+  if (aifPresent.length > 0 && localPresent.length > 0) {
+    throw new CliArgError(
+      `mixed profile: ${aifPresent.map((f) => `--${f}`).join(' ')} cannot be combined with ` +
+        `${localPresent.map((f) => `--${f}`).join(' ')} — pass EITHER the AIF profile ` +
+        `(${AIF_PROFILE_FLAGS.map((f) => `--${f}`).join(' ')}) OR the local profile ` +
+        `(${LOCAL_PROFILE_FLAGS.map((f) => `--${f}`).join(' ')})`,
+    );
+  }
+  if (localPresent.length > 0) {
+    if (localPresent.length !== LOCAL_PROFILE_FLAGS.length) {
+      throw new CliArgError(
+        `local profile requires BOTH --request-file and --request-sha256 ` +
+          `(got only ${localPresent.map((f) => `--${f}`).join(', ')})`,
+      );
+    }
+    opts = {
+      ...common(),
+      profile: 'local',
+      requestFile: str('request-file'),
+      requestSha256: str('request-sha256'),
+    };
+  } else {
+    opts = {
+      ...common(),
+      profile: 'aif',
+      task: str('task'),
+      aifUrl: str('aif-url'),
+      backendRoot: str('backend-root'),
+      nativeRoot: str('native-root'),
+    };
+  }
   if (!SHA256_SHAPE.test(opts.ocrSha256)) {
     throw new CliArgError('--ocr-sha256 must be a full 64-hex SHA-256 value');
   }
+  if (opts.profile === 'local' && !SHA256_SHAPE.test(opts.requestSha256)) {
+    throw new CliArgError(
+      '--request-sha256 must be a full 64-hex SHA-256 value',
+    );
+  }
   const absolute: [string, string][] = [
     ['repo', opts.repo],
-    ['backend-root', opts.backendRoot],
-    ['native-root', opts.nativeRoot],
     ['materials', opts.materials],
     ['ocr-bin', opts.ocrBin],
   ];
+  if (opts.profile === 'aif') {
+    absolute.push(['backend-root', opts.backendRoot]);
+    absolute.push(['native-root', opts.nativeRoot]);
+  } else {
+    absolute.push(['request-file', opts.requestFile]);
+  }
   if (opts.ruleFile !== undefined) absolute.push(['rule-file', opts.ruleFile]);
   for (const [name, value] of absolute) {
     if (!value.startsWith('/')) {
@@ -221,6 +304,83 @@ export function parseTrustedReviewArgs(
     }
   }
   return opts;
+}
+
+// ---------------------------------------------------------------------------
+// Local request — a small versioned local input, not an execution/approval
+// record: it names what to review and against which criteria; the caller owns
+// semantic completeness of the declared material set.
+// ---------------------------------------------------------------------------
+
+export interface OcrReviewRequest {
+  id: string;
+  title: string;
+  description: string;
+  plan: string | null;
+  head: string;
+}
+
+const REQUEST_KIND = 'getff.ocr-review-request/v1';
+const REQUEST_KEYS = ['description', 'head', 'id', 'kind', 'plan', 'title'];
+
+/** Parse the pinned local request bytes: strict UTF-8 JSON with the EXACT key
+ *  set {kind, id, title, description, plan, head}. id/title/description are
+ *  nonblank strings (description carries the complete review duty/criteria),
+ *  plan is string or null, head is a full 40/64-hex commit id. Unknown or
+ *  invalid shapes HOLD — a request is never guessed into a review. */
+export function parseOcrReviewRequest(bytes: Buffer): OcrReviewRequest {
+  const shape = (detail: string): TrustedHold =>
+    new TrustedHold('request-shape', detail);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(decodeStrict(bytes));
+  } catch (err) {
+    throw shape(
+      `request is not strict UTF-8 JSON: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw shape('request must be a JSON object');
+  }
+  const obj = parsed as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  if (
+    keys.length !== REQUEST_KEYS.length ||
+    keys.some((k, i) => k !== REQUEST_KEYS[i])
+  ) {
+    throw shape(
+      `request keys must be exactly {${REQUEST_KEYS.join(', ')}} (got {${keys.join(', ')}})`,
+    );
+  }
+  if (obj['kind'] !== REQUEST_KIND) {
+    throw shape(
+      `request kind ${JSON.stringify(obj['kind'])} is not ${JSON.stringify(REQUEST_KIND)}`,
+    );
+  }
+  for (const field of ['id', 'title', 'description'] as const) {
+    const v = obj[field];
+    if (typeof v !== 'string' || v.trim() === '') {
+      throw shape(`request ${field} must be a nonblank string`);
+    }
+  }
+  const plan = obj['plan'];
+  if (plan !== null && typeof plan !== 'string') {
+    throw shape('request plan must be a string or null');
+  }
+  const head = obj['head'];
+  if (
+    typeof head !== 'string' ||
+    (!COMMIT_ID_SHAPE.test(head) && !COMMIT_ID_256_SHAPE.test(head))
+  ) {
+    throw shape('request head must be a full 40/64-hex commit id');
+  }
+  return {
+    id: obj['id'] as string,
+    title: obj['title'] as string,
+    description: obj['description'] as string,
+    plan,
+    head,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -887,11 +1047,17 @@ async function inspectPaths(
 export interface TrustedReviewVerdict {
   kind: 'ocr-trusted-review/v1';
   status: 'compatible' | 'hold';
+  /** Input profile that produced this verdict: 'aif' (task-bound HTTP fetch)
+   *  or 'local' (explicit pinned request file, no AIF call). */
+  profile?: 'aif' | 'local';
   holdReason?: string;
   holdDetail?: string;
   repo?: string;
   runDir?: string;
   task?: { id: string; digest: string; commitSha: string };
+  /** Local profile only — the distinct request binding (file identity, pinned
+   *  bytes, requested candidate). AIF runs carry `task` instead; never both. */
+  request?: { path: string; sha256: string; id: string; head: string };
   range?: {
     head: string;
     base: string;
@@ -1010,6 +1176,7 @@ export async function runTrustedReview(
   const facts: TrustedReviewVerdict = {
     kind: 'ocr-trusted-review/v1',
     status: 'hold',
+    profile: opts.profile,
   };
   let runDir: string | null = null;
 
@@ -1072,60 +1239,104 @@ export async function runTrustedReview(
       return r.stdout;
     };
 
-    // --- T0 task identity ---------------------------------------------------
-    const task = await deps.getTask(opts.aifUrl, opts.task);
-    const taskJson = JSON.stringify(task);
-    if (task.id !== opts.task) {
-      return holdResult(
-        'task-identity-mismatch',
-        `task response id "${task.id}" != requested "${opts.task}"`,
-      );
-    }
-    const projectId = task.projectId ?? '';
-    const worktreePath = task.worktreePath ?? '';
-    const commitSha = task.commitSha ?? '';
-    if (
-      !projectId.trim() ||
-      !worktreePath.startsWith('/') ||
-      !(
-        COMMIT_ID_SHAPE.test(commitSha) || COMMIT_ID_256_SHAPE.test(commitSha)
-      ) ||
-      task.plan === null ||
-      task.plan === undefined ||
-      typeof task.title !== 'string' ||
-      !task.title.trim()
-    ) {
-      return holdResult(
-        'task-missing-fields',
-        'task response lacks projectId / absolute worktreePath / full commitSha / non-null plan / title',
-      );
-    }
-    facts.task = { id: task.id, digest: sha256(taskJson), commitSha };
-    const description = task.description ?? '';
-    if (!description.trim()) {
-      return holdResult(
-        'unknown-criteria',
-        'task description is absent/blank — review criteria cannot be bound',
-      );
-    }
+    // --- T0 identity: AIF task fetch (aif) or pinned local request (local) --
+    let capsuleTitle: string;
+    let capsuleDescription: string;
+    let capsulePlan: string | null;
+    let requestedHead: string;
+    let taskJson = '';
+    if (opts.profile === 'aif') {
+      const task = await deps.getTask(opts.aifUrl, opts.task);
+      taskJson = JSON.stringify(task);
+      if (task.id !== opts.task) {
+        return holdResult(
+          'task-identity-mismatch',
+          `task response id "${task.id}" != requested "${opts.task}"`,
+        );
+      }
+      const projectId = task.projectId ?? '';
+      const worktreePath = task.worktreePath ?? '';
+      const commitSha = task.commitSha ?? '';
+      if (
+        !projectId.trim() ||
+        !worktreePath.startsWith('/') ||
+        !(
+          COMMIT_ID_SHAPE.test(commitSha) || COMMIT_ID_256_SHAPE.test(commitSha)
+        ) ||
+        task.plan === null ||
+        task.plan === undefined ||
+        typeof task.title !== 'string' ||
+        !task.title.trim()
+      ) {
+        return holdResult(
+          'task-missing-fields',
+          'task response lacks projectId / absolute worktreePath / full commitSha / non-null plan / title',
+        );
+      }
+      facts.task = { id: task.id, digest: sha256(taskJson), commitSha };
+      const description = task.description ?? '';
+      if (!description.trim()) {
+        return holdResult(
+          'unknown-criteria',
+          'task description is absent/blank — review criteria cannot be bound',
+        );
+      }
+      capsuleTitle = task.title;
+      capsuleDescription = description;
+      capsulePlan = task.plan;
+      requestedHead = commitSha;
 
-    // --- backend→native mapping ---------------------------------------------
-    const mapped = mapBackendToNative(
-      worktreePath,
-      opts.backendRoot,
-      opts.nativeRoot,
-    );
-    let mappedReal: string | null = null;
-    try {
-      mappedReal = mapped === null ? null : realpathSync(mapped);
-    } catch {
-      mappedReal = null;
-    }
-    if (mapped === null || mappedReal === null || mappedReal !== repoReal) {
-      return holdResult(
-        'identity-mapping',
-        `worktreePath "${worktreePath}" does not map through (${opts.backendRoot} → ${opts.nativeRoot}) onto --repo`,
+      // --- backend→native mapping (AIF profile only) -----------------------
+      const mapped = mapBackendToNative(
+        worktreePath,
+        opts.backendRoot,
+        opts.nativeRoot,
       );
+      let mappedReal: string | null = null;
+      try {
+        mappedReal = mapped === null ? null : realpathSync(mapped);
+      } catch {
+        mappedReal = null;
+      }
+      if (mapped === null || mappedReal === null || mappedReal !== repoReal) {
+        return holdResult(
+          'identity-mapping',
+          `worktreePath "${worktreePath}" does not map through (${opts.backendRoot} → ${opts.nativeRoot}) onto --repo`,
+        );
+      }
+    } else {
+      // Local profile: the pinned request file IS the identity input. Its full
+      // bytes are digest-bound to --request-sha256 and parsed to the exact
+      // versioned shape — no AIF HTTP call, no backend/native mapping, and no
+      // invented task identifier ever reaches the verdict.
+      let requestBytes: Buffer;
+      try {
+        requestBytes = readFileSync(opts.requestFile);
+      } catch (err) {
+        throw new Error(
+          `--request-file ${opts.requestFile} cannot be read: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+      const requestSha = sha256(requestBytes);
+      if (requestSha !== opts.requestSha256.toLowerCase()) {
+        return holdResult(
+          'request-digest',
+          `request file sha256 ${requestSha} != pinned ${opts.requestSha256.toLowerCase()}`,
+        );
+      }
+      const request = parseOcrReviewRequest(requestBytes);
+      facts.request = {
+        path: opts.requestFile,
+        sha256: requestSha,
+        id: request.id,
+        head: request.head,
+      };
+      capsuleTitle = request.title;
+      capsuleDescription = request.description;
+      capsulePlan = request.plan;
+      requestedHead = request.head;
     }
 
     // --- git identity + range -------------------------------------------------
@@ -1164,10 +1375,12 @@ export async function runTrustedReview(
         `merge-base(${base}, ${head}) did not resolve to a full commit id`,
       );
     }
-    if (!commitIdsEqual(head, commitSha)) {
+    if (!commitIdsEqual(head, requestedHead)) {
       return holdResult(
         'head-mismatch',
-        `HEAD ${head} != task.commitSha ${commitSha}`,
+        opts.profile === 'aif'
+          ? `HEAD ${head} != task.commitSha ${requestedHead}`
+          : `HEAD ${head} != request.head ${requestedHead}`,
       );
     }
 
@@ -1220,6 +1433,8 @@ export async function runTrustedReview(
     const manifestAbs = realOf(resolve(opts.materials));
     const ruleFileAbs =
       opts.ruleFile !== undefined ? realOf(resolve(opts.ruleFile)) : null;
+    const requestFileAbs =
+      opts.profile === 'local' ? realOf(resolve(opts.requestFile)) : null;
     const statusOf = async (): Promise<{
       dirty: boolean;
       untracked: string[];
@@ -1240,6 +1455,7 @@ export async function runTrustedReview(
         const abs = resolve(repoReal, rel);
         if (abs === manifestAbs) return false;
         if (ruleFileAbs !== null && abs === ruleFileAbs) return false;
+        if (requestFileAbs !== null && abs === requestFileAbs) return false;
         if (runDir !== null && (abs === runDir || abs.startsWith(`${runDir}/`)))
           return false;
         if (materialPaths.has(rel)) return false;
@@ -1288,9 +1504,9 @@ export async function runTrustedReview(
 
     // --- capsule + minted criteria ------------------------------------------------------
     const capsule = JSON.stringify({
-      title: task.title,
-      description,
-      plan: task.plan,
+      title: capsuleTitle,
+      description: capsuleDescription,
+      plan: capsulePlan,
       materials: materials.map((m) => ({
         path: m.path,
         sha256: m.sha256,
@@ -1454,49 +1670,94 @@ export async function runTrustedReview(
 
     // --- T1: re-read every bound fact; any change is a named stale HOLD -----------
     try {
-      const task1 = await deps.getTask(opts.aifUrl, opts.task);
-      if (JSON.stringify(task1) !== taskJson) {
-        return holdResult(
-          'stale-task',
-          'task response changed during the native process',
-        );
-      }
-      // --- canonical mapping re-established at T1 (F-2): the alias that
-      //     resolved onto this checkout at T0 is re-resolved NOW — a repointed
-      //     or unresolvable mapping HOLDS even while every cached fact below
-      //     (clean checkout, same HEAD, same task/materials) still matches.
-      //     --repo and the Git toplevel are re-canonicalized the same way and
-      //     compared with the T0 identity. ---
-      try {
-        const mapped1 = mapBackendToNative(
-          worktreePath,
-          opts.backendRoot,
-          opts.nativeRoot,
-        );
-        const mapped1Real = mapped1 === null ? null : realpathSync(mapped1);
-        const repo1Real = realpathSync(opts.repo);
-        const toplevel1 = await gitText(['rev-parse', '--show-toplevel']);
-        if (
-          mapped1 === null ||
-          mapped1Real === null ||
-          mapped1Real !== repoReal ||
-          repo1Real !== repoReal ||
-          realpathSync(toplevel1) !== repoReal
-        ) {
+      if (opts.profile === 'aif') {
+        const task1 = await deps.getTask(opts.aifUrl, opts.task);
+        if (JSON.stringify(task1) !== taskJson) {
           return holdResult(
-            'stale-identity-mapping',
-            `canonical mapping changed during the native process: mapped "${
-              mapped1 ?? 'unmapped'
-            }" → ${mapped1Real ?? 'unresolvable'}, --repo → ${repo1Real}, toplevel ${toplevel1} (T0 identity ${repoReal})`,
+            'stale-task',
+            'task response changed during the native process',
           );
         }
-      } catch (err) {
-        return holdResult(
-          'stale-identity-mapping',
-          `canonical mapping could not be re-established at T1: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
+        // --- canonical mapping re-established at T1 (F-2): the alias that
+        //     resolved onto this checkout at T0 is re-resolved NOW — a repointed
+        //     or unresolvable mapping HOLDS even while every cached fact below
+        //     (clean checkout, same HEAD, same task/materials) still matches.
+        //     --repo and the Git toplevel are re-canonicalized the same way and
+        //     compared with the T0 identity. ---
+        const worktreePath1 = task1.worktreePath ?? '';
+        try {
+          const mapped1 = mapBackendToNative(
+            worktreePath1,
+            opts.backendRoot,
+            opts.nativeRoot,
+          );
+          const mapped1Real = mapped1 === null ? null : realpathSync(mapped1);
+          const repo1Real = realpathSync(opts.repo);
+          const toplevel1 = await gitText(['rev-parse', '--show-toplevel']);
+          if (
+            mapped1 === null ||
+            mapped1Real === null ||
+            mapped1Real !== repoReal ||
+            repo1Real !== repoReal ||
+            realpathSync(toplevel1) !== repoReal
+          ) {
+            return holdResult(
+              'stale-identity-mapping',
+              `canonical mapping changed during the native process: mapped "${
+                mapped1 ?? 'unmapped'
+              }" → ${mapped1Real ?? 'unresolvable'}, --repo → ${repo1Real}, toplevel ${toplevel1} (T0 identity ${repoReal})`,
+            );
+          }
+        } catch (err) {
+          return holdResult(
+            'stale-identity-mapping',
+            `canonical mapping could not be re-established at T1: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      } else {
+        // --- local profile at T1: the pinned request bytes are re-read and
+        //     re-hashed (any change or unreadability HOLDS — a mutated request
+        //     must not ride through on T0 knowledge), and canonical --repo +
+        //     the Git toplevel are re-established and compared with the T0
+        //     identity. ---
+        let request1Bytes: Buffer;
+        try {
+          request1Bytes = readFileSync(opts.requestFile);
+        } catch (err) {
+          return holdResult(
+            'stale-request',
+            `--request-file unreadable at T1: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+        if (
+          sha256(request1Bytes) !== (facts.request as { sha256: string }).sha256
+        ) {
+          return holdResult(
+            'stale-request',
+            'request file changed during the native process',
+          );
+        }
+        try {
+          const repo1Real = realpathSync(opts.repo);
+          const toplevel1 = await gitText(['rev-parse', '--show-toplevel']);
+          if (repo1Real !== repoReal || realpathSync(toplevel1) !== repoReal) {
+            return holdResult(
+              'stale-identity-mapping',
+              `canonical --repo/toplevel changed during the native process: --repo → ${repo1Real}, toplevel ${toplevel1} (T0 identity ${repoReal})`,
+            );
+          }
+        } catch (err) {
+          return holdResult(
+            'stale-identity-mapping',
+            `canonical --repo/toplevel could not be re-established at T1: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
       }
       // Manifest currency: re-read the ACTUAL --materials file, never the T0
       // `declared` list. Any list/order/path/digest mutation flips the digest;

@@ -276,6 +276,9 @@ interface RunOpts {
   extraArgv?: string[];
   /** Fixed run uuid — for tests that must know the run dir before review fires. */
   uuid?: string;
+  /** C2 local-request profile: build the closed LOCAL argv (no AIF flags) and
+   *  make ANY getTask call fail loudly — local mode must never touch AIF. */
+  local?: LocalRequest;
 }
 
 function buildArgv(
@@ -304,6 +307,81 @@ function buildArgv(
   ];
 }
 
+// --- C2 local-request profile fixtures ----------------------------------------
+
+const LOCAL_REQUEST_KIND = 'getff.ocr-review-request/v1';
+
+interface LocalRequest {
+  path: string;
+  sha256: string;
+}
+
+/** The default local request for the scenario's CURRENT head (call writeLocalRequest
+ *  only after any scenario mutation that moves sc.head — the head must match). */
+function localRequestBody(sc: Scenario): Record<string, unknown> {
+  return {
+    kind: LOCAL_REQUEST_KIND,
+    id: 'req-c2-1',
+    title: 'C2 local review',
+    description: 'Review the candidate against the complete declared criteria.',
+    plan: 'local step 1\nlocal step 2',
+    head: sc.head,
+  };
+}
+
+/** Write the request bytes and return the {path, sha256} invocation pair. An
+ *  explicit '' value in the argv map OMITS a request flag (the rule-file
+ *  convention) so the partial-profile negatives can drop exactly one of the
+ *  two. `where: 'repo'` places the file INSIDE the repo (the untracked
+ *  exception arm). */
+function writeLocalRequest(
+  sc: Scenario,
+  mutate?: (body: Record<string, unknown>) => void,
+  where: 'tmp' | 'repo' = 'tmp',
+): LocalRequest {
+  const body = localRequestBody(sc);
+  mutate?.(body);
+  const bytes = Buffer.from(JSON.stringify(body), 'utf8');
+  const path =
+    where === 'tmp' ? join(sc.tmp, 'request.json') : join(sc.repo, 'request-inside.json');
+  writeFileSync(path, bytes);
+  return { path, sha256: sha256hex(bytes) };
+}
+
+/** The exact capsule the CLI must mint for the default local request. */
+const localCapsuleOf = (sc: Scenario): string =>
+  JSON.stringify({
+    title: 'C2 local review',
+    description: 'Review the candidate against the complete declared criteria.',
+    plan: 'local step 1\nlocal step 2',
+    materials: [{ path: 'docs/inputs/mat1.md', sha256: sha256hex(MAT_CONTENT), content: MAT_CONTENT }],
+  });
+
+/** Closed LOCAL argv: the shared common flags plus --request-file/--request-sha256
+ *  and NONE of the four AIF flags. */
+function buildLocalArgv(
+  sc: Scenario,
+  over: Partial<Record<string, string | undefined>> | undefined,
+  extra: string[] | undefined,
+  req: LocalRequest,
+): string[] {
+  const get = (k: string): string | undefined => over?.[k];
+  const flag = (name: string, value: string | undefined): string[] =>
+    value !== undefined && value !== '' ? [`--${name}`, value] : [];
+  return [
+    '--repo', get('repo') ?? sc.repo,
+    '--base-ref', get('base-ref') ?? 'HEAD~1',
+    '--materials', get('materials') ?? sc.manifestPath,
+    '--ocr-bin', get('ocr-bin') ?? sc.ocrBin,
+    '--ocr-sha256', get('ocr-sha256') ?? sc.ocrSha256,
+    ...flag('rule-file', get('rule-file') ?? sc.ruleFilePath),
+    ...flag('request-file', get('request-file') ?? req.path),
+    ...flag('request-sha256', get('request-sha256') ?? req.sha256),
+    ...flag('exclude', get('exclude')),
+    ...(extra ?? []),
+  ];
+}
+
 async function run(
   mod: typeof srcMod,
   sc: Scenario,
@@ -316,12 +394,16 @@ async function run(
   let taskCalls = 0;
   const uuid = o.uuid ?? `run-${++runCounter}-${UUID}`;
   const deps: srcMod.TrustedDeps = {
-    getTask: async () => {
-      const t = tasks[Math.min(taskCalls, tasks.length - 1)] as AifTaskFull;
-      taskCalls += 1;
-      if (t === null) throw new Error('task not found');
-      return t;
-    },
+    getTask: o.local
+      ? (async () => {
+          throw new Error('UNEXPECTED-AIF-CALL');
+        }) as srcMod.TrustedDeps['getTask']
+      : async () => {
+          const t = tasks[Math.min(taskCalls, tasks.length - 1)] as AifTaskFull;
+          taskCalls += 1;
+          if (t === null) throw new Error('task not found');
+          return t;
+        },
     now: () => 1_000,
     uuid: () => uuid,
     spawnChild: async (cmd, args, opts) => {
@@ -462,7 +544,10 @@ async function run(
   process.env.HOME = sc.home;
   process.env.GIT_X_PROBE = 'must-not-reach-children';
   try {
-    const out = await mod.runTrustedReview(buildArgv(sc, o.argv, o.extraArgv), deps);
+    const argv = o.local
+      ? buildLocalArgv(sc, o.argv, o.extraArgv, o.local)
+      : buildArgv(sc, o.argv, o.extraArgv);
+    const out = await mod.runTrustedReview(argv, deps);
     return { out, record, uuid };
   } finally {
     process.env.HOME = savedHome;
@@ -1665,6 +1750,321 @@ for (const [label, mod] of twins) {
       const out = await runRealNative(mod, sc, 'after-close', {}, `witness-p3-${UUID}`);
       expect(out.exitCode).toBe(2);
       expect(out.verdict?.holdReason).toBe('inspection-framing');
+    });
+  });
+
+  // --- C2: the explicit local-request profile ----------------------------------
+  // The AIF task-bound profile above keeps its entire existing matrix unchanged
+  // (brief: reuse unchanged tests, no whole-matrix duplication). These arms cover
+  // ONLY the new local profile: --request-file/--request-sha256, no AIF call, and
+  // the profile-specific negatives. The shared pipeline (materials, capsule,
+  // inspection, invocation, comparison) is exercised through the same stub.
+  describe(`ocrTrustedReview (${label}) — explicit local-request profile (C2)`, () => {
+    it('runs the complete local invocation with the exact native argv and a distinct request binding', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      const r = await run(mod, sc, { local: req });
+      const runDir = join(sc.repoReal, '.ai-factory', 'ocr', r.uuid);
+      expect(r.out.exitCode).toBe(0);
+      expect(r.out.verdict?.status).toBe('compatible');
+      expect(r.out.verdict?.profile).toBe('local');
+      expect(r.out.verdict?.request).toEqual({
+        path: req.path,
+        sha256: req.sha256,
+        id: 'req-c2-1',
+        head: sc.head,
+      });
+      // No invented AIF task binding rides along in local mode.
+      expect((r.out.verdict as unknown as Record<string, unknown>)['task']).toBeUndefined();
+      // ONE native review invocation, the same closed argv as the AIF profile.
+      expect(r.record.reviewCalls).toBe(1);
+      expect(r.record.reviewArgv).toEqual([
+        sc.ocrBin,
+        'review',
+        '--repo', sc.repoReal,
+        '--from', sc.mergeBase,
+        '--to', sc.head,
+        '--rule', join(runDir, 'rules.json'),
+        '--format', 'json',
+        '--audience', 'agent',
+        '--color', 'never',
+        '--provider', 'chatgpt',
+        '-o', join(runDir, 'ocr-result.json'),
+      ]);
+      // The minted capsule carries the REQUEST's title/description/plan plus the
+      // complete declared materials — one shared criteria pipeline.
+      const capsule = localCapsuleOf(sc);
+      expect(readFileSync(join(runDir, 'criteria-final.md'), 'utf8')).toBe(capsule);
+      expect(readFileSync(join(runDir, 'criteria-0.md'), 'utf8')).toBe(`Focus on src.\nBe strict.\n${capsule}`);
+      const persisted = JSON.parse(readFileSync(join(runDir, 'trusted-review-verdict.json'), 'utf8'));
+      expect(persisted.profile).toBe('local');
+      expect(persisted.request?.id).toBe('req-c2-1');
+      expect(persisted.status).toBe('compatible');
+    });
+
+    it('makes no AIF HTTP call in local mode (any fetch fails the run)', async () => {
+      // run()'s local seam makes deps.getTask throw UNEXPECTED-AIF-CALL — a
+      // compatible local verdict is itself the witness that it was never called.
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      const r = await run(mod, sc, { local: req });
+      expect(r.out.exitCode).toBe(0);
+      expect(r.out.stderrLine).not.toMatch(/UNEXPECTED-AIF-CALL/);
+      expect(r.out.stderrLine).toMatch(/not a semantic ResultReview/);
+    });
+
+    it('accepts a null plan as the explicitly authorized local shape', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc, (b) => {
+        b.plan = null;
+      });
+      const r = await run(mod, sc, { local: req });
+      expect(r.out.exitCode).toBe(0);
+      expect(r.out.verdict?.status).toBe('compatible');
+      const runDir = join(sc.repoReal, '.ai-factory', 'ocr', r.uuid);
+      expect(JSON.parse(readFileSync(join(runDir, 'criteria-final.md'), 'utf8')).plan).toBeNull();
+    });
+
+    it('rejects mixed and partial profile flags with exit 1', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      // Mixed: the full AIF set AND the local set.
+      const rMixed = await run(mod, sc, {
+        local: req,
+        extraArgv: ['--task', sc.task.id, '--aif-url', 'http://aif.invalid/api',
+          '--backend-root', sc.backendRoot, '--native-root', sc.nativeRoot],
+      });
+      expect(rMixed.out.exitCode).toBe(1);
+      expect(rMixed.out.verdict).toBeNull();
+      expect(rMixed.out.stderrLine).toMatch(/mixed/i);
+      // A single stray AIF flag over a local invocation is still mixed.
+      const rStray = await run(mod, sc, { local: req, extraArgv: ['--task', sc.task.id] });
+      expect(rStray.out.exitCode).toBe(1);
+      expect(rStray.out.stderrLine).toMatch(/mixed/i);
+      // Partial local: --request-file without --request-sha256.
+      const rNoSha = await run(mod, sc, { local: req, argv: { 'request-sha256': '' } });
+      expect(rNoSha.out.exitCode).toBe(1);
+      expect(rNoSha.out.stderrLine).toMatch(/both --request-file and --request-sha256/i);
+      // Partial local: --request-sha256 without --request-file.
+      const rNoFile = await run(mod, sc, { local: req, argv: { 'request-file': '' } });
+      expect(rNoFile.out.exitCode).toBe(1);
+      expect(rNoFile.out.stderrLine).toMatch(/both --request-file and --request-sha256/i);
+    });
+
+    it('rejects a relative --request-file and a non-hex --request-sha256 with exit 1', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      const rRel = await run(mod, sc, { local: req, argv: { 'request-file': 'request.json' } });
+      expect(rRel.out.exitCode).toBe(1);
+      expect(rRel.out.stderrLine).toMatch(/--request-file must be an absolute path/);
+      const rHex = await run(mod, sc, { local: req, argv: { 'request-sha256': 'nothex' } });
+      expect(rHex.out.exitCode).toBe(1);
+      expect(rHex.out.stderrLine).toMatch(/--request-sha256 must be a full 64-hex/);
+    });
+
+    it('holds request-digest when the pinned bytes do not match --request-sha256', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      const r = await run(mod, sc, { local: req, argv: { 'request-sha256': '0'.repeat(64) } });
+      expect(r.out.exitCode).toBe(2);
+      expect(r.out.verdict?.holdReason).toBe('request-digest');
+      expect(r.record.reviewCalls).toBe(0);
+    });
+
+    it('holds request-shape on unknown or invalid request shapes', async () => {
+      const arms: { name: string; write: (sc: Scenario) => LocalRequest }[] = [
+        {
+          name: 'wrong kind',
+          write: (sc) => writeLocalRequest(sc, (b) => { b.kind = 'other.request/v9'; }),
+        },
+        {
+          name: 'blank description (criteria cannot be bound)',
+          write: (sc) => writeLocalRequest(sc, (b) => { b.description = '   '; }),
+        },
+        {
+          name: 'missing head',
+          write: (sc) => writeLocalRequest(sc, (b) => { delete b.head; }),
+        },
+        {
+          name: 'short head',
+          write: (sc) => writeLocalRequest(sc, (b) => { b.head = (b.head as string).slice(0, 39); }),
+        },
+        {
+          name: 'plan as number',
+          write: (sc) => writeLocalRequest(sc, (b) => { b.plan = 7; }),
+        },
+        {
+          name: 'extra key',
+          write: (sc) => writeLocalRequest(sc, (b) => { b.extra = true; }),
+        },
+        {
+          name: 'not JSON',
+          write: (sc) => {
+            const path = join(sc.tmp, 'request.json');
+            writeFileSync(path, 'not-json{');
+            return { path, sha256: sha256hex('not-json{') };
+          },
+        },
+        {
+          name: 'not strict UTF-8',
+          write: (sc) => {
+            const path = join(sc.tmp, 'request.json');
+            const bytes = Buffer.from([0x7b, 0xff, 0xfe, 0x7d]);
+            writeFileSync(path, bytes);
+            return { path, sha256: sha256hex(bytes) };
+          },
+        },
+      ];
+      for (const arm of arms) {
+        const sc = buildScenario();
+        const req = arm.write(sc);
+        const r = await run(mod, sc, { local: req });
+        expect(r.out.exitCode, arm.name).toBe(2);
+        expect(r.out.verdict?.holdReason, arm.name).toBe('request-shape');
+        expect(r.record.reviewCalls, arm.name).toBe(0);
+      }
+    });
+
+    it('treats a missing request file as invocation IO (exit 1), never compatibility', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      rmSync(req.path);
+      const r = await run(mod, sc, { local: req });
+      expect(r.out.exitCode).toBe(1);
+      expect(r.out.verdict).toBeNull();
+      expect(r.out.stderrLine).toMatch(/request|ENOENT/i);
+      expect(r.record.reviewCalls).toBe(0);
+    });
+
+    it('holds head-mismatch when HEAD differs from the requested head', async () => {
+      const moved = buildScenario();
+      // Flip the first hex char to a GUARANTEED-different digit (1/16-flake guard).
+      const flipped = `${moved.head[0] === '0' ? '1' : '0'}${moved.head.slice(1)}`;
+      const req = writeLocalRequest(moved, (b) => { b.head = flipped; });
+      const r = await run(mod, moved, { local: req });
+      expect(r.out.exitCode).toBe(2);
+      expect(r.out.verdict?.holdReason).toBe('head-mismatch');
+    });
+
+    it('rejects an unresolvable base ref in local mode (exit 1)', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      const r = await run(mod, sc, { local: req, argv: { 'base-ref': 'no-such-ref' } });
+      expect(r.out.exitCode).toBe(1);
+    });
+
+    it('transports a >8k declared material losslessly through the local capsule', async () => {
+      const sc = buildScenario();
+      const big = `${'длинная строка материала 🍺\r\n'.repeat(400)}${'x'.repeat(9000)}`;
+      writeFileSync(join(sc.repo, 'docs', 'inputs', 'mat1.md'), big);
+      sc.git(['add', '-A']);
+      sc.git(['commit', '-qm', 'big material']);
+      sc.head = sc.git(['rev-parse', 'HEAD']);
+      sc.mergeBase = sc.git(['merge-base', 'HEAD~1', 'HEAD']);
+      sc.requiredPaths = ['docs/inputs/mat1.md'];
+      writeFileSync(sc.manifestPath, JSON.stringify([{ path: 'docs/inputs/mat1.md', sha256: sha256hex(big) }]));
+      const req = writeLocalRequest(sc);
+      const r = await run(mod, sc, { local: req });
+      expect(r.out.exitCode).toBe(0);
+      const runDir = join(sc.repoReal, '.ai-factory', 'ocr', r.uuid);
+      const capsule = readFileSync(join(runDir, 'criteria-final.md'), 'utf8');
+      expect(Buffer.byteLength(capsule, 'utf8')).toBeGreaterThan(8192);
+      expect(JSON.parse(capsule).materials[0].content).toBe(big);
+    });
+
+    it('holds stale-request when the request file changes or dies mid-run', async () => {
+      const changed = buildScenario();
+      const reqChanged = writeLocalRequest(changed);
+      const rCh = await run(mod, changed, {
+        local: reqChanged,
+        native: {
+          review: {
+            result: 'ok',
+            mutate: () => {
+              const body = localRequestBody(changed);
+              body.description = 'changed mid-run';
+              writeFileSync(reqChanged.path, JSON.stringify(body));
+            },
+          },
+        },
+      });
+      expect(rCh.out.exitCode).toBe(2);
+      expect(rCh.out.verdict?.holdReason).toBe('stale-request');
+
+      const gone = buildScenario();
+      const reqGone = writeLocalRequest(gone);
+      const rDel = await run(mod, gone, {
+        local: reqGone,
+        native: { review: { result: 'ok', mutate: () => rmSync(reqGone.path) } },
+      });
+      expect(rDel.out.exitCode).toBe(2);
+      expect(rDel.out.verdict?.holdReason).toBe('stale-request');
+    });
+
+    it('holds stale-identity-mapping when the canonical --repo alias retargets mid-run (local)', async () => {
+      // No backend/native mapping exists in local mode — the identity that T1
+      // must re-establish is canonical --repo and the Git toplevel themselves.
+      const mkAliased = (): Scenario & { alias: string } => {
+        const sc = buildScenario();
+        const real = join(sc.tmp, 'checkout-A');
+        renameSync(sc.repo, real);
+        symlinkSync(real, sc.repo); // tmp/ne/repo is now an alias onto A
+        return { ...sc, alias: sc.repo };
+      };
+      // Stability control: an UNCHANGED alias re-resolves identically at T1.
+      const keep = mkAliased();
+      const reqKeep = writeLocalRequest(keep);
+      const rKeep = await run(mod, keep, { local: reqKeep });
+      expect(rKeep.out.exitCode).toBe(0);
+
+      // Retarget: mid-run the alias resolves elsewhere while every cached fact
+      // (clean checkout, same HEAD, same request/materials) still matches.
+      const retarget = mkAliased();
+      const reqRet = writeLocalRequest(retarget);
+      const other = join(retarget.tmp, 'checkout-B');
+      const rRet = await run(mod, retarget, {
+        local: reqRet,
+        native: {
+          review: {
+            result: 'ok',
+            mutate: () => {
+              rmSync(retarget.alias, { recursive: true, force: true });
+              mkdirSync(other, { recursive: true });
+              symlinkSync(other, retarget.alias);
+            },
+          },
+        },
+      });
+      expect(rRet.out.exitCode).toBe(2);
+      expect(rRet.out.verdict?.holdReason).toBe('stale-identity-mapping');
+
+      // Failed resolution: the alias is deleted and not recreated.
+      const gone = mkAliased();
+      const reqGone = writeLocalRequest(gone);
+      const rGone = await run(mod, gone, {
+        local: reqGone,
+        native: {
+          review: { result: 'ok', mutate: () => rmSync(gone.alias, { recursive: true, force: true }) },
+        },
+      });
+      expect(rGone.out.exitCode).toBe(2);
+      expect(rGone.out.verdict?.holdReason).toBe('stale-identity-mapping');
+    });
+
+    it('keeps an in-repo request file an allowed untracked input', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc, undefined, 'repo');
+      const r = await run(mod, sc, { local: req });
+      expect(r.out.exitCode).toBe(0);
+      expect(r.out.verdict?.untracked0).toContain('request-inside.json');
+    });
+
+    it('holds stale-inspection when the T1 applied rule changes (F-3, local profile)', async () => {
+      const sc = buildScenario();
+      const req = writeLocalRequest(sc);
+      const r = await run(mod, sc, { local: req, native: { t1MutateRule: true } });
+      expect(r.out.exitCode).toBe(2);
+      expect(r.out.verdict?.holdReason).toBe('stale-inspection');
     });
   });
 }
