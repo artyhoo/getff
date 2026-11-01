@@ -12,17 +12,24 @@
  *   - runGuardLivenessCheck aggregation
  */
 
-import { describe, it, expect } from 'vitest';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { resolve, dirname, join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   runRuleLiveness,
   runGuardLivenessCheck,
   getChangedEslintRuleIds,
   runTestQualityLiveness,
+  runTestQualityGate,
+  getChangedFilesVsBase,
   isTestBearingPath,
+  classifyFrozenSourceInput,
+  FROZEN_SOURCE_SHA256,
+  FROZEN_SOURCE_STORES,
   type ManifestRule,
 } from './guard-liveness.ts';
 
@@ -458,5 +465,463 @@ describe('runTestQualityLiveness (D011 selector/carrier alignment)', () => {
     expect(result.error).toBeUndefined();
     expect(result.files).toEqual([rel]);
     expect(result.violations).toEqual([]);
+  });
+});
+
+// ─── Frozen intentional-fixture SOURCE role (unit 46/47, Root exact-30) ───────
+// The pre-push Q1/Q2 arm used to lint the 17 immutable SOURCE inputs the delivery
+// Adds under the two recovery fixture stores — their vacuous assertions are the
+// point of the fixtures. This block locks the ADAPTED canonical SOURCE role:
+// exact-30 recognition with byte/mode/canonical-form verification, distinct
+// sourceClassified reporting (never linted/detected/live-passing), fail-closed
+// refusals for every tamper/alias form, and — critically — NO immunity for
+// anything that is not the exact canonical path+bytes pair.
+//
+// CUSTODY (unit 47 repair #1): every fixture this block writes lives in an
+// EXCLUSIVELY OWNED unique scratch root (mkdtemp under the gitignored
+// /.ai-factory/ area or os.tmpdir()), using the existing isolated fixture
+// lifecycle (fresh tree, removed whole in finally). Nothing here writes,
+// chmods, renames or removes a canonical frozen SOURCE file, the 26 original
+// probe TARGETs, or ANY preexisting canonical directory: the canonical
+// repo-root `recovery-d011-population/` TARGET location and the exact store
+// membership are asserted ABSENT/unchanged before and after the whole block.
+// Frozen bytes are READ from the canonical fixtures, never mutated.
+
+describe('frozen intentional-fixture SOURCE role (unit 46/47)', () => {
+  const ALL_30 = Object.keys(FROZEN_SOURCE_SHA256).sort();
+  const DIAGNOSED_17 = [
+    ...Object.keys(FROZEN_SOURCE_SHA256).filter((p) => p.includes('/bad.vacuous')),
+    ...Object.keys(FROZEN_SOURCE_SHA256).filter((p) => p.includes('/r4-runner/')),
+  ].sort();
+  const CANONICAL_GUARD = join(REPO_ROOT, 'packages/core/hooks/checks/guard-liveness.ts');
+  const canonicalGuardHash = () =>
+    createHash('sha256').update(readFileSync(CANONICAL_GUARD)).digest('hex');
+  const walkFiles = (dir: string, prefix = ''): string[] => {
+    const out: string[] = [];
+    for (const name of readdirSync(dir).sort()) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) out.push(...walkFiles(p, `${prefix}${name}/`));
+      else out.push(`${prefix}${name}`);
+    }
+    return out;
+  };
+  const assertCustody = (label: string) => {
+    // Fixed canonical locations a test must NEVER occupy or alter:
+    // - the repo-root probe TARGET directory stays absent;
+    // - both SOURCE stores carry exactly the exact-30 population — an unknown
+    //   leftover from a crashed arm would itself be an unknown-in-store hazard.
+    expect(existsSync(join(REPO_ROOT, 'recovery-d011-population')), `${label}: canonical TARGET dir`).toBe(false);
+    // Test-bearing population only: the stores also carry canonical non-test
+    // neighbours (r4-runner reports/*.json, counterexamples/*.json) that the
+    // selector never selects — custody covers exactly the classifier's domain.
+    const live = new Set<string>();
+    for (const store of FROZEN_SOURCE_STORES) {
+      for (const rel of walkFiles(join(REPO_ROOT, store))) {
+        const p = `${store}/${rel}`;
+        if (isTestBearingPath(p)) live.add(p);
+      }
+    }
+    expect([...live].sort(), `${label}: test-bearing store membership`).toEqual(ALL_30);
+    expect(canonicalGuardHash(), `${label}: canonical guard bytes`).toBe(GUARD_HASH_AT_START);
+  };
+  let GUARD_HASH_AT_START = '';
+
+  beforeAll(() => {
+    GUARD_HASH_AT_START = canonicalGuardHash();
+    assertCustody('beforeAll');
+  });
+  afterAll(() => {
+    assertCustody('afterAll');
+  });
+
+  it('the projection is exactly the Root exact-30 across the two stores — no more, no fewer', () => {
+    expect(ALL_30).toHaveLength(30);
+    expect(DIAGNOSED_17).toHaveLength(17); // 13 bad population + 4 r4-runner lanes
+    for (const p of ALL_30) {
+      expect(FROZEN_SOURCE_STORES.some((s) => p.startsWith(`${s}/`)), p).toBe(true);
+    }
+  });
+
+  it('the trust projection is RUNTIME-immutable — no caller extension or pin rewrite (unit 47 repair #4)', () => {
+    expect(Object.isFrozen(FROZEN_SOURCE_SHA256)).toBe(true);
+    expect(Object.isFrozen(FROZEN_SOURCE_STORES)).toBe(true);
+    const map = FROZEN_SOURCE_SHA256 as Record<string, string>;
+    // Adding an unknown healthy file/hash pair is a TypeError, never a silent accept:
+    expect(() => { map['scripts/test-assurance/recovery-d011/fixtures/population/healthy.NEW.test.ts'] = createHash('sha256').update('healthy').digest('hex'); }).toThrow();
+    // Modifying a canonical pin to make other bytes admissible is a TypeError too:
+    const pin = map['scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts'];
+    expect(() => { map['scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts'] = createHash('sha256').update('tampered').digest('hex'); }).toThrow();
+    expect(map['scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts']).toBe(pin);
+    const stores = FROZEN_SOURCE_STORES as unknown as string[];
+    expect(() => { stores.push('some/other/store'); }).toThrow();
+    expect(Object.keys(FROZEN_SOURCE_SHA256)).toHaveLength(30);
+    expect(FROZEN_SOURCE_STORES).toHaveLength(2);
+    // And the projection still admits exactly the canonical bytes after the attempts:
+    expect(classifyFrozenSourceInput('scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts')).toEqual({ status: 'known-source' });
+  });
+
+  it('all 30 exact SOURCE identities classify as intentional SOURCE against the REAL repo — including the 17 that the old gate refused', () => {
+    const result = runTestQualityLiveness(ALL_30);
+    expect(result.error).toBeUndefined();
+    expect(result.sourceClassified.sort()).toEqual(ALL_30);
+    expect(result.files).toEqual([]); // SOURCE inputs are never linted
+    expect(result.violations).toEqual([]); // …never counted as detected or live-passing
+    expect(result.nonLintable).toEqual([]);
+    for (const p of DIAGNOSED_17) {
+      expect(classifyFrozenSourceInput(p).status, p).toBe('known-source');
+    }
+  });
+
+  it('the exact-17 population the unit-45 push refused now classify clean — the frozen bytes on disk are UNCHANGED (no fixture edit)', () => {
+    // Byte-proven: every classified path's live bytes still hash to the frozen pin.
+    for (const p of DIAGNOSED_17) {
+      expect(classifyFrozenSourceInput(p)).toEqual({ status: 'known-source' });
+    }
+  });
+
+  it('same bad bytes at a TARGET/live path STILL fail Q1 — the role binds path+bytes, never bytes alone', () => {
+    const frozenBad = readFileSync(join(REPO_ROOT, 'scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts'));
+    // OWNED scratch root (unit 47 custody repair): the TARGET-shape twin lives
+    // under a unique mkdtemp root, NOT at the canonical repo-root location.
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    try {
+      const relTarget = relative(REPO_ROOT, join(dir, 'recovery-d011-population', 'bad.vacuous.test.ts'));
+      const liveRel = relative(REPO_ROOT, join(dir, 'bad.vacuous.test.ts'));
+      mkdirSync(join(dir, 'recovery-d011-population'), { recursive: true });
+      writeFileSync(join(dir, 'recovery-d011-population', 'bad.vacuous.test.ts'), frozenBad);
+      writeFileSync(join(dir, 'bad.vacuous.test.ts'), frozenBad);
+      const result = runTestQualityLiveness([relTarget, liveRel]);
+      expect(result.error).toBeUndefined();
+      expect(result.sourceClassified).toEqual([]);
+      expect(result.files.sort()).toEqual([liveRel, relTarget].sort());
+      expect(result.violations.filter((v) => v.includes('no-vacuous-assertion')).length).toBe(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('an UNKNOWN basename inside a SOURCE store is a HARD failure — healthy or bad bytes alike (unit 47 repair #2)', () => {
+    // Owned scratch tree carrying the exact-30 layout; an unknown name inside a
+    // store must REFUSE (result.error), never silently lint and never inherit
+    // SOURCE status — the unit-46 seed silently passed unknown HEALTHY inputs.
+    const root = scratchStoreRoot();
+    try {
+      const unknownBad = 'scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.NEW.test.ts';
+      const unknownHealthy = 'scripts/test-assurance/recovery-d011/fixtures/population/healthy.sounding.test.ts';
+      writeFileSync(join(root, unknownBad), `it('vacuous', () => { expect(true).toBe(true); });\n`);
+      writeFileSync(join(root, unknownHealthy), `import { expect, it } from 'vitest';\nit('real', () => { expect(JSON.parse('1')).toBe(1); });\n`);
+      expect(classifyFrozenSourceInput(unknownBad, root)).toEqual({ status: 'unknown-in-store' });
+      expect(classifyFrozenSourceInput(unknownHealthy, root)).toEqual({ status: 'unknown-in-store' });
+      for (const rel of [unknownBad, unknownHealthy]) {
+        const result = runTestQualityLiveness([rel], root);
+        expect(result.error, rel).toContain('not part of the canonical exact-30 projection');
+        expect(result.violations, rel).toEqual([]);
+        expect(result.sourceClassified, rel).toEqual([]);
+        expect(result.files, rel).toEqual([]);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('noncanonical/whitespace twins of a known name never inherit its immunity (unit 47 repair #3)', () => {
+    const root = scratchStoreRoot();
+    try {
+      const canonical = 'scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts';
+      const trailingSpace = `${canonical} `;
+      const quoted = `"${canonical}"`;
+      writeFileSync(join(root, trailingSpace), readFileSync(join(root, canonical)));
+      expect(classifyFrozenSourceInput(trailingSpace, root)).toEqual({ status: 'unknown-in-store' });
+      // The selector does not even admit the trailing-space spelling as test-bearing
+      // (the `$`-anchored suffix match rejects it) — so it can never be selected,
+      // never linted, and never granted SOURCE status. Selection semantics stay
+      // exactly as before: whitespace never collapses onto the canonical name.
+      const spaced = runTestQualityLiveness([trailingSpace], root);
+      expect(spaced.error).toBeUndefined();
+      expect(spaced.sourceClassified).toEqual([]);
+      expect(spaced.files).toEqual([]);
+      expect(spaced.violations).toEqual([]);
+      // A quoted spelling `"scripts/..."` does not even match the store prefix
+      // (it starts with `"`), so it lands in the ordinary lint lane — it can
+      // never reach the exact-30 map. Git's non-`-z` output shape dies here too.
+      expect(classifyFrozenSourceInput(quoted, root)).toEqual({ status: 'not-in-store' });
+      // …while the valid canonical spelling is recognized SEPARATELY in the same tree:
+      expect(classifyFrozenSourceInput(canonical, root)).toEqual({ status: 'known-source' });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('REAL Git caller delivers committed affected filenames EXACTLY — canonical SOURCE path included, no quoted spellings (unit 47 repair #3)', () => {
+    // 8fdb2ee added the r4-runner + population fixtures: the production caller
+    // over that real committed change must hand the classifier the EXACT names.
+    const { files, error } = getChangedFilesVsBase('8fdb2ee87aff0dbca11a1dbb650b18f9400e65db^');
+    expect(error).toBeUndefined();
+    for (const p of ALL_30) expect(files, p).toContain(p);
+    // eedaf12a added a research patch whose name carries a UTF-8 §: without -z,
+    // git quotes it as `"\302\247..."` and a newline split would corrupt it.
+    const nonAscii = getChangedFilesVsBase('eedaf12a7ac3c2bcab2b7f0b80b2adbef683c7a6^');
+    expect(nonAscii.error).toBeUndefined();
+    const sect = nonAscii.files.find((f) => f.includes('§13.21-l3-revision.md'));
+    expect(sect).toBeDefined();
+    expect(sect!.startsWith('"')).toBe(false); // no C-style quoting wrapper
+    expect(sect!.includes('\\302')).toBe(false); // no octal escape residue
+    // The exact bytes match the tracked filename (readdir is the independent source):
+    const tracked = readdirSync(join(REPO_ROOT, 'docs/meta-factory/research-patches')).find((n) => n.includes('13.21-l3-revision'));
+    expect(sect!.endsWith(tracked!)).toBe(true);
+    // And the real production GATE over that historical fixture-adding change
+    // classifies the SOURCE inputs instead of failing on them (no violations,
+    // no error): valid canonical SOURCE path recognized through the real caller.
+    const gate = runTestQualityGate('8fdb2ee87aff0dbca11a1dbb650b18f9400e65db^');
+    expect(gate).toBeNull();
+  }, 240_000);
+
+  it('over-rejecting-healthy sensitivity: a conforming live test and the good SOURCE inputs both stay non-refused', () => {
+    const goodRel = Object.keys(FROZEN_SOURCE_SHA256).find((p) => p.endsWith('/good.assertive.test.ts'))!;
+    expect(classifyFrozenSourceInput(goodRel).status).toBe('known-source');
+    const dir = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'tq-live-'));
+    try {
+      const rel = relative(REPO_ROOT, join(dir, 'healthy.test.ts'));
+      writeFileSync(join(dir, 'healthy.test.ts'), `import { expect, it } from 'vitest';\nit('real', () => { expect(JSON.parse('2')).toBe(2); });\n`);
+      const result = runTestQualityLiveness([rel, goodRel]);
+      expect(result.error).toBeUndefined();
+      expect(result.violations).toEqual([]);
+      expect(result.sourceClassified).toEqual([goodRel]);
+      expect(result.files).toEqual([rel]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // Scratch-root refusals: each arm builds a fresh scratch tree carrying the
+  // REAL frozen bytes at a known-30 path (read from the canonical store), mutates
+  // exactly one dimension, and requires the refusal. The canonical fixtures are
+  // never touched; each scratch root is removed whole afterwards.
+  const scratchStoreRoot = () => {
+    const root = mkdtempSync(join(tmpdir(), 'tak-src-role-'));
+    for (const rel of Object.keys(FROZEN_SOURCE_SHA256)) {
+      const abs = join(root, rel);
+      mkdirSync(dirnameOrEmpty(root, rel), { recursive: true });
+      writeFileSync(abs, readFileSync(join(REPO_ROOT, rel)));
+    }
+    return root;
+  };
+  const dirnameOrEmpty = (root: string, rel: string) => join(root, rel.slice(0, rel.lastIndexOf('/')));
+
+  it('valid name, WRONG bytes refuse — and the production entry surfaces it as a fail-closed error, not a count', () => {
+    const root = scratchStoreRoot();
+    try {
+      const rel = 'scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts';
+      writeFileSync(join(root, rel), `it('tampered', () => { expect(true).toBe(true); });\n`);
+      const verdict = classifyFrozenSourceInput(rel, root);
+      expect(verdict.status).toBe('refused');
+      expect(verdict.status === 'refused' && verdict.reason).toContain('byte mismatch');
+      // Production wiring (unit 47 repair #5): the same tamper driven through the
+      // exported production entry runTestQualityLiveness — the function the gate
+      // calls — must fail closed with the refusal reason, never fall back clean.
+      const result = runTestQualityLiveness([rel], root);
+      expect(result.error).toContain(`frozen SOURCE input '${rel}' refused`);
+      expect(result.error).toContain('byte mismatch');
+      expect(result.violations).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('a CLEAN replacement at a known-30 path also refuses — good-looking content never inherits the role', () => {
+    const root = scratchStoreRoot();
+    try {
+      const rel = 'scripts/test-assurance/recovery-d011/fixtures/population/good.assertive.test.ts';
+      writeFileSync(join(root, rel), `import { expect, it } from 'vitest';\nit('other-good', () => { expect(JSON.parse('3')).toBe(3); });\n`);
+      const verdict = classifyFrozenSourceInput(rel, root);
+      expect(verdict.status).toBe('refused');
+      expect(verdict.status === 'refused' && verdict.reason).toContain('byte mismatch');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('a swapped-hash twin refuses — two known paths exchanging their pins is a mismatch, not a match', () => {
+    const root = scratchStoreRoot();
+    try {
+      const a = 'scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts';
+      const b = 'scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.cjs';
+      const bufA = readFileSync(join(root, a));
+      writeFileSync(join(root, a), readFileSync(join(root, b)));
+      writeFileSync(join(root, b), bufA);
+      for (const rel of [a, b]) {
+        const verdict = classifyFrozenSourceInput(rel, root);
+        expect(verdict.status, rel).toBe('refused');
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('wrong mode (executable bit) refuses — regular non-executable 100644 identity', () => {
+    const root = scratchStoreRoot();
+    try {
+      const rel = 'scripts/test-assurance/recovery-d011/fixtures/r4-runner/healthy.test.ts';
+      chmodSync(join(root, rel), 0o755);
+      const verdict = classifyFrozenSourceInput(rel, root);
+      expect(verdict.status).toBe('refused');
+      expect(verdict.status === 'refused' && verdict.reason).toContain('executable mode');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('a symlink at a known-30 path refuses — self-link and parent-link aliases alike', () => {
+    const root = scratchStoreRoot();
+    try {
+      const rel = 'scripts/test-assurance/recovery-d011/fixtures/r4-runner/healthy.test.ts';
+      const abs = join(root, rel);
+      const parked = join(root, 'parked-healthy.test.ts');
+      renameSync(abs, parked);
+      symlinkSync(parked, abs); // self-link: correct bytes reachable ONLY through a symlink
+      const verdict = classifyFrozenSourceInput(rel, root);
+      expect(verdict.status).toBe('refused');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('an unreadable known-30 path refuses (EACCES), restored byte-proven afterwards', () => {
+    const root = scratchStoreRoot();
+    const rel = 'scripts/test-assurance/recovery-d011/fixtures/population/good.assertive.spec.mjs';
+    const abs = join(root, rel);
+    try {
+      chmodSync(abs, 0o000);
+      const verdict = classifyFrozenSourceInput(rel, root);
+      expect(verdict.status).toBe('refused');
+      expect(verdict.status === 'refused' && /unreadable|missing/.test(verdict.reason)).toBe(true);
+    } finally {
+      // byte-proven restore INSIDE the arm, then the whole scratch root goes away
+      chmodSync(abs, 0o644);
+      const verdict = classifyFrozenSourceInput(rel, root);
+      expect(verdict).toEqual({ status: 'known-source' });
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('OS 0600 vs 0644 on a frozen SOURCE path is NOT a mode change — both classify known-source', () => {
+    const root = scratchStoreRoot();
+    try {
+      const rel = 'scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.spec.mjs';
+      chmodSync(join(root, rel), 0o600);
+      expect(classifyFrozenSourceInput(rel, root)).toEqual({ status: 'known-source' });
+      chmodSync(join(root, rel), 0o644);
+      expect(classifyFrozenSourceInput(rel, root)).toEqual({ status: 'known-source' });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('traversal / dot-segment / absolute aliases refuse before any read of an escaped target', () => {
+    const rel = 'scripts/test-assurance/recovery-d011/fixtures/population/../../escape.test.ts';
+    expect(classifyFrozenSourceInput(rel)).toEqual({ status: 'refused', reason: expect.stringContaining('noncanonical path form') });
+    expect(classifyFrozenSourceInput('scripts/test-assurance/recovery-d011/fixtures/population/./bad.vacuous.test.ts').status).toBe('refused');
+    expect(classifyFrozenSourceInput('/etc/passwd').status).toBe('not-in-store'); // absolute never matches the canonical store spelling
+  });
+
+  it('a missing known-30 path refuses — never silently skipped', () => {
+    const root = scratchStoreRoot();
+    try {
+      const rel = 'scripts/test-assurance/recovery-d011/fixtures/r4-runner/unhandled.test.ts';
+      rmSync(join(root, rel), { force: true });
+      const verdict = classifyFrozenSourceInput(rel, root);
+      expect(verdict.status).toBe('refused');
+      expect(verdict.status === 'refused' && /missing|unreadable/.test(verdict.reason)).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  // ── Real counterfactual sensitivity (unit 47 repair #5) ──────────────────────
+  // The unit-46 seed named two tests «classifier-disabled» / «over-rejecting»
+  // while merely linting ordinary twins — claims the code never made good on.
+  // These arms MUTATE a copy of the production module in an owned scratch lab
+  // (never the canonical file), run the mutated copy as a REAL subprocess
+  // through the exported production entry, require the RED, then prove the
+  // un-mutated (healed) copy goes GREEN in the same lab — with hashes for the
+  // original, mutated and canonical (never mutated) bytes at every step.
+  const runLabModule = (mutate: ((src: string) => string) | null) => {
+    const lab = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'glv-mut-'));
+    try {
+      const original = readFileSync(CANONICAL_GUARD, 'utf8');
+      const repoRootLiteral = JSON.stringify(REPO_ROOT);
+      // Rebind the copy to the REAL repo (imports + REPO_ROOT), then mutate.
+      const replacements: Array<[string, string]> = [
+        ["from '../../eslint-rules/index.ts'", `from '${pathToFileURL(join(REPO_ROOT, 'packages/core/eslint-rules/index.ts')).href}'`],
+        ["from '../utils/run-check.ts'", `from '${pathToFileURL(join(REPO_ROOT, 'packages/core/hooks/utils/run-check.ts')).href}'`],
+        ["const REPO_ROOT = resolve(HERE, '../../../..');", `const REPO_ROOT = ${repoRootLiteral};`],
+      ];
+      let src = original;
+      for (const [from, to] of replacements) {
+        if (src.split(from).length !== 2) throw new Error(`lab rebind anchor not unique: ${from}`);
+        src = src.replace(from, to);
+      }
+      if (mutate) src = mutate(src);
+      writeFileSync(join(lab, 'mutant.ts'), src);
+      const mutatedHash = createHash('sha256').update(src).digest('hex');
+      writeFileSync(join(lab, 'runner.ts'), [
+        "import { runTestQualityLiveness } from './mutant.ts';",
+        `const files = ${JSON.stringify(ALL_30)};`,
+        "const r = runTestQualityLiveness(files);",
+        "console.log('MUTANT-RUN ' + JSON.stringify({ error: r.error ?? null, violations: r.violations.length, linted: r.files.length, sourceClassified: r.sourceClassified.length }));",
+        '',
+      ].join('\n'));
+      const tsxBin = join(REPO_ROOT, 'node_modules', '.bin', 'tsx');
+      const out = existsSync(tsxBin)
+        ? execFileSync(tsxBin, [join(lab, 'runner.ts')], { cwd: REPO_ROOT, encoding: 'utf8' })
+        : execFileSync('npx', ['tsx', join(lab, 'runner.ts')], { cwd: REPO_ROOT, encoding: 'utf8' });
+      const line = out.split('\n').find((l) => l.startsWith('MUTANT-RUN '));
+      if (!line) throw new Error(`lab runner produced no MUTANT-RUN line: ${out.slice(0, 400)}`);
+      return { summary: JSON.parse(line.slice('MUTANT-RUN '.length)) as { error: string | null; violations: number; linted: number; sourceClassified: number }, mutatedHash };
+    } finally {
+      rmSync(lab, { recursive: true, force: true });
+    }
+  };
+  const mutateOnce = (src: string, from: string, to: string) => {
+    if (src.split(from).length !== 2) throw new Error(`mutation anchor not unique: ${from}`);
+    return src.replace(from, to);
+  };
+
+  it('ACTUAL classifier-disabled RED, then healed GREEN — the frozen 17 read green ONLY because of the classification', { timeout: 240_000 }, () => {
+    const originalHash = canonicalGuardHash();
+    const disabled = runLabModule((src) => mutateOnce(src,
+      '  if (!store) return { status: \'not-in-store\' };',
+      '  return { status: \'not-in-store\' }; // mutant: classifier disabled'));
+    expect(disabled.mutatedHash).not.toBe(originalHash);
+    // RED: with the role probe disabled, the diagnosed 17 lint and fail Q1.
+    expect(disabled.summary.error).toBeNull();
+    expect(disabled.summary.violations).toBeGreaterThanOrEqual(17);
+    expect(disabled.summary.sourceClassified).toBe(0);
+    expect(disabled.summary.linted).toBe(30);
+    // GREEN (healed copy in the same lab, canonical bytes untouched throughout):
+    const healed = runLabModule(null);
+    expect(healed.summary.error).toBeNull();
+    expect(healed.summary.violations).toBe(0);
+    expect(healed.summary.sourceClassified).toBe(30);
+    expect(healed.summary.linted).toBe(0);
+    expect(canonicalGuardHash()).toBe(originalHash); // custody: canonical never mutated
+  });
+
+  it('ACTUAL over-rejecting-healthy RED, then healed GREEN — good SOURCE inputs must stay admitted', { timeout: 240_000 }, () => {
+    const originalHash = canonicalGuardHash();
+    const overReject = runLabModule((src) => mutateOnce(src,
+      '  const expected = FROZEN_SOURCE_SHA256[relPath];',
+      '  if (store) return { status: \'refused\', reason: \'mutant: over-rejecting healthy\' };\n  const expected = FROZEN_SOURCE_SHA256[relPath];'));
+    expect(overReject.mutatedHash).not.toBe(originalHash);
+    // RED: an over-rejecting classifier refuses the good SOURCE inputs too, and
+    // the production entry fails closed on the refusal instead of linting them.
+    expect(overReject.summary.error).toContain('mutant: over-rejecting healthy');
+    expect(overReject.summary.violations).toBe(0);
+    expect(overReject.summary.sourceClassified).toBe(0);
+    const healed = runLabModule(null);
+    expect(healed.summary.error).toBeNull();
+    expect(healed.summary.violations).toBe(0);
+    expect(healed.summary.sourceClassified).toBe(30);
+    expect(canonicalGuardHash()).toBe(originalHash); // custody: canonical never mutated
   });
 });

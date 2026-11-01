@@ -22,6 +22,7 @@ import {
   portableReferenceStore, sharedHistoricalReader, storeFallbackGit,
   evaluateLedgerChannel, governedPathVerdicts, currentLedgerChannel,
   LEDGER_BINDING_ADDED_PATHS, LEDGER_BINDING_MODIFIED_PATHS, LEDGER_BINDING_NEW_MODIFIED_PATHS,
+  LEDGER_BINDING_OPTIONAL_GUARD_PATHS,
   CURRENT_TRANSFER_CHECKPOINT, ADMITTED_CURRENT_REPLACEMENTS, PENDING_CURRENT_SOURCE_PROPOSALS,
   PORTABLE_REFERENCE_TUPLES, PORTABLE_REFERENCE_REL, PORTABLE_REFERENCE_BYTES,
   S2_REVIEWED_INTEGRATION_REL, S2_REVIEWED_INTEGRATION_SHA256,
@@ -2047,6 +2048,151 @@ test('LEDGER-CHANNEL (unit 37): governed verdicts are paired before/after activa
   assert.ok(governedPathVerdicts({ channel: activated, governed: governed.map((g) => ({ ...g, checkpointEntry: null })) }).every((x) => x.includes('missing from the admitted checkpoint tree')));
   assert.ok(governedPathVerdicts({ channel: activated, governed: governed.map((g) => ({ ...g, liveEntry: null })) }).every((x) => x.includes('missing from the live HEAD tree')));
   assert.ok(governedPathVerdicts({ channel: activated, governed: governed.map((g) => ({ ...g, liveEntry: { ...g.liveEntry, mode: '120000' } })) }).every((x) => x.includes('mode/kind changed')));
+});
+
+// ─── LEDGER-CHANNEL (unit 46): the exact TWO optional guard rows ───────────────
+// Root unit-46 §B contract: the two guard modifiedPaths rows are a compatible
+// absent-or-exactly-BOTH extension of the EXISTING v1 normalization. ABSENT —
+// the canonical activated fb1 stays ACTIVATED (never a soft-pending) and changed
+// guard/test bytes keep refusing as hard nonrows. PRESENT — both rows valid,
+// unique, closed path+sha256, exact 64-hex, appended after every original row in
+// the fixed order, never in the baseline; only then do the paths join the
+// governed set under the SAME verdict chain. Every partial/duplicate/unknown/
+// malformed/swapped/out-of-order/baseline-carrying supply refuses.
+test('LEDGER-CHANNEL (unit 46): the two optional guard rows are absent-or-exactly-BOTH — absent keeps fb1 activated and guard bytes hard-refusing, both append as the finite governed extension, every malformed supply refuses', () => {
+  const baseline = JSON.parse(CD3_LEDGER_BYTES.toString('utf8'));
+  const PIN_A = 'a'.repeat(64); const PIN_B = 'b'.repeat(64); const PIN_N1 = 'c'.repeat(63) + '1'; const PIN_N2 = 'c'.repeat(63) + '2';
+  const PIN_G1 = 'f'.repeat(63) + '1'; const PIN_G2 = 'f'.repeat(63) + '2';
+  // The canonical ACTIVATED fb1 shape (P38+MF present, NO guard rows).
+  const fb1 = structuredClone(baseline);
+  for (const row of fb1.addedPaths) if (LEDGER_BINDING_ADDED_PATHS.includes(row.path)) row.sha256 = PIN_A;
+  fb1.modifiedPaths = fb1.modifiedPaths.map((row) => (LEDGER_BINDING_MODIFIED_PATHS.includes(row.path) ? { ...row, sha256: PIN_B } : row));
+  fb1.modifiedPaths = [...fb1.modifiedPaths, { path: LEDGER_BINDING_NEW_MODIFIED_PATHS[0], sha256: PIN_N1 }, { path: LEDGER_BINDING_NEW_MODIFIED_PATHS[1], sha256: PIN_N2 }];
+  const noGuard = evaluateLedgerChannel({ liveLedger: structuredClone(fb1), baselineLedger: baseline });
+  assert.equal(noGuard.ok, true, noGuard.problems.join('|'));
+  assert.equal(noGuard.activated, true, 'fb1 WITHOUT guard rows stays fully activated — never a soft-pending state');
+  assert.equal(noGuard.guardRows.length, 0);
+  assert.equal(noGuard.guardGoverned, false);
+  // The exact BOTH-present shape: appended after every original row, fixed order.
+  const withGuard = structuredClone(fb1);
+  withGuard.modifiedPaths = [...withGuard.modifiedPaths, { path: LEDGER_BINDING_OPTIONAL_GUARD_PATHS[0], sha256: PIN_G1 }, { path: LEDGER_BINDING_OPTIONAL_GUARD_PATHS[1], sha256: PIN_G2 }];
+  const both = evaluateLedgerChannel({ liveLedger: withGuard, baselineLedger: baseline });
+  assert.equal(both.ok, true, both.problems.join('|'));
+  assert.equal(both.activated, true);
+  assert.equal(both.guardRows.length, 2);
+  assert.equal(both.guardGoverned, true);
+  // Partial supply (exactly one row) refuses — never normalizes, never pending.
+  const partial = structuredClone(fb1);
+  partial.modifiedPaths = [...partial.modifiedPaths, { path: LEDGER_BINDING_OPTIONAL_GUARD_PATHS[0], sha256: PIN_G1 }];
+  const pv = evaluateLedgerChannel({ liveLedger: partial, baselineLedger: baseline });
+  assert.equal(pv.ok, false);
+  assert.ok(pv.problems.some((x) => x.includes('absent-or-exactly-BOTH')), pv.problems.join('|'));
+  // Duplicate guard rows refuse.
+  const dup = structuredClone(withGuard);
+  dup.modifiedPaths = [...dup.modifiedPaths, { path: LEDGER_BINDING_OPTIONAL_GUARD_PATHS[0], sha256: PIN_G1 }];
+  const dv = evaluateLedgerChannel({ liveLedger: dup, baselineLedger: baseline });
+  assert.equal(dv.ok, false);
+  assert.ok(dv.problems.some((x) => x.includes('duplicate optional guard')), dv.problems.join('|'));
+  // Extra field on a guard row refuses (closed path+sha256 form).
+  const extraField = structuredClone(withGuard);
+  extraField.modifiedPaths = extraField.modifiedPaths.map((r) => (r.path === LEDGER_BINDING_OPTIONAL_GUARD_PATHS[0] ? { ...r, class: 's3-source' } : r));
+  assert.equal(evaluateLedgerChannel({ liveLedger: extraField, baselineLedger: baseline }).ok, false);
+  // Malformed sha refuses — the general v1 shape validator catches it first
+  // (fail-closed at the earliest arm); the guard-specific 64-hex check guards
+  // the path beyond shape (e.g. a structurally valid wrong-length pass).
+  const badSha = structuredClone(withGuard);
+  badSha.modifiedPaths = badSha.modifiedPaths.map((r) => (r.path === LEDGER_BINDING_OPTIONAL_GUARD_PATHS[1] ? { ...r, sha256: 'zz' } : r));
+  const bv = evaluateLedgerChannel({ liveLedger: badSha, baselineLedger: baseline });
+  assert.equal(bv.ok, false);
+  assert.ok(bv.problems.some((x) => x.includes('invalid modifiedPaths entry') && x.includes(LEDGER_BINDING_OPTIONAL_GUARD_PATHS[1])), bv.problems.join('|'));
+  // Swapped-order append (test.ts before .ts) refuses.
+  const swappedOrder = structuredClone(fb1);
+  swappedOrder.modifiedPaths = [...swappedOrder.modifiedPaths, { path: LEDGER_BINDING_OPTIONAL_GUARD_PATHS[1], sha256: PIN_G2 }, { path: LEDGER_BINDING_OPTIONAL_GUARD_PATHS[0], sha256: PIN_G1 }];
+  const sv = evaluateLedgerChannel({ liveLedger: swappedOrder, baselineLedger: baseline });
+  assert.equal(sv.ok, false);
+  assert.ok(sv.problems.some((x) => x.includes('fixed order')), sv.problems.join('|'));
+  // Not appended (inserted before an original row) refuses.
+  const inserted = structuredClone(fb1);
+  inserted.modifiedPaths = [{ path: LEDGER_BINDING_OPTIONAL_GUARD_PATHS[0], sha256: PIN_G1 }, ...inserted.modifiedPaths, { path: LEDGER_BINDING_OPTIONAL_GUARD_PATHS[1], sha256: PIN_G2 }];
+  const iv = evaluateLedgerChannel({ liveLedger: inserted, baselineLedger: baseline });
+  assert.equal(iv.ok, false);
+  assert.ok(iv.problems.some((x) => x.includes('appended after every original')), iv.problems.join('|'));
+  // A baseline carrying either guard row refuses.
+  const baselineCarrying = structuredClone(baseline);
+  baselineCarrying.modifiedPaths = [...baselineCarrying.modifiedPaths, { path: LEDGER_BINDING_OPTIONAL_GUARD_PATHS[1], sha256: PIN_G2 }];
+  assert.equal(evaluateLedgerChannel({ liveLedger: baselineCarrying, baselineLedger: baselineCarrying }).ok, false);
+  // An UNKNOWN third path+sha256 row still refuses the normalized comparison (the
+  // optional channel admits EXACTLY these two paths, no new namespace).
+  const unknownRow = structuredClone(fb1);
+  unknownRow.modifiedPaths = [...unknownRow.modifiedPaths, { path: 'packages/core/hooks/checks/unknown-extra.ts', sha256: PIN_G1 }];
+  assert.equal(evaluateLedgerChannel({ liveLedger: unknownRow, baselineLedger: baseline }).ok, false);
+});
+
+test('LEDGER-CHANNEL (unit 46): guard governed verdicts — activated pins bind real live bytes, swapped hashes refuse, missing/mode-wrong refuse, and pinless pre-activation stays pending-class', () => {
+  const activated = { ok: true, activated: true, guardGoverned: true };
+  const unactivated = { ok: true, activated: false, guardGoverned: false };
+  const PIN_G1 = '1'.repeat(64); const PIN_G2 = '2'.repeat(64); const OTHER = 'e'.repeat(64);
+  const desc = (path, over = {}) => ({ path, checkpointEntry: { mode: '100644', kind: 'blob', oid: hex40('1') }, liveEntry: { mode: '100644', kind: 'blob', oid: hex40('2') }, pin: PIN_G1, liveSha: PIN_G1, ...over });
+  const guardGoverned = LEDGER_BINDING_OPTIONAL_GUARD_PATHS.map((p, i) => desc(p, { pin: `${i + 1}`.repeat(64), liveSha: `${i + 1}`.repeat(64) }));
+  // Activated + binding pins: fully discharged.
+  assert.deepEqual(governedPathVerdicts({ channel: activated, governed: guardGoverned }), []);
+  // Swapped hashes (each row pinning the OTHER row's bytes): both refuse.
+  const swapped = [desc(LEDGER_BINDING_OPTIONAL_GUARD_PATHS[0], { pin: PIN_G2, liveSha: PIN_G1 }), desc(LEDGER_BINDING_OPTIONAL_GUARD_PATHS[1], { pin: PIN_G1, liveSha: PIN_G2 })];
+  const sm = governedPathVerdicts({ channel: activated, governed: swapped });
+  assert.equal(sm.length, 2, sm.join('|'));
+  assert.ok(sm.every((x) => x.includes('does not match the actual live bytes')), sm.join('|'));
+  // Mismatched pin vs live bytes refuses under activation.
+  const mm = governedPathVerdicts({ channel: activated, governed: guardGoverned.map((g) => ({ ...g, liveSha: OTHER })) });
+  assert.equal(mm.length, 2, mm.join('|'));
+  // Pre-activation mismatch stays pending-class (silent verdicts, caller reports).
+  assert.deepEqual(governedPathVerdicts({ channel: unactivated, governed: guardGoverned.map((g) => ({ ...g, liveSha: OTHER })) }), []);
+  // Pinless guard rows never crash and never silently pass.
+  const pl = governedPathVerdicts({ channel: unactivated, governed: guardGoverned.map((g) => ({ ...g, pin: null })) });
+  assert.equal(pl.length, 0, pl.join('|'));
+  // Missing checkpoint / missing live / mode-wrong each refuse regardless of pins.
+  assert.ok(governedPathVerdicts({ channel: activated, governed: guardGoverned.map((g) => ({ ...g, checkpointEntry: null })) }).every((x) => x.includes('missing from the admitted checkpoint tree')));
+  assert.ok(governedPathVerdicts({ channel: activated, governed: guardGoverned.map((g) => ({ ...g, liveEntry: null })) }).every((x) => x.includes('missing from the live HEAD tree')));
+  assert.ok(governedPathVerdicts({ channel: activated, governed: guardGoverned.map((g) => ({ ...g, liveEntry: { ...g.liveEntry, mode: '100755' } })) }).every((x) => x.includes('mode/kind changed')));
+});
+
+test('LEDGER-CHANNEL (unit 46): end-to-end through reconcileCurrentTransfer — without the rows a changed guard path is a HARD nonrow refusal; with BOTH valid rows binding the actual bytes it discharges', () => {
+  const { carrier, treeRows } = transferFixture();
+  const badCarrier = structuredClone(carrier);
+  const oid40 = (c, n) => c.repeat(39) + n;
+  const GUARD_CKPT = LEDGER_BINDING_OPTIONAL_GUARD_PATHS.map((p, i) => ({ path: p, mode: '100644', kind: 'blob', gitBlob: oid40('c', String(i)), content: Buffer.from(`checkpoint guard subject ${i}: ${p}\n`) }));
+  const GUARD_LIVE = LEDGER_BINDING_OPTIONAL_GUARD_PATHS.map((p, i) => ({ path: p, mode: '100644', kind: 'blob', gitBlob: oid40('d', String(i)), content: Buffer.from(`repaired guard subject ${i}: ${p}\n`) }));
+  const rowsWithGuardCkpt = [...treeRows, ...GUARD_CKPT];
+  // (1) WITHOUT the ledger rows: changed guard bytes are a hard nonrow refusal —
+  //     disk ledger stays the valid fixed baseline, so nothing governs the paths.
+  const liveChanged = [...rowsWithGuardCkpt.filter((r) => !LEDGER_BINDING_OPTIONAL_GUARD_PATHS.includes(r.path)), ...GUARD_LIVE];
+  const p1 = reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(rowsWithGuardCkpt, { liveRows: liveChanged }), carrier: { ok: true, data: badCarrier } });
+  assert.ok(p1.some((x) => x.includes('changed current source path without an admitted replacement or governed binding') && LEDGER_BINDING_OPTIONAL_GUARD_PATHS.some((g) => x.includes(g))), p1.join('|'));
+  // (2) WITH both valid rows whose pins bind the actual LIVE bytes: discharged —
+  //     the same changed live rows now govern cleanly through the same channel.
+  const governedContents = governedContentMap(treeRows);
+  const activatedBase = JSON.parse(activatedLedgerFixture(governedContents).toString('utf8'));
+  const guardLedger = Buffer.from(JSON.stringify({
+    ...activatedBase,
+    modifiedPaths: [...activatedBase.modifiedPaths, ...LEDGER_BINDING_OPTIONAL_GUARD_PATHS.map((p, i) => ({ path: p, sha256: sha(GUARD_LIVE[i].content) }))],
+  }));
+  const tmp = mkdtempSync(join(tmpdir(), 'tak-ledger-guard-'));
+  mkdirSync(join(tmp, 'docs/test-assurance-kernel/s3'), { recursive: true });
+  writeFileSync(join(tmp, S3_LEDGER_REL), guardLedger);
+  const liveCommitted = [...liveChanged.map((r) => (r.path === S3_LEDGER_REL ? { ...r, gitBlob: hex40('3'), content: guardLedger } : r))];
+  const p2 = reconcileCurrentTransfer({ repoRoot: tmp, git: fakeTransferGit(rowsWithGuardCkpt, { liveRows: liveCommitted }), carrier: { ok: true, data: badCarrier } });
+  assert.ok(p2.every((x) => !LEDGER_BINDING_OPTIONAL_GUARD_PATHS.some((g) => x.includes(g))), p2.join('|'));
+  // (3) With rows whose pins are swapped relative to the live bytes: both refuse —
+  //     a purported binding that does not bind never passes.
+  const guardLedgerSwapped = Buffer.from(JSON.stringify({
+    ...activatedBase,
+    modifiedPaths: [...activatedBase.modifiedPaths, ...LEDGER_BINDING_OPTIONAL_GUARD_PATHS.map((p, i) => ({ path: p, sha256: sha(GUARD_LIVE[1 - i].content) }))],
+  }));
+  const tmp2 = mkdtempSync(join(tmpdir(), 'tak-ledger-guard-sw-'));
+  mkdirSync(join(tmp2, 'docs/test-assurance-kernel/s3'), { recursive: true });
+  writeFileSync(join(tmp2, S3_LEDGER_REL), guardLedgerSwapped);
+  const liveCommitted2 = [...liveChanged.map((r) => (r.path === S3_LEDGER_REL ? { ...r, gitBlob: hex40('4'), content: guardLedgerSwapped } : r))];
+  const p3 = reconcileCurrentTransfer({ repoRoot: tmp2, git: fakeTransferGit(rowsWithGuardCkpt, { liveRows: liveCommitted2 }), carrier: { ok: true, data: badCarrier } });
+  assert.ok(p3.some((x) => x.includes('does not match the actual live bytes')), p3.join('|'));
 });
 test('LEDGER-CHANNEL (unit 37): a tampered live ledger refuses end-to-end through reconcileCurrentTransfer — selfIndexed normalization is the only admission, never a blanket exception', () => {
   const { carrier, treeRows } = transferFixture();

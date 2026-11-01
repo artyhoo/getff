@@ -518,6 +518,20 @@ export const ADMITTED_CURRENT_ONLY_SUCCESSORS = [
 export const LEDGER_BINDING_ADDED_PATHS = ['scripts/test-assurance/s3.mjs', 'scripts/test-assurance/s3.test.mjs'];
 export const LEDGER_BINDING_MODIFIED_PATHS = ['scripts/test-assurance/verify.mjs'];
 export const LEDGER_BINDING_NEW_MODIFIED_PATHS = ['packages/core/principles/38-vitest-include-ci-coverage.test.ts', 'packages/getff/MANIFEST.sha256'];
+// Root unit-46 §B: the EXACT TWO optional guard rows — a compatible absent-or-exactly-BOTH
+// extension of the EXISTING v1 current-ledger normalization. ABSENT (the canonical fb1
+// state): the channel behaves exactly as before — already-activated fb1 stays activated
+// (never a soft-pending) and changed guard/test bytes remain HARD nonrow refusals. PRESENT:
+// both rows must be unique closed path+sha256 entries with exact 64-hex pins, appended
+// after every original modifiedPaths row in the fixed order below, and only then do the two
+// paths join the governed-current set under the SAME validation chain as the five original
+// rows. No partial, duplicated, unknown, malformed, swapped-hash, out-of-order or baseline
+// variant is normalizable — each refuses. The pin VALUES live only in the proposed v1 L data
+// after independent Root review (never hardcoded here to self-admit candidate bytes).
+export const LEDGER_BINDING_OPTIONAL_GUARD_PATHS = [
+  'packages/core/hooks/checks/guard-liveness.ts',
+  'packages/core/hooks/checks/guard-liveness.test.ts',
+];
 
 // Evaluate the EXISTING-ledger binding channel state from two PARSED ledgers: the live
 // ledger and the fixed-checkpoint (cd3) baseline object. Normalization per the admitted
@@ -533,6 +547,9 @@ export function evaluateLedgerChannel({ liveLedger, baselineLedger }) {
   const isAdded = (row) => LEDGER_BINDING_ADDED_PATHS.includes(row?.path) && row?.class === 's3-source';
   const isModified = (row) => LEDGER_BINDING_MODIFIED_PATHS.includes(row?.path);
   const isNewModified = (row) => LEDGER_BINDING_NEW_MODIFIED_PATHS.includes(row?.path);
+  // Root unit-46 §B: the exact-2 optional guard rows normalize away ONLY in the valid
+  // absent-or-exactly-BOTH shape; every other supply is an invalid ledger that refuses.
+  const isOptionalGuard = (row) => LEDGER_BINDING_OPTIONAL_GUARD_PATHS.includes(row?.path);
   const addedCount = (ledger) => (ledger.addedPaths ?? []).filter(isAdded).length;
   const modifiedCount = (ledger) => (ledger.modifiedPaths ?? []).filter(isModified).length;
   if (addedCount(liveLedger) !== LEDGER_BINDING_ADDED_PATHS.length || addedCount(baselineLedger) !== LEDGER_BINDING_ADDED_PATHS.length) {
@@ -551,15 +568,49 @@ export function evaluateLedgerChannel({ liveLedger, baselineLedger }) {
     if (!HEX64.test(row.sha256 ?? '')) return { ok: false, activated: false, problems: [`new modifiedPaths row ${row.path} sha256 must be exact 64-hex`] };
   }
   if (liveNew.length !== new Set(liveNew.map((r) => r.path)).size) return { ok: false, activated: false, problems: ['duplicate new modifiedPaths rows refuse'] };
+  // Root unit-46 §B optional guard rows: absent-or-exactly-BOTH, closed path+sha256 form,
+  // exact 64-hex, unique, appended after every non-guard row, fixed order, NEVER in the
+  // fixed-checkpoint baseline.
+  const guardRowsOf = (ledger) => (ledger.modifiedPaths ?? []).filter(isOptionalGuard);
+  const baseGuard = guardRowsOf(baselineLedger);
+  if (baseGuard.length) return { ok: false, activated: false, problems: ['the fixed-checkpoint baseline must not carry the optional guard modifiedPaths rows'] };
+  const liveGuard = guardRowsOf(liveLedger);
+  for (const row of liveGuard) {
+    const keys = Object.keys(row).sort();
+    if (keys.length !== 2 || keys[0] !== 'path' || keys[1] !== 'sha256') return { ok: false, activated: false, problems: [`optional guard modifiedPaths row ${row.path} must carry only path+sha256 (got ${keys.join(',')})`] };
+    if (!HEX64.test(row.sha256 ?? '')) return { ok: false, activated: false, problems: [`optional guard modifiedPaths row ${row.path} sha256 must be exact 64-hex`] };
+  }
+  if (liveGuard.length !== new Set(liveGuard.map((r) => r.path)).size) return { ok: false, activated: false, problems: ['duplicate optional guard modifiedPaths rows refuse'] };
+  if (liveGuard.length !== 0 && liveGuard.length !== LEDGER_BINDING_OPTIONAL_GUARD_PATHS.length) {
+    return { ok: false, activated: false, problems: [`optional guard modifiedPaths rows are absent-or-exactly-BOTH (saw ${liveGuard.length} of ${LEDGER_BINDING_OPTIONAL_GUARD_PATHS.length}) — a partial supply never normalizes`] };
+  }
+  if (liveGuard.length === LEDGER_BINDING_OPTIONAL_GUARD_PATHS.length) {
+    const idx = (p) => liveLedger.modifiedPaths.map((r) => r?.path).lastIndexOf(p);
+    const [first, second] = LEDGER_BINDING_OPTIONAL_GUARD_PATHS;
+    if (idx(first) === -1 || idx(second) === -1 || idx(first) >= idx(second)) {
+      return { ok: false, activated: false, problems: ['optional guard modifiedPaths rows must be appended in the fixed order (guard-liveness.ts before guard-liveness.test.ts)'] };
+    }
+    const lastNonGuard = Math.max(...liveLedger.modifiedPaths.map((r, i) => (isOptionalGuard(r) ? -1 : i)));
+    if (idx(first) < lastNonGuard || idx(second) < lastNonGuard) {
+      return { ok: false, activated: false, problems: ['optional guard modifiedPaths rows must be appended after every original modifiedPaths row (fixed appended order)'] };
+    }
+  }
   const normalize = (ledger) => {
     const clone = structuredClone(ledger);
     for (const row of clone.addedPaths) if (isAdded(row)) row.sha256 = '*';
-    clone.modifiedPaths = clone.modifiedPaths.filter((row) => !isNewModified(row)).map((row) => (isModified(row) ? { ...row, sha256: '*' } : row));
+    clone.modifiedPaths = clone.modifiedPaths.filter((row) => !isNewModified(row) && !isOptionalGuard(row)).map((row) => (isModified(row) ? { ...row, sha256: '*' } : row));
     return clone;
   };
   const equal = JSON.stringify(normalize(liveLedger)) === JSON.stringify(normalize(baselineLedger));
   if (!equal) return { ok: false, activated: false, problems: ['scope-extension ledger changed outside the finite existing-ledger binding channel (normalized comparison with the fixed-checkpoint baseline failed)'] };
-  return { ok: true, activated: liveNew.length === LEDGER_BINDING_NEW_MODIFIED_PATHS.length, newRows: liveNew, problems: [] };
+  return {
+    ok: true,
+    activated: liveNew.length === LEDGER_BINDING_NEW_MODIFIED_PATHS.length,
+    newRows: liveNew,
+    guardRows: liveGuard,
+    guardGoverned: liveGuard.length === LEDGER_BINDING_OPTIONAL_GUARD_PATHS.length,
+    problems: [],
+  };
 }
 
 // Governed-path verdicts for the five ledger-bound source rows (pure half of the channel):
@@ -1066,6 +1117,14 @@ export function reconcileCurrentTransfer({ repoRoot, git, carrier }) {
     }
   }
   const governedSet = new Set([...LEDGER_BINDING_ADDED_PATHS, ...LEDGER_BINDING_MODIFIED_PATHS, ...LEDGER_BINDING_NEW_MODIFIED_PATHS]);
+  // Root unit-46 §B: the two optional guard paths join the governed-current set ONLY when
+  // the actual live ledger supplies BOTH valid typed rows (absent-or-exactly-BOTH; every
+  // partial/duplicate/malformed/out-of-order supply is already refused by the channel
+  // itself). Without the rows the old contract holds untouched: changed guard/test bytes
+  // stay HARD nonrow refusals (the checkpoint-mutation loop below), never fake PENDING.
+  if (ledgerChannel.ok && ledgerChannel.guardGoverned) {
+    for (const p of LEDGER_BINDING_OPTIONAL_GUARD_PATHS) governedSet.add(p);
+  }
   const pinOf = (path) => {
     const live = ledgerChannel.liveLedger;
     if (!live) return null;
