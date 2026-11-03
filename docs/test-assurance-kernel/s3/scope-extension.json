@@ -319,7 +319,7 @@
     },
     {
       "path": "packages/getff/MANIFEST.sha256",
-      "sha256": "3acd994c8e1cc11a1df3be6a05cf31b9e59b0d6cef4f5fc39dcbfe3819561f0d"
+      "sha256": "dc5bb4c620a441e73f82bb03842e027d269a40a9fc983be969f93678e770c402"
     },
     {
       "path": "packages/core/hooks/checks/guard-liveness.ts",
