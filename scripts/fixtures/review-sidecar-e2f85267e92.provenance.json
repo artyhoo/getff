@@ -1,0 +1,17 @@
+{
+  "kind": "frozen-test-fixture-provenance",
+  "fixture": "scripts/fixtures/review-sidecar-e2f85267e92.md",
+  "source": {
+    "repo": "artyhoo/getff (this repository's history)",
+    "commit": "e2f85267e92da24b589d5024b51ae0184ae11c9f",
+    "commit_short": "e2f85267e92",
+    "path": ".agents/roles/review-sidecar.md",
+    "git_blob": "9ae30dc8dfdc3d61e161127d0a2d5939f55054a7"
+  },
+  "fixture_sha256": "3032ee1ca4f8f186a304c7109d4242db9e0fad9f982245486172e8e4a73dd974",
+  "fixture_lines": 282,
+  "extracted_at": "2026-11-03",
+  "extracted_via": "git cat-file blob 9ae30dc8dfdc3d61e161127d0a2d5939f55054a7",
+  "why_frozen": "The e2 card carried the unconditional npx-mediated loader invocation (`npx tsx .agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts`) whose negative this suite guards against. Tests must not depend on the branch object e2f85267e92 at runtime and no fake git history is constructed: the exact historical bytes are pinned here once, with their origin recorded in this file. The fixture is DATA — its unsafe command is executed only under the recording fake-npx PATH boundary in scripts/review-sidecar-contract.test.mjs, never through a real registry-acquiring npx.",
+  "guarded_by": "scripts/review-sidecar-contract.test.mjs"
+}

@@ -50,8 +50,13 @@ One bounded capability grant: when the caller hands the review an explicit local
 ENTRY=".agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts"
 [ -f "$ENTRY" ] || ENTRY="packages/runtime-bridge/src/cli/ocrTrustedReview.ts"
 [ -f "$ENTRY" ] || { echo 'producer never executed: no ocrTrustedReview.ts at either deployment location' >&2; exit 1; }
-echo "producer entry: $ENTRY; loader: local tsx (npx --no-install)" >&2
-npx --no-install tsx "$ENTRY" \
+# Loader: THIS project's own consented tsx, by explicit bin path. `npx --no-install tsx`
+# was measured running a floating npm-exec-cache copy, and an ancestor node_modules bin,
+# when the project's own tsx was absent (npm 11.4.2, 2026-11-03) — the explicit path refuses both.
+LOADER="$PWD/node_modules/.bin/tsx"
+[ -x "$LOADER" ] || { echo "producer never executed: no project-local tsx loader at $LOADER (tsx arrives with the offered core devDependencies; npm-cache and ancestor loaders are refused)" >&2; exit 1; }
+echo "producer entry: $ENTRY; loader: project-local tsx ($LOADER)" >&2
+"$LOADER" "$ENTRY" \
   --repo "$PWD" \
   --request-file /ABS/request.json --request-sha256 <sha256-of-request-bytes> \
   --base-ref <review-base-ref> \
@@ -62,7 +67,7 @@ npx --no-install tsx "$ENTRY" \
 
 - The request file is `{kind:'getff.ocr-review-request/v1', id, title, description, plan, head}` (`plan` may be `null`); `head` must equal the candidate HEAD. Never invent AIF task fields — the local profile makes no AIF HTTP call at all.
 - The producer ships at exactly two deployment locations: the installed consumer entry `.agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts` (selected when present) and the authoring-framework source `packages/runtime-bridge/src/cli/ocrTrustedReview.ts`. Selection happens once, before the single invocation, and the selected path + loader go in the receipt. If the selected producer RUNS and exits non-zero, report that outcome — never re-run through the other location. If neither location exists, report producer-never-executed before any native/model use.
-- `npx --no-install` keeps the loader local: `tsx` ships with the install's offered devDependencies (the authoring checkout resolves it from the root `node_modules`); if that consent was declined, obtain `tsx` deliberately before invoking — never drop `--no-install` to let a bare `npx` registry-fetch a floating copy.
+- The loader is this project's OWN consented `tsx`, invoked by the explicit bin path `"$PWD/node_modules/.bin/tsx"`: `tsx` ships with the install's offered devDependencies (the authoring checkout keeps it at the root `node_modules`). The explicit path is load-bearing — `npx --no-install tsx` was measured executing a floating npm-exec-cache copy, and an ancestor `node_modules` bin, when the project's own `tsx` was absent (npm 11.4.2, 2026-11-03) — so npx-mediated and ancestor-resolving forms (`npx`, `node --import tsx/esm`) are refused. If the offered dev-deps were declined, obtain `tsx` deliberately at the project root before invoking.
 - Materials are the caller's review requirements, passed through as data. Do not add host-routing or run-OCR-again instructions to them, and do not swap them for summaries.
 - Full scope comes from the caller rule file: the native's default item selection skips tests, Markdown docs, vendor twins, manifests and fingerprints (extension + default-path checks; a matching `include` is honored BEFORE those checks — upstream `internal/agent/selection.go`). For a mandatory-scope review pass `--rule-file` with `{"rules":[],"include":["**"]}` (non-LLM `--preview` verified 28/28 `will_review:true` on the getff-ocr-reuse C2 range); re-preview whenever the range or inputs change, and keep any real caller exclusions.
 - Authoritative output is the `--json` stdout plus the process exit code. Exit 2 is a HOLD — report the hold reason verbatim; never present a HOLD, a non-execution, or a malformed run as a passed review. The verdict file under `.ai-factory/ocr/<uuid>/trusted-review-verdict.json` is best-effort, never proof by itself.

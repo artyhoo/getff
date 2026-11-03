@@ -47,7 +47,7 @@ fb03a9916de1ae1e6e1731dab3e939998a90008ef79c849ee1be774c53308905  .ai-factory/AR
 49062080a90b66eaa853a548d45c5a505f3cfef86eaf1baa2d8d4bc27c9ee2fd  .ai-factory/RULES.md
 cb6842a6b78f58db5f5d62e0bf55378056ceda8ad036fb4ee05f59e42c287f0d  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
-3984b9c70d928c65b7880ccbe494162b87d2f5140217baf3daee506e4c86cf26  .ai-factory/skill-context/aif-review/SKILL.md
+3c1da69c43b194410a6433c8ae0269b58c24a5af348134251c0b26185d30983e  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
 156d33d08d281b75c82a73c5502f960d17bd785550988cbbe35eb1450dcb5b82  .ai-factory/tool-decisions.md
 313c33d0d688ebeecb794e721ca1d70f28c2f1777c1ba1c0433f9040f8d3efe6  .claude/agents/rule-researcher.md
