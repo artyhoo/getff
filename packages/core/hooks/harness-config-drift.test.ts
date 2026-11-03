@@ -135,7 +135,13 @@ describe('harness-config-drift — positives (P1–P3)', () => {
     const second = gen(s, '--write');
     expect(second.status, second.out).toBe(0); // guards the rmSync-on-symlink crash class
     expect(snap()).toBe(first);
-    expect(readlinkSync(join(s, '.zcode/skills'))).toBe('../.claude/skills'); // link survives re-write
+    // Separator-normalized link-target equality: win32 readlinkSync returns
+    // `..\.claude\skills` even for a link symlinkSync stored from the POSIX literal
+    // (run 41189657830 P1 received exactly that); the invariant under test is the
+    // TARGET THE SSOT NAMES, not the platform's separator spelling of it.
+    expect(readlinkSync(join(s, '.zcode/skills')).split(/[\\/]/).join('/')).toBe(
+      '../.claude/skills',
+    ); // link survives re-write
   });
 
   it('P3: --write leaves settings.json foreign keys (env, permissions) byte-identical', () => {

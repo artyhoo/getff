@@ -687,6 +687,19 @@ const isLink = (p) => {
   }
 };
 
+/** Platform-portable comparison forms. On win32 readlinkSync returns
+ *  backslash-separated targets even when the link was stored from a POSIX-form
+ *  literal (both git-checkout-created and symlinkSync-created links — run
+ *  41189657830: 22 `.claude/agents/*.md` rows + `.zcode/skills` reported
+ *  `symlink -> ..\..\.agents\… (want ../../.agents/…)` immediately after a
+ *  fresh --write), and a core.autocrlf=true checkout materializes CRLF text
+ *  (same run: `.codex/contributor-inventory.json: drift vs SSOT` with LF-identical
+ *  content in git). Byte-equality against the POSIX/LF SSOT literals would report
+ *  drift on an otherwise-correct tree. Normalizing both sides is the identity on
+ *  POSIX — LF stays LF, '/' stays '/'. */
+const normLinkTarget = (s) => s.split(/[\\/]/).join('/');
+const normEol = (s) => s.replace(/\r\n/g, '\n');
+
 /** Returns drift lines for one op ([] = clean). Assumes the op's emitter is not skipped. */
 function checkOp(root, op) {
   if (op.kind === 'note') {
@@ -701,7 +714,7 @@ function checkOp(root, op) {
       : [];
   }
   if (op.kind === 'text')
-    return existsSync(abs) && readFileSync(abs, 'utf8') === op.value
+    return existsSync(abs) && normEol(readFileSync(abs, 'utf8')) === normEol(op.value)
       ? []
       : [`${op.path}: missing or drift vs SSOT`];
   if (op.kind === 'json' || op.kind === 'merge-json') {
@@ -709,7 +722,7 @@ function checkOp(root, op) {
       return op.optional ? [] : [`${op.path}: missing (run --write)`];
     const want =
       op.kind === 'json' ? renderJson(op.value) : mergedJson(root, op);
-    return readFileSync(abs, 'utf8') === want
+    return normEol(readFileSync(abs, 'utf8')) === normEol(want)
       ? []
       : [`${op.path}: drift vs SSOT`];
   }
@@ -718,7 +731,7 @@ function checkOp(root, op) {
       return op.optional && !existsSync(abs)
         ? [`${op.path}: symlink missing`]
         : [`${op.path}: not a symlink`];
-    return readlinkSync(abs) === op.target
+    return normLinkTarget(readlinkSync(abs)) === normLinkTarget(op.target)
       ? []
       : [`${op.path}: symlink -> ${readlinkSync(abs)} (want ${op.target})`];
   }
