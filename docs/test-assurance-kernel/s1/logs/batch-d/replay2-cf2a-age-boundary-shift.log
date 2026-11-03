@@ -1,0 +1,34 @@
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+== phase: baseline (3/3 green) + healthy probe ==
+VITEST-RC baseline 0
+VITEST-STDOUT /tmp/s1-cf2a-zE91zz/stdout-baseline.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts pass
+OK baseline 3/3 green
+PROBE isAdult(17)=false MIN_AGE=18
+OK probe /tmp/s1-cf2a-zE91zz/probe.mts → PROBE isAdult(17)=false MIN_AGE=18
+== phase: fault A — collapse the boundary comparison in the SCRATCH subject only ==
+PATCH-LABEL cf2a: q3 boundary age >= MIN_AGE -> age >= 0
+PATCH-SHA256 233213d4a42aa6ca0ea83956a3accc589ba5589642c8cbe587f124dd45edd0f1
+PATCH-BEFORE-SHA256 de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266
+PATCH-AFTER-SHA256 56091b5bd582fe06c934ced479bf7cab63be1f564854355953f7f1fedfe83f32
+PATCH-OCCURRENCES 1
+PROBE isAdult(17)=true MIN_AGE=18
+OK probe /tmp/s1-cf2a-zE91zz/probe.mts → PROBE isAdult(17)=true MIN_AGE=18
+== phase: counterfactual run ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /tmp/s1-cf2a-zE91zz/stdout-counterfactual.log
+FILE q3-bad-recomputed.test.ts pass
+FILE q3-bad-same-predicate.test.ts pass
+FILE q3-good-pinned.test.ts fail
+  MSG AssertionError: expected true to be false // Object.is equality |     at /tmp/s1-cf2a-zE91zz/tests/q3-good-pinned.test.ts:10:25 |     at file:///home/www/rules-as-tests-aif/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 |     at 
+OK file-status q3-bad-recomputed.test.ts=pass
+OK file-status q3-bad-same-predicate.test.ts=pass
+OK file-status q3-good-pinned.test.ts=fail
+OK intended-assertion q3-good-pinned.test.ts /expected true to be false/
+== phase: restoration + repo untouched proof ==
+RESTORED /tmp/s1-cf2a-zE91zz/tests/subject.ts sha256=de67830ae96a663e5b68ba92b561f3a880bd4d6ac3ed0b3158c7e19002fe3266
+PROBE isAdult(17)=false MIN_AGE=18
+OK probe /tmp/s1-cf2a-zE91zz/probe.mts → PROBE isAdult(17)=false MIN_AGE=18
+CF2A VERDICT: pass (pinned companion killed the boundary shift; both copied/recomputed companions survived)

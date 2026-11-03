@@ -71,8 +71,15 @@ name = "exclusion-guard-consumer"
 version = "1.0.0"
 EOF
 ( cd "$P" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
-if ! ( cd "$P" && bash "$INSTALL" python --force < /dev/null ); then
-  bad 'fixture: real Python installation failed'; exit 1
+( cd "$P" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+RC_P50_315=$?
+if [ "$RC_P50_315" -eq 0 ]; then
+  ok "snapshot-exclusion-guard: install rc=0 (p50-315)"
+else
+  bad "snapshot-exclusion-guard: install rc=$RC_P50_315, expected 0 (p50-315)"
+  bad 'fixture: real Python installation failed'
+  echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
 fi
 [ -f "$P/.getff/astgrep-rules/getff-no-eval.yml" ] && [ -f "$P/.getff/rules-lock.python.json" ] \
   && ok "fixture: python lane delivered (rules dir + rules-lock present)" \

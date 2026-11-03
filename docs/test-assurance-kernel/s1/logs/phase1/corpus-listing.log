@@ -1,0 +1,81 @@
+# corpus-listing.log — S1 corpus denominator evidence (T10/T14)
+# generated: 2026-10-08T12:10:10Z
+# command: find scripts/test-assurance -type f | sort; find scripts/test-assurance/corpus -type f | wc -l
+
+== full scripts/test-assurance tree ==
+scripts/test-assurance/corpus/q1-vacuous/bad.fabricated-status.ts
+scripts/test-assurance/corpus/q1-vacuous/bad.literal-arithmetic.ts
+scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts
+scripts/test-assurance/corpus/q1-vacuous/bad.negated-literal.ts
+scripts/test-assurance/corpus/q1-vacuous/bad.string-literal-identity.ts
+scripts/test-assurance/corpus/q1-vacuous/good.constant-on-subject.ts
+scripts/test-assurance/corpus/q1-vacuous/good.intentional-fixture-exempt.ts
+scripts/test-assurance/corpus/q1-vacuous/good.parity-test.ts
+scripts/test-assurance/corpus/q1-vacuous/good.snapshot-contract.ts
+scripts/test-assurance/corpus/q1-vacuous/good.structural-schema.ts
+scripts/test-assurance/corpus/q2-noassertion/bad.await-without-assert.ts
+scripts/test-assurance/corpus/q2-noassertion/bad.comment-only.ts
+scripts/test-assurance/corpus/q2-noassertion/bad.console-only.ts
+scripts/test-assurance/corpus/q2-noassertion/bad.empty-body.ts
+scripts/test-assurance/corpus/q2-noassertion/good.async-assertions.ts
+scripts/test-assurance/corpus/q2-noassertion/good.helper-assertions.ts
+scripts/test-assurance/corpus/q3-copied-predicate/bad.recomputed-expectation.ts
+scripts/test-assurance/corpus/q3-copied-predicate/bad.same-predicate-both-sides.ts
+scripts/test-assurance/corpus/q3-copied-predicate/good.pinned-expectation.ts
+scripts/test-assurance/corpus/q3-copied-predicate/subject.ts
+scripts/test-assurance/corpus/q4-ignored-exit/bad.ignored-exit.ts
+scripts/test-assurance/corpus/q4-ignored-exit/good.asserted-exit.ts
+scripts/test-assurance/corpus/q5-self-source/bad.circular-phrase.ts
+scripts/test-assurance/corpus/q5-self-source/good.behavior-backed-phrase.ts
+scripts/test-assurance/corpus/q6-disconnected/bad.disconnected-config.ts
+scripts/test-assurance/corpus/q6-disconnected/good.wired-config.ts
+scripts/test-assurance/corpus/wrong-import/bad.wrong-import.ts
+scripts/test-assurance/corpus/wrong-import/delivered.ts
+scripts/test-assurance/corpus/wrong-import/good.correct-import.ts
+scripts/test-assurance/corpus/wrong-import/lookalike.ts
+scripts/test-assurance/expectations.json
+
+== corpus file count ==
+30
+
+== per-class counts ==
+10 scripts/test-assurance/corpus/q1-vacuous/
+6 scripts/test-assurance/corpus/q2-noassertion/
+4 scripts/test-assurance/corpus/q3-copied-predicate/
+2 scripts/test-assurance/corpus/q4-ignored-exit/
+2 scripts/test-assurance/corpus/q5-self-source/
+2 scripts/test-assurance/corpus/q6-disconnected/
+4 scripts/test-assurance/corpus/wrong-import/
+
+== per-file LOC ==
+   11 scripts/test-assurance/corpus/q1-vacuous/bad.fabricated-status.ts
+   10 scripts/test-assurance/corpus/q1-vacuous/bad.literal-arithmetic.ts
+   10 scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts
+   10 scripts/test-assurance/corpus/q1-vacuous/bad.negated-literal.ts
+    9 scripts/test-assurance/corpus/q1-vacuous/bad.string-literal-identity.ts
+   20 scripts/test-assurance/corpus/q1-vacuous/good.constant-on-subject.ts
+   12 scripts/test-assurance/corpus/q1-vacuous/good.intentional-fixture-exempt.ts
+   22 scripts/test-assurance/corpus/q1-vacuous/good.parity-test.ts
+   14 scripts/test-assurance/corpus/q1-vacuous/good.snapshot-contract.ts
+   24 scripts/test-assurance/corpus/q1-vacuous/good.structural-schema.ts
+   11 scripts/test-assurance/corpus/q2-noassertion/bad.await-without-assert.ts
+   10 scripts/test-assurance/corpus/q2-noassertion/bad.comment-only.ts
+   10 scripts/test-assurance/corpus/q2-noassertion/bad.console-only.ts
+    6 scripts/test-assurance/corpus/q2-noassertion/bad.empty-body.ts
+   14 scripts/test-assurance/corpus/q2-noassertion/good.async-assertions.ts
+   23 scripts/test-assurance/corpus/q2-noassertion/good.helper-assertions.ts
+   16 scripts/test-assurance/corpus/q3-copied-predicate/bad.recomputed-expectation.ts
+   12 scripts/test-assurance/corpus/q3-copied-predicate/bad.same-predicate-both-sides.ts
+   15 scripts/test-assurance/corpus/q3-copied-predicate/good.pinned-expectation.ts
+   10 scripts/test-assurance/corpus/q3-copied-predicate/subject.ts
+   18 scripts/test-assurance/corpus/q4-ignored-exit/bad.ignored-exit.ts
+   15 scripts/test-assurance/corpus/q4-ignored-exit/good.asserted-exit.ts
+   15 scripts/test-assurance/corpus/q5-self-source/bad.circular-phrase.ts
+   17 scripts/test-assurance/corpus/q5-self-source/good.behavior-backed-phrase.ts
+   15 scripts/test-assurance/corpus/q6-disconnected/bad.disconnected-config.ts
+   14 scripts/test-assurance/corpus/q6-disconnected/good.wired-config.ts
+   16 scripts/test-assurance/corpus/wrong-import/bad.wrong-import.ts
+    5 scripts/test-assurance/corpus/wrong-import/delivered.ts
+   11 scripts/test-assurance/corpus/wrong-import/good.correct-import.ts
+    5 scripts/test-assurance/corpus/wrong-import/lookalike.ts
+  400 total

@@ -1,0 +1,330 @@
+# GATE 5 (Batch I): bash scripts/run-local-ci-sweep.sh --keep-going — POST-commit clean tree (dirty-tree-underselection rule)
+# Base: HEAD=899d33df6 post format-fix (899d33df6), superseding the truncated pre-fix run (gate5-sweep-prerepair-truncated.log at 7b4292d8d)
+# Generated: 2026-10-08T17:52:38Z
+
+[sweep] unmapped path 'eslint.config.mjs' → escalating to --full
+[sweep] WARN-SKIP actionlint — degraded, NOT a real run
+[sweep] PASS alwayson-budget
+[sweep] WARN-SKIP claude-dir-ci-only — degraded, NOT a real run
+[sweep] WARN-SKIP md-ci-only — degraded, NOT a real run
+[sweep] PASS meta-all-wired
+[sweep] PASS sweep-ci-coverage
+[sweep] WARN-SKIP docs-quality-strict — degraded, NOT a real run
+[sweep] FAIL face-facts-check — output: /tmp/run-local-ci-sweep.yyJWYj/08-face-facts-check.log
+----- face-facts-check: last 40 lines of output -----
+[render-face-facts] maturity: copied verbatim from packages/core/manifest/maturity.json
+[render-face-facts] installCommands: 5 stacks, 3 lanes, 3 README flags
+[render-face-facts] firstSteps: sequences + renders copied verbatim from packages/core/templates/shared/first-steps.source.json
+[render-face-facts] rosters: 11 families read (never re-derived)
+[render-face-facts] counts: principles=60 priorArtRows=315 patches=285 specs=104 academic=44
+[render-face-facts] enforcementOutcomes: 3 demo nodes × 4 backends (live facts)
+❌ docs/site/face-facts.json differs from the derivation — run scripts/render-face-facts.mjs --write (D42: derived, not asserted)
+----- end face-facts-check output -----
+[sweep] PASS format-check
+[sweep] PASS install-roster-check
+[sweep] PASS presets-check
+[sweep] FAIL reference-check — output: /tmp/run-local-ci-sweep.yyJWYj/12-reference-check.log
+----- reference-check: last 40 lines of output -----
+[render-install-roster] 20-agents.sh: 7 skip-list + 2 factory-gated entries
+[render-install-roster] agents/: 21 files -> 12 shipped at default depth
+✗ reference drift:
+    - docs/site/reference/C.json drifted from the sources
+    - docs/site/reference/F1.json drifted from the sources
+  Fix: npx tsx scripts/render-reference.mjs --write
+----- end reference-check output -----
+[sweep] PASS render-check
+[sweep] PASS rule-index-check
+[sweep] FAIL script-selftests — output: /tmp/run-local-ci-sweep.yyJWYj/15-script-selftests.log
+----- script-selftests: last 40 lines of output -----
+  ✓ P10 gate silent for unrelated commands
+  ✓ P11 gate approves the apply form with optional --target/--repo
+  ✓ P12 gate silent on malformed JSON payload
+  ✓ P13 gate silent on empty stdin
+  ✓ P14 gate silent for non-Bash tools
+  ✓ N11 compound suffix '; printf EXTRA' gets no allow (D2070-S01 repro)
+  ✓ N12 && chain gets no allow
+  ✓ N13 newline-suffixed command gets no allow
+  ✓ N14 piped suffix gets no allow
+  ✓ N15 command substitution gets no allow
+  ✓ N16 backtick substitution gets no allow
+  ✓ N17 redirection gets no allow
+  ✓ N18 extra mode: --apply appended to the dry-run shape gets no allow
+  ✓ N19 unknown flag gets no allow
+  ✓ N20 smuggled variable gets no allow
+  ✓ N21 apply form without the override gets no allow
+  ✓ N22 duplicate --patch gets no allow
+  ✓ N23 subshell parens get no allow
+  ✓ N24 env prefix on the dry-run shape gets no allow
+  ✓ N25 truncated flag list gets no allow
+  ✗ N1 drift — want rc≠0 + «drift:», got rc=1: ERROR: patch does not apply cleanly to .husky/pre-commit — the hook moved on since the patch was prepared; re-prepare patch+expected together|
+  ✗ N2 target outside .husky/ refuses — want rc≠0 + «under .husky», got rc=1: ERROR: target must be a repo-relative path under .husky/ (got: scripts/other.sh)|
+  ✗ N3 generated .husky/_ shim refuses — want rc≠0 + «husky shim», got rc=1: ERROR: refusing target .husky/_/pre-commit: the generated husky shim (.husky/_) and parent traversals are not patchable here|
+  ✗ N4 --apply without the override refuses — want rc≠0 + «GIT_SAFETY_OVERRIDE», got rc=2: ERROR: refusing --apply: the git-safety tripwire (part 1d) reverts any Bash write to .husky/**|unless the Bash command itself carries the sanctioned literal — env vars set inside this script do|NOT count (the tripwire reads the command text). Re-invoke with the exact prefix:|  GIT_SAFETY_OVERRIDE='apply-husky-patch sanctioned channel (operator-approved 2026-10-06)' bash "$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh" --apply --patch <p> --expected <e>|
+  ✗ N5 --apply with a wrong override refuses — want rc≠0 + «exact prefix», got rc=2: ERROR: refusing --apply: the git-safety tripwire (part 1d) reverts any Bash write to .husky/**|unless the Bash command itself carries the sanctioned literal — env vars set inside this script do|NOT count (the tripwire reads the command text). Re-invoke with the exact prefix:|  GIT_SAFETY_OVERRIDE='apply-husky-patch sanctioned channel (operator-approved 2026-10-06)' bash "$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh" --apply --patch <p> --expected <e>|
+  ✓ N6 repo outside the family refuses (pin)
+  ✓ N26 suffix repository (artyhoo/getff-experiment) refuses
+  ✓ N27 wrong host with the right path refuses
+  ✓ N28 embedded path refuses
+  ✗ P16 common-dir fallback — rc=1: ERROR: patch does not apply cleanly to .husky/pre-commit — the hook moved on since the patch was prepared; re-prepare patch+expected together|
+  ✗ N7 missing patch file refuses — want rc≠0 + «missing:», got rc=1: ERROR: missing: /tmp/apply-husky-patch.test.TFxF06/nope.patch|
+  ✗ N8 missing target file refuses — want rc≠0 + «does not exist», got rc=1: ERROR: target file does not exist: .husky/commit-msg (this channel patches existing hooks; creating a new hook file is a maintainer step)|
+  ✗ N9 symlinked target refuses — want rc≠0 + «symlink», got rc=1: ERROR: target is a symlink: /tmp/apply-husky-patch.test.TFxF06/repoA/.husky/link-me|
+  ✓ N10 non-applying patch refuses, target unchanged
+  ✓ S1 bash -n clean: apply-husky-patch.sh
+  ✓ S1 bash -n clean: apply-husky-patch-gate.sh
+  ✓ S2 check-bash32 clean: apply-husky-patch.sh
+  ✓ S2 check-bash32 clean: apply-husky-patch-gate.sh
+
+PASS=32 FAIL=15
+----- end script-selftests output -----
+[sweep] PASS terms-style-check
+[sweep] PASS arch-retell-corpus
+[sweep] PASS audit-ai-docs-live
+[sweep] PASS bash32
+[sweep] FAIL canonical-source — output: /tmp/run-local-ci-sweep.yyJWYj/20-canonical-source.log
+----- canonical-source: last 40 lines of output -----
+  ...
+# Subtest: M08 R1 argv boundary regression: real deny tokens differ from quoted single arguments and executables
+ok 48 - M08 R1 argv boundary regression: real deny tokens differ from quoted single arguments and executables
+  ---
+  duration_ms: 223.893844
+  type: 'test'
+  ...
+# Subtest: M02 R2 executor regression: supported shell reads and native events differ from Python overrides
+ok 49 - M02 R2 executor regression: supported shell reads and native events differ from Python overrides
+  ---
+  duration_ms: 2971.136317
+  type: 'test'
+  ...
+# Subtest: M08 R2 executor regression: shell denies differ from identical Python command text
+ok 50 - M08 R2 executor regression: shell denies differ from identical Python command text
+  ---
+  duration_ms: 96.016941
+  type: 'test'
+  ...
+# Subtest: M02 leading-dash regression: end-of-options enables a filename while quoted reader text stays inert
+ok 51 - M02 leading-dash regression: end-of-options enables a filename while quoted reader text stays inert
+  ---
+  duration_ms: 1677.08218
+  type: 'test'
+  ...
+# Subtest: M02 cat stdin regression: bare dash is unresolved while explicit dash filenames remain reads
+ok 52 - M02 cat stdin regression: bare dash is unresolved while explicit dash filenames remain reads
+  ---
+  duration_ms: 1532.372766
+  type: 'test'
+  ...
+1..52
+# tests 52
+# suites 0
+# pass 50
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11943.533354
+----- end canonical-source output -----
+[sweep] FAIL citation-fullsweep — output: /tmp/run-local-ci-sweep.yyJWYj/21-citation-fullsweep.log
+----- citation-fullsweep: last 40 lines of output -----
+.agents/procedures/dispatcher/references/parks.md:19  answer.ts:207-212  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: packages/runtime-bridge/src/cli/answer.ts, packages/runtime-bridge/vendor/src/cli/answer.ts
+.agents/procedures/dispatcher/references/parks.md:47  ask-question-reminder.sh:6  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/hooks/ask-question-reminder.sh, .claude/hooks/ask-question-reminder.sh
+.agents/procedures/dispatcher/references/scope-and-provenance.md:17  build-first-reuse-default.md:44  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/rules/build-first-reuse-default.md, .claude/rules/build-first-reuse-default.md
+.agents/procedures/dispatcher/references/scope-and-provenance.md:19  parallel-subwave-isolation.md:6  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/rules/parallel-subwave-isolation.md, .claude/rules/parallel-subwave-isolation.md
+.agents/procedures/dispatcher/references/scope-and-provenance.md:19  recommendation-laziness-discipline.md:6  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/rules/recommendation-laziness-discipline.md, .claude/rules/recommendation-laziness-discipline.md
+.agents/procedures/night-mode/references/substrate-and-models.md:19  skill-creator/SKILL.md:101  — skipped (path-missing): path does not resolve in this repo
+.agents/procedures/pipeline/references/dispatch.md:23  questions.ts:85-93  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: packages/runtime-bridge/src/cli/questions.ts, packages/runtime-bridge/vendor/src/cli/questions.ts
+.agents/procedures/pipeline/references/dispatch.md:47  coordinator.ts:398-476  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/pipeline/references/mode-overrides.md:121  helpers/update-delta.sh:7-8  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/procedures/pipeline/helpers/update-delta.sh, .claude/skills/pipeline/helpers/update-delta.sh
+.agents/procedures/pipeline/references/mode-overrides.md:138  update-delta.sh:1-40  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/procedures/pipeline/helpers/update-delta.sh, .claude/skills/pipeline/helpers/update-delta.sh
+.agents/procedures/pipeline/templates/meta-kickoff.template.md:132  .claude/rules/foo.md:42  — skipped (path-missing): path does not resolve in this repo
+.agents/procedures/pipeline/templates/meta-kickoff.template.md:159  coordinator.ts:398-476  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+docs/site/quickstart-python.md:133  app/clock.py:9  — skipped (path-missing): path does not resolve in this repo
+docs/site/reference/D/adopt-orchestrator-prompts.md:60  `@cc-only-rationale`, line 18  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+docs/site/reference/D/check-worker-dispatch-channel.md:87  .claude/orchestrator-prompts/tmp-red-wd/kickoff.md:2  — skipped (path-missing): path does not resolve in this repo
+docs/site/reference/D/deps-hash-check.md:142  `_drifted` lines 389-400  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+docs/site/reference/D/inject-subagent-context.md:135  inject-project-digest.sh:38  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/hooks/inject-project-digest.sh, .claude/hooks/inject-project-digest.sh
+docs/site/reference/D/warn-subagent-report-zcode.md:87  `_warn`, lines 50-64  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+docs/site/reference/D/warn-subagent-report.md:60  `#gate-where-judgment-needed`, lines 4-6  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+check-line-citations: 318 unresolvable citation(s) in code files not listed (--show-skips lists them).
+.agents/rules/evidence-regeneration.md:128  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+.agents/rules/recommendation-laziness-discipline.md:50  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+.agents/procedures/pipeline/templates/meta-kickoff.template.md:172,237  — 2 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+docs/site/reference/B/pipeline.md:132  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+docs/site/reference/B/story.md:128  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+docs/site/reference/D/apply-husky-patch-gate.md:116,125  — 2 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+docs/site/reference/D/inject-matching-rule.md:176  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+docs/site/reference/D/inject-output-language.md:156  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+docs/site/reference/D/warn-subagent-report-zcode.md:161  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+packages/core/hooks/end-of-turn-reminder.test.ts:7  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+packages/core/principles/42-context-md-pointer-rule.test.ts:287,304,315,331,343,352,374,392,441  — 9 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+scripts/check-line-citations.test.sh:831  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+tests/plugin/warn-subagent-report-zcode.test.sh:85  — 1 citation(s) not drift-checked (target-absent-at-baseline): the cited path or line did not exist in the commit that last wrote the citing line (target created or renamed later) — check it by hand
+
+check-line-citations: resolved 1052 / skipped 358 citation(s). (56 deferred to generator regions) (23 not drift-checked — no blame baseline: 23 target-absent-at-baseline)
+
+❌ 3 stale `path:line` citation(s).
+   Fix: npx tsx scripts/check-line-citations.mjs --write <files>
+   A deliberate past-state citation takes `<!-- cite:historical <why> -->` on the same line
+   (in a code comment: `cite:historical <why>` to the end of the line).
+----- end citation-fullsweep output -----
+[sweep] PASS docs-refresh
+[sweep] PASS getff-dist-canonical-links
+[sweep] FAIL getff-dist-manifest — output: /tmp/run-local-ci-sweep.yyJWYj/24-getff-dist-manifest.log
+----- getff-dist-manifest: last 40 lines of output -----
+DRIFT: packages/getff/MANIFEST.sha256 differs from a fresh assembly of the repo root:
+  committed  .agents/rules/00-rule-index.md
+  fresh      .agents/rules/00-rule-index.md
+  fresh      .agents/rules/test-quality-contracts.md
+  fresh      packages/core/audit-self/fixtures/fences-fire/no-vacuous-assertion.bad.txt
+  fresh      packages/core/audit-self/fixtures/fences-fire/no-vacuous-assertion.good.txt
+  fresh      packages/core/audit-self/fixtures/fences-fire/no-vacuous-assertion.manifest.json
+  fresh      packages/core/audit-self/fixtures/fences-fire/require-effective-assertion.bad.txt
+  fresh      packages/core/audit-self/fixtures/fences-fire/require-effective-assertion.good.txt
+  fresh      packages/core/audit-self/fixtures/fences-fire/require-effective-assertion.manifest.json
+  committed  packages/core/eslint-rules/index.ts
+  fresh      packages/core/eslint-rules/index.ts
+  fresh      packages/core/eslint-rules/no-vacuous-assertion.d.ts
+  fresh      packages/core/eslint-rules/no-vacuous-assertion.mjs
+  fresh      packages/core/eslint-rules/no-vacuous-assertion.test.ts
+  fresh      packages/core/eslint-rules/no-vacuous-assertion.ts
+  fresh      packages/core/eslint-rules/require-effective-assertion.d.ts
+  fresh      packages/core/eslint-rules/require-effective-assertion.mjs
+  fresh      packages/core/eslint-rules/require-effective-assertion.test.ts
+  fresh      packages/core/eslint-rules/require-effective-assertion.ts
+  committed  packages/core/hooks/checks/guard-liveness.test.ts
+  committed  packages/core/hooks/checks/guard-liveness.ts
+  fresh      packages/core/hooks/checks/guard-liveness.test.ts
+  fresh      packages/core/hooks/checks/guard-liveness.ts
+  fresh      packages/core/principles/51-test-quality-corpus-conformance.test.ts
+  fresh      packages/core/principles/52-subprocess-status-conformance.test.ts
+  fresh      packages/core/principles/52-subprocess-status-conformance.ts
+  fresh      packages/core/principles/53-delivery-discovery-conformance.test.ts
+  fresh      packages/core/principles/53-delivery-discovery-conformance.ts
+  committed  packages/preset-next-15-canonical/templates/eslint.config.react.mjs
+  fresh      packages/preset-next-15-canonical/templates/eslint.config.react.mjs
+  committed  packages/preset-react-spa/templates/eslint.config.react.mjs
+  fresh      packages/preset-react-spa/templates/eslint.config.react.mjs
+  committed  templates/ts-server/eslint.config.mjs
+  fresh      templates/ts-server/eslint.config.mjs
+----- end getff-dist-manifest output -----
+[sweep] PASS pipefail-early-exit
+[sweep] WARN-SKIP shellcheck — degraded, NOT a real run
+[sweep] PASS shipped-rules-drift
+[sweep] PASS ships-manifest
+[sweep] PASS typecheck
+[sweep] FAIL byte-identical — output: /tmp/run-local-ci-sweep.yyJWYj/30-byte-identical.log
+----- byte-identical: last 40 lines of output -----
+  > 145dbde1b8e73ec459d01dd9af29d48633f025fa11254a78aad70b3695a3d9e3  scripts/fences-fire-fixtures/require-effective-assertion.manifest.json
+    ✗ FAIL: react-native/brownfield — diff:
+  195c195
+  < 16d9c9e3c262da1d707c335ef76b20b71d3abcb02f2a157310c282b7dbca7308  .ai-factory/refresh-baseline.json
+  ---
+  > 366ebfba0edffb3b405c1780e7c6bc0112333f6b4ec364c27e8d3a99b393b34a  .ai-factory/refresh-baseline.json
+  478c478
+  < 530d36bb3b8680d900b25a3efae04c726464e238f14a882ef24afaff4a5c8a99  eslint-rules-local/index.mjs
+  ---
+  > 088f00d025793164aefcec2e20747309d2347876acdcddd5efb65acd90b17929  eslint-rules-local/index.mjs
+  484a485,490
+  > 3e89e9b0c1ddd7b1ddac03dfff05f5668e9fcf0d4c92d2e2bf408984bad839cd  eslint-rules-local/no-vacuous-assertion.d.ts
+  > 55fb8c0ab36449921743082a336010aa508bf7e9889a33111be75f844b43280e  eslint-rules-local/no-vacuous-assertion.mjs
+  > 989ede35d0c89c872451bb090cd1ae63bbeadd637acf6485a31d0ea67b60fef3  eslint-rules-local/no-vacuous-assertion.ts
+  > c64011b50839d51fd5e72910a7c25c201efd3a1c7532df3c45cbc0c634f03b07  eslint-rules-local/require-effective-assertion.d.ts
+  > 70b318104a6e568378f8dcfd6e4962f64a6f79cad0f523d02132968007129868  eslint-rules-local/require-effective-assertion.mjs
+  > 16514dabb06a2dc2df44b2ae130193ac7e690b98a50eb535d7073d0d2ad594f2  eslint-rules-local/require-effective-assertion.ts
+  520a527,532
+  > d21b1d895c83a3b7f5cb697c484e6b31d282dfdf241bd05d36ac391804a4842b  scripts/fences-fire-fixtures/no-vacuous-assertion.bad.txt
+  > b27b103294d76052f69761d75c5ad787241ea04637b13429cef66faf1013d04b  scripts/fences-fire-fixtures/no-vacuous-assertion.good.txt
+  > 17d1d74244decafb2cfd35dec960adb125600a0f149a0f3b0fa7d2ac557fdea7  scripts/fences-fire-fixtures/no-vacuous-assertion.manifest.json
+  > 3df63f533096a2e43f575e83d9bca7bdb2c760235fdae38b1d1b3709a51434e6  scripts/fences-fire-fixtures/require-effective-assertion.bad.txt
+  > fe1a468ee5a2b093dc8a6514ed78c244efaa9733ad2bf0f55e74a9bbac643b77  scripts/fences-fire-fixtures/require-effective-assertion.good.txt
+  > 145dbde1b8e73ec459d01dd9af29d48633f025fa11254a78aad70b3695a3d9e3  scripts/fences-fire-fixtures/require-effective-assertion.manifest.json
+    ✓ PASS: python/greenfield — byte-identical
+    ✓ PASS: python/brownfield-ruff — byte-identical
+    ✓ PASS: python/brownfield-sgconfig — byte-identical
+    ✓ PASS: cargo/greenfield — byte-identical
+    ✓ PASS: cargo/brownfield-clippy — byte-identical
+    ✓ PASS: go/greenfield — byte-identical
+    ✓ PASS: go/brownfield-golangci — byte-identical
+  
+  Result: 7 pass / 8 fail
+  ✗ snapshot compare: one or more stacks/modes differ from baseline (see diff above)
+
+▶ Shellcheck gate
+  ⊝ shellcheck not found on PATH — skipping shellcheck gate
+    (install shellcheck >= 0.9.0 to enable this gate locally)
+
+Result: 0 pass / 1 fail
+----- end byte-identical output -----
+[sweep] FAIL runtime-bundles-drift — output: /tmp/run-local-ci-sweep.yyJWYj/31-runtime-bundles-drift.log
+----- runtime-bundles-drift: last 40 lines of output -----
+❌ bundle dependency parity FAILED
+
+  fast-uri: the installed tree does not match the lockfiles —
+      3.1.8        planned by every committed lockfile
+      3.1.7        actually resolvable at node_modules/fast-uri
+
+   A rebuild of a committed bundle (packages/core/hooks/pre-push.bundle.mjs, packages/core/install/mcp-source-check.bundle.mjs, packages/core/install/rule-bootstrap-cli.bundle.mjs, packages/core/install/synth-and-wire.bundle.mjs)
+   would inline whichever copy the ambient install left in place, so its drift gate
+   would report a PHANTOM drift on a branch that never touched that bundle's sources.
+
+   Fix the disagreement, do not regenerate the bundle around it:
+     • a direct dependency disagrees → pin the SAME exact version in package.json (root)
+       and packages/core/package.json, then regenerate BOTH locks:
+         npm install --package-lock-only
+         cd packages/core && npm install --package-lock-only --no-workspaces
+     • a transitive dependency disagrees → move the lagging lock to the other one's
+       version (e.g. `npm update <pkg> --package-lock-only` in the lagging layer), then
+       rebuild any bundle whose inlined bytes change
+     • a world reports <absent> → that lock does not plan the package at all; add it
+       where it is imported, or rebuild the bundle if it no longer inlines it
+     • tree disagrees → re-install to lockfile state (CI parity):
+         NODE_ENV=development npm install
+----- end runtime-bundles-drift output -----
+[sweep] FAIL synth-bundle-drift — output: /tmp/run-local-ci-sweep.yyJWYj/32-synth-bundle-drift.log
+----- synth-bundle-drift: last 40 lines of output -----
+❌ bundle dependency parity FAILED
+
+  fast-uri: the installed tree does not match the lockfiles —
+      3.1.8        planned by every committed lockfile
+      3.1.7        actually resolvable at node_modules/fast-uri
+
+   A rebuild of a committed bundle (packages/core/hooks/pre-push.bundle.mjs, packages/core/install/mcp-source-check.bundle.mjs, packages/core/install/rule-bootstrap-cli.bundle.mjs, packages/core/install/synth-and-wire.bundle.mjs)
+   would inline whichever copy the ambient install left in place, so its drift gate
+   would report a PHANTOM drift on a branch that never touched that bundle's sources.
+
+   Fix the disagreement, do not regenerate the bundle around it:
+     • a direct dependency disagrees → pin the SAME exact version in package.json (root)
+       and packages/core/package.json, then regenerate BOTH locks:
+         npm install --package-lock-only
+         cd packages/core && npm install --package-lock-only --no-workspaces
+     • a transitive dependency disagrees → move the lagging lock to the other one's
+       version (e.g. `npm update <pkg> --package-lock-only` in the lagging layer), then
+       rebuild any bundle whose inlined bytes change
+     • a world reports <absent> → that lock does not plan the package at all; add it
+       where it is imported, or rebuild the bundle if it no longer inlines it
+     • tree disagrees → re-install to lockfile state (CI parity):
+         NODE_ENV=development npm install
+----- end synth-bundle-drift output -----
+[sweep] PASS agnosticism
+[sweep] PASS dispatcher-tests
+[sweep] PASS hook-tests
+[install-sh] 161 test files · 12 parallel · 1 quarantined-serial
+[install-sh] 1/161 done · gh-531-shipped-prettier.test.sh (ok)
+[install-sh] 2/161 done · audit-consumer-mode.test.sh (ok)
+[install-sh] 3/161 done · canonical-link-containment.test.sh (ok)
+[install-sh] 4/161 done · b1-stack-research-lookup.test.sh (ok)
+[install-sh] 5/161 done · aif-guided-install-gating.test.sh (ok)
+[install-sh] 6/161 done · check-shields-up-paired-negative.test.sh (ok)
+[install-sh] 7/161 done · check-zcode-mirror.test.sh (ok)
+[install-sh] 8/161 done · bridge-guided.test.sh (ok)
+[install-sh] 9/161 done · check-fences-fire-paired-negative.test.sh (FAIL)
+[install-sh] 10/161 done · audit-r4-shipped.test.sh (ok)
+[install-sh] 11/161 done · b3-monorepo-per-workspace-wire.test.sh (ok)
+[install-sh] 12/161 done · copy-safe-force-dir-payload.test.sh (ok)
+[install-sh] 13/161 done · consumer-pipeline.test.sh (ok)
+[install-sh] 14/161 done · c1-wiring.test.sh (ok)
+[install-sh] 15/161 done · canonical-bindings.test.sh (ok)
+[install-sh] 16/161 done · arch-target-monorepo.test.sh (ok)
+[install-sh] 17/161 done · detect-r2-boundary.test.sh (ok)
+[install-sh] 18/161 done · engine.test.sh (ok)
+[install-sh] 19/161 done · delivered-prettier-conformance.test.sh (ok)

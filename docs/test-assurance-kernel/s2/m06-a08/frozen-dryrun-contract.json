@@ -1,0 +1,50 @@
+{
+  "scope": "Original S0/specA08 default dry-run no consumer writes; actual source tests/plugin/install-seam.test.sh, not install-sh artifact counterpart.",
+  "source_base": "daf33f0887b188be7f24c45c9b34ddbf9d064619",
+  "source_test_sha256": "d9d467194a250d52b14c7e1529e47a1fc7b14295e0106d2ceb9d1922901c0ddb",
+  "subject_sha256": "0381e9d43ccc1232285356406b5741604fc1f6433af017259f3bff5a4d832aab",
+  "actual_fault_subject_sha256": "1829afa9cd295f4f05b82b6c079389f7c1515b8f570f2ca61b93dc6b04e43eac",
+  "original_spec_seed": "A08 shell: dry-run seam observed only .husky so writes elsewhere survived; full intended FS boundary required.",
+  "normal_expected": {
+    "whole_test_exit": 0,
+    "consumer_net_state_unchanged": true
+  },
+  "fault_expected": {
+    "whole_test_should_exit": 1,
+    "required_diagnostic": "dry-run changed consumer filesystem",
+    "outside_marker_path": ".tak-a08-outside-husky",
+    "outside_marker_bytes": "TAK_A08_FROZEN_OUTSIDE_HUSKY_WRITE\n",
+    "only_dryrun_branch_mutated": true,
+    "real_installer_still_invoked": true
+  },
+  "restoration_expected": {
+    "actual_same_faulted_subject_restored_to_original": true,
+    "whole_test_exit": 0,
+    "consumer_net_state_unchanged": true
+  },
+  "boundary": {
+    "population": "All paths rooted in the actual unique consumer, including root/hidden/ignored entries and empty directories; do not follow symlinks.",
+    "observations": [
+      "type",
+      "regular-file byte SHA256",
+      "symlink target",
+      "lstat mode",
+      "uid/gid",
+      "device/inode",
+      "link count",
+      "size",
+      "mtime/ctime/birthtime nanoseconds"
+    ],
+    "legitimate_before_state": [
+      "ignored data",
+      "empty directory",
+      "executable file",
+      "symbolic link"
+    ],
+    "limits": [
+      "Access time excluded: observer reads can update it.",
+      "No arbitrary-host/transient-syscall/ACL/xattr/global filesystem certificate."
+    ]
+  },
+  "counter": "Shared originalM06cap5, reserveiteration1; no newsubcap, A06remains."
+}

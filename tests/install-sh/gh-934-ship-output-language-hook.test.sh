@@ -33,8 +33,10 @@ T=$(mktemp -d)
   cd "$T" && git init -q && git config user.email t@t && git config user.name t \
     && printf '{"name":"g934lang","version":"0.0.0"}\n' > package.json \
     && git add -A && git commit -q -m base \
-    && bash "$REPO_ROOT/install.sh" ts-server --force
+    && bash "$REPO_ROOT/install.sh" ts-server --force \
 ) >"$T/.log" 2>&1
+  RC_P50_119=$?
+  if [ "$RC_P50_119" -eq 0 ]; then ok "gh-934-ship-output-language-hook: install rc=0 (p50-119)"; else bad "gh-934-ship-output-language-hook: install rc=$RC_P50_119, expected 0 (p50-119)"; fi
 
 H="$T/.claude/hooks"
 S="$T/.claude/settings.json"
@@ -63,6 +65,8 @@ fi
 # ── ARM (C): idempotency + migration of a legacy per-prompt registration ──────
 _seed_legacy
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$T/.log2" 2>&1
+RC_P50_120=$?
+if [ "$RC_P50_120" -eq 0 ]; then ok "gh-934-ship-output-language-hook: install rc=0 (p50-120)"; else bad "gh-934-ship-output-language-hook: install rc=$RC_P50_120, expected 0 (p50-120)"; fi
 _n=$(jq '(.hooks.SessionStart // []) | map(.hooks[].command) | map(select(test("inject-output-language"))) | length' "$S" 2>/dev/null)
 _nu=$(jq '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | map(select(test("inject-output-language"))) | length' "$S" 2>/dev/null)
 { [ "$_n" = 1 ] && [ "$_nu" = 0 ]; } && ok "(C) re-install over a legacy per-prompt registration → one SessionStart entry, none on UserPromptSubmit" \
@@ -99,6 +103,8 @@ jq '.hooks.SessionStart |= (map(select((.hooks[].command | test("inject-output-l
   "$S" > "$S.tmp" && mv "$S.tmp" "$S"
 _seed_legacy
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >"$T/.log3" 2>&1
+RC_P50_121=$?
+if [ "$RC_P50_121" -eq 0 ]; then ok "gh-934-ship-output-language-hook: install rc=0 (p50-121)"; else bad "gh-934-ship-output-language-hook: install rc=$RC_P50_121, expected 0 (p50-121)"; fi
 _ss2=$(_ss); _ups2=$(_ups)
 if [ -x "$H/inject-output-language.sh" ] && grep -q 'inject-output-language' <<<"$_ss2" \
    && ! grep -q 'inject-output-language' <<<"$_ups2" && grep -q 'deps-hash-check' <<<"$_ups2"; then

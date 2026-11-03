@@ -1,0 +1,9 @@
+
+ RUN  v4.1.8 /Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate
+
+
+ Test Files  60 passed (60)
+      Tests  757 passed | 1 skipped (758)
+   Start at  14:42:08
+   Duration  32.32s (transform 4.41s, setup 1.78s, import 9.70s, tests 196.05s, environment 37ms)
+

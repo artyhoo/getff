@@ -1,0 +1,32 @@
+# rework5 [b23c79f70838] — GIT_DIR-family scrub in counterfactual-lib.sh (raw evidence)
+
+## Edit
+
+scripts/test-assurance/counterfactuals/counterfactual-lib.sh — after the CI/CLAUDECODE scrub:
+  unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE GIT_INDEX_FILE
+  (same scrub as driver.mjs gitEnv / commit 78470e863; ambient GIT_DIR overrides `git -C`
+   discovery and can register scratch worktrees against / read blobs from a foreign repo)
+
+$ bash -n scripts/test-assurance/counterfactuals/counterfactual-lib.sh
+syntax rc=0
+
+## CONTROL — ambient GIT_DIR overrides `git -C` (the hazard is real, pre-fix shape)
+$ env GIT_DIR=/tmp/no-such-repo-dir git -C "$PWD" rev-parse HEAD
+fatal: not a git repository: '/tmp/no-such-repo-dir'
+control rc=128 (nonzero = ambient GIT_DIR overrides -C)
+
+## POST-FIX — lib scrub neutralizes the hostile env
+$ bash -c "source .../counterfactual-lib.sh; env | grep GIT_DIR...; git -C \$CF_REPO_ROOT rev-parse HEAD"
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+3d2e79d49003f0df515dde8c788189a2c3b83f45
+POST-FIX GIT-OK rc=0
+
+## END-TO-END — full cf4 replay with the whole GIT_DIR family set hostile
+$ env GIT_DIR=... GIT_WORK_TREE=... GIT_COMMON_DIR=... GIT_INDEX_FILE=... bash scripts/test-assurance/counterfactuals/replay-cf4-guard-liveness-status-inversion.sh
+== phase: final passing baseline in the MAIN checkout (post-experiment) ==
+VITEST-RC final 0
+VITEST-STDOUT /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/stdout-final.log
+FILE guard-liveness.test.ts pass
+OK file-status guard-liveness.test.ts=pass
+CF4 VERDICT: pass (inverted verdict reached via zero-message probe; killed by [GLV-1] on the intended assertion; restored + final baseline green)
+cf4-under-hostile-env rc=0

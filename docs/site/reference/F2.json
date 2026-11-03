@@ -16,7 +16,7 @@
       "description": "API contracts",
       "source": {
         "path": "packages/core/manifest/rules-manifest.json",
-        "line": 414
+        "line": 458
       },
       "extras": {
         "checkType": "command"
@@ -35,7 +35,7 @@
       "description": "Consumer-driven contracts (Pact)",
       "source": {
         "path": "packages/core/manifest/rules-manifest.json",
-        "line": 428
+        "line": 472
       },
       "extras": {
         "checkType": "command"
@@ -54,7 +54,7 @@
       "description": "Event schemas (async messaging)",
       "source": {
         "path": "packages/core/manifest/rules-manifest.json",
-        "line": 442
+        "line": 486
       },
       "extras": {
         "checkType": "script"
@@ -73,7 +73,7 @@
       "description": "Service-to-service auth",
       "source": {
         "path": "packages/core/manifest/rules-manifest.json",
-        "line": 456
+        "line": 500
       },
       "extras": {
         "checkType": "command"
@@ -92,7 +92,7 @@
       "description": "Observability propagation",
       "source": {
         "path": "packages/core/manifest/rules-manifest.json",
-        "line": 470
+        "line": 514
       },
       "extras": {
         "checkType": "manual"
@@ -111,7 +111,7 @@
       "description": "Resilience",
       "source": {
         "path": "packages/core/manifest/rules-manifest.json",
-        "line": 489
+        "line": 533
       },
       "extras": {
         "checkType": "manual"
@@ -363,6 +363,46 @@
       "source": {
         "path": "packages/core/manifest/rules-manifest.json",
         "line": 386
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R21",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Non-vacuous test assertions",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 414
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R22",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Effective test assertion presence",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 436
       },
       "extras": {
         "checkType": "eslint"

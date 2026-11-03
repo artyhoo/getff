@@ -35,8 +35,10 @@ T=$(mktemp -d)
   cd "$T" && git init -q && git config user.email t@t && git config user.name t \
     && printf '{"name":"g934da","version":"0.0.0"}\n' > package.json \
     && git add -A && git commit -q -m base \
-    && bash "$REPO_ROOT/install.sh" ts-server --force
+    && bash "$REPO_ROOT/install.sh" ts-server --force \
 ) >"$T/.log" 2>&1
+  RC_P50_113=$?
+  if [ "$RC_P50_113" -eq 0 ]; then ok "gh-934-ship-doc-authority-hook: install rc=0 (p50-113)"; else bad "gh-934-ship-doc-authority-hook: install rc=$RC_P50_113, expected 0 (p50-113)"; fi
 
 H="$T/.claude/hooks"
 S="$T/.claude/settings.json"
@@ -63,6 +65,8 @@ fi
 
 # ── ARM (C): idempotency ──────────────────────────────────────────────────────
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$T/.log2" 2>&1
+RC_P50_114=$?
+if [ "$RC_P50_114" -eq 0 ]; then ok "gh-934-ship-doc-authority-hook: install rc=0 (p50-114)"; else bad "gh-934-ship-doc-authority-hook: install rc=$RC_P50_114, expected 0 (p50-114)"; fi
 _n=$(jq '(.hooks.PostToolUse // []) | map(.hooks[].command) | map(select(test("check-doc-authority-header"))) | length' "$S" 2>/dev/null)
 [ "$_n" = 1 ] && ok "(C) idempotent — re-install leaves exactly one check-doc-authority-header entry" || bad "(C) non-idempotent — $_n entries after re-install"
 
@@ -166,6 +170,8 @@ rm -f "$HOOK"
 jq '.hooks.PostToolUse |= (map(select((.hooks[].command | test("check-doc-authority-header")) | not)))' \
   "$S" > "$S.tmp" && mv "$S.tmp" "$S"
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >"$T/.log3" 2>&1
+RC_P50_115=$?
+if [ "$RC_P50_115" -eq 0 ]; then ok "gh-934-ship-doc-authority-hook: install rc=0 (p50-115)"; else bad "gh-934-ship-doc-authority-hook: install rc=$RC_P50_115, expected 0 (p50-115)"; fi
 _post2=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)
 if [ -x "$HOOK" ] && grep -q 'check-doc-authority-header' <<<"$_post2" && grep -q 'inject-matching-rule' <<<"$_post2"; then
   ok "(H) --refresh restores the hook + registration for a brownfield consumer (inject-matching-rule still present)"

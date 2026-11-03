@@ -30,6 +30,8 @@ install_into() { # $1 = dir, $2 = stack, [$3 = package.json body]
   local body='{ "name":"t","version":"0.0.0" }'
   printf '%s\n' "${3:-$body}" > "$1/package.json"
   ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" "$2" --force ) >/dev/null 2>&1
+  RC_P50_091=$?
+  [ "$RC_P50_091" = 0 ] || bad "f3-f7-rule-globs: helper install rc=$RC_P50_091, expected 0 (p50-091)"
 }
 
 # ── ts-server: shipped config is layout-agnostic + R7/R8 opt-in (F3 + F7 structure) ──

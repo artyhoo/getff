@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "obligation": "M14 wrong-import explicit delivered.ts/formatStamp subject",
+  "scope": "Pinned reached-fault executed conformance only; no general import/dataflow guarantee",
+  "scenario": {
+    "id": "m14-wrong-import",
+    "description": "Frozen bad lookalike import versus actual delivered module/export",
+    "cases": [
+      {
+        "caseId": "wrong-import/bad.wrong-import",
+        "corpusPath": "scripts/test-assurance/corpus/wrong-import/bad.wrong-import.ts",
+        "scratchName": "m14-bad.test.ts"
+      },
+      {
+        "caseId": "wrong-import/good.correct-import",
+        "corpusPath": "scripts/test-assurance/corpus/wrong-import/good.correct-import.ts",
+        "scratchName": "m14-good.test.ts"
+      }
+    ],
+    "supportFiles": [
+      {
+        "caseId": "wrong-import/delivered",
+        "corpusPath": "scripts/test-assurance/corpus/wrong-import/delivered.ts",
+        "scratchName": "delivered.ts"
+      },
+      {
+        "caseId": "wrong-import/lookalike",
+        "corpusPath": "scripts/test-assurance/corpus/wrong-import/lookalike.ts",
+        "scratchName": "lookalike.ts"
+      }
+    ],
+    "counterfactual": {
+      "label": "M14 delivered formatStamp loses non-epoch input",
+      "from": "return new Date(ms).toISOString();",
+      "to": "return '1970-01-01T00:00:00.000Z';",
+      "appliesTo": [
+        "delivered.ts"
+      ]
+    }
+  },
+  "fixture_sha256": {
+    "scripts/test-assurance/corpus/wrong-import/bad.wrong-import.ts": "6889462e351a7ac8d8f9e52ca7a1ac7949b0392b1c33a0809ee9e28ee1b5b1d7",
+    "scripts/test-assurance/corpus/wrong-import/good.correct-import.ts": "f8e5fc0942cb44290580e92efee28688f9f208c55ec7286bdb06ef81f89ddd4d",
+    "scripts/test-assurance/corpus/wrong-import/delivered.ts": "eb314f0f77d9e66fe43540f0d8dc3f56ce9df15c15aa013ec890dcdd29c49206",
+    "scripts/test-assurance/corpus/wrong-import/lookalike.ts": "5aa9bae2e461a305396865c109919987158753f8e3d006e6998139d552b5fc3b"
+  },
+  "expected": {
+    "selected_files": [
+      "m14-bad.test.ts",
+      "m14-good.test.ts"
+    ],
+    "baseline_subject": [
+      "1970-01-01T00:00:00.000Z",
+      "1970-01-02T00:00:00.000Z"
+    ],
+    "faulted_subject": [
+      "1970-01-01T00:00:00.000Z",
+      "1970-01-01T00:00:00.000Z"
+    ],
+    "baseline_statuses": {
+      "m14-bad.test.ts": "pass",
+      "m14-good.test.ts": "pass"
+    },
+    "faulted_statuses": {
+      "m14-bad.test.ts": "pass",
+      "m14-good.test.ts": "fail"
+    },
+    "restored_statuses": {
+      "m14-bad.test.ts": "pass",
+      "m14-good.test.ts": "pass"
+    },
+    "bad_assurance": "reject-demonstrated",
+    "good_assurance": "admit-demonstrated",
+    "false_bad_admission": "admit-failed-sensitivity"
+  }
+}

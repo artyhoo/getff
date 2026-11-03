@@ -1,0 +1,6 @@
+# rework round 2 — scratch node_modules teardown probe (node v22.23.3, Linux)
+# legacy = rmSync({force:true}) (pre-fix driver.mjs finally); guarded = lstatSync+unlinkSync (post-fix)
+# darwin/Node v24.3.0 refusal of the legacy form (ERR_FS_EISDIR) measured by the coordinator;
+# this probe proves the guarded form is link-only + target-safe on the platform this container has.
+LEGACY  rmSync({force}) on symlink-to-dir: unlinked OK; target intact = true
+GUARDED lstatSync+unlinkSync:            link removed = true ; target intact = true

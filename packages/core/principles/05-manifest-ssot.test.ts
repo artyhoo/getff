@@ -31,7 +31,10 @@ const MANIFEST_PATH = resolve(HERE, '../manifest/rules-manifest.json');
 // manifest-rendered and are therefore OUT of this drift check's scope by construction, not by
 // omission. Folding the new presets into a per-stack manifest-render path is a separate, deliberate
 // decision (issue #646 Stage 2), not a silent extension here.
-const RULES_MD_PATH = resolve(REPO_ROOT, 'packages/preset-next-15-canonical/RULES.md');
+const RULES_MD_PATH = resolve(
+  REPO_ROOT,
+  'packages/preset-next-15-canonical/RULES.md',
+);
 const RENDER_SCRIPT = resolve(HERE, '../render/render-rules.ts');
 
 interface RuleEntry {
@@ -114,6 +117,45 @@ describe('Principle 5 — Manifest = SSOT (manifest ↔ RULES.md drift)', () => 
     // Mutate: remove all occurrences of the ID from RULES.md content
     const mutatedContent = rulesMd.replaceAll(firstId, 'REMOVED');
 
-    expect(() => assertRuleIdInRulesMd(firstId, mutatedContent)).toThrow(/not found in.*RULES\.md/);
+    expect(() => assertRuleIdInRulesMd(firstId, mutatedContent)).toThrow(
+      /not found in.*RULES\.md/,
+    );
   });
+});
+
+// Fixed C4/C5 population from the independently frozen M13 contract; never infer
+// required registrations from the manifest whose completeness is under test.
+it('manifest registers the two shipped test-quality rules', () => {
+  const manifest = loadManifest();
+  const expected = [
+    {
+      id: 'R21',
+      rule: 'rules-as-tests/no-vacuous-assertion',
+      bad: "it('vacuous', () => { expect(true).toBe(true); });",
+      good: "it('subject', () => { expect(normalizeStatus('OK')).toBe('ok'); });",
+      messageId: 'vacuousAssertion',
+    },
+    {
+      id: 'R22',
+      rule: 'rules-as-tests/require-effective-assertion',
+      bad: "it('empty', () => {});",
+      good: "it('subject', () => { expect(parse('x')).toEqual({}); });",
+      messageId: 'noEffectiveAssertion',
+    },
+  ];
+
+  for (const { id, rule, bad, good, messageId } of expected) {
+    const entry = manifest[id];
+    expect(entry, `Missing required manifest rule ${id}`).toBeDefined();
+    expect(entry.check, `${id} must register the shipped ESLint rule`).toEqual({
+      type: 'eslint',
+      rule,
+    });
+    expect(entry.stack).toEqual(['ts-server', 'react-next']);
+    expect(entry.examples).toEqual({ bad, good });
+    expect(entry['negative-test']).toEqual({
+      input: [bad],
+      'expect-violation': messageId,
+    });
+  }
 });

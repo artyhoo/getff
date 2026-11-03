@@ -1,0 +1,686 @@
+{
+  "packet": "recovery-d011-expectations",
+  "version": 1,
+  "frozen_at": "2026-10-14",
+  "frozen_against": {
+    "implementation_head": "8eef214687c66bd38069dbfff29a62948983e361",
+    "provenance": "arms: ast-parsed amended2-regions.py constants + amended2-supplemental-controls-request.json registry (14/14 patch pins verified sha256(label\\nfrom\\nto)); observations: amended2-supplemental-expectations.json cases verbatim (12->14, none dropped); k3: amended4 manifests/k3-manifest.json; probes/population/q3 byte-identical ports sha-pinned below"
+  },
+  "patch_pin_convention": "sha256(label + '\\n' + from + '\\n' + to) — identical to driver.mjs applyPatchOnce; a pin mismatch or a non-single occurrence is INFRA (refusal), never a verdict",
+  "arms": [
+    {
+      "id": "SUP-R1-INVOC-GLV",
+      "k": [
+        "K3",
+        "K5"
+      ],
+      "class": "permissive",
+      "anchor_scope": "be84-stable",
+      "obligation": "the runTestQualityGate invocation inside runGuardLivenessGate keeps reporting changed-file test-quality failures (S1-R1: no arm disconnected this exact invocation)",
+      "carrier": "packages/core/hooks/checks/guard-liveness.ts",
+      "patch": {
+        "label": "SUP-R1: guard-liveness runTestQualityGate invocation disconnected (delete lines 251-252)",
+        "from": "  const testQuality = runTestQualityGate(base);\n  if (testQuality) report.failures.push(testQuality);",
+        "to": "",
+        "expectedSha256": "cf3c27839569223e996e126ffae0b95ac9926051b71bea2ebf88e84e5987e5f1"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-DETECT recovery-d011-population/bad.vacuous.test.ts"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-CLEAN recovery-d011-population/good.assertive.test.ts"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-NODETECT-ALL",
+          "expect_not": "GLV-DETECT recovery-d011-population/bad.vacuous.test.ts",
+          "note": "with the invocation gone, zero bad fixtures are detected — the disconnected gate observed, not inferred"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R2-GLV-GLOB",
+      "k": [
+        "K6"
+      ],
+      "class": "permissive",
+      "anchor_scope": "post-SB2 (amended region bytes)",
+      "obligation": "selected .test.mts/.test.cts are actually linted by the carrier config (S1-R2 alignment), and a carrier hole is refused rather than silently clean",
+      "carrier": "packages/core/hooks/checks/guard-liveness.ts",
+      "patch": {
+        "label": "SUP-R2-GLV-GLOB: carrier globs reverted to the be84 hole list (mts/cts unmatched, guard intact)",
+        "from": "      files: ['**/*.{ts,tsx,mts,cts,mjs,cjs,js,jsx}'],",
+        "to": "      files: ['**/*.ts', '**/*.tsx', '**/*.mjs', '**/*.cjs', '**/*.js', '**/*.jsx'],",
+        "expectedSha256": "e98dd2fadb9d47d88b749cd5517105cc906abcaff2877f752ce176fc1874d8fa"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-DETECT recovery-d011-population/bad.vacuous.test.mts"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-DETECT recovery-d011-population/bad.vacuous.test.cts"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-FAILCLOSED recovery-d011-population/bad.vacuous.test.cts",
+          "note": "selected-but-unmatched must FAIL CLOSED (guard intact, corrected F1 derivation) — never the be84 silent clean. OBSERVED SHAPE (dry-run 2026-10-11): the gate returns on the FIRST uncovered selected file, and .cts sorts before .mts, so the refusal line names cts; never the be84 silent clean"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R2-FAILCLOSED",
+      "k": [
+        "K6"
+      ],
+      "class": "permissive",
+      "anchor_scope": "post-SB2 (amended region bytes)",
+      "obligation": "the fail-closed cover guard itself is load-bearing (S1-R2: fail closed on no configuration)",
+      "carrier": "packages/core/hooks/checks/guard-liveness.ts",
+      "patch": {
+        "label": "SUP-R2-FAILCLOSED: carrier globs AND fail-closed guard both reverted (full be84 hole state)",
+        "from": "  const config: Linter.Config[] = [\n    {\n      // Explicit extension globs — a files-less flat-config block defaults to `**/*.mjs`\n      // only, and `**/*` does not match nested `.ts` paths (ESLint 10 Linter semantics;\n      // measured 2026-10-08). Silent no-match on `.ts` would hollow out the arm.\n      // Brace form (D011 S1-R2): this set is exactly the extension population\n      // isTestBearingPath can select — .mts/.cts included, no silent hole.\n      files: ['**/*.{ts,tsx,mts,cts,mjs,cjs,js,jsx}'],\n      languageOptions: {\n        parser: tseslintParser as Linter.Parser,\n        parserOptions: {\n          ecmaFeatures: { jsx: true },\n          ecmaVersion: 'latest' as const,\n          sourceType: 'module' as const,\n        },\n      },\n      // Runtime-valid plugins; the RuleModule-vs-RuleDefinition structural mismatch is\n      // an @typescript-eslint/utils typing artifact, cast here like the neighbors above.\n      plugins: KNOWN_PLUGINS as unknown as NonNullable<Linter.Config['plugins']>,\n      rules: rules as Linter.RulesRecord,\n    },\n  ];\n  // Fail-closed cover check (D011 S1-R2, amended-1 F1): a selected test-bearing file\n  // matched by NO config block lints to zero messages and would read as clean — the\n  // gate refuses that state instead of trusting it. Derivation MATCHES the config's own\n  // files globs: a trailing `.{alt,alt}` brace list expands against the stem dot\n  // (verified: yields .ts .tsx .mts .cts .mjs .cjs .js .jsx for the line above); a plain\n  // extension glob contributes its suffix. Any future selector/carrier divergence is a\n  // failure, never a silent bypass.\n  const coveredSuffixes: string[] = [];\n  for (const block of config) {\n    const globs: string[] = Array.isArray(block.files) ? (block.files as string[]) : [];\n    for (const glob of globs) {\n      const brace = glob.match(/\\.\\{([^}]+)\\}$/);\n      if (brace) {\n        const stem = glob.slice(0, glob.lastIndexOf('{'));\n        const dot = stem.lastIndexOf('.') === -1 ? '' : stem.slice(stem.lastIndexOf('.'));\n        for (const ext of brace[1].split(',')) coveredSuffixes.push(`${dot}${ext.trim()}`);\n      } else if (glob.includes('.')) {\n        coveredSuffixes.push(glob.slice(glob.lastIndexOf('.')));\n      }\n    }\n  }\n  const LINTABLE = /^\\.[cm]?[jt]sx?$/;\n  const linter = new Linter();\n  for (const file of files) {\n    if (!isTestBearingPath(file)) continue;\n    const fileExt = file.slice(file.lastIndexOf('.'));\n    if (!LINTABLE.test(fileExt)) {\n      result.nonLintable.push(file); // dir-selected non-lintable (e.g. tests/*.md): recorded, never silently clean\n      continue;\n    }\n    if (!coveredSuffixes.some((s) => s === fileExt)) {\n      result.error = `no test-quality configuration covers selected file '${file}' (D011 S1-R2 fail-closed) — a selected-but-unmatched test file is never silently clean`;\n      return result;\n    }",
+        "to": "  const config: Linter.Config[] = [\n    {\n      // Explicit extension globs — a files-less flat-config block defaults to `**/*.mjs`\n      // only, and `**/*` does not match nested `.ts` paths (ESLint 10 Linter semantics;\n      // measured 2026-10-08). Silent no-match on `.ts` would hollow out the arm.\n      files: ['**/*.ts', '**/*.tsx', '**/*.mjs', '**/*.cjs', '**/*.js', '**/*.jsx'],\n      languageOptions: {\n        parser: tseslintParser as Linter.Parser,\n        parserOptions: {\n          ecmaFeatures: { jsx: true },\n          ecmaVersion: 'latest' as const,\n          sourceType: 'module' as const,\n        },\n      },\n      // Runtime-valid plugins; the RuleModule-vs-RuleDefinition structural mismatch is\n      // an @typescript-eslint/utils typing artifact, cast here like the neighbors above.\n      plugins: KNOWN_PLUGINS as unknown as NonNullable<Linter.Config['plugins']>,\n      rules: rules as Linter.RulesRecord,\n    },\n  ];\n  const linter = new Linter();\n  for (const file of files) {\n    if (!isTestBearingPath(file)) continue;",
+        "expectedSha256": "925cdc5fd36c0873c37063be969c30c926114fe1b20b2eb399356b1cb56cf735"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-DETECT recovery-d011-population/bad.vacuous.test.mts"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-CLEAN recovery-d011-population/bad.vacuous.test.mts",
+          "expect_not": "GLV-FAILCLOSED recovery-d011-population/bad.vacuous.test.mts",
+          "note": "the archived silent-clean hole reproduced verbatim — with .ts still detected, proving selection ran and mts alone was missed"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-DETECT recovery-d011-population/bad.vacuous.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R2-SELECTOR-NAME",
+      "k": [
+        "K6"
+      ],
+      "class": "permissive",
+      "anchor_scope": "post-SB2 (widened selector companion byte)",
+      "obligation": "the selector keeps governing unit/audit/integration names (spec §5 line 81 + A09; PLAN R2 'including unit/audit/integration' — F4 correction: these names are IN the supported class)",
+      "carrier": "packages/core/hooks/checks/guard-liveness.ts",
+      "patch": {
+        "label": "SUP-R2-SELECTOR-NAME: selector reverted to test|spec only (unit/audit/integration silently unselected)",
+        "from": "  if (/\\.(test|spec|unit|audit|integration)\\.[cm]?[jt]sx?$/.test(path)) return true;",
+        "to": "  if (/\\.(test|spec)\\.[cm]?[jt]sx?$/.test(path)) return true;",
+        "expectedSha256": "fb6ed19f4c977f1b1bf66dbb94552231649813a822cce509d02e66eefda93dda"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-DETECT recovery-d011-population/bad.vacuous.unit.ts"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-DETECT recovery-d011-population/bad.vacuous.audit.ts"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-DETECT recovery-d011-population/bad.vacuous.integration.ts"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-CLEAN recovery-d011-population/bad.vacuous.unit.ts",
+          "expect_not": "GLV-DETECT recovery-d011-population/bad.vacuous.unit.ts",
+          "note": "the name-axis hole observed: an unselected bad file is silently clean"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+          "expect": "GLV-DETECT recovery-d011-population/bad.vacuous.test.ts",
+          "note": ".test still detected — selection itself ran"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R2-ROOT-TESTS-DIR",
+      "k": [
+        "K6"
+      ],
+      "class": "permissive",
+      "anchor_scope": "post-SB2-companion (amended-2 location glob byte)",
+      "obligation": "the ROOT carrier keeps governing the tests/ LOCATION axis (A5: the root tests-directory row was unproven — a bare tests/ file with no test/spec name must be enforced post-widening, and the widening's removal must be caught)",
+      "carrier": "eslint.config.mjs",
+      "patch": {
+        "label": "SUP-R2-ROOT-TESTS-DIR: root location-axis glob removed — bare tests/ files silently unselected (the A5 root tests-directory hole re-opened)",
+        "from": "    files: [\n      '**/*.{test,spec,unit,audit,integration}.{ts,tsx,mts,cts,mjs,cjs,js,jsx}',\n      '**/__tests__/**/*.{ts,tsx,mts,cts,mjs,cjs,js,jsx}',\n      '**/tests/**/*.{ts,tsx,mts,cts,mjs,cjs,js,jsx}',\n      'scripts/test-assurance/**/*.{ts,tsx,mjs,cjs,js,jsx}',\n    ],",
+        "to": "    files: [\n      '**/*.{test,spec,unit,audit,integration}.{ts,tsx,mts,cts,mjs,cjs,js,jsx}',\n      '**/__tests__/**/*.{ts,tsx,mts,cts,mjs,cjs,js,jsx}',\n      'scripts/test-assurance/**/*.{ts,tsx,mjs,cjs,js,jsx}',\n    ],",
+        "expectedSha256": "ca222621da2d6e46624a004b1780b20da15381e029c313d1d5e167f47ce30cc6"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/carrier-enforcement-probe.mts",
+          "expect": "CARRIER-ENF root tests-dir carrier-a5-probe/tests/plain-vacuous.ts ENFORCED rule=rules-as-tests/no-vacuous-assertion"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/carrier-enforcement-probe.mts",
+          "expect": "CARRIER-ENF root tests-dir carrier-a5-probe/tests/plain-vacuous.ts WRONGENF rule=null",
+          "expect_not": "CARRIER-ENF root tests-dir carrier-a5-probe/tests/plain-vacuous.ts ENFORCED",
+          "note": "the location-axis hole re-opened, OBSERVED SHAPE (dry-run 2026-10-11): with the entry removed ESLint governs the bare tests/ file with NO config block — the only message is the unmatched-file warning (severity 1, ruleId null); the intended rule never fires. dry-run evidence/dryrun-carrier-mutant-roottestsdir.txt"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/carrier-enforcement-probe.mts",
+          "expect": "CARRIER-ENF root bad-q1 carrier-a5-probe/x.vacuous.test.ts ENFORCED rule=rules-as-tests/no-vacuous-assertion",
+          "note": "the name axis still enforces — the removal is location-specific"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R3-Q2-PERM",
+      "k": [
+        "K3"
+      ],
+      "class": "permissive",
+      "anchor_scope": "be84-stable",
+      "obligation": "Q2 rejection keeps detecting comment-only bodies when the rule is permissive (S1-R3: the missing Q2-permissive arm)",
+      "carrier": "packages/core/eslint-rules/require-effective-assertion.mjs",
+      "patch": {
+        "label": "SUP-R3-Q2-PERM: require-effective-assertion accepts comment-only bodies (permissive, ESTree BlockStatement.body fault — A1-corrected)",
+        "from": "                if (hasEffectiveAssertion(cb))\n                    return;",
+        "to": "                if (hasEffectiveAssertion(cb))\n                    return;\n                const cbBody = cb.body;\n                if (cbBody && cbBody.type === 'BlockStatement' && cbBody.body.length === 0)\n                    return; // SUP-R3-Q2-PERM mutant: comment-only (empty-block) body counts as effective",
+        "expectedSha256": "cb3a0fc39f99bad8bc4b15a23d324ed4ab093f8195a6f160ae06379f87544c4d"
+      },
+      "pristine": [
+        {
+          "kind": "cli",
+          "paths": [
+            "scripts/test-assurance/corpus/q2-noassertion/bad.comment-only.ts"
+          ],
+          "expectRc": 1,
+          "diagnostic": "rules-as-tests/require-effective-assertion"
+        },
+        {
+          "kind": "ast",
+          "note": "A1 reachability proof: parsing the frozen corpus file at be84 yields cb.body.type==='BlockStatement' and cb.body.body.length===0 (evidence/a1-estree-body-proof.txt) — the mutant's guard is true on this input"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "cli",
+          "paths": [
+            "scripts/test-assurance/corpus/q2-noassertion/bad.comment-only.ts"
+          ],
+          "expectRc": 0,
+          "note": "the frozen bad corpus flips green under the fault — permissiveness observed through the real CLI lane (rc flip, no crash: dry-run evidence/.dryrun-a1.txt)"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R3-Q1-OVER",
+      "k": [
+        "K4"
+      ],
+      "class": "over-rejecting",
+      "anchor_scope": "be84-stable",
+      "obligation": "Q1 rejection does not flag legitimate constant-on-subject assertions (S1-R3: the missing Q1-over-rejection arm)",
+      "carrier": "packages/core/eslint-rules/no-vacuous-assertion.mjs",
+      "patch": {
+        "label": "SUP-R3-Q1-OVER: no-vacuous-assertion flags call subjects (over-rejecting)",
+        "from": "        case 'UnaryExpression':\n            return (UNARY_PURE_OPERATORS.has(node.operator) && isPureLiteral(node.argument));",
+        "to": "        case 'UnaryExpression':\n            return (UNARY_PURE_OPERATORS.has(node.operator) && isPureLiteral(node.argument));\n        case 'CallExpression':\n            return true; // SUP-R3-Q1-OVER mutant: a call subject counts as pure-literal",
+        "expectedSha256": "4c91258737cc1fc4276be38050d2714f73e230eb7df309d7a6ca01cace0a7e31"
+      },
+      "pristine": [
+        {
+          "kind": "cli",
+          "paths": [
+            "scripts/test-assurance/corpus/q1-vacuous/good.constant-on-subject.ts"
+          ],
+          "expectRc": 0
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "cli",
+          "paths": [
+            "scripts/test-assurance/corpus/q1-vacuous/good.constant-on-subject.ts"
+          ],
+          "expectRc": 1,
+          "diagnostic": "rules-as-tests/no-vacuous-assertion",
+          "note": "the frozen good corpus flips red under the fault — over-rejection observed through the real CLI lane"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R3-Q3-PERM",
+      "k": [
+        "K3"
+      ],
+      "class": "permissive",
+      "anchor_scope": "be84-stable",
+      "obligation": "Q3 reject-by-counterfactual requires DEMONSTRATED SURVIVAL: baseline pass AND counterfactual pass (A4: observed through REAL Q4 counterfactual replays — runScenario/observe/evaluateExecutedExpectation — not frozen literals)",
+      "carrier": "packages/core/principles/52-subprocess-status-conformance.ts",
+      "patch": {
+        "label": "SUP-R3-Q3-PERM: P52 reject predicate credits a KILLED case as reject-demonstrated (Q3 checker weakening; observed through REAL Q4 replays — A4)",
+        "from": "    const survived = obs.baseline === 'pass' && obs.counterfactual === 'pass';",
+        "to": "    const survived = obs.baseline === 'pass'; // SUP-R3-Q3-PERM mutant: reject credited without counterfactual survival",
+        "expectedSha256": "1a4a722b6aeb296546f9de3cf99e5685e85ca66dfbc35bbb7ee27dcc49be5b6b"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p52-judging-probe.mts",
+          "expect": "P52-REPLAY q4/good.asserted-exit reject ok=false",
+          "note": "A4 real lane: the killed case (cf flips process.exit(42)->(0), the good companion's assertion fails) is NOT reject-demonstrated pristine — gap-not-demonstrated is the correct verdict"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p52-judging-probe.mts",
+          "expect": "P52-REPLAY q4/bad.ignored-exit reject ok=true",
+          "note": "A4 causal control: the genuinely surviving case stays reject-demonstrated — the flip is exactly the killed shape"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p52-judging-probe.mts",
+          "expect": "P52-REPLAY q4/good.asserted-exit reject ok=true",
+          "expect_not": "P52-REPLAY q4/good.asserted-exit reject ok=false",
+          "note": "a case KILLED by the real counterfactual replay credited reject-demonstrated — the Q3 predicate weakened, observed through the exported evaluateExecutedExpectation on a REAL replay observation"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R3-P52-EVAL-OVER",
+      "k": [
+        "K4"
+      ],
+      "class": "over-rejecting",
+      "anchor_scope": "be84-stable",
+      "obligation": "P52 admit requires the kill to be made WITH the intended assertion (F5: the missing P52 over-reject arm)",
+      "carrier": "packages/core/principles/52-subprocess-status-conformance.ts",
+      "patch": {
+        "label": "SUP-R3-P52-EVAL-OVER: P52 admit predicate rejects kills made WITH the intended assertion (over-rejecting)",
+        "from": "    const killed = obs.baseline === 'pass' && obs.counterfactual === 'fail' && obs.intendedAssertion;",
+        "to": "    const killed = obs.baseline === 'pass' && obs.counterfactual === 'fail' && !obs.intendedAssertion; // SUP-R3-P52-EVAL-OVER mutant: the intended-assertion requirement inverted",
+        "expectedSha256": "230aa04de4f18342a6e7f18bcb3d626f06a524b581b8d2c83621f672b60bdfb1"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p52-judging-probe.mts",
+          "expect": "P52-EVAL admit-intended ok=true"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p52-judging-probe.mts",
+          "expect": "P52-EVAL admit-unintended ok=false",
+          "note": "control: a kill without the intended assertion never admits (pristine)"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p52-judging-probe.mts",
+          "expect": "P52-EVAL admit-intended ok=false",
+          "expect_not": "P52-EVAL admit-intended ok=true",
+          "note": "the good Q4/Q6 companion's kill rejected — over-rejection observed"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p52-judging-probe.mts",
+          "expect": "P52-EVAL admit-unintended ok=true",
+          "note": "the mirrored permissive side-flip under the same fault"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R3-P52-WEAK",
+      "k": [
+        "K3",
+        "K7"
+      ],
+      "class": "permissive",
+      "anchor_scope": "post-SB1 (amended-2 region bytes)",
+      "obligation": "the strict runner-result grammar classifies real unhandled-error, skipped-only, MIXED, PASS+SKIP and the coordinator counterexample shapes correctly (S1-R4/S1-R6: A3 hardened grammar — report-derived statuses, not-executed before detection, fail-closed malformed grammar)",
+      "carrier": "packages/core/principles/52-subprocess-status-conformance.ts",
+      "patch": {
+        "label": "SUP-R3-P52-WEAK: strict runner-result grammar region reverted to the be84 classification (gate-weakening; cx1/cx2 holes included) — A3 re-pinned to the amended-2 region bytes",
+        "from": "  // Strict runner-result grammar, executed through the exported pure classifier\n  // (D011 S1-R4/S1-R6 amended-2/A3): grammar validation, per-file status DERIVED from\n  // the report's own assertion statuses (no caller-fed verdicts), full-path identity\n  // against the scratch root, not-executed BEFORE detection credit.\n  const outcome = classifyVitestReport(filters, report, String(res.stdout ?? ''), res.status ?? null, scratchRoot);\n  if (outcome.classification === 'infrastructure-failure') {\n    return infraRun(phase, command, outcome.detail ?? 'runner outcome refused classification (D011 S1-R6)', Date.now() - started);\n  }\n  return {\n    phase,\n    command,\n    exitCode: res.status ?? null,\n    signal: res.signal ?? null,\n    timedOut: false,\n    classification: outcome.classification,\n    files: outcome.files,\n    stdoutTail: String(res.stdout ?? '').slice(-2000),\n    durationMs: Date.now() - started,\n  };",
+        "to": "  const files: Record<string, FileResult> = {};\n  for (const tr of report.testResults ?? []) {\n    if (!tr.name) continue;\n    const name = basename(tr.name);\n    const failed = tr.status === 'failed';\n    const failureMessages: string[] = [];\n    for (const ar of tr.assertionResults ?? []) {\n      if (ar.status === 'failed') failureMessages.push(...(ar.failureMessages ?? []));\n    }\n    files[name] = { status: failed ? 'fail' : 'pass', failureMessages };\n  }\n  if (Object.keys(files).length === 0) {\n    return infraRun(phase, command, 'vitest JSON report carries zero test files — empty discovery is never green (T-TAK-A)', Date.now() - started);\n  }\n  const expectedCount = filters.length;\n  if (Object.keys(files).length !== expectedCount) {\n    return infraRun(\n      phase,\n      command,\n      `selection/observed mismatch: asked for ${expectedCount} file(s), report carries ${Object.keys(files).length} — refusing to classify a partial run`,\n      Date.now() - started,\n    );\n  }\n  return {\n    phase,\n    command,\n    exitCode: res.status ?? null,\n    signal: res.signal ?? null,\n    timedOut: false,\n    classification: Object.values(files).some((f) => f.status === 'fail') ? 'detection' : 'pass',\n    files,\n    stdoutTail: String(res.stdout ?? '').slice(-2000),\n    durationMs: Date.now() - started,\n  };",
+        "expectedSha256": "ada297742daa06eefcfc7675bd527fc7b31ac515b55f92e09a5da45c4ba5ac66"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CLASS unhandled.test.ts infrastructure-failure"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CLASS skipped.test.ts not-executed"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CLASS intended-fail.test.ts detection"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CLASS healthy.test.ts pass"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CLASS MIXED unhandled+intended-fail infrastructure-failure",
+          "note": "F6 mixed control through the REAL pair run (report bytes archived: fixtures/r4-runner/reports/mixed.report.json)"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CLASS PASSSKIP healthy+skipped not-executed",
+          "note": "F6 passed+required-skip control (reports/passskip.report.json)"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CX cx1 passed+required-pending not-executed",
+          "note": "A3: the coordinator's exact counterexample input refused under the amended grammar"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CX cx2 intendedfail+notexecuted infrastructure-failure",
+          "note": "A3: the coordinator's exact cx2 report carries no testResults — fail closed; the well-formed completion cx2b covers the literal combination"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CX cx2b intendedfail+skipped-sibling not-executed",
+          "note": "A3: well-formed cx2 completion — not-executed BEFORE detection credit"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CTRL malformed-total infrastructure-failure"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CTRL malformed-success infrastructure-failure"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CTRL malformed-file-status infrastructure-failure"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CTRL malformed-assertion-status infrastructure-failure"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CLASS unhandled.test.ts pass",
+          "note": "the archived hole reproduced through the real runVitest under the fault"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CLASS MIXED unhandled+intended-fail detection",
+          "note": "the F6 false-detection hole reproduced: anyFail overrides the unhandled error under the reverted grammar"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/r4-runner-probe.mts",
+          "expect": "R4-CLASS skipped.test.ts pass",
+          "note": "the A3 hole reproduced: be84 counts zero-executed files as pass (the coordinator's cx1 channel)"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R3-P53-DELIVERY-PERM",
+      "k": [
+        "K5"
+      ],
+      "class": "permissive",
+      "anchor_scope": "be84-stable",
+      "obligation": "delivery-live requires the reject to name the INTENDED rule id — a wrong-reason reject is infrastructure, never liveness (the delivery-CLI predicate; renamed from amended-1 DISCOVERY-PERM in the A4 re-scope)",
+      "carrier": "packages/core/principles/53-delivery-discovery-conformance.ts",
+      "patch": {
+        "label": "SUP-R3-P53-DELIVERY-PERM: delivery-live credited without the intended rule id (delivery-CLI predicate weakening — renamed from amended-1 DISCOVERY-PERM, A4 re-scope)",
+        "from": "  const ruleMentioned = stdout.includes('rules-as-tests/no-vacuous-assertion');",
+        "to": "  const ruleMentioned = true; // SUP-R3-P53-DELIVERY-PERM mutant: every reject counts as delivery-live",
+        "expectedSha256": "468d2f186c2908211aa52da7f8c118ea5c148ced3affbd9fad88ab05a4cde7e2"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-LIVE lane-a-intended delivery-live"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-LIVE lane-b-wrong-reason infrastructure-failure",
+          "note": "verified pristine lane: parse-error probe input exits 1 without the intended id and is refused"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-LIVE lane-b-wrong-reason delivery-live",
+          "expect_not": "P53-LIVE lane-b-wrong-reason infrastructure-failure",
+          "note": "a wrong-reason reject credited as live delivery — the delivery-liveness predicate weakened"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R3-P53-DISCOVERY-PERM",
+      "k": [
+        "K6"
+      ],
+      "class": "permissive",
+      "anchor_scope": "be84-stable",
+      "obligation": "the K6 principle-pairing ratchet keeps flagging orphaned numbered modules — a principle test renamed out of the vitest include grammar silently un-delivers the principle (A4: this arm now mutates the ACTUAL discovery channel, principleDiscoveryRatchet, observed through a real scratch-orphan lane)",
+      "carrier": "packages/core/principles/53-delivery-discovery-conformance.ts",
+      "patch": {
+        "label": "SUP-R3-P53-DISCOVERY-PERM: principleDiscoveryRatchet never flags orphaned modules (pairing discovery disabled)",
+        "from": "    if (!hasSelectedTest) {",
+        "to": "    if (!hasSelectedTest && false) { // SUP-R3-P53-DISCOVERY-PERM mutant: orphaned principle modules never flagged — rename-out-of-grammar silently un-delivers",
+        "expectedSha256": "f5628858ef797e295a80ca8310621dc84482d6e65d57b7286ae8507e58bda147"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-DISC ratchet real-corpus orphans=0",
+          "note": "healthy control: the real principles population has zero orphans through the real include grammar (parseVitestInclude over the real vitest.config.ts)"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-DISC ratchet scratch-orphan orphans=1 module=principles/99-demo.ts",
+          "note": "causal control: a constructed scratch coreRoot (numbered module, no paired selected test) IS flagged pristine"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-DISC ratchet scratch-orphan orphans=0",
+          "expect_not": "P53-DISC ratchet scratch-orphan orphans=1",
+          "note": "the same real scratch-orphan lane reads clean under the fault — the pairing discovery disabled, observed through the actual ratchet over the actual grammar"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R3-P53-DISCOVERY-OVER",
+      "k": [
+        "K4"
+      ],
+      "class": "over-rejecting",
+      "anchor_scope": "be84-stable",
+      "obligation": "the K6 corpus-registry reconciliation keeps accepting the HEALTHY frozen registry — registered corpus files are not mismatches (A4: this arm now mutates the ACTUAL discovery channel, reconcileCorpusRegistry, observed through the real corpus + real expectations.json registry lane)",
+      "carrier": "packages/core/principles/53-delivery-discovery-conformance.ts",
+      "patch": {
+        "label": "SUP-R3-P53-DISCOVERY-OVER: reconcileCorpusRegistry flags every on-disk corpus file as unregistered (over-rejecting)",
+        "from": "    if (!registered.has(p)) {",
+        "to": "    if (!registered.has(p) || p.length >= 0) { // SUP-R3-P53-DISCOVERY-OVER mutant: every on-disk corpus file misread as unregistered",
+        "expectedSha256": "ee4e7de3978d2dc69834f3457f850780c8c8de2339fdc212bfe234b5715f3141"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-DISC reconcile real-corpus mismatches=0",
+          "note": "healthy control: the real corpus population reconciles exactly against the real expectations.json case paths"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-DISC reconcile real-corpus mismatches>0",
+          "expect_not": "P53-DISC reconcile real-corpus mismatches=0",
+          "note": "the healthy registry reads broken — over-rejection observed through the actual reconciliation over the real corpus and registry"
+        }
+      ]
+    },
+    {
+      "id": "SUP-R3-P53-WEAK",
+      "k": [
+        "K3"
+      ],
+      "class": "permissive",
+      "anchor_scope": "be84-stable",
+      "obligation": "P53's delivery kill keeps being demonstrated by actually-failed counterfactual statuses (S1-R3: the missing P53 gate-weakening arm)",
+      "carrier": "packages/core/principles/53-delivery-discovery-conformance.ts",
+      "patch": {
+        "label": "SUP-R3-P53-WEAK: delivery scenario counterfactual statuses sanitized to pass (gate-weakening)",
+        "from": "    const counterfactual = runVitest(scratchRoot, filters, 'counterfactual');",
+        "to": "    const counterfactual = runVitest(scratchRoot, filters, 'counterfactual');\n    for (const k of Object.keys(counterfactual.files))\n        counterfactual.files[k] = { status: 'pass', failureMessages: [] }; // SUP-R3-P53-WEAK mutant: counterfactual statuses sanitized",
+        "expectedSha256": "439f36accdbc42c2b4ad1700a4e145dbf949224ea7c313a4fe3b4ecbbed3dd8f"
+      },
+      "pristine": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-CF q6-good-wired-config.test.ts fail"
+        },
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-CF q6-bad-disconnected.test.ts pass"
+        }
+      ],
+      "mutant": [
+        {
+          "kind": "probe",
+          "probe": "scripts/test-assurance/driver-probes/p53-scenario-probe.mts",
+          "expect": "P53-CF q6-good-wired-config.test.ts pass",
+          "note": "the demonstrated kill silently read as survived — P53 gate-weakening observed through the full real delivery scenario"
+        }
+      ]
+    }
+  ],
+  "probes": {
+    "scripts/test-assurance/driver-probes/a1-estree-proof-probe.mts": "bc9e1929a9ad50513f5b2936f9f9977cc21d1cf666ec54b033afe1d7cc684308",
+    "scripts/test-assurance/driver-probes/carrier-enforcement-probe.mts": "7dc504f85c6b9fa28be0746a1b71d2ad44729a1f0a9ac32dea68d5017f77309c",
+    "scripts/test-assurance/driver-probes/glv-population-probe.mts": "072d92fc497c63ba8efbf317a73cbe35272b24b4195b11cbd742a231ada29d60",
+    "scripts/test-assurance/driver-probes/p52-judging-probe.mts": "8e75bab0e50e1fc87f7e58da6e092f0b8958568bc1e05753385b68ce783e6766",
+    "scripts/test-assurance/driver-probes/p53-scenario-probe.mts": "31cc77ebb33eaf5f5a8b7b1736a77cc5be68266277be4e99958ec9428dbf21ff",
+    "scripts/test-assurance/driver-probes/r4-runner-probe.mts": "edefb365ec7f6cc4122d20d77c28ffd41bad49349e810957f4016881862e1e79"
+  },
+  "population_manifest": {
+    "bad.vacuous.audit.ts": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.integration.ts": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.spec.mjs": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.test.cjs": "be847625874b518218536e240584d9dd587d05aa9006366612b0fed9c64acb67",
+    "bad.vacuous.test.cts": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.test.js": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.test.jsx": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.test.mjs": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.test.mts": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.test.ts": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.test.tsx": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "bad.vacuous.unit.ts": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "good.assertive.audit.ts": "3a07373d19969577ff81cf516451e0dd61c06dcf95fc940f2d2be8b9332d5003",
+    "good.assertive.integration.ts": "3a07373d19969577ff81cf516451e0dd61c06dcf95fc940f2d2be8b9332d5003",
+    "good.assertive.spec.mjs": "31de17200a3409736d21d0b03076b6a7204a3fd414fea9e0193efc2df2358571",
+    "good.assertive.test.cjs": "447b746f4a0bc807bfc6647b609f730eaad2107cdcb041ecfda29f7bcfaae197",
+    "good.assertive.test.cts": "3a07373d19969577ff81cf516451e0dd61c06dcf95fc940f2d2be8b9332d5003",
+    "good.assertive.test.js": "31de17200a3409736d21d0b03076b6a7204a3fd414fea9e0193efc2df2358571",
+    "good.assertive.test.jsx": "31de17200a3409736d21d0b03076b6a7204a3fd414fea9e0193efc2df2358571",
+    "good.assertive.test.mjs": "31de17200a3409736d21d0b03076b6a7204a3fd414fea9e0193efc2df2358571",
+    "good.assertive.test.mts": "3a07373d19969577ff81cf516451e0dd61c06dcf95fc940f2d2be8b9332d5003",
+    "good.assertive.test.ts": "3a07373d19969577ff81cf516451e0dd61c06dcf95fc940f2d2be8b9332d5003",
+    "good.assertive.test.tsx": "3a07373d19969577ff81cf516451e0dd61c06dcf95fc940f2d2be8b9332d5003",
+    "good.assertive.unit.ts": "3a07373d19969577ff81cf516451e0dd61c06dcf95fc940f2d2be8b9332d5003",
+    "__tests__/bad.vacuous-dir.ts": "ae09efd0c6dae2d2816b1e476dc117bbdb52ab507fd481022e91973e64221fe2",
+    "__tests__/good.assertive-dir.ts": "3a07373d19969577ff81cf516451e0dd61c06dcf95fc940f2d2be8b9332d5003"
+  },
+  "q3_companions": {
+    "scripts/test-assurance/recovery-d011/fixtures/q3/q3-wrong-diagnostic.test.ts": "0e76cf21c157d6bfc0b6e73f8caa9ba3b85c20415e3f886487a3d9331af35b6a",
+    "scripts/test-assurance/recovery-d011/fixtures/q3/q3-survival-claim.test.ts": "9fcfe2b6119837d2ef445bafbffd772901ec2ea0b4e197502a089261150410ab"
+  },
+  "k3": {
+    "k3_arm_sh": "094f9eb4f66831a3e49f1d88a76efc93c0be8496fa8b86dc071c14eac818e3d1",
+    "k3_outer_control_sh": "ae40a13babff36ac14806d3fb82992f7fca5220f53311c90d9a1c3d213493289",
+    "weakening_patch_sha256": "f71e2cc816dabfcc59e9ea85cab57d462088109fa0d15f02fd4f5be9c179fbf5",
+    "expected_lines": [
+      "K3-JUDGE-HEALTHY cf2a",
+      "K3-JUDGE-HEALTHY cf2b",
+      "K3-CONTROL-FAIL cf2a: judge ACCEPTED wrong-diagnostic kill credit",
+      "K3-CONTROL-FAIL cf2b: judge ACCEPTED wrong-diagnostic kill credit",
+      "MUTANT-DETECTED pristine=0(0) mutant=1(1) restored=0(0)",
+      "K3-ARM-OK"
+    ]
+  },
+  "lanes": {
+    "a2_repeatability": {
+      "probe": "scripts/test-assurance/driver-probes/glv-population-probe.mts",
+      "acceptance": "run2 prints GLV-RESET-COMMIT then GLV-COMMIT with a parent DIFFERENT from run1's parent, and the GLV-DETECT/GLV-CLEAN verdict lines are byte-identical across runs"
+    },
+    "a3_pinned_replay": {
+      "control": "scripts/test-assurance/recovery-d011/sb1-classifier-control.mts",
+      "expect": "SB1-CONTROL PASS"
+    }
+  }
+}

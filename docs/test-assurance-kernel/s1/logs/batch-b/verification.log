@@ -1,0 +1,89 @@
+# S1 Batch B verification log
+# base SHA: e03ab279fbfc4051831a498c419743f24eed7d56
+# date: 2026-10-08T12:40:55Z
+# note: exit codes are the real command exits (captured pre-pipe).
+
+## 1. Q1/Q2 rule suites
+$ npx vitest run packages/core/eslint-rules/no-vacuous-assertion.test.ts packages/core/eslint-rules/require-effective-assertion.test.ts
+
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  12:40:56
+   Duration  489ms (transform 48ms, setup 30ms, import 591ms, tests 149ms, environment 0ms)
+exit=0
+
+## 2. Plugin dual-engine (RuleTester + oxlint fences-fire)
+$ npx vitest run packages/core/eslint-rules/plugin-dual-engine.test.ts
+
+
+ Test Files  1 passed (1)
+      Tests  38 passed (38)
+   Start at  12:40:57
+   Duration  520ms (transform 55ms, setup 19ms, import 343ms, tests 58ms, environment 0ms)
+exit=0
+
+## 3. Compiled-twin --check (8 rules, 32 checks)
+$ bash scripts/build-shipped-eslint-rules.sh --check
+✓ shipped compiled rules in sync with .ts sources (32 checks).
+exit=0
+
+## 4. Principle 51 — corpus conformance + population ratchet
+$ npx vitest run packages/core/principles/51-test-quality-corpus-conformance.test.ts
+
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  12:41:04
+   Duration  2.63s (transform 57ms, setup 20ms, import 283ms, tests 2.23s, environment 0ms)
+exit=0
+
+## 5. Principle 25 — template rule-ref resolution (delivery wiring)
+$ npx vitest run packages/core/principles/25-template-rule-ref-resolution.test.ts
+
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  12:41:07
+   Duration  132ms (transform 21ms, setup 20ms, import 11ms, tests 4ms, environment 0ms)
+exit=0
+
+## 6. Guard-liveness suite (incl. new test-quality arm TQ-1..5 + mjs lane)
+$ npx vitest run packages/core/hooks/checks/guard-liveness.test.ts
+
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  12:41:17
+   Duration  480ms (transform 80ms, setup 20ms, import 304ms, tests 61ms, environment 0ms)
+exit=0
+
+## 7. CLI replay — real eslint binary over the delivery config (root eslint.config.mjs)
+$ npx eslint scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts   # expect exit 1 + Q1 diagnostic
+npx eslint scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts; echo "exit=$?"
+  -> exit=1, diagnostic: "Vacuous assertion: `expect(<literal>)` ..." rules-as-tests/no-vacuous-assertion (see raw output below)
+
+$ npx eslint scripts/test-assurance/corpus/q1-vacuous/good.real-assertion.ts   # (name corrected below)
+$ npx eslint scripts/test-assurance/corpus/q1-vacuous/good.constant-on-subject.ts   # expect exit 0
+exit=0
+
+$ npx eslint scripts/test-assurance/corpus/q2-noassertion/bad.comment-only.ts   # expect exit 1 + Q2 diagnostic
+
+/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/scripts/test-assurance/corpus/q2-noassertion/bad.comment-only.ts
+  7:3  error  Test body contains no effective assertion (`expect*` / `assert*` / `verify*` call): it cannot fail, so it verifies nothing (Q2). Await alone is not an assertion. Intentional placeholder: use `it.todo`, or add `// audit:exempt` on this line with a reason  rules-as-tests/require-effective-assertion
+
+✖ 1 problem (1 error, 0 warnings)
+
+exit=1
+
+$ npx eslint scripts/test-assurance/corpus/q2-noassertion/good.helper-assertions.ts   # expect exit 0
+exit=0
+
+### raw Q1 replay output (re-run for the log):
+
+/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts
+  8:5  error  Vacuous assertion: `expect(<literal>)` compares a constant to itself and survives every production fault (Q1). Assert the real subject instead. Intentional fixture: add `// audit:exempt` on this line with a reason  rules-as-tests/no-vacuous-assertion
+
+✖ 1 problem (1 error, 0 warnings)
+
+exit=1

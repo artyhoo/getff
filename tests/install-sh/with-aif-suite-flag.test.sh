@@ -34,6 +34,8 @@ GATED_SC=".ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md"
 T=$(mktemp -d)
 printf '{"name":"f7-default","version":"0.0.0"}\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_320=$?
+if [ "$RC_P50_320" -eq 0 ]; then ok "with-aif-suite-flag: install rc=0 (p50-320)"; else bad "with-aif-suite-flag: install rc=$RC_P50_320, expected 0 (p50-320)"; fi
 for s in $GATED_SET; do
   if [ -e "$T/.claude/skills/$s/SKILL.md" ]; then
     bad "default install shipped gated suite skill: $s (should be flag-gated)"
@@ -60,6 +62,8 @@ rm -rf "$T"
 T2=$(mktemp -d)
 printf '{"name":"f7-flag","version":"0.0.0"}\n' > "$T2/package.json"
 ( cd "$T2" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force --with-aif-suite ) >/dev/null 2>&1
+RC_P50_321=$?
+if [ "$RC_P50_321" -eq 0 ]; then ok "with-aif-suite-flag: install rc=0 (p50-321)"; else bad "with-aif-suite-flag: install rc=$RC_P50_321, expected 0 (p50-321)"; fi
 for s in $CORE_SET $GATED_SET; do
   if [ -e "$T2/.claude/skills/$s/SKILL.md" ]; then
     ok "--with-aif-suite: skill present: $s"
@@ -83,11 +87,15 @@ rm -rf "$T2"
 T3=$(mktemp -d)
 printf '{"name":"f7-refresh","version":"0.0.0"}\n' > "$T3/package.json"
 ( cd "$T3" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force --with-aif-suite ) >/dev/null 2>&1
+RC_P50_322=$?
+if [ "$RC_P50_322" -eq 0 ]; then ok "with-aif-suite-flag: install rc=0 (p50-322)"; else bad "with-aif-suite-flag: install rc=$RC_P50_322, expected 0 (p50-322)"; fi
 # sentinel: mutate a shipped file so we can prove refresh re-copied (not just left) it
 DISP="$T3/.claude/skills/dispatcher/SKILL.md"
 [ -f "$DISP" ] || { bad "refresh setup: dispatcher not installed by flagged install"; }
 echo "LOCAL-EDIT-SENTINEL" >> "$DISP"
 ( cd "$T3" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >/dev/null 2>&1
+RC_P50_323=$?
+if [ "$RC_P50_323" -eq 0 ]; then ok "with-aif-suite-flag: install rc=0 (p50-323)"; else bad "with-aif-suite-flag: install rc=$RC_P50_323, expected 0 (p50-323)"; fi
 for s in $GATED_SET; do
   if [ -e "$T3/.claude/skills/$s/SKILL.md" ]; then
     ok "refresh (no flag) kept prior-opt-in suite skill: $s"
@@ -110,7 +118,11 @@ rm -rf "$T3"
 T4=$(mktemp -d)
 printf '{"name":"f7-refresh-clean","version":"0.0.0"}\n' > "$T4/package.json"
 ( cd "$T4" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_324=$?
+if [ "$RC_P50_324" -eq 0 ]; then ok "with-aif-suite-flag: install rc=0 (p50-324)"; else bad "with-aif-suite-flag: install rc=$RC_P50_324, expected 0 (p50-324)"; fi
 ( cd "$T4" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >/dev/null 2>&1
+RC_P50_325=$?
+if [ "$RC_P50_325" -eq 0 ]; then ok "with-aif-suite-flag: install rc=0 (p50-325)"; else bad "with-aif-suite-flag: install rc=$RC_P50_325, expected 0 (p50-325)"; fi
 for s in $GATED_SET; do
   if [ -e "$T4/.claude/skills/$s/SKILL.md" ]; then
     bad "refresh (no prior opt-in, no flag) CREATED gated suite skill: $s"
@@ -131,7 +143,19 @@ T5=$(mktemp -d)
 STUB=$(mktemp -d)
 printf '#!/bin/sh\nexit 0\n' > "$STUB/npm"; chmod +x "$STUB/npm"
 printf '{"name":"f7-all","version":"0.0.0"}\n' > "$T5/package.json"
-( cd "$T5" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --force --all ) >/dev/null 2>&1
+_out_all=$( cd "$T5" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --force --all 2>&1 )
+RC_P50_326=$?
+# rc contract (INDEPENDENT-CIC-FAKE-PM-RC-RULING.json class, f253d186…): --all implies --full,
+# and --full + a stub PM that reports success but installs nothing leaves tsx/eslint absent →
+# check-fences-fire dep-missing SKIP → strict self-verify promotes it → honest exit 1. Both
+# named reasons asserted (output captured, no longer discarded) so an unrelated 1 cannot pass.
+if [ "$RC_P50_326" -eq 1 ] \
+   && grep -q 'dep-missing skip(s) are failures' <<<"$_out_all" \
+   && grep -q 'Installation finished, but self-verify FAILED' <<<"$_out_all"; then
+  ok "with-aif-suite-flag: install rc=1 (p50-326) — strict dep-missing self-verify, named reasons present"
+else
+  bad "with-aif-suite-flag: install rc=$RC_P50_326, expected 1 + strict dep-missing reasons (p50-326): $(echo "$_out_all" | tr '\n' '|' | cut -c1-200)"
+fi
 for s in $GATED_SET; do
   [ -e "$T5/.claude/skills/$s/SKILL.md" ] && ok "--all: suite skill present: $s" || bad "--all: suite skill MISSING: $s"
 done

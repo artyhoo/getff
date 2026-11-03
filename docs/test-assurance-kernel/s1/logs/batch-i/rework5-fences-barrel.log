@@ -1,0 +1,8 @@
+✓ (full) react-next FULL barrel: gate exits 0, PASS=8 FAIL=0, R12 no-server-imports-in-client ACTIVE
+✓ (teeth) neutered R12 in installed barrel → gate exits non-zero with FENCE SILENT — arm (full) is non-vacuous
+✓ (partial) ts-server: R12 fixture correctly filtered out of the installed tree (rule not in barrel)
+✓ (partial) ts-server partial barrel: gate exits 0 with PASS=7 FAIL=0 — no false-RED on a stack without R12
+
+PASS=4 FAIL=0 SKIP=0
+
+rc=0

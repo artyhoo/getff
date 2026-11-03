@@ -1,0 +1,26 @@
+{
+  "numTotalTests": 2,
+  "success": true,
+  "testResults": [
+    {
+      "name": "/s/tests/other-file.test.ts",
+      "status": "passed",
+      "assertionResults": [
+        {
+          "status": "passed",
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "/s/tests/healthy.test.ts",
+      "status": "passed",
+      "assertionResults": [
+        {
+          "status": "passed",
+          "failureMessages": []
+        }
+      ]
+    }
+  ]
+}

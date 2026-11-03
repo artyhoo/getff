@@ -5,6 +5,7 @@ kind: understand
 sources:
   - docs/site/learn/stop-a-bad-commit.md
   - docs/site/terms.md
+  - eslint.config.mjs
   - install.sh
   - packages/core/audit-self/check-fences-fire.sh
   - packages/core/audit-self/check-rule-enforced.sh

@@ -27,6 +27,8 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 install_into() { # $1 dir, $2 stack — clean --force install
   printf '{"name":"t507","version":"0.0.0"}\n' > "$1/package.json"
   ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" "$2" --force ) >/dev/null 2>&1
+  RC_P50_232=$?
+  if [ "$RC_P50_232" -eq 0 ]; then ok "r2-glob-reach: install rc=0 (p50-232)"; else bad "r2-glob-reach: install rc=$RC_P50_232, expected 0 (p50-232)"; fi
 }
 # Run the SHIPPED gate (the installed copy, so we test what consumers get). Echoes output; rc via $?.
 gate() { ( cd "$1" && ESLINT_CONFIG="$1/eslint.config.mjs" bash "$1/scripts/check-rule-globs.sh" ) 2>&1; }
@@ -156,6 +158,8 @@ grep -q "CI-orphan" "$LOGN" \
 G=$(mktemp -d); LOGG=$(mktemp)
 printf '{"name":"t507g","version":"0.0.0"}\n' > "$G/package.json"
 ( cd "$G" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) > "$LOGG" 2>&1
+RC_P50_234=$?
+if [ "$RC_P50_234" -eq 0 ]; then ok "r2-glob-reach: install rc=0 (p50-234)"; else bad "r2-glob-reach: install rc=$RC_P50_234, expected 0 (p50-234)"; fi
 grep -qw "globals" "$LOGG" \
   && ok "#3: installed dev-dep set includes 'globals' (the eslint.config.mjs import is satisfied)" \
   || bad "#3: 'globals' missing from the installed dev-dep set → ERR_MODULE_NOT_FOUND on strict installs"
@@ -541,6 +545,8 @@ JS
 f11_install() { # $1 = dir, $2 = log
   f11_borrow "$1"
   ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) > "$2" 2>&1
+  RC_P50_235=$?
+  [ "$RC_P50_235" = 0 ] || bad "r2-glob-reach: helper install rc=$RC_P50_235, expected 0 (p50-235)"
   f11_unborrow "$1"
 }
 f11_not_wired() { awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[:space:]]*$/{exit} on' "$1"; }

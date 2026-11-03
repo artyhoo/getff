@@ -280,7 +280,8 @@
           ".agents/roles/shipped-agent-liveness-prober.md",
           ".agents/rules/ai-laziness-traps.md",
           ".agents/rules/no-paid-llm-in-ci.md",
-          ".agents/rules/reviewer-discipline.md"
+          ".agents/rules/reviewer-discipline.md",
+          ".agents/rules/test-quality-contracts.md"
         ]
       },
       "example": null

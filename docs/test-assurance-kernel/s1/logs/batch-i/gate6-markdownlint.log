@@ -1,0 +1,23 @@
+# GATE 6 (Batch I, final content): markdownlint + wc -l over the s1 md set + rule file
+# Generated: 2026-10-08T17:14:12Z
+
+== wc -l ==
+   579 docs/test-assurance-kernel/s1/batches.md
+   208 docs/test-assurance-kernel/s1/cold-review.md
+   128 docs/test-assurance-kernel/s1/dispositions.md
+    65 docs/test-assurance-kernel/s1/honest-limits.md
+    41 docs/test-assurance-kernel/s1/matrix.md
+    64 docs/test-assurance-kernel/s1/corpus-register.md
+    91 docs/test-assurance-kernel/s1/replay-commands.md
+    60 docs/test-assurance-kernel/s1/prior-art.md
+    97 .agents/rules/test-quality-contracts.md
+  1333 total
+
+== markdownlint-cli2 ==
+markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)
+Finding: docs/test-assurance-kernel/s1/**/*.md .agents/rules/test-quality-contracts.md
+Linting: 10 files
+Summary: 0 issues in 0 files
+GATE6_EXIT=0
+
+== 600-line gate: max file = batches.md 579/600 (under); content preserved under the gate via whitespace-only joins verified earlier

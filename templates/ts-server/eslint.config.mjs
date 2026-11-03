@@ -207,11 +207,11 @@ export default defineConfig(
   // 5. Test files — relax strict rules, enable test-specific ones
   {
     files: [
-      '**/*.{test,spec}.{ts,tsx}',
+      '**/*.{test,spec,unit,audit,integration}.{ts,tsx}',
       '**/__tests__/**',
       'tests/**/*.{ts,tsx}',
     ],
-    plugins: { vitest: vitestPlugin },
+    plugins: { vitest: vitestPlugin, 'rules-as-tests': customRules },
     rules: {
       ...vitestPlugin.configs.recommended.rules,
       'no-console': 'off',
@@ -229,6 +229,12 @@ export default defineConfig(
       'vitest/no-standalone-expect': 'error',
       'vitest/prefer-to-be': 'error',
       'vitest/valid-expect': 'error',
+
+      // Q1/Q2 test-quality metachecks (decidable syntax only — see the
+      // `declared_scope` notes in each rule's meta.docs; semantic test-quality
+      // remainder routes to the review channel, not these detectors).
+      'rules-as-tests/no-vacuous-assertion': 'error',
+      'rules-as-tests/require-effective-assertion': 'error',
     },
   },
 

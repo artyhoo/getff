@@ -527,6 +527,24 @@
       "example": null
     },
     {
+      "name": "test-quality-contracts",
+      "kind": "rule",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "the test-quality policy contract — §1 the channel map, §2 what",
+      "source": {
+        "path": ".agents/rules/test-quality-contracts.md",
+        "line": 18
+      },
+      "extras": {
+        "class": "A",
+        "fires": "editing test suites, metachecks, configurations, or assurance evidence.",
+        "channels": "paths:(7), edit-time inject"
+      },
+      "example": null
+    },
+    {
       "name": "zcode-parity-doctrine",
       "kind": "rule",
       "shipsTo": {

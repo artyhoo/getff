@@ -37,6 +37,8 @@ T=$(mktemp -d)
     && printf '{"name":"g934d","version":"0.0.0"}\n' > package.json \
     && git add -A && git commit -q -m base \
     && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$T/.log" 2>&1
+RC_P50_122=$?
+if [ "$RC_P50_122" -eq 0 ]; then ok "gh-934-ship-project-agnostic-hooks: install rc=0 (p50-122)"; else bad "gh-934-ship-project-agnostic-hooks: install rc=$RC_P50_122, expected 0 (p50-122)"; fi
 
 H="$T/.claude/hooks"
 S="$T/.claude/settings.json"
@@ -82,6 +84,8 @@ grep -q 'inject-project-digest' <<<"$_ss" && grep -q 'inject-project-digest' <<<
 # ── ARM (D): idempotency + migration of a legacy per-prompt registration ──────
 _seed_legacy
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$T/.log2" 2>&1
+RC_P50_123=$?
+if [ "$RC_P50_123" -eq 0 ]; then ok "gh-934-ship-project-agnostic-hooks: install rc=0 (p50-123)"; else bad "gh-934-ship-project-agnostic-hooks: install rc=$RC_P50_123, expected 0 (p50-123)"; fi
 _n=$(jq '(.hooks.SessionStart // []) | map(.hooks[].command) | map(select(test("inject-project-digest"))) | length' "$S")
 _nu=$(jq '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | map(select(test("inject-project-digest"))) | length' "$S")
 { [ "$_n" = 1 ] && [ "$_nu" = 0 ]; } && ok "(D) re-install over a legacy per-prompt registration → one SessionStart entry, none on UserPromptSubmit" \
@@ -130,6 +134,8 @@ jq '.hooks.SessionStart |= (map(select((.hooks[].command | test("inject-project-
 _seed_legacy
 # BF is already filled (arm E) — refresh must NOT clobber it.
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >"$T/.log3" 2>&1
+RC_P50_124=$?
+if [ "$RC_P50_124" -eq 0 ]; then ok "gh-934-ship-project-agnostic-hooks: install rc=0 (p50-124)"; else bad "gh-934-ship-project-agnostic-hooks: install rc=$RC_P50_124, expected 0 (p50-124)"; fi
 _ups2=$(jq -r '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | join("|")' "$S")
 _ss2=$(jq -r --arg m "$MATCH" '(.hooks.SessionStart // []) | map(select(.matcher == $m) | .hooks[].command) | join("|")' "$S")
 _sas2=$(jq -r '(.hooks.SubagentStart // []) | map(.hooks[].command) | join("|")' "$S")

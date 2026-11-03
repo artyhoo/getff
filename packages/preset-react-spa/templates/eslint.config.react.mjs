@@ -180,11 +180,9 @@ export default defineConfig(
       // react-hooks v6: recommended-latest enables all compiler rules for the installed 6.x minor.
       // v6.0.x config is a plain object; v6.1+ config is an array — spread rules version-safely.
       // NOTE: Compiler rules live in react-hooks/ namespace. Do NOT install eslint-plugin-react-compiler.
-      ...(
-        Array.isArray(reactHooksPlugin.configs['recommended-latest'])
-          ? reactHooksPlugin.configs['recommended-latest'][0]?.rules
-          : reactHooksPlugin.configs['recommended-latest']?.rules
-      ),
+      ...(Array.isArray(reactHooksPlugin.configs['recommended-latest'])
+        ? reactHooksPlugin.configs['recommended-latest'][0]?.rules
+        : reactHooksPlugin.configs['recommended-latest']?.rules),
       'react-hooks/exhaustive-deps': 'error', // upgrade: recommended is 'warn', we enforce 'error'
 
       ...jsxA11y.flatConfigs.recommended.rules,
@@ -267,6 +265,21 @@ export default defineConfig(
     plugins: { 'rules-as-tests': customRules },
     rules: {
       'rules-as-tests/require-error-boundary': 'error',
+    },
+  },
+
+  // Q1/Q2 test-quality metachecks on test-bearing files (decidable syntax only —
+  // semantic test-quality remainder routes to the review channel, not these detectors).
+  {
+    files: [
+      '**/*.{test,spec,unit,audit,integration}.{ts,tsx}',
+      '**/__tests__/**',
+      'tests/**/*.{ts,tsx}',
+    ],
+    plugins: { 'rules-as-tests': customRules },
+    rules: {
+      'rules-as-tests/no-vacuous-assertion': 'error',
+      'rules-as-tests/require-effective-assertion': 'error',
     },
   },
 

@@ -1,0 +1,26 @@
+# T7 adversarial category sweep — counter-prompt executed, probes run raw — 2026-10-08
+
+Counter-prompt (run at the CATEGORY level, per T4/T7): «The S1 class list is Q1–Q6 +
+wrong-import. What tautology / weak-oracle category did it miss, and would the shipped
+static lane catch it?» Probe rig: minimal flat config in /tmp/s1-t7-probes importing the
+REAL built rule twins (`packages/core/eslint-rules/*.mjs`); each probe run with the real
+eslint binary from the probe dir (`--no-config-lookup -c config.mjs` — the first attempt
+from the repo root returned «File ignored because outside of base path», exit 0, for every
+probe including the control; re-run from the probe dir before reading ANY result).
+
+| Probe | Category | Result (raw) | Disposition |
+|---|---|---|---|
+| p0 control: `expect(true).toBe(true)` | Q1 (in-list control) | exit=1, `no-vacuous-assertion` fires | control CAUGHT — proves the rig is live (a no-op detector cannot catch it) |
+| p1 snapshot-only suite | snapshot obsolescence | exit=0, not caught | OUTSIDE S1 classes — semantic staleness; S2 candidate (honest limit) |
+| p2 wholesale `it.skip` | runner-level skip blindness | exit=0, not caught by the STATIC lane | runner channel: vitest reports skipped tests (Batch F suite log shows «1 skipped»); S2 candidate — runner-level gate, not a static claim |
+| p3 bare `toThrow()` (no arg) | throws-anything pseudo-assertion | exit=0, not caught | `toThrow()` IS an expect call → Q2's decidable contract satisfied; message-matching is semantic; S2 candidate |
+| p4 unawaited promise, NO assertion | plain Q2 | exit=1, `require-effective-assertion` fires | CAUGHT — inside the declared contract |
+| p5 mock-only (`vi.fn` + `toHaveBeenCalled`) | mock-only assertion | exit=0, not caught | semantic mock fidelity → review channel (review-sidecar §1 already carries the mock-only dimension) |
+| p6 unawaited promise WITH expect inside `.then` | fire-and-forget pseudo-async | exit=0, not caught | honest limit: presence-based Q2 cannot decide awaiting; S2 candidate (runner-level: vitest fails on unhandled rejection, not here) |
+
+Yield: 2 caught (p0, p4 — both inside the declared decidable contracts), 5 not caught →
+each recorded as an S2 candidate or review-routed in `honest-limits.md`
+(`outside-S1-class candidates`). No probe was added to the frozen corpus or
+`expectations.json` (the S1 class list is closed by the kickoff; widening is S2's reviewed
+scope). Probes live in disposable `/tmp/s1-t7-probes/` — deliberately NOT in-repo test
+material, so no runner discovers them.

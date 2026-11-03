@@ -1,0 +1,330 @@
+{
+  "version": 1,
+  "frozen_at": "2026-10-08",
+  "frozen_from": "docs/superpowers/specs/2026-10-08-test-assurance-kernel-design.md §5 Q-table + keep-list semantics; authored BEFORE any S1 detector output existed (batches.md Phase 1; the rules named below did not exist at freeze time)",
+  "change_policy": "any post-freeze change requires a batch note in docs/test-assurance-kernel/s1/batches.md saying why, and an independent-freeze receipt in s1/cold-review.md",
+  "rules": {
+    "no-vacuous-assertion": {
+      "plugin": "rules-as-tests",
+      "messageId": "vacuousAssertion",
+      "q": "Q1",
+      "declared_scope": "static, decidable syntax only: expect(<literal-only pure expression>).<matcher...> inside a test body; // audit:exempt line exclusion; NO dataflow claims"
+    },
+    "require-effective-assertion": {
+      "plugin": "rules-as-tests",
+      "messageId": "noEffectiveAssertion",
+      "q": "Q2",
+      "declared_scope": "static, decidable syntax only: it/test callback bodies must contain an effective-assertion call (expect*/assert*/verify*-named); skipped/todo/fails variants exempt; // audit:exempt line exclusion; NO claim that a recognized name asserts substantively"
+    }
+  },
+  "channel_map": {
+    "Q1": "static-eslint (no-vacuous-assertion); fabricated-status sibling also evidenced by executed conformance",
+    "Q2": "static-eslint (require-effective-assertion)",
+    "Q3": "counterfactual-audit over pinned reached faults (Batch D) — static rules make NO claim (no AST dataflow)",
+    "Q4": "executed-conformance against real subprocess outcomes (Batch C)",
+    "Q5": "executed-conformance through the real structural gate (Batch C)",
+    "Q6": "delivery-conformance through the real emitted artifact (Batch E)",
+    "wrong-import": "review-channel-only: named cold-review protocol + blocking dispositions queue — honest limit, no gate claim"
+  },
+  "cases": [
+    {
+      "id": "q1/bad.literal-identity",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "reject", "require-effective-assertion": "admit" },
+      "expectation": "reject",
+      "diagnostic": "rules-as-tests/no-vacuous-assertion"
+    },
+    {
+      "id": "q1/bad.literal-arithmetic",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/bad.literal-arithmetic.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "reject", "require-effective-assertion": "admit" },
+      "expectation": "reject",
+      "diagnostic": "rules-as-tests/no-vacuous-assertion"
+    },
+    {
+      "id": "q1/bad.string-literal-identity",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/bad.string-literal-identity.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "reject", "require-effective-assertion": "admit" },
+      "expectation": "reject",
+      "diagnostic": "rules-as-tests/no-vacuous-assertion"
+    },
+    {
+      "id": "q1/bad.negated-literal",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/bad.negated-literal.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "reject", "require-effective-assertion": "admit" },
+      "expectation": "reject",
+      "diagnostic": "rules-as-tests/no-vacuous-assertion"
+    },
+    {
+      "id": "q1/bad.fabricated-status",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/bad.fabricated-status.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "reject", "require-effective-assertion": "admit" },
+      "expectation": "reject",
+      "diagnostic": "rules-as-tests/no-vacuous-assertion"
+    },
+    {
+      "id": "q1/good.constant-on-subject",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/good.constant-on-subject.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "note": "legitimate constant expected value on a real call subject (spec §5 keep-list)"
+    },
+    {
+      "id": "q1/good.intentional-fixture-exempt",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/good.intentional-fixture-exempt.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "note": "admitted via the // audit:exempt line token — the tested exclusion required by spec §5 Q1"
+    },
+    {
+      "id": "q1/good.snapshot-contract",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/good.snapshot-contract.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "note": "legitimate snapshot/structural contract (spec §5 keep-list)"
+    },
+    {
+      "id": "q1/good.structural-schema",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/good.structural-schema.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "note": "legitimate structural/schema contract (spec §5 keep-list)"
+    },
+    {
+      "id": "q1/good.parity-test",
+      "path": "scripts/test-assurance/corpus/q1-vacuous/good.parity-test.ts",
+      "class": "q1-vacuous",
+      "q": "Q1",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "note": "legitimate parity test; parity-correctness limit recorded in honest-limits.md"
+    },
+    {
+      "id": "q2/bad.comment-only",
+      "path": "scripts/test-assurance/corpus/q2-noassertion/bad.comment-only.ts",
+      "class": "q2-noassertion",
+      "q": "Q2",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "reject" },
+      "expectation": "reject",
+      "diagnostic": "rules-as-tests/require-effective-assertion"
+    },
+    {
+      "id": "q2/bad.empty-body",
+      "path": "scripts/test-assurance/corpus/q2-noassertion/bad.empty-body.ts",
+      "class": "q2-noassertion",
+      "q": "Q2",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "reject" },
+      "expectation": "reject",
+      "diagnostic": "rules-as-tests/require-effective-assertion"
+    },
+    {
+      "id": "q2/bad.console-only",
+      "path": "scripts/test-assurance/corpus/q2-noassertion/bad.console-only.ts",
+      "class": "q2-noassertion",
+      "q": "Q2",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "reject" },
+      "expectation": "reject",
+      "diagnostic": "rules-as-tests/require-effective-assertion"
+    },
+    {
+      "id": "q2/bad.await-without-assert",
+      "path": "scripts/test-assurance/corpus/q2-noassertion/bad.await-without-assert.ts",
+      "class": "q2-noassertion",
+      "q": "Q2",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "reject" },
+      "expectation": "reject",
+      "diagnostic": "rules-as-tests/require-effective-assertion"
+    },
+    {
+      "id": "q2/good.helper-assertions",
+      "path": "scripts/test-assurance/corpus/q2-noassertion/good.helper-assertions.ts",
+      "class": "q2-noassertion",
+      "q": "Q2",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "note": "legitimate helper assertion — assert*-named call (spec §5 keep-list); helper substance is an honest limit"
+    },
+    {
+      "id": "q2/good.async-assertions",
+      "path": "scripts/test-assurance/corpus/q2-noassertion/good.async-assertions.ts",
+      "class": "q2-noassertion",
+      "q": "Q2",
+      "channel": "static-eslint",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "note": "legitimate async assertion (spec §5 keep-list)"
+    },
+    {
+      "id": "q3/subject",
+      "path": "scripts/test-assurance/corpus/q3-copied-predicate/subject.ts",
+      "class": "fixture",
+      "q": "Q3",
+      "channel": "fixture-not-a-test",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "fixture",
+      "note": "mutation subject for the Batch-D frozen oracle (A06 analogue)"
+    },
+    {
+      "id": "q3/bad.recomputed-expectation",
+      "path": "scripts/test-assurance/corpus/q3-copied-predicate/bad.recomputed-expectation.ts",
+      "class": "q3-copied-predicate",
+      "q": "Q3",
+      "channel": "counterfactual-audit",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "reject-by-counterfactual",
+      "diagnostic": "survives the pinned reached faults (Batch D counterfactual records) — its claimed assurance is rejected",
+      "note": "static rules make NO claim here (no AST-dataflow); the static admissions are the honest-limit record"
+    },
+    {
+      "id": "q3/bad.same-predicate-both-sides",
+      "path": "scripts/test-assurance/corpus/q3-copied-predicate/bad.same-predicate-both-sides.ts",
+      "class": "q3-copied-predicate",
+      "q": "Q3",
+      "channel": "counterfactual-audit",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "reject-by-counterfactual",
+      "diagnostic": "survives the pinned reached faults (Batch D counterfactual records) — its claimed assurance is rejected"
+    },
+    {
+      "id": "q3/good.pinned-expectation",
+      "path": "scripts/test-assurance/corpus/q3-copied-predicate/good.pinned-expectation.ts",
+      "class": "q3-copied-predicate",
+      "q": "Q3",
+      "channel": "counterfactual-audit",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "diagnostic": "kills every pinned reached fault (Batch D counterfactual records)"
+    },
+    {
+      "id": "q4/bad.ignored-exit",
+      "path": "scripts/test-assurance/corpus/q4-ignored-exit/bad.ignored-exit.ts",
+      "class": "q4-ignored-exit",
+      "q": "Q4",
+      "channel": "executed-conformance",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "reject",
+      "diagnostic": "executed conformance (Batch C): must PASS under the real runner against the real exit-42 subprocess — the observed pass while the status is ignored is the demonstrated gap the conformance arm rejects"
+    },
+    {
+      "id": "q4/good.asserted-exit",
+      "path": "scripts/test-assurance/corpus/q4-ignored-exit/good.asserted-exit.ts",
+      "class": "q4-ignored-exit",
+      "q": "Q4",
+      "channel": "executed-conformance",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "diagnostic": "executed conformance (Batch C): flips the fixture exit code 42→0 and requires this file to go RED (sensitivity) while the bad companion stays green"
+    },
+    {
+      "id": "q5/bad.circular-phrase",
+      "path": "scripts/test-assurance/corpus/q5-self-source/bad.circular-phrase.ts",
+      "class": "q5-self-source",
+      "q": "Q5",
+      "channel": "executed-conformance",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "reject",
+      "diagnostic": "real-gate conformance (Batch C): the required phrase appears only in the assertion's own source; the gate must reject circular evidence and admit the behavior-backed companion"
+    },
+    {
+      "id": "q5/good.behavior-backed-phrase",
+      "path": "scripts/test-assurance/corpus/q5-self-source/good.behavior-backed-phrase.ts",
+      "class": "q5-self-source",
+      "q": "Q5",
+      "channel": "executed-conformance",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "diagnostic": "real-gate conformance (Batch C): invoked helper + asserted observable effect"
+    },
+    {
+      "id": "q6/bad.disconnected-config",
+      "path": "scripts/test-assurance/corpus/q6-disconnected/bad.disconnected-config.ts",
+      "class": "q6-disconnected",
+      "q": "Q6",
+      "channel": "delivery-conformance",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "reject",
+      "diagnostic": "delivery conformance (Batch E): with the delivered config's rule forced off, the behavioral claim is rejected through the real emitted artifact"
+    },
+    {
+      "id": "q6/good.wired-config",
+      "path": "scripts/test-assurance/corpus/q6-disconnected/good.wired-config.ts",
+      "class": "q6-disconnected",
+      "q": "Q6",
+      "channel": "delivery-conformance",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit",
+      "diagnostic": "delivery conformance (Batch E): reads the delivered eslint config from disk and asserts the rule is wired at error severity"
+    },
+    {
+      "id": "wrong-import/bad.wrong-import",
+      "path": "scripts/test-assurance/corpus/wrong-import/bad.wrong-import.ts",
+      "class": "wrong-import",
+      "q": "review-routed",
+      "channel": "review",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "reject-by-review",
+      "diagnostic": "named cold-review protocol + blocking dispositions queue (honest limit — no syntax gate may claim dataflow)",
+      "note": "static admissions here are the honest-limit record, never a gate claim"
+    },
+    {
+      "id": "wrong-import/good.correct-import",
+      "path": "scripts/test-assurance/corpus/wrong-import/good.correct-import.ts",
+      "class": "wrong-import",
+      "q": "review-routed",
+      "channel": "review",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "admit"
+    },
+    {
+      "id": "wrong-import/delivered",
+      "path": "scripts/test-assurance/corpus/wrong-import/delivered.ts",
+      "class": "fixture",
+      "q": "review-routed",
+      "channel": "fixture-not-a-test",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "fixture"
+    },
+    {
+      "id": "wrong-import/lookalike",
+      "path": "scripts/test-assurance/corpus/wrong-import/lookalike.ts",
+      "class": "fixture",
+      "q": "review-routed",
+      "channel": "fixture-not-a-test",
+      "static": { "no-vacuous-assertion": "admit", "require-effective-assertion": "admit" },
+      "expectation": "fixture"
+    }
+  ]
+}

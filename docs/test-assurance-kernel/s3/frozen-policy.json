@@ -1,0 +1,158 @@
+{
+  "schema": "tak.s3.independent-policy-input/v1",
+  "authority": "Original approved specification sections8-10 and kickoff-s3/s4; owner-supplied test oracle, NOT measured performance",
+  "realEvidenceRule": "No synthetic data may satisfy a real S3/S4 certificate; pure predicate unit fixtures below are explicitly test-only. Normal-run native errors/empty selectors/skips/infrastructure must not become performance PASS or quality detection.",
+  "workloads": [
+    "docs",
+    "rule",
+    "kernel",
+    "fallback"
+  ],
+  "roles": [
+    "frozen",
+    "optimized"
+  ],
+  "trialsPerRoleAndWorkload": 3,
+  "normalTrials": 24,
+  "dominantOrdinaryWorkload": "rule",
+  "dominantReductionFraction": 0.2,
+  "otherRegressionFraction": 0.05,
+  "otherRegressionAbsoluteMs": 1000,
+  "historicalOriginalRuleMedianMs": 538,
+  "historicalOriginalRuleTargetMs": 430.4,
+  "ciExpensiveFullInvocationsMayIncrease": false,
+  "missingOriginal12RawsIsNotAccepted": true,
+  "originalCF37FixtureRedIsNotRebased": true,
+  "qualifiedDated6673ComparisonNotOriginalS0Acceptance": true,
+  "pureMetricCases": [
+    {
+      "id": "ordinary-exact20",
+      "base": [
+        1000,
+        1000,
+        1000
+      ],
+      "current": [
+        800,
+        800,
+        800
+      ],
+      "kind": "dominant",
+      "expected": "PASS"
+    },
+    {
+      "id": "ordinary-insufficient",
+      "base": [
+        1000,
+        1000,
+        1000
+      ],
+      "current": [
+        801,
+        801,
+        801
+      ],
+      "kind": "dominant",
+      "expected": "RED"
+    },
+    {
+      "id": "other-exact1s",
+      "base": [
+        1000,
+        1000,
+        1000
+      ],
+      "current": [
+        2000,
+        2000,
+        2000
+      ],
+      "kind": "other",
+      "expected": "PASS"
+    },
+    {
+      "id": "other-over1s",
+      "base": [
+        1000,
+        1000,
+        1000
+      ],
+      "current": [
+        2001,
+        2001,
+        2001
+      ],
+      "kind": "other",
+      "expected": "RED"
+    },
+    {
+      "id": "other-exact5pct",
+      "base": [
+        30000,
+        30000,
+        30000
+      ],
+      "current": [
+        31500,
+        31500,
+        31500
+      ],
+      "kind": "other",
+      "expected": "PASS"
+    },
+    {
+      "id": "other-over5pct",
+      "base": [
+        30000,
+        30000,
+        30000
+      ],
+      "current": [
+        31501,
+        31501,
+        31501
+      ],
+      "kind": "other",
+      "expected": "RED"
+    },
+    {
+      "id": "missing-trial",
+      "base": [
+        1000,
+        1000,
+        1000
+      ],
+      "current": [
+        800,
+        800
+      ],
+      "kind": "dominant",
+      "expected": "INVALID"
+    },
+    {
+      "id": "nonpositive-duration",
+      "base": [
+        1000,
+        1000,
+        1000
+      ],
+      "current": [
+        0,
+        800,
+        800
+      ],
+      "kind": "dominant",
+      "expected": "INVALID"
+    }
+  ],
+  "requiredNegativeFamilies": [
+    "missing/empty/duplicate trial and zero selection",
+    "real nonzero native exit/signal/timeout/infrastructure",
+    "raw hash/source/fixture/tool/cache/concurrency mismatch",
+    "original missing raw or invalid fixture cannot be green historical baseline",
+    "insufficient20percent and excessive max5percent1s regression",
+    "unknown/missing/renamed/deleted/unregistered Git path",
+    "source-disabled actual consumer caught by frozen outer oracle",
+    "missing/author-self S4 reviews, wrong codeSHA, missing actualCI/delivery/performance"
+  ]
+}

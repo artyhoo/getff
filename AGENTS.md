@@ -57,6 +57,7 @@ One line per rule — full text: read `.agents/rules/<name>.md` (index: `.agents
 | `seat-lifecycle.md` | B | seat birth, self-cleaning handoff, or retirement in a seat session. | paths:(8) |
 | `skill-description-quality.md` | C | authoring/updating any SKILL.md `description` field. | paths:(2), edit-time inject |
 | `source-before-shape.md` | B | creating a new SKILL.md/agent/module, or authoring a dispatch/kickoff. | paths:(5), edit-time inject |
+| `test-quality-contracts.md` | A | editing test suites, metachecks, configurations, or assurance evidence. | paths:(7), edit-time inject |
 | `zcode-parity-doctrine.md` | A | editing hook twins, the harness-config renderer, or zcode-parity decision docs. | paths:(11), edit-time inject |
 <!-- getff:end section=rule-index -->
 

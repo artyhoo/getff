@@ -10,6 +10,7 @@ sources:
   - docs/site/quickstart-ts.md
   - docs/site/reference/B.md
   - docs/site/terms.md
+  - eslint.config.mjs
   - package.json
   - plugin/skills/getff/SKILL.md
   - plugin/skills/installing-enforcement/SKILL.md

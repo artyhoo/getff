@@ -38,6 +38,8 @@ no_husky_init_advice() {
 T=$(mktemp -d)
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 out=$( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force 2>&1 )
+RC_P50_096=$?
+if [ "$RC_P50_096" -eq 0 ]; then ok "f8c-no-husky-init-advice: install rc=0 (p50-096)"; else bad "f8c-no-husky-init-advice: install rc=$RC_P50_096, expected 0 (p50-096)"; fi
 
 if no_husky_init_advice "$out"; then
   ok "pos: install 'Next steps' output advises no 'npx husky init' (only a warning is allowed)"

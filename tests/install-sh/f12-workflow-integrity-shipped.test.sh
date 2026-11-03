@@ -17,6 +17,8 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 T=$(mktemp -d)
 printf '{ "name": "f12t", "version": "0.0.0" }\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_065=$?
+if [ "$RC_P50_065" -eq 0 ]; then ok "f12-workflow-integrity-shipped: install rc=0 (p50-065)"; else bad "f12-workflow-integrity-shipped: install rc=$RC_P50_065, expected 0 (p50-065)"; fi
 
 # F12-pos — the branch-protection self-assertion workflow lands next to ci.yml.
 [ -f "$T/.github/workflows/workflow-integrity.yml" ] \
@@ -29,6 +31,8 @@ printf '{ "name": "f12t", "version": "0.0.0" }\n' > "$T/package.json"
 # react-next stack ships the same self-assertion (R11 applies to both stacks).
 R=$(mktemp -d); printf '{ "name": "f12r", "version": "0.0.0" }\n' > "$R/package.json"
 ( cd "$R" && git init -q && bash "$REPO_ROOT/install.sh" react-next --force ) >/dev/null 2>&1
+RC_P50_066=$?
+if [ "$RC_P50_066" -eq 0 ]; then ok "f12-workflow-integrity-shipped: install rc=0 (p50-066)"; else bad "f12-workflow-integrity-shipped: install rc=$RC_P50_066, expected 0 (p50-066)"; fi
 [ -f "$R/.github/workflows/workflow-integrity.yml" ] \
   && ok "F12: workflow-integrity.yml shipped (react-next)" \
   || bad "F12: workflow-integrity.yml missing (react-next)"

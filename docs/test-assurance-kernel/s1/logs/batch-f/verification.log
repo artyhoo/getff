@@ -1,0 +1,43 @@
+# Batch F verification gates — 2026-10-08T15:29:25Z — HEAD 27211e0de
+
+## gate 1: typecheck (packages/core)
+TSC_EXIT=0
+
+## gate 2: eslint over new driver surfaces (root config; .mts probes measured as-is)
+
+/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/scripts/test-assurance/driver-probes/glv-healthy-rule-probe.mts
+  0:0  warning  File ignored because no matching configuration was supplied
+
+/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/scripts/test-assurance/driver-probes/glv-parse-error-probe.mts
+  0:0  warning  File ignored because no matching configuration was supplied
+
+✖ 2 problems (0 errors, 2 warnings)
+
+ESLINT_EXIT=0
+
+## gate 3: vitest eslint-rules + hooks/checks + principles 51/52/53
+
+ Test Files  29 passed (29)
+      Tests  773 passed | 1 skipped (774)
+   Start at  15:29:30
+   Duration  3.77s (transform 1.59s, setup 521ms, import 7.83s, tests 16.31s, environment 2ms)
+
+VITEST_EXIT=0
+
+## gate 4: shipped-rule twins drift check
+✓ shipped compiled rules in sync with .ts sources (32 checks).
+TWINS_EXIT=0
+
+## gate 5: driver fail-closed grammar (--arm NO-SUCH must exit 3)
+INFRASTRUCTURE-FAILURE: --arm NO-SUCH: no such arm
+NOARM_EXIT=3
+
+## gate 6: markdownlint + 600-line gate over new/changed md
+markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)
+Finding: docs/test-assurance-kernel/s1/cold-review.md docs/test-assurance-kernel/s1/batches.md
+Linting: 2 files
+Summary: 0 issues in 0 files
+MDLINT_EXIT=0
+  441 docs/test-assurance-kernel/s1/batches.md
+  104 docs/test-assurance-kernel/s1/cold-review.md
+  545 total

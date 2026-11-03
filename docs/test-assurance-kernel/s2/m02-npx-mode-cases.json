@@ -1,0 +1,60 @@
+{
+  "scope": "Finite actual npx option profile already promised in M02: --prefix requires its real value and --no-install preserves execution; help/version modes execute no Vitest and unknown/incomplete forms claim no credit. No general parser requirement.",
+  "cases": [
+    {
+      "id": "npx-help-does-not-run-vitest",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npx --prefix packages/core --help vitest run skills/\n",
+      "scripts": {},
+      "expected_filters": []
+    },
+    {
+      "id": "npx-version-does-not-run-vitest",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npx --prefix packages/core --version vitest run skills/\n",
+      "scripts": {},
+      "expected_filters": []
+    },
+    {
+      "id": "missing-prefix-value-followed-by-help-is-not-supported",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npx --prefix --help vitest run skills/\n",
+      "scripts": {},
+      "expected_filters": []
+    },
+    {
+      "id": "known-prefix-vitest-execution-control",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npx --prefix packages/core vitest run packages/core/skills/\n",
+      "scripts": {},
+      "expected_filters": [
+        "skills/"
+      ]
+    },
+    {
+      "id": "known-no-install-prefix-vitest-control",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npx --prefix packages/core --no-install vitest run packages/core/skills/\n",
+      "scripts": {},
+      "expected_filters": [
+        "skills/"
+      ]
+    }
+  ],
+  "real_nonexecution_control_argv": [
+    [
+      "npx",
+      "--prefix",
+      "packages/core",
+      "--help",
+      "vitest",
+      "run",
+      "skills/"
+    ],
+    [
+      "npx",
+      "--prefix",
+      "packages/core",
+      "--version",
+      "vitest",
+      "run",
+      "skills/"
+    ]
+  ],
+  "frozen_before_probe_and_responding_producer_changes": true
+}

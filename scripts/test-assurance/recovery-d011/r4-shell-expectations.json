@@ -1,0 +1,225 @@
+{
+  "kind": "R4 shell-consistency control expectations (frozen, rev 2 — suite-crash companion)",
+  "frozen_against": {
+    "admission": "tak-r4-shell-correction-admission-20261014.json (sha256 9cb857491222668219b38f32355295454479892464edaf002e21b7615eeb78cb)",
+    "intake": "r4-shell-correction/INTAKE.json (input_head 1f2b05f89d2ba2e6f262dbc61b3b8e6263914f71)",
+    "review": "independent-d011-review/D011-SOURCE-REVIEW-REVISE.json (counterexamples D011-R4-SHELL-UNHANDLED, D011-R4-SHELL-INCOMPLETE)",
+    "derivation": "Semantics fixed by admission/INTAKE frozen_expectations + the production classifyVitestReport predicates (Errors-line -> infrastructure; !anyFailedAssertion && (exit!=0||success===false) -> infrastructure; per-file neverExecuted>0||executed===0 -> not-executed, independent of file failure) + the pre-existing whole-suite crash lane (delivery/replay-fences-fire-deletion.sh:61-63 — file failed, zero assertionResults, evidence in the file message asserted via expect_intended). NEVER derived from observed control output.",
+    "frozen_at_utc": "2026-10-14T00:00:00Z",
+    "rev2_note": "rev 2 adds the suite-crash companion arm and the narrow carve-out (executed===0 && tr.status==='failed' && non-empty message) that preserves the fences-fire delivery lane; cx3 stays refused via never>0 regardless of the carve-out (executed=1). Found by the delivery verify step INFRA-ing replay-fences-fire-deletion.sh at the first post-repair tree — the carve-out is evidence-backed by that replay script, not invented."
+  },
+  "input_hashes": {
+    "counterfactual-lib.sh": {
+      "pre_sha256": "0209717d19508a5596fdbd41ba999c425701cd825b52ea8c341900e4ecf6cd7a",
+      "post_sha256": "118b995da9ffa273784b43e14af54eb8414b76861d95f34c896795f8ebde0693"
+    },
+    "driver.mjs": {
+      "pre_sha256": "37b6d938fb11e3b970d8bcdc08d1f3a24ff352b389d74a71b534e08efe5d09d4",
+      "post_sha256": "964b283982bfaaa05c23ccbbe6acaad7915543dc1787122110f5dccb9a291e65"
+    },
+    "expectations-recovery.json": "c40f15a46d960a7b470b2bd4c05bfe830a456138bdb5d22808e12eda1c1e9c94",
+    "classifiers/cx3.json": "11a36b2e3e10b213232ec3f741d434bc576de31ae54bf1ec5013f9d8e222b53a",
+    "fixtures/r4-runner/unhandled.test.ts": "3c720c8e562121acc117ee352ef89427b14f006ac83fa5b5c776b828a8a96798",
+    "fixtures/r4-runner/healthy.test.ts": "a7ee1b5ab2baeb5f7610854f618a7b3b416d5a955699324bd3f27725b277077b",
+    "fixtures/r4-runner/intended-fail.test.ts": "22255207e7b6569454cb2f0928c545b693ef35b455b549c6a239fa877802a050"
+  },
+  "anchors_must_remain_exactly_once": [
+    "    const got = tr.status === \"failed\" ? \"fail\" : \"pass\";\n",
+    "    if (!msgs.some((m) => re.test(m))) {\n"
+  ],
+  "pristine_arms": [
+    {
+      "id": "R4S-REAL-UNHANDLED-REFUSED",
+      "kind": "real-run-refused",
+      "fixture": "unhandled.test.ts",
+      "admission_anchor": "frozen_expectations.real_unhandled — actual Vitest exit1/Errors1 refused as infrastructure, expected shell 3",
+      "expect": {
+        "rc": 3,
+        "out_includes": [
+          "unhandled runner error present (reporter Errors line)"
+        ]
+      }
+    },
+    {
+      "id": "R4S-CX3-STATUS-REFUSED",
+      "kind": "cx3-status-refused",
+      "admission_anchor": "frozen_expectations.cx3 — genuine expect_file_status fail refuses same-file failed+pending, expected shell 1",
+      "expect": {
+        "rc": 1,
+        "out_includes": [
+          "COUNTERFACTUAL-FAIL: one.test.ts was NOT executed (1 never-run, 1 executed assertions)"
+        ]
+      }
+    },
+    {
+      "id": "R4S-CX3-INTENDED-REFUSED",
+      "kind": "cx3-intended-refused",
+      "pattern": "expected true to be false",
+      "admission_anchor": "frozen_expectations.cx3 — genuine expect_intended refuses same-file failed+pending, expected shell 1",
+      "expect": {
+        "rc": 1,
+        "out_includes": [
+          "COUNTERFACTUAL-FAIL: one.test.ts was NOT executed (1 never-run, 1 executed)"
+        ]
+      }
+    },
+    {
+      "id": "R4S-REAL-HEALTHY-ACCEPTED",
+      "kind": "real-run-accepted",
+      "fixture": "healthy.test.ts",
+      "admission_anchor": "frozen_expectations.real_healthy — fully executed healthy genuine runner/status passes, shell 0",
+      "expect": {
+        "rc": 0,
+        "out_includes": [
+          "VITEST-RC",
+          "FILE healthy.test.ts pass",
+          "OK file-status healthy.test.ts=pass"
+        ]
+      }
+    },
+    {
+      "id": "R4S-REAL-INTENDEDFAIL-ACCEPTED",
+      "kind": "real-run-accepted-intended-fail",
+      "fixture": "intended-fail.test.ts",
+      "pattern": "expected 2 to be 3",
+      "admission_anchor": "frozen_expectations.real_intended_failure — completely executed intended-fail runner/status/intended text accepted, shell 0 (Vitest exit1 requires intended failure evidence)",
+      "expect": {
+        "rc": 0,
+        "out_includes": [
+          "FILE intended-fail.test.ts fail",
+          "OK file-status intended-fail.test.ts=fail",
+          "OK intended-assertion intended-fail.test.ts /expected 2 to be 3/"
+        ]
+      }
+    },
+    {
+      "id": "R4S-SUITECRASH-FENCES-ACCEPTED",
+      "kind": "suite-crash-accepted",
+      "admission_anchor": "frozen_expectations real_intended_failure companion + delivery/replay-fences-fire-deletion.sh:61-63 — the whole-suite crash lane (failed file, zero assertionResults, evidence in the file message) stays assertable: status fail + intended text via the message fallback, never a silent pass",
+      "report": {
+        "success": false,
+        "testResults": [
+          {
+            "name": "/r4-replay/plugin-dual-engine.test.ts",
+            "status": "failed",
+            "message": "Error: no-vacuous-assertion: no good fixture — the suite crashed at import (fences-fire deliberate deletion)",
+            "assertionResults": []
+          }
+        ]
+      },
+      "pattern": "no-vacuous-assertion: no good fixture",
+      "expect": {
+        "rc": 0,
+        "out_includes": [
+          "OK file-status plugin-dual-engine.test.ts=fail",
+          "OK intended-assertion plugin-dual-engine.test.ts /no-vacuous-assertion: no good fixture/"
+        ]
+      }
+    }
+  ],
+  "baseline_probe": {
+    "purpose": "Prospective RED evidence against the PRE-repair lib: the three admission defects are OBSERVED as the old acceptance (rc 0) while all legitimate companions (incl. the suite-crash lane) stay green.",
+    "R4S-REAL-UNHANDLED-REFUSED": {
+      "rc": 0,
+      "defect": true,
+      "out_includes": [
+        "FILE unhandled.test.ts pass"
+      ]
+    },
+    "R4S-CX3-STATUS-REFUSED": {
+      "rc": 0,
+      "defect": true,
+      "out_includes": [
+        "OK file-status one.test.ts=fail"
+      ]
+    },
+    "R4S-CX3-INTENDED-REFUSED": {
+      "rc": 0,
+      "defect": true,
+      "out_includes": [
+        "OK intended-assertion one.test.ts /expected true to be false/"
+      ]
+    },
+    "R4S-REAL-HEALTHY-ACCEPTED": {
+      "rc": 0,
+      "defect": false,
+      "out_includes": [
+        "OK file-status healthy.test.ts=pass"
+      ]
+    },
+    "R4S-REAL-INTENDEDFAIL-ACCEPTED": {
+      "rc": 0,
+      "defect": false,
+      "out_includes": [
+        "OK intended-assertion intended-fail.test.ts /expected 2 to be 3/"
+      ]
+    },
+    "R4S-SUITECRASH-FENCES-ACCEPTED": {
+      "rc": 0,
+      "defect": false,
+      "out_includes": [
+        "OK intended-assertion plugin-dual-engine.test.ts /no-vacuous-assertion: no good fixture/"
+      ]
+    },
+    "__expected_defects": 3
+  },
+  "mutants": [
+    {
+      "id": "R4S-MUT-UNHANDLED-PERMISSIVE",
+      "target_arm": "R4S-REAL-UNHANDLED-REFUSED",
+      "from": "    // D011-R4 shell consistency (chief admission 2026-10-14; independent review\n    // counterexamples D011-R4-SHELL-UNHANDLED / D011-R4-SHELL-INCOMPLETE): the\n    // reporter unhandled-error channel is infrastructure — the exact production\n    // classifier predicate (classifyVitestReport Errors-line check) mirrored in\n    // the shell, so a real unhandled rejection is never a pass.\n    if (/(^|\\n)\\s*Errors\\s+[1-9]\\d*/.test(stdout)) {\n      console.error(\"INFRASTRUCTURE-FAILURE: unhandled runner error present (reporter Errors line) — mixed intended-failure+unhandled is infrastructure, never an accepted pass (D011 S1-R6)\");\n      process.exit(3);\n    }\n    // Exit/report consistency: a nonzero runner exit (or success=false) with ZERO\n    // failed assertions AND zero failed files is an unhandled runner error, never a\n    // legitimate outcome. rc=1 WITH failed assertions stays legitimate — the caller\n    // asserts it. The one exempt shape is the pre-existing whole-suite crash lane\n    // (delivery replay-fences-fire-deletion): a FILE that failed at import carries\n    // zero assertionResults and its evidence in the file message — assertable via\n    // expect_intended, never a silent pass (fences-fire lane preserved, D011-R4).\n    let anyFailedAssertion = false;\n    let anyFailedFile = false;\n    for (const tr of results) {\n      anyFailedAssertion = anyFailedAssertion || (tr.assertionResults ?? []).some((a) => a.status === \"failed\");\n      anyFailedFile = anyFailedFile || tr.status === \"failed\";\n    }\n    if (!anyFailedAssertion && !anyFailedFile && (rc !== 0 || parsed.success === false)) {\n      console.error(`INFRASTRUCTURE-FAILURE: runner exit/report inconsistency: rc=${rc} success=${String(parsed.success)} with zero failed assertions and zero failed files — an unhandled runner error is never a pass (D011 S1-R4; whole-suite crashes stay assertable via their file message)`);\n      process.exit(3);\n    }\n",
+      "to": "",
+      "expected_sha256": "daf4a3ad5ca9cbf559c06a3657f89d343db3a5fc53a2354e155f886627786225",
+      "expect_target": {
+        "rc": 0,
+        "out_includes": [
+          "FILE unhandled.test.ts pass"
+        ]
+      },
+      "rationale": "Removes BOTH repaired unhandled-consistency gates (Errors-line + exit/report inconsistency with the whole-suite-crash exemption) — reviewer counterexample D011-R4-SHELL-UNHANDLED returns: a real unhandled runner error (Vitest exit1/Errors1, assertions passed) is credited as a pass. Permissive fault."
+    },
+    {
+      "id": "R4S-MUT-CX3-STATUS-REMASKED",
+      "target_arm": "R4S-CX3-STATUS-REFUSED",
+      "from": "    const got = tr.status === \"failed\" ? \"fail\" : \"pass\";\n    const statuses = (tr.assertionResults ?? []).map((a) => a.status);\n    const executed = statuses.filter((s) => s === \"passed\" || s === \"failed\").length;\n    const never = statuses.filter((s) => s === \"pending\" || s === \"skipped\" || s === \"todo\").length;\n    // D011-R4: same-file incomplete execution is refused regardless of file failure\n    // (A3 cx3: never>0 fires beside failed assertions). The ONE exempt shape is the\n    // whole-suite crash lane — a failed file with zero assertionResults whose evidence\n    // lives in `message`, assertable ONLY through the expect_intended fallback.\n    const suiteCrash = tr.status === \"failed\" && executed === 0\n      && typeof tr.message === \"string\" && tr.message.length > 0;\n    if (never > 0 || (executed === 0 && !suiteCrash)) {\n",
+      "to": "    const got = tr.status === \"failed\" ? \"fail\" : \"pass\";\n    const statuses = (tr.assertionResults ?? []).map((a) => a.status);\n    const executed = statuses.filter((s) => s === \"passed\" || s === \"failed\").length;\n    const never = statuses.filter((s) => s === \"pending\" || s === \"skipped\" || s === \"todo\").length;\n    // D011-R4: same-file incomplete execution is refused regardless of file failure\n    // (A3 cx3: never>0 fires beside failed assertions). The ONE exempt shape is the\n    // whole-suite crash lane — a failed file with zero assertionResults whose evidence\n    // lives in `message`, assertable ONLY through the expect_intended fallback.\n    const suiteCrash = tr.status === \"failed\" && executed === 0\n      && typeof tr.message === \"string\" && tr.message.length > 0;\n    if (tr.status !== \"failed\" && (never > 0 || executed === 0)) {\n",
+      "expected_sha256": "13e5715896c8bfa340008cbd24c3f53b6d1782846267ee6c43b206ec483333cc",
+      "expect_target": {
+        "rc": 0,
+        "out_includes": [
+          "OK file-status one.test.ts=fail"
+        ]
+      },
+      "rationale": "Restores the pre-repair `tr.status !== \"failed\" &&` mask in expect_file_status — counterexample D011-R4-SHELL-INCOMPLETE returns: a failed file with a pending required case is credited as a genuine fail. The suite-crash lane stays green under the mask (file failed) — the pin stays localized to cx3. Permissive fault."
+    },
+    {
+      "id": "R4S-MUT-CX3-INTENDED-REMASKED",
+      "target_arm": "R4S-CX3-INTENDED-REFUSED",
+      "from": "    if (typeof tr.message === \"string\" && tr.message.length > 0) msgs.push(tr.message);\n    const statuses = (tr.assertionResults ?? []).map((a) => a.status);\n    const executed = statuses.filter((s) => s === \"passed\" || s === \"failed\").length;\n    const never = statuses.filter((s) => s === \"pending\" || s === \"skipped\" || s === \"todo\").length;\n    // D011-R4: same carve-out as expect_file_status — cx3 (pending beside a failed\n    // assertion) is refused by never>0; a whole-suite crash (zero assertionResults,\n    // evidence in `message` — the fences-fire lane) matches via the pushed message.\n    const suiteCrash = tr.status === \"failed\" && executed === 0\n      && typeof tr.message === \"string\" && tr.message.length > 0;\n    if (never > 0 || (executed === 0 && !suiteCrash)) {\n",
+      "to": "    if (typeof tr.message === \"string\" && tr.message.length > 0) msgs.push(tr.message);\n    const statuses = (tr.assertionResults ?? []).map((a) => a.status);\n    const executed = statuses.filter((s) => s === \"passed\" || s === \"failed\").length;\n    const never = statuses.filter((s) => s === \"pending\" || s === \"skipped\" || s === \"todo\").length;\n    // D011-R4: same carve-out as expect_file_status — cx3 (pending beside a failed\n    // assertion) is refused by never>0; a whole-suite crash (zero assertionResults,\n    // evidence in `message` — the fences-fire lane) matches via the pushed message.\n    const suiteCrash = tr.status === \"failed\" && executed === 0\n      && typeof tr.message === \"string\" && tr.message.length > 0;\n    if (tr.status !== \"failed\" && (never > 0 || executed === 0)) {\n",
+      "expected_sha256": "c477924d90f6a2b86d46f41ea20c1f48dc49b9abda2ecb6820c40db42d646da4",
+      "expect_target": {
+        "rc": 0,
+        "out_includes": [
+          "OK intended-assertion one.test.ts"
+        ]
+      },
+      "rationale": "Restores the same mask in expect_intended — the cx3 pending case is credited as an intended kill. Permissive fault."
+    },
+    {
+      "id": "R4S-MUT-OVERSTRICT-EXIT1",
+      "target_arm": "R4S-REAL-INTENDEDFAIL-ACCEPTED",
+      "from": "    if (!anyFailedAssertion && !anyFailedFile && (rc !== 0 || parsed.success === false)) {\n",
+      "to": "    if (rc !== 0 || parsed.success === false) {\n",
+      "expected_sha256": "ce14e1995238212c466ebfe9271ceef405c7857c5e0f527c3d77b26934bd5c82",
+      "expect_target": {
+        "rc": 3,
+        "out_includes": [
+          "runner exit/report inconsistency"
+        ]
+      },
+      "rationale": "Drops BOTH exemptions (failed assertions AND failed files) — rc=1 with failed assertions (the completely-executed intended-fail companion, whose Vitest exit 1 is legitimate ONLY with intended-failure evidence) becomes infrastructure. Over-rejection fault proving the exemption is load-bearing. Note: this exact fault was observed live as the delivery-step INFRA on replay-fences-fire-deletion before the carve-out existed."
+    }
+  ],
+  "receipt_final": "R4-SHELL-CONTROL OK (pristine 6/6 incl. the fences-fire suite-crash companion; mutants 4/4 detected with byte-proven restores; input pins verified; expectations-recovery.json untouched)"
+}

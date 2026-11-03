@@ -1,0 +1,12 @@
+# rework round 2 RED — pre-fix driver bytes (git show HEAD:scripts/test-assurance/driver.mjs @ bf498cab6)
+# probe: unparseable driver-expectations.json in a detached scratch worktree; --arm D1-PERM-Q1
+# claim: the pre-fix driver leaks the unexpected exception as exit 1 (the T-TAK-A violation verify.mjs stepDriver misreads as undetected K3/K4)
+
+$ node <scratch-wt>/scripts/test-assurance/driver.mjs --arm D1-PERM-Q1
+    at file:///tmp/s1-r2-red-xOIR/scripts/test-assurance/driver.mjs:117:18
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.23.3
+DRIVER_EXIT=1

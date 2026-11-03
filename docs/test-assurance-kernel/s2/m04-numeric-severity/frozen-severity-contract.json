@@ -1,0 +1,132 @@
+{
+  "kind": "FROZEN_SUPPORTED_NUMERIC_SEVERITY_CONTRACT_BEFORE_RUNTIME_OR_REPAIR",
+  "source_inputs": {
+    "packages/core/synthesizer/merge-eslint-config.ts": "369aa18d98a056d46c1d9ca6220993b5dffae2f91bc46c3d278d6068e45ccc0f",
+    "packages/core/synthesizer/merge-eslint-config.test.ts": "fc8504f9a4d3d44882b321df642b2ba9faaf799bd3f00a6c65c791c2c1baac2f",
+    "packages/core/synthesizer/emit.ts": "d9cc877d462efe3b1ed521acbcc4214b81e5b36089ae336323ea53e160766ac4",
+    "packages/core/synthesizer/synthesize.ts": "4665363832926090fa7a75db166de7780e2248fea9238108ae9e22d81d7d5d81",
+    "packages/core/synthesizer/compile-declarative-md.ts": "b0c8aa4079325ae87f41e09d6d9088cb9d9dff16cd86c908458d90916a346af4",
+    "packages/core/eslint-rules/restricted-syntax-audit-exempt.mjs": "71f115fc4a27dfa2919902d57b609b5bff1f0f8eed69bbf22b698d13d4d41c2b",
+    "package-lock.json": "b0322aee4c6cb0f4c8f4a72ae7c6db94346f856250a5acd6e63eb77535aa3659"
+  },
+  "primary_reference": "https://eslint.org/docs/latest/use/configure/rules#rule-severities",
+  "normative_basis": "ESLint defines numeric2 as error and0 as off. Existing merger explicitly supports numeric severities and preserves error from either input; current source compares only literal string error. Numeric-equivalent behavior is an inference to validate against real emitted artifact and CLI, not an all-configs-must-error policy.",
+  "falsifier": "An authoritative current module contract expressly excluding numeric2 despite its declared numeric tuple support would require contract reconciliation before repair. No such exclusion is established by this note.",
+  "variants": [
+    {
+      "id": "numeric-error-right-of-off",
+      "left": 0,
+      "right": 2,
+      "effective_severity": 2,
+      "bad_exit": 1,
+      "bad_messages": 2
+    },
+    {
+      "id": "numeric-error-right-of-warn",
+      "left": 1,
+      "right": 2,
+      "effective_severity": 2,
+      "bad_exit": 1,
+      "bad_messages": 2
+    },
+    {
+      "id": "numeric-error-left-of-off",
+      "left": 2,
+      "right": 0,
+      "effective_severity": 2,
+      "bad_exit": 1,
+      "bad_messages": 2
+    },
+    {
+      "id": "literal-error-right-of-off",
+      "left": 0,
+      "right": "error",
+      "effective_severity": 2,
+      "bad_exit": 1,
+      "bad_messages": 2
+    },
+    {
+      "id": "explicit-off-remains-off",
+      "left": 0,
+      "right": "off",
+      "effective_severity": 0,
+      "bad_exit": 0,
+      "bad_messages": 0
+    },
+    {
+      "id": "existing-first-warn-without-error",
+      "left": "warn",
+      "right": "off",
+      "effective_severity": 1,
+      "bad_exit": 0,
+      "bad_messages": 2
+    }
+  ],
+  "carriers": [
+    {
+      "rule": "no-restricted-imports",
+      "options_a": [
+        {
+          "paths": [
+            {
+              "name": "m04-blocked-a",
+              "message": "M04_BLOCK_A"
+            }
+          ]
+        }
+      ],
+      "options_b": [
+        {
+          "paths": [
+            {
+              "name": "m04-blocked-b",
+              "message": "M04_BLOCK_B"
+            }
+          ]
+        }
+      ],
+      "bad_source": "import 'm04-blocked-a';\nimport 'm04-blocked-b';\n"
+    },
+    {
+      "rule": "no-restricted-syntax",
+      "options_a": [
+        {
+          "selector": "CallExpression[callee.name=\"blockedA\"]",
+          "message": "M04_BLOCK_A"
+        }
+      ],
+      "options_b": [
+        {
+          "selector": "CallExpression[callee.name=\"blockedB\"]",
+          "message": "M04_BLOCK_B"
+        }
+      ],
+      "bad_source": "blockedA();\nblockedB();\n"
+    },
+    {
+      "rule": "rules-as-tests/restricted-syntax-audit-exempt",
+      "options_a": [
+        {
+          "selector": "CallExpression[callee.name=\"blockedA\"]",
+          "message": "M04_BLOCK_A"
+        }
+      ],
+      "options_b": [
+        {
+          "selector": "CallExpression[callee.name=\"blockedB\"]",
+          "message": "M04_BLOCK_B"
+        }
+      ],
+      "bad_source": "blockedA();\nblockedB();\n"
+    }
+  ],
+  "good_source": "export const allowed = 18;\n",
+  "actual_path": "Actual mergeEslintRuleConfig -> unchanged actual emit -> emitted eslint-rules-snippet.json read by actual ESLint config -> actual CLI on fixed banned/allowed JS fixtures. No copied merge predicate or expected output computed from merged result.",
+  "all_good_exit": 0,
+  "no_parse_or_config_error_credit": true,
+  "historical_A04": "Original forced serialized-off/431-test survivor and accepted P53 actual-disk proof retained; not rerun or replaced by this supported-input boundary. Original remaining installer/family reconciliation stays open.",
+  "M04_used": 1,
+  "cap": 5,
+  "PARTIAL_used": 0,
+  "PARTIAL_cap": 2
+}

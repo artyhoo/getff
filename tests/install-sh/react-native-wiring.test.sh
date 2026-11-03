@@ -82,6 +82,8 @@ esac
 E=$(mktemp -d)
 printf '{ "name": "rnexpo", "version": "0.0.0", "dependencies": { "expo": "~52.0.0", "react-native": "0.76.0" } }\n' > "$E/package.json"
 ( cd "$E" && git init -q && bash "$REPO_ROOT/install.sh" react-native --force ) >/dev/null 2>&1
+RC_P50_236=$?
+if [ "$RC_P50_236" -eq 0 ]; then ok "react-native-wiring: install rc=0 (p50-236)"; else bad "react-native-wiring: install rc=$RC_P50_236, expected 0 (p50-236)"; fi
 if grep -q 'eslint-config-expo' "$E/eslint.config.mjs" 2>/dev/null; then
   ok "A7: Expo project (expo dep) → Expo baseline (eslint-config-expo)"
 else

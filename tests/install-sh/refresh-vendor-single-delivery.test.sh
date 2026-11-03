@@ -41,9 +41,11 @@ PROBE_VENDOR_REL=$(cd "$VENDOR_SRC" && find . -type f -name '*.sh' | head -1 | s
 # consumer's refresh without running the factory profile's guided-install prompt.
 make_consumer() {
   local T
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+  RC_P50_296=$?
+  if [ "$RC_P50_296" -ne 0 ]; then echo ""; return 1; fi
   mkdir -p "$T/.claude/vendor"
   cp -r "$VENDOR_SRC" "$T/$VENDOR_REL"
   echo "$T"
@@ -53,10 +55,20 @@ make_consumer() {
 # ARM 1 — .override.md on the vendor DIRECTORY: consumer bytes survive --refresh
 # ══════════════════════════════════════════════════════════════════════════════
 TC1=$(make_consumer)
+if [ -n "$TC1" ]; then
+  ok "refresh-vendor-single-delivery: make_consumer install rc=0 (p50-296)"
+else
+  bad "refresh-vendor-single-delivery: make_consumer install failed (empty sentinel), expected rc 0 (p50-296)"
+  echo "refresh-vendor-single-delivery: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 printf '# consumer override — Layer 3 (whole vendor tree)\n' > "$TC1/$VENDOR_REL.override.md"
 printf 'CONSUMER_VENDOR_EDIT_ARM_1\n' > "$TC1/$VENDOR_REL/$PROBE_VENDOR_REL"
 printf 'consumer-only\n' > "$TC1/$VENDOR_REL/my-local-note.md"
 OUT_1=$( cd "$TC1" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_297=$?
+if [ "$RC_P50_297" -eq 0 ]; then ok "refresh-vendor-single-delivery: install rc=0 (p50-297)"; else bad "refresh-vendor-single-delivery: install rc=$RC_P50_297, expected 0 (p50-297)"; fi
 
 if grep -qF 'CONSUMER_VENDOR_EDIT_ARM_1' "$TC1/$VENDOR_REL/$PROBE_VENDOR_REL" 2>/dev/null; then
   ok "arm 1: consumer edit under an .override.md'd vendor tree survived --refresh"
@@ -77,8 +89,18 @@ fi
 # neg (LOAD-BEARING): the SAME consumer WITHOUT the override must be refreshed in the same shape —
 # proves arm 1's survival is the override's doing, not a dead vendor arm.
 TC1n=$(make_consumer)
+if [ -n "$TC1n" ]; then
+  ok "refresh-vendor-single-delivery: make_consumer install rc=0 (p50-296)"
+else
+  bad "refresh-vendor-single-delivery: make_consumer install failed (empty sentinel), expected rc 0 (p50-296)"
+  echo "refresh-vendor-single-delivery: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 printf 'CONSUMER_VENDOR_EDIT_ARM_1\n' > "$TC1n/$VENDOR_REL/$PROBE_VENDOR_REL"
 OUT_1n=$( cd "$TC1n" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_298=$?
+if [ "$RC_P50_298" -eq 0 ]; then ok "refresh-vendor-single-delivery: install rc=0 (p50-298)"; else bad "refresh-vendor-single-delivery: install rc=$RC_P50_298, expected 0 (p50-298)"; fi
 if ! grep -qF 'CONSUMER_VENDOR_EDIT_ARM_1' "$TC1n/$VENDOR_REL/$PROBE_VENDOR_REL" 2>/dev/null; then
   ok "arm 1 neg: without the .override.md the same edit IS refreshed away (vendor arm is live)"
 else
@@ -94,10 +116,20 @@ rm -rf "$TC1" "$TC1n"
 # refs verbatim to a consumer, where they dangle and go red on the first pre-push lychee run
 # (the 2026-08-17 CI incident deliver_runtime_bridge_vendor was created to close).
 TC2=$(make_consumer)
+if [ -n "$TC2" ]; then
+  ok "refresh-vendor-single-delivery: make_consumer install rc=0 (p50-296)"
+else
+  bad "refresh-vendor-single-delivery: make_consumer install failed (empty sentinel), expected rc 0 (p50-296)"
+  echo "refresh-vendor-single-delivery: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 # Plant the untransformed shape so the assertion cannot pass just because the source is clean.
 VMD="$TC2/$VENDOR_REL/README.md"
 printf 'see ](../../../README.md) and ](../../../.claude/rules/x.md)\n' > "$VMD"
 OUT_2=$( cd "$TC2" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_299=$?
+if [ "$RC_P50_299" -eq 0 ]; then ok "refresh-vendor-single-delivery: install rc=0 (p50-299)"; else bad "refresh-vendor-single-delivery: install rc=$RC_P50_299, expected 0 (p50-299)"; fi
 if [ -f "$VMD" ] && ! grep -qF '](../../../README.md)' "$VMD"; then
   ok "arm 2: the delivered vendor README carries the internal-ref transform after the refresh"
 else
@@ -116,9 +148,19 @@ rm -rf "$TC2"
 # The old second arm was skipped under --dry-run, so the preview announced a skip while the real
 # run wiped. This arm pins preview == reality on the override path.
 TC3=$(make_consumer)
+if [ -n "$TC3" ]; then
+  ok "refresh-vendor-single-delivery: make_consumer install rc=0 (p50-296)"
+else
+  bad "refresh-vendor-single-delivery: make_consumer install failed (empty sentinel), expected rc 0 (p50-296)"
+  echo "refresh-vendor-single-delivery: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 printf '# consumer override — Layer 3\n' > "$TC3/$VENDOR_REL.override.md"
 printf 'CONSUMER_VENDOR_EDIT_ARM_3\n' > "$TC3/$VENDOR_REL/$PROBE_VENDOR_REL"
 OUT_3=$( cd "$TC3" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
+RC_P50_300=$?
+if [ "$RC_P50_300" -eq 0 ]; then ok "refresh-vendor-single-delivery: install rc=0 (p50-300)"; else bad "refresh-vendor-single-delivery: install rc=$RC_P50_300, expected 0 (p50-300)"; fi
 if grep -qF "$VENDOR_REL" <<<"$(printf '%s\n' "$OUT_3" | grep -F 'would skip')"; then
   ok "arm 3: --dry-run previews a SKIP for the overridden vendor tree"
 else
@@ -131,6 +173,8 @@ else
 fi
 # neg (LOAD-BEARING): the REAL refresh right after must match the preview — skip, not wipe.
 OUT_3r=$( cd "$TC3" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_301=$?
+if [ "$RC_P50_301" -eq 0 ]; then ok "refresh-vendor-single-delivery: install rc=0 (p50-301)"; else bad "refresh-vendor-single-delivery: install rc=$RC_P50_301, expected 0 (p50-301)"; fi
 if grep -qF 'CONSUMER_VENDOR_EDIT_ARM_3' "$TC3/$VENDOR_REL/$PROBE_VENDOR_REL" 2>/dev/null; then
   ok "arm 3 neg: the real refresh did what --dry-run promised (preview is faithful)"
 else

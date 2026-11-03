@@ -1,0 +1,108 @@
+RECOVERY-DRIVER repo=/Users/art/.codex/worktrees/2a8a/rules-as-tests-aif
+RECOVERY-DRIVER expectations=2026-10-14 arms=14
+RECOVERY pinned inputs verified: 6 probes, 26 population fixtures, 2 q3 companions, k3 runners
+== recovery arm SUP-R1-INVOC-GLV (permissive, K=K3/K5, scope=be84-stable) — carrier packages/core/hooks/checks/guard-liveness.ts ==
+OBS OK SUP-R1-INVOC-GLV/pristine probe=glv-population-probe.mts rc=0 want="GLV-DETECT recovery-d011-population/bad.vacuous.test.ts" :: 
+OBS OK SUP-R1-INVOC-GLV/pristine probe=glv-population-probe.mts rc=0 want="GLV-CLEAN recovery-d011-population/good.assertive.test.ts" :: 
+PATCH SUP-R1-INVOC-GLV sha256=cf3c27839569223e996e126ffae0b95ac9926051b71bea2ebf88e84e5987e5f1 occurrences=1 before=8bff9b80290a after=135bb178ef85
+OBS OK SUP-R1-INVOC-GLV/mutant probe=glv-population-probe.mts rc=0 want="GLV-NODETECT-ALL" not-want="GLV-DETECT recovery-d011-population/bad.vacuous.test.ts" :: with the invocation gone, zero bad fixtures are detected — the disconnected gate observed, not inferred
+RECOVERY-ARM SUP-R1-INVOC-GLV DETECTED
+== recovery arm SUP-R2-GLV-GLOB (permissive, K=K6, scope=post-SB2 (amended region bytes)) — carrier packages/core/hooks/checks/guard-liveness.ts ==
+OBS OK SUP-R2-GLV-GLOB/pristine probe=glv-population-probe.mts rc=0 want="GLV-DETECT recovery-d011-population/bad.vacuous.test.mts" :: 
+OBS OK SUP-R2-GLV-GLOB/pristine probe=glv-population-probe.mts rc=0 want="GLV-DETECT recovery-d011-population/bad.vacuous.test.cts" :: 
+PATCH SUP-R2-GLV-GLOB sha256=e98dd2fadb9d47d88b749cd5517105cc906abcaff2877f752ce176fc1874d8fa occurrences=1 before=8bff9b80290a after=70ad4d02c488
+OBS OK SUP-R2-GLV-GLOB/mutant probe=glv-population-probe.mts rc=0 want="GLV-FAILCLOSED recovery-d011-population/bad.vacuous.test.cts" :: selected-but-unmatched must FAIL CLOSED (guard intact, corrected F1 derivation) — never the be84 silent clean. OBSERVED SHAPE (dry-run 2026-10-11): the gate returns on the FIRST uncovered selected file, and .cts sorts before .mts, so the refusal line names cts; never the be84 silent clean
+RECOVERY-ARM SUP-R2-GLV-GLOB DETECTED
+== recovery arm SUP-R2-FAILCLOSED (permissive, K=K6, scope=post-SB2 (amended region bytes)) — carrier packages/core/hooks/checks/guard-liveness.ts ==
+OBS OK SUP-R2-FAILCLOSED/pristine probe=glv-population-probe.mts rc=0 want="GLV-DETECT recovery-d011-population/bad.vacuous.test.mts" :: 
+PATCH SUP-R2-FAILCLOSED sha256=925cdc5fd36c0873c37063be969c30c926114fe1b20b2eb399356b1cb56cf735 occurrences=1 before=8bff9b80290a after=e980c2cb0895
+OBS OK SUP-R2-FAILCLOSED/mutant probe=glv-population-probe.mts rc=0 want="GLV-CLEAN recovery-d011-population/bad.vacuous.test.mts" not-want="GLV-FAILCLOSED recovery-d011-population/bad.vacuous.test.mts" :: the archived silent-clean hole reproduced verbatim — with .ts still detected, proving selection ran and mts alone was missed
+OBS OK SUP-R2-FAILCLOSED/mutant probe=glv-population-probe.mts rc=0 want="GLV-DETECT recovery-d011-population/bad.vacuous.test.ts" :: 
+RECOVERY-ARM SUP-R2-FAILCLOSED DETECTED
+== recovery arm SUP-R2-SELECTOR-NAME (permissive, K=K6, scope=post-SB2 (widened selector companion byte)) — carrier packages/core/hooks/checks/guard-liveness.ts ==
+OBS OK SUP-R2-SELECTOR-NAME/pristine probe=glv-population-probe.mts rc=0 want="GLV-DETECT recovery-d011-population/bad.vacuous.unit.ts" :: 
+OBS OK SUP-R2-SELECTOR-NAME/pristine probe=glv-population-probe.mts rc=0 want="GLV-DETECT recovery-d011-population/bad.vacuous.audit.ts" :: 
+OBS OK SUP-R2-SELECTOR-NAME/pristine probe=glv-population-probe.mts rc=0 want="GLV-DETECT recovery-d011-population/bad.vacuous.integration.ts" :: 
+PATCH SUP-R2-SELECTOR-NAME sha256=fb6ed19f4c977f1b1bf66dbb94552231649813a822cce509d02e66eefda93dda occurrences=1 before=8bff9b80290a after=67bf5c7cda58
+OBS OK SUP-R2-SELECTOR-NAME/mutant probe=glv-population-probe.mts rc=0 want="GLV-CLEAN recovery-d011-population/bad.vacuous.unit.ts" not-want="GLV-DETECT recovery-d011-population/bad.vacuous.unit.ts" :: the name-axis hole observed: an unselected bad file is silently clean
+OBS OK SUP-R2-SELECTOR-NAME/mutant probe=glv-population-probe.mts rc=0 want="GLV-DETECT recovery-d011-population/bad.vacuous.test.ts" :: .test still detected — selection itself ran
+RECOVERY-ARM SUP-R2-SELECTOR-NAME DETECTED
+== recovery arm SUP-R2-ROOT-TESTS-DIR (permissive, K=K6, scope=post-SB2-companion (amended-2 location glob byte)) — carrier eslint.config.mjs ==
+OBS OK SUP-R2-ROOT-TESTS-DIR/pristine probe=carrier-enforcement-probe.mts rc=0 want="CARRIER-ENF root tests-dir carrier-a5-probe/tests/plain-vacuous.ts ENFORCED rule=rules-as-tests/no-vacuous-assertion" :: 
+PATCH SUP-R2-ROOT-TESTS-DIR sha256=ca222621da2d6e46624a004b1780b20da15381e029c313d1d5e167f47ce30cc6 occurrences=1 before=af6b5e37e8d0 after=b99f225817de
+OBS OK SUP-R2-ROOT-TESTS-DIR/mutant probe=carrier-enforcement-probe.mts rc=1 (documented crash-after-verdict shape) want="CARRIER-ENF root tests-dir carrier-a5-probe/tests/plain-vacuous.ts WRONGENF rule=null" not-want="CARRIER-ENF root tests-dir carrier-a5-probe/tests/plain-vacuous.ts ENFORCED" :: the location-axis hole re-opened, OBSERVED SHAPE (dry-run 2026-10-11): with the entry removed ESLint governs the bare tests/ file with NO config block — the only message is the unmatched-file warning (severity 1, ruleId null); the intended rule never fires. dry-run evidence/dryrun-carrier-mutant-roottestsdir.txt
+OBS OK SUP-R2-ROOT-TESTS-DIR/mutant probe=carrier-enforcement-probe.mts rc=1 (documented crash-after-verdict shape) want="CARRIER-ENF root bad-q1 carrier-a5-probe/x.vacuous.test.ts ENFORCED rule=rules-as-tests/no-vacuous-assertion" :: the name axis still enforces — the removal is location-specific
+RECOVERY-ARM SUP-R2-ROOT-TESTS-DIR DETECTED
+== recovery arm SUP-R3-Q2-PERM (permissive, K=K3, scope=be84-stable) — carrier packages/core/eslint-rules/require-effective-assertion.mjs ==
+OBS OK SUP-R3-Q2-PERM/pristine cli files=1 rc=1 want=1 diag=rules-as-tests/require-effective-assertion :: 
+NOTE SUP-R3-Q2-PERM/pristine ast-note :: A1 reachability proof: parsing the frozen corpus file at be84 yields cb.body.type==='BlockStatement' and cb.body.body.length===0 (evidence/a1-estree-body-proof.txt) — the mutant's guard is true on this input
+PATCH SUP-R3-Q2-PERM sha256=cb3a0fc39f99bad8bc4b15a23d324ed4ab093f8195a6f160ae06379f87544c4d occurrences=1 before=70b318104a6e after=052abe8525ba
+OBS OK SUP-R3-Q2-PERM/mutant cli files=1 rc=0 want=0 :: the frozen bad corpus flips green under the fault — permissiveness observed through the real CLI lane (rc flip, no crash: dry-run evidence/.dryrun-a1.txt)
+RECOVERY-ARM SUP-R3-Q2-PERM DETECTED
+== recovery arm SUP-R3-Q1-OVER (over-rejecting, K=K4, scope=be84-stable) — carrier packages/core/eslint-rules/no-vacuous-assertion.mjs ==
+OBS OK SUP-R3-Q1-OVER/pristine cli files=1 rc=0 want=0 :: 
+PATCH SUP-R3-Q1-OVER sha256=4c91258737cc1fc4276be38050d2714f73e230eb7df309d7a6ca01cace0a7e31 occurrences=1 before=55fb8c0ab364 after=33ae2baafe47
+OBS OK SUP-R3-Q1-OVER/mutant cli files=1 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: the frozen good corpus flips red under the fault — over-rejection observed through the real CLI lane
+RECOVERY-ARM SUP-R3-Q1-OVER DETECTED
+== recovery arm SUP-R3-Q3-PERM (permissive, K=K3, scope=be84-stable) — carrier packages/core/principles/52-subprocess-status-conformance.ts ==
+OBS OK SUP-R3-Q3-PERM/pristine probe=p52-judging-probe.mts rc=0 want="P52-REPLAY q4/good.asserted-exit reject ok=false" :: A4 real lane: the killed case (cf flips process.exit(42)->(0), the good companion's assertion fails) is NOT reject-demonstrated pristine — gap-not-demonstrated is the correct verdict
+OBS OK SUP-R3-Q3-PERM/pristine probe=p52-judging-probe.mts rc=0 want="P52-REPLAY q4/bad.ignored-exit reject ok=true" :: A4 causal control: the genuinely surviving case stays reject-demonstrated — the flip is exactly the killed shape
+PATCH SUP-R3-Q3-PERM sha256=1a4a722b6aeb296546f9de3cf99e5685e85ca66dfbc35bbb7ee27dcc49be5b6b occurrences=1 before=90fb7157e106 after=49ca3da1777b
+OBS OK SUP-R3-Q3-PERM/mutant probe=p52-judging-probe.mts rc=0 want="P52-REPLAY q4/good.asserted-exit reject ok=true" not-want="P52-REPLAY q4/good.asserted-exit reject ok=false" :: a case KILLED by the real counterfactual replay credited reject-demonstrated — the Q3 predicate weakened, observed through the exported evaluateExecutedExpectation on a REAL replay observation
+RECOVERY-ARM SUP-R3-Q3-PERM DETECTED
+== recovery arm SUP-R3-P52-EVAL-OVER (over-rejecting, K=K4, scope=be84-stable) — carrier packages/core/principles/52-subprocess-status-conformance.ts ==
+OBS OK SUP-R3-P52-EVAL-OVER/pristine probe=p52-judging-probe.mts rc=0 want="P52-EVAL admit-intended ok=true" :: 
+OBS OK SUP-R3-P52-EVAL-OVER/pristine probe=p52-judging-probe.mts rc=0 want="P52-EVAL admit-unintended ok=false" :: control: a kill without the intended assertion never admits (pristine)
+PATCH SUP-R3-P52-EVAL-OVER sha256=230aa04de4f18342a6e7f18bcb3d626f06a524b581b8d2c83621f672b60bdfb1 occurrences=1 before=90fb7157e106 after=da61a76d0344
+OBS OK SUP-R3-P52-EVAL-OVER/mutant probe=p52-judging-probe.mts rc=0 want="P52-EVAL admit-intended ok=false" not-want="P52-EVAL admit-intended ok=true" :: the good Q4/Q6 companion's kill rejected — over-rejection observed
+OBS OK SUP-R3-P52-EVAL-OVER/mutant probe=p52-judging-probe.mts rc=0 want="P52-EVAL admit-unintended ok=true" :: the mirrored permissive side-flip under the same fault
+RECOVERY-ARM SUP-R3-P52-EVAL-OVER DETECTED
+== recovery arm SUP-R3-P52-WEAK (permissive, K=K3/K7, scope=post-SB1 (amended-2 region bytes)) — carrier packages/core/principles/52-subprocess-status-conformance.ts ==
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CLASS unhandled.test.ts infrastructure-failure" :: 
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CLASS skipped.test.ts not-executed" :: 
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CLASS intended-fail.test.ts detection" :: 
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CLASS healthy.test.ts pass" :: 
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CLASS MIXED unhandled+intended-fail infrastructure-failure" :: F6 mixed control through the REAL pair run (report bytes archived: fixtures/r4-runner/reports/mixed.report.json)
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CLASS PASSSKIP healthy+skipped not-executed" :: F6 passed+required-skip control (reports/passskip.report.json)
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CX cx1 passed+required-pending not-executed" :: A3: the coordinator's exact counterexample input refused under the amended grammar
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CX cx2 intendedfail+notexecuted infrastructure-failure" :: A3: the coordinator's exact cx2 report carries no testResults — fail closed; the well-formed completion cx2b covers the literal combination
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CX cx2b intendedfail+skipped-sibling not-executed" :: A3: well-formed cx2 completion — not-executed BEFORE detection credit
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CTRL malformed-total infrastructure-failure" :: 
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CTRL malformed-success infrastructure-failure" :: 
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CTRL malformed-file-status infrastructure-failure" :: 
+OBS OK SUP-R3-P52-WEAK/pristine probe=r4-runner-probe.mts rc=0 want="R4-CTRL malformed-assertion-status infrastructure-failure" :: 
+PATCH SUP-R3-P52-WEAK sha256=ada297742daa06eefcfc7675bd527fc7b31ac515b55f92e09a5da45c4ba5ac66 occurrences=1 before=90fb7157e106 after=17421dd42551
+OBS OK SUP-R3-P52-WEAK/mutant probe=r4-runner-probe.mts rc=0 want="R4-CLASS unhandled.test.ts pass" :: the archived hole reproduced through the real runVitest under the fault
+OBS OK SUP-R3-P52-WEAK/mutant probe=r4-runner-probe.mts rc=0 want="R4-CLASS MIXED unhandled+intended-fail detection" :: the F6 false-detection hole reproduced: anyFail overrides the unhandled error under the reverted grammar
+OBS OK SUP-R3-P52-WEAK/mutant probe=r4-runner-probe.mts rc=0 want="R4-CLASS skipped.test.ts pass" :: the A3 hole reproduced: be84 counts zero-executed files as pass (the coordinator's cx1 channel)
+RECOVERY-ARM SUP-R3-P52-WEAK DETECTED
+== recovery arm SUP-R3-P53-DELIVERY-PERM (permissive, K=K5, scope=be84-stable) — carrier packages/core/principles/53-delivery-discovery-conformance.ts ==
+OBS OK SUP-R3-P53-DELIVERY-PERM/pristine probe=p53-scenario-probe.mts rc=0 want="P53-LIVE lane-a-intended delivery-live" :: 
+OBS OK SUP-R3-P53-DELIVERY-PERM/pristine probe=p53-scenario-probe.mts rc=0 want="P53-LIVE lane-b-wrong-reason infrastructure-failure" :: verified pristine lane: parse-error probe input exits 1 without the intended id and is refused
+PATCH SUP-R3-P53-DELIVERY-PERM sha256=468d2f186c2908211aa52da7f8c118ea5c148ced3affbd9fad88ab05a4cde7e2 occurrences=1 before=ba73482c2fb6 after=08d82a8a93d5
+OBS OK SUP-R3-P53-DELIVERY-PERM/mutant probe=p53-scenario-probe.mts rc=0 want="P53-LIVE lane-b-wrong-reason delivery-live" not-want="P53-LIVE lane-b-wrong-reason infrastructure-failure" :: a wrong-reason reject credited as live delivery — the delivery-liveness predicate weakened
+RECOVERY-ARM SUP-R3-P53-DELIVERY-PERM DETECTED
+== recovery arm SUP-R3-P53-DISCOVERY-PERM (permissive, K=K6, scope=be84-stable) — carrier packages/core/principles/53-delivery-discovery-conformance.ts ==
+OBS OK SUP-R3-P53-DISCOVERY-PERM/pristine probe=p53-scenario-probe.mts rc=0 want="P53-DISC ratchet real-corpus orphans=0" :: healthy control: the real principles population has zero orphans through the real include grammar (parseVitestInclude over the real vitest.config.ts)
+OBS OK SUP-R3-P53-DISCOVERY-PERM/pristine probe=p53-scenario-probe.mts rc=0 want="P53-DISC ratchet scratch-orphan orphans=1 module=principles/99-demo.ts" :: causal control: a constructed scratch coreRoot (numbered module, no paired selected test) IS flagged pristine
+PATCH SUP-R3-P53-DISCOVERY-PERM sha256=f5628858ef797e295a80ca8310621dc84482d6e65d57b7286ae8507e58bda147 occurrences=1 before=ba73482c2fb6 after=7262cbd39cb0
+OBS OK SUP-R3-P53-DISCOVERY-PERM/mutant probe=p53-scenario-probe.mts rc=0 want="P53-DISC ratchet scratch-orphan orphans=0" not-want="P53-DISC ratchet scratch-orphan orphans=1" :: the same real scratch-orphan lane reads clean under the fault — the pairing discovery disabled, observed through the actual ratchet over the actual grammar
+RECOVERY-ARM SUP-R3-P53-DISCOVERY-PERM DETECTED
+== recovery arm SUP-R3-P53-DISCOVERY-OVER (over-rejecting, K=K4, scope=be84-stable) — carrier packages/core/principles/53-delivery-discovery-conformance.ts ==
+OBS OK SUP-R3-P53-DISCOVERY-OVER/pristine probe=p53-scenario-probe.mts rc=0 want="P53-DISC reconcile real-corpus mismatches=0" :: healthy control: the real corpus population reconciles exactly against the real expectations.json case paths
+PATCH SUP-R3-P53-DISCOVERY-OVER sha256=ee4e7de3978d2dc69834f3457f850780c8c8de2339fdc212bfe234b5715f3141 occurrences=1 before=ba73482c2fb6 after=c5a152e00b2e
+OBS OK SUP-R3-P53-DISCOVERY-OVER/mutant probe=p53-scenario-probe.mts rc=0 want="P53-DISC reconcile real-corpus mismatches>0" not-want="P53-DISC reconcile real-corpus mismatches=0" :: the healthy registry reads broken — over-rejection observed through the actual reconciliation over the real corpus and registry
+RECOVERY-ARM SUP-R3-P53-DISCOVERY-OVER DETECTED
+== recovery arm SUP-R3-P53-WEAK (permissive, K=K3, scope=be84-stable) — carrier packages/core/principles/53-delivery-discovery-conformance.ts ==
+OBS OK SUP-R3-P53-WEAK/pristine probe=p53-scenario-probe.mts rc=0 want="P53-CF q6-good-wired-config.test.ts fail" :: 
+OBS OK SUP-R3-P53-WEAK/pristine probe=p53-scenario-probe.mts rc=0 want="P53-CF q6-bad-disconnected.test.ts pass" :: 
+PATCH SUP-R3-P53-WEAK sha256=439f36accdbc42c2b4ad1700a4e145dbf949224ea7c313a4fe3b4ecbbed3dd8f occurrences=1 before=ba73482c2fb6 after=ce11f260411d
+OBS OK SUP-R3-P53-WEAK/mutant probe=p53-scenario-probe.mts rc=0 want="P53-CF q6-good-wired-config.test.ts pass" :: the demonstrated kill silently read as survived — P53 gate-weakening observed through the full real delivery scenario
+RECOVERY-ARM SUP-R3-P53-WEAK DETECTED
+== recovery lane A2: GLV population repeatability ==
+A2-OK run1-parent=8eef214687c6 run2-parent=311d8d692257 verdict-lines=26 byte-identical
+== recovery lane A3: pinned classifier replay ==
+A3-OK pinned classifier inputs all match their frozen expectations
+== recovery lane K3: genuine Q3 judging + f71e weakening detection ==
+RECOVERY-FAIL: K3: control RED — K3-ARM-FAIL | Preparing worktree (detached HEAD 8eef214687c) | 
+EXIT=1

@@ -1,0 +1,102 @@
+{
+  "source_head": "24671be0333fc627e72994678129244d5f55b466",
+  "manifest_path": "packages/core/manifest/rules-manifest.json",
+  "manifest_sha256": "9ac59a882852b6cefc2ad19e1c77af95e1cc22374a4970a53c22c7751ecd2153",
+  "existing_ids": [
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R8",
+    "R9",
+    "R10",
+    "R11",
+    "R12",
+    "R13",
+    "R14",
+    "R15",
+    "R16",
+    "R17",
+    "R18",
+    "R19",
+    "R20",
+    "IR1",
+    "IR2",
+    "IR3",
+    "IR4",
+    "IR5",
+    "IR6"
+  ],
+  "intended_two_existing_rule_entries": [
+    {
+      "id": "R21",
+      "check_rule": "rules-as-tests/no-vacuous-assertion",
+      "bad": "it('vacuous', () => { expect(true).toBe(true); });",
+      "good": "it('subject', () => { expect(normalizeStatus('OK')).toBe('ok'); });",
+      "expected_message_id": "vacuousAssertion",
+      "expected_bad_count": 1,
+      "expected_good_count": 0
+    },
+    {
+      "id": "R22",
+      "check_rule": "rules-as-tests/require-effective-assertion",
+      "bad": "it('empty', () => {});",
+      "good": "it('subject', () => { expect(parse('x')).toEqual({}); });",
+      "expected_message_id": "noEffectiveAssertion",
+      "expected_bad_count": 1,
+      "expected_good_count": 0
+    }
+  ],
+  "allowed_schema_stacks": [
+    "ts-server",
+    "react-next"
+  ],
+  "schema_sha256": "54a6da19ee6c9210603d3828849b2f261f4e8fb885d3d7b8b5beda844b6226c3",
+  "owning_contract": "S1 dispositions C4/C5 explicitly queue exactly two existing test-quality lint rules, not the guard-liveness hook itself. Existing schema ESLint registration supports both; no hook-class schema extension needed.",
+  "inherited_premise_correction": "The 26 actual keys are R1..R20 plus IR1..IR6, not R1..R26. Initial wrong assumption was caught by an independent pre-freeze assertion; no record/source was published from it. Next available ordinary IDs R21/R22.",
+  "catalogs": [
+    {
+      "path": "packages/preset-next-15-canonical/RULES.md",
+      "sha256": "6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645",
+      "contains_q1": false,
+      "contains_q2": false
+    },
+    {
+      "path": "packages/preset-next-15-canonical/RULES.react-next.md",
+      "sha256": "2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0",
+      "contains_q1": false,
+      "contains_q2": false
+    },
+    {
+      "path": "packages/preset-react-native/RULES.md",
+      "sha256": "ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31",
+      "contains_q1": false,
+      "contains_q2": false
+    },
+    {
+      "path": "packages/preset-react-native/RULES.react-native.md",
+      "sha256": "e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e",
+      "contains_q1": false,
+      "contains_q2": false
+    },
+    {
+      "path": "packages/preset-react-spa/RULES.md",
+      "sha256": "8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777",
+      "contains_q1": false,
+      "contains_q2": false
+    },
+    {
+      "path": "packages/preset-react-spa/RULES.react-spa.md",
+      "sha256": "652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f",
+      "contains_q1": false,
+      "contains_q2": false
+    }
+  ],
+  "source_effect": false,
+  "source_admission": false,
+  "frozen_before_registry_changes": true,
+  "future_proof": "Normal manifest schema, real guard-liveness two-entry selection, actual bad intended messages and good admission; omit-one-entry source regression caught by independent fixed registry population test; actual emitted/docs parity through stock existing renderer."
+}

@@ -54,7 +54,13 @@ function assertPrinciple4(id: string, rule: RuleEntry): void {
   // Tautology check 1: command-type check that is trivially a no-op
   if (check.type === 'command' && check.command) {
     const cmd = check.command.trim().toLowerCase();
-    if (NOOP_COMMANDS.has(cmd)) {
+    // Only the six known spellings plus a single-line, whitespace-delimited
+    // trailing comment. Quoted hashes, compound and multiline commands retain
+    // the structural floor's limits; command liveness judges actual execution.
+    const knownNoop = [...NOOP_COMMANDS].some((noop) => cmd === noop || (
+      !cmd.includes('\n') && cmd.startsWith(noop) && /^[ \t]+#/.test(cmd.slice(noop.length))
+    ));
+    if (knownNoop) {
       throw new Error(
         `Rule ${id}: check.command is a no-op ("${check.command}"). ` +
           'A no-op command always succeeds and never enforces anything — structural tautology.',
@@ -140,4 +146,36 @@ describe('Principle 4 — No tautology (structural: no-op checks, identical poli
 
     expect(() => assertPrinciple4(firstId, mutated)).toThrow(/tautological example pair/);
   });
+});
+
+describe('A10 — finite known no-op commands with trailing comments', () => {
+  for (const command of [
+    'true # actual enforcement absent',
+    'echo ok # actual enforcement absent',
+    'echo "ok" # actual enforcement absent',
+    "echo 'ok' # actual enforcement absent",
+    ': # actual enforcement absent',
+    'exit 0\t# actual enforcement absent',
+  ]) {
+    it(`A10 rejects the known no-op with a trailing comment: ${command}`, () => {
+      const rule = Object.values(loadManifest())[0];
+      expect(() => assertPrinciple4('A10-comment-noop', {
+        ...rule, check: { type: 'command', command },
+      })).toThrow(/no-op/);
+    });
+  }
+
+  for (const command of [
+    'node scripts/check.js # real check',
+    'true && node scripts/check.js # real check',
+    'echo "ok # quoted data"',
+    'true\nnode scripts/check.js',
+  ]) {
+    it(`A10 preserves commands outside the finite no-op grammar: ${command}`, () => {
+      const rule = Object.values(loadManifest())[0];
+      expect(() => assertPrinciple4('A10-legitimate-command', {
+        ...rule, check: { type: 'command', command },
+      })).not.toThrow();
+    });
+  }
 });

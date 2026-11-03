@@ -20,6 +20,8 @@ assert_stack() {
   local T; T=$(mktemp -d)
   printf '{"name":"f11-%s","version":"0.0.0"}\n' "$stack" > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" "$stack" --force ) >/dev/null 2>&1
+  RC_P50_064=$?
+  [ "$RC_P50_064" = 0 ] || bad "f11-ci-node-version: helper install rc=$RC_P50_064, expected 0 (p50-064)"
   local CI="$T/.github/workflows/ci.yml"
 
   grep -q "node-version-file: '.nvmrc'" "$CI" 2>/dev/null \

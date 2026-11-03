@@ -1,0 +1,25 @@
+{
+  "source_sha256": "8b3de10f55aa7189b3e6edcf53da2912095466c23de6918960e67d6dfda0b9f4",
+  "scope": "Same promised M02/A02 execution-context boundary, now known npm script body rather than workflow run text. Echo/comment script bodies do not execute Vitest. No general shell parser requirement.",
+  "workflow": "jobs:\n  test:\n    steps:\n      - run: npm --prefix packages/core run test:skills\n",
+  "cases": [
+    {
+      "id": "real-vitest-script-body",
+      "script_body": "vitest run skills/",
+      "expected_filters": [
+        "skills/"
+      ]
+    },
+    {
+      "id": "echo-only-vitest-script-body",
+      "script_body": "echo vitest run skills/",
+      "expected_filters": []
+    },
+    {
+      "id": "comment-only-vitest-script-body",
+      "script_body": "# vitest run skills/",
+      "expected_filters": []
+    }
+  ],
+  "frozen_before_probe_and_further_producer_changes": true
+}

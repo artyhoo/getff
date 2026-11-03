@@ -62,7 +62,7 @@
       "bad": "export function isAdult(age: number) { return age >= 18; } // no test",
       "good": "// + isAdult.unit.ts:\nit('returns true for >= 18', () => { expect(isAdult(18)).toBe(true); });"
     },
-    "policy": "Every new public export needs at least one test with a real assertion. No conditional logic in test bodies — use `it.each`. State machines / numeric thresholds: parameterized boundaries. Pure functions: at least one fast-check property.",
+    "policy": "Every new public export needs at least one test with a real assertion. No conditional logic in test bodies — use `it.each`. State machines / numeric thresholds: parameterized boundaries. Pure functions: at least one fast-check property. Automated scope: scripts/audit-r4.ts checks only the matching file and export-name reference. Configured test lint and the actual test runner are separate checks. Assertion relevance, independent expectations and the stated boundary/property obligations retain the existing R4 rules-sidecar/manual review channel; a structural pass does not certify them.",
     "fixture": {
       "setup-script": "mkdir -p src/domain && printf 'export function isAdult(age: number) { return age >= 18; }\\n' > src/domain/age.ts"
     }
@@ -409,6 +409,50 @@
           "message": "Server Action file must start with 'use server' directive at the top of the file (R20)."
         }
       ]
+    }
+  },
+  "R21": {
+    "title": "Non-vacuous test assertions",
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/no-vacuous-assertion"
+    },
+    "examples": {
+      "bad": "it('vacuous', () => { expect(true).toBe(true); });",
+      "good": "it('subject', () => { expect(normalizeStatus('OK')).toBe('ok'); });"
+    },
+    "policy": "Tests MUST assert on computed subject output rather than literal-only values. This syntax floor does not prove behavioral coverage.",
+    "negative-test": {
+      "input": [
+        "it('vacuous', () => { expect(true).toBe(true); });"
+      ],
+      "expect-violation": "vacuousAssertion"
+    }
+  },
+  "R22": {
+    "title": "Effective test assertion presence",
+    "stack": [
+      "ts-server",
+      "react-next"
+    ],
+    "check": {
+      "type": "eslint",
+      "rule": "rules-as-tests/require-effective-assertion"
+    },
+    "examples": {
+      "bad": "it('empty', () => {});",
+      "good": "it('subject', () => { expect(parse('x')).toEqual({}); });"
+    },
+    "policy": "Tests MUST contain at least one effective assertion. Presence is a syntax floor; behavior and oracle independence require separate verification.",
+    "negative-test": {
+      "input": [
+        "it('empty', () => {});"
+      ],
+      "expect-violation": "noEffectiveAssertion"
     }
   },
   "IR1": {

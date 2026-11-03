@@ -256,6 +256,8 @@ if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   # included, stays under assertion.
   printf '%s\n' '/package.json' '/.prettierrc.json' > "$TB/.prettierignore"
   ( cd "$TB" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --profile factory </dev/null ) >/dev/null 2>&1
+  RC_P50_109=$?
+  if [ "$RC_P50_109" -eq 0 ]; then ok "gh-531-shipped-prettier: install rc=0 (p50-109)"; else bad "gh-531-shipped-prettier: install rc=$RC_P50_109, expected 0 (p50-109)"; fi
   # Guard: the factory-only vendor drop MUST actually be present, else the vendor assertions below
   # are vacuously green exactly as they were before this fix (profile regression sentinel).
   [ -d "$TB/.claude/vendor/runtime-bridge" ] \
@@ -303,6 +305,8 @@ if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   # consumer's OWN eslint.config.mjs, deliberately NOT prettier-clean (one long minified line >100c)
   printf 'export default [{ rules: { "no-a": "error", "no-b": "error", "no-c": "error", "no-d": "error", "no-e": "error", "no-f": "error" } }];\n' > "$TC/eslint.config.mjs"
   ( cd "$TC" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+  RC_P50_110=$?
+  if [ "$RC_P50_110" -eq 0 ]; then ok "gh-531-shipped-prettier: install rc=0 (p50-110)"; else bad "gh-531-shipped-prettier: install rc=$RC_P50_110, expected 0 (p50-110)"; fi
   # (1) consumer's own config kept (copy_safe skipped it — non-force)
   grep -q '"no-a"' "$TC/eslint.config.mjs" \
     && ok "consumer-owned eslint.config.mjs kept (copy_safe skipped without --force)" \
@@ -339,6 +343,8 @@ if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   # .prettierrc.json (printWidth:100) survives install — --force would overwrite it with the
   # framework's own singleQuote-only config, silently defeating this arm's whole premise.
   ( cd "$TRN" && git init -q && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >/dev/null 2>&1
+  RC_P50_111=$?
+  if [ "$RC_P50_111" -eq 0 ]; then ok "gh-531-shipped-prettier: install rc=0 (p50-111)"; else bad "gh-531-shipped-prettier: install rc=$RC_P50_111, expected 0 (p50-111)"; fi
   RNMD="$TRN/.ai-factory/ARCHITECTURE.react-native.md"
   [ -f "$RNMD" ] \
     && ok "#884 pos: react-native install ships .ai-factory/ARCHITECTURE.react-native.md" \

@@ -3589,7 +3589,7 @@ merge_canonical_scripts() {
         // specs now mirror CORE_DEVDEPS below EXACTLY — tilde, not caret, where the node-20.19
         // engines floor forced a pin below registry latest (the floor has moved WITHIN a major, so
         // a caret would re-open it). Fourth copy of the same specs lives in
-        // tests/install-sh/f2-hook-activation.test.sh:34 (strict equality).
+        // tests/install-sh/f2-hook-activation.test.sh:36 (strict equality).
         // devDependencies object created if absent.
         const wantDev = {
           "husky": "^9.1.7",

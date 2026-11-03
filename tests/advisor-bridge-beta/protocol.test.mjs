@@ -309,7 +309,8 @@ test('C3: reconcile-lock refuses a lock whose holder process is still alive', ()
 test('path validation: traversal, symlink escape and absolute foreign paths are rejected', () => {
   const e = mkEnv();
   cli(e.mailbox, enrollArgs(e));
-  cli(e.mailbox, ['request', '--work-key', '../escape', '--revision', '1', '--body', 'x'], { expectCode: 4 });
+  const traversal = cli(e.mailbox, ['request', '--work-key', '../escape', '--revision', '1', '--body', 'x'], { expectCode: 4 });
+  assert.equal(traversal.code, 4);
   const outside = mkdtempSync(join(tmpdir(), 'ab-outside-'));
   mkdirSync(join(e.mailbox, 'reports'), { recursive: true });
   symlinkSync(outside, join(e.mailbox, 'reports', 'link'));

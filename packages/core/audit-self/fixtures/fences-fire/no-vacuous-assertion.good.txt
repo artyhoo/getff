@@ -1,0 +1,3 @@
+it('reports deployment', () => {
+  expect(reportStatus(200)).toBe('ok');
+});

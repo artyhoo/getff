@@ -1,3 +1,4 @@
+import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import {
   mergeEslintRuleConfig,
@@ -206,3 +207,136 @@ describe('mergeEslintRuleConfig — B1 closure for synthesizer recipe merge', ()
     expect(merged[0]).toBe('error');
   });
 });
+
+// Literal expected engine severities are independent of the merger output.
+const SUPPORTED_SEVERITY_CASES = [
+  {
+    "id": "numeric-error-right-of-off",
+    "left": 0,
+    "right": 2,
+    "expectedSeverities": [
+      2,
+      2
+    ]
+  },
+  {
+    "id": "numeric-error-right-of-warn",
+    "left": 1,
+    "right": 2,
+    "expectedSeverities": [
+      2,
+      2
+    ]
+  },
+  {
+    "id": "numeric-error-left-of-off",
+    "left": 2,
+    "right": 0,
+    "expectedSeverities": [
+      2,
+      2
+    ]
+  },
+  {
+    "id": "literal-error-right-of-off",
+    "left": 0,
+    "right": "error",
+    "expectedSeverities": [
+      2,
+      2
+    ]
+  },
+  {
+    "id": "explicit-off-remains-off",
+    "left": 0,
+    "right": "off",
+    "expectedSeverities": []
+  },
+  {
+    "id": "existing-first-warn-without-error",
+    "left": "warn",
+    "right": "off",
+    "expectedSeverities": [
+      1,
+      1
+    ]
+  }
+];
+
+const SUPPORTED_SEVERITY_CARRIERS = [
+  {
+    "rule": "no-restricted-imports",
+    "options_a": [
+      {
+        "paths": [
+          {
+            "name": "m04-blocked-a",
+            "message": "M04_BLOCK_A"
+          }
+        ]
+      }
+    ],
+    "options_b": [
+      {
+        "paths": [
+          {
+            "name": "m04-blocked-b",
+            "message": "M04_BLOCK_B"
+          }
+        ]
+      }
+    ],
+    "bad_source": "import 'm04-blocked-a';\nimport 'm04-blocked-b';\n"
+  },
+  {
+    "rule": "no-restricted-syntax",
+    "options_a": [
+      {
+        "selector": "CallExpression[callee.name=\"blockedA\"]",
+        "message": "M04_BLOCK_A"
+      }
+    ],
+    "options_b": [
+      {
+        "selector": "CallExpression[callee.name=\"blockedB\"]",
+        "message": "M04_BLOCK_B"
+      }
+    ],
+    "bad_source": "blockedA();\nblockedB();\n"
+  }
+] as const;
+
+describe.each(SUPPORTED_SEVERITY_CARRIERS)(
+  'supported severity semantics consumed by ESLint: $rule',
+  (carrier) => {
+    it.each(SUPPORTED_SEVERITY_CASES)('$id', (fixture) => {
+      const merged: Record<string, unknown> = {};
+      const sources = new Map<string, string[]>();
+      mergeEslintRuleConfig(
+        merged,
+        { [carrier.rule]: [fixture.left, ...carrier.options_a] },
+        'recipe-a',
+        sources,
+      );
+      mergeEslintRuleConfig(
+        merged,
+        { [carrier.rule]: [fixture.right, ...carrier.options_b] },
+        'recipe-b',
+        sources,
+      );
+      const config: Linter.Config = {
+        languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+        rules: merged as Linter.RulesRecord,
+      };
+      const linter = new Linter();
+      const messages = linter.verify(carrier.bad_source, config, 'subject.js');
+      expect(messages.map((message) => message.severity)).toEqual(
+        fixture.expectedSeverities,
+      );
+      expect(messages.map((message) => message.ruleId)).toEqual(
+        fixture.expectedSeverities.map(() => carrier.rule),
+      );
+      expect(linter.verify('export const allowed = 18;\n', config, 'allowed.js')).toEqual([]);
+    });
+  },
+);

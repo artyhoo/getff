@@ -43,14 +43,18 @@ trap 'rm -rf "${CLEANUP[@]}"' EXIT
 
 # ts_consumer — a flat ts-server consumer after a plain (non --full) install.
 ts_consumer() {
-  local T; T=$(mktemp -d); CLEANUP+=("$T")
+  local T; T=$(mktemp -d) || { echo ""; return 1; }; CLEANUP+=("$T")
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$INSTALL" ts-server < /dev/null ) >/dev/null 2>&1
+  RC_P50_268=$?
+  if [ "$RC_P50_268" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 refresh() {  # refresh <dir> [flags…] → combined output
   local d="$1"; shift
   ( cd "$d" && bash "$INSTALL" --refresh "$@" < /dev/null 2>&1 )
+  RC_P50_269=$?
+  if [ "$RC_P50_269" -ne 0 ]; then echo ""; return 1; fi
 }
 not_wired() {  # stdin: installer output → the lines of its NOT wired summary (print_not_wired, lib.sh)
   awk '/framework piece\(s\) NOT wired/{on=1; next} on && /^      - /{print; next} on && !/^      - /{on=0}'
@@ -59,16 +63,30 @@ not_wired() {  # stdin: installer output → the lines of its NOT wired summary 
 # ══ G1 — deps-hash-check registration ═════════════════════════════════════════════════════════
 echo "▶ G1 deps-hash-check registration"
 T=$(ts_consumer)
+if [ -n "$T" ]; then
+  ok "refresh-rewires: ts_consumer install rc=0 (p50-268)"
+else
+  bad "refresh-rewires: ts_consumer install failed (empty sentinel), expected rc 0 (p50-268)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 S="$T/.claude/settings.json"
 jq '.hooks.UserPromptSubmit |= map(select(([.hooks[].command] | any(test("deps-hash-check"))) | not))' "$S" > "$S.t" && mv "$S.t" "$S"
 grep -q deps-hash-check "$S" && bad "G1 precondition: registration still present after removal" || ok "G1 precondition: registration removed"
 refresh "$T" --dry-run >/dev/null
+RC_P50_269_S01=$?
+if [ "$RC_P50_269_S01" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S01, expected 0 (p50-269)"; fi
 grep -q deps-hash-check "$S" && bad "G1 neg: --dry-run registered the hook" || ok "G1 neg: --dry-run registers nothing"
 refresh "$T" >/dev/null
+RC_P50_269_S02=$?
+if [ "$RC_P50_269_S02" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S02, expected 0 (p50-269)"; fi
 [ "$(jq '[.hooks.UserPromptSubmit[]?.hooks[]?.command | select(test("deps-hash-check"))] | length' "$S")" = 1 ] \
   && ok "G1: --refresh registered deps-hash-check on UserPromptSubmit" \
   || bad "G1: --refresh did not register deps-hash-check: $(jq -c '.hooks.UserPromptSubmit' "$S")"
 refresh "$T" >/dev/null
+RC_P50_269_S03=$?
+if [ "$RC_P50_269_S03" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S03, expected 0 (p50-269)"; fi
 [ "$(jq '[.hooks.UserPromptSubmit[]?.hooks[]?.command | select(test("deps-hash-check"))] | length' "$S")" = 1 ] \
   && ok "G1: a second --refresh registers nothing twice" || bad "G1: duplicate registration after a second --refresh"
 
@@ -76,13 +94,19 @@ refresh "$T" >/dev/null
 echo "▶ G2 core.hooksPath"
 git -C "$T" config --unset core.hooksPath 2>/dev/null || true
 refresh "$T" --dry-run >/dev/null
+RC_P50_269_S04=$?
+if [ "$RC_P50_269_S04" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S04, expected 0 (p50-269)"; fi
 [ -z "$(git -C "$T" config --get core.hooksPath)" ] && ok "G2 neg: --dry-run sets nothing" || bad "G2 neg: --dry-run set core.hooksPath"
 refresh "$T" >/dev/null
+RC_P50_269_S05=$?
+if [ "$RC_P50_269_S05" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S05, expected 0 (p50-269)"; fi
 [ "$(git -C "$T" config --get core.hooksPath)" = .husky ] \
   && ok "G2: --refresh pointed core.hooksPath at .husky" \
   || bad "G2: core.hooksPath='$(git -C "$T" config --get core.hooksPath)' after --refresh (expected .husky)"
 git -C "$T" config core.hooksPath my-hooks
 out=$(refresh "$T")
+RC_P50_269_S06=$?
+if [ "$RC_P50_269_S06" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S06, expected 0 (p50-269)"; fi
 [ "$(git -C "$T" config --get core.hooksPath)" = my-hooks ] \
   && ok "G2: a consumer's own core.hooksPath is kept" || bad "G2: --refresh repointed the consumer's own core.hooksPath"
 grep -qF "framework git hooks (.husky/) — not active: core.hooksPath is already 'my-hooks'" <<<"$out" \
@@ -96,6 +120,8 @@ rm -f "$T/.mcp.json"; : > "$CLAUDE_LOG"
 [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$S")" = "" ] && ok "G8 precondition: a plain install leaves AIF_RECAP_GATE unset" \
   || bad "G8 precondition: AIF_RECAP_GATE already set by a plain install"
 out=$(refresh "$T")
+RC_P50_269_S07=$?
+if [ "$RC_P50_269_S07" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S07, expected 0 (p50-269)"; fi
 [ ! -e "$T/.mcp.json" ] && ok "G3 neg: bare --refresh creates no .mcp.json (the install gates it on --full)" \
   || bad "G3 neg: bare --refresh created .mcp.json"
 [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$S")" = "" ] && ok "G8 neg: bare --refresh leaves AIF_RECAP_GATE unset" \
@@ -103,6 +129,8 @@ out=$(refresh "$T")
 grep -q 'kind=mcp' <<<"$out" && bad "G9 neg: bare --refresh processed the kind=mcp companion rows" \
   || ok "G9 neg: bare --refresh leaves the companion rows alone"
 out=$(refresh "$T" --full)
+RC_P50_269_S08=$?
+if [ "$RC_P50_269_S08" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S08, expected 0 (p50-269)"; fi
 # getff writes context7 as an http remote (setup.d/lib.sh add_getff_mcp_servers, one-button P3 F2).
 [ "$(jq -r '.mcpServers.context7.url // empty' "$T/.mcp.json" 2>/dev/null)" = https://mcp.context7.com/mcp ] \
   && ok "G3: --refresh --full added context7 to .mcp.json" || bad "G3: no context7 in .mcp.json after --refresh --full"
@@ -117,6 +145,8 @@ grep -q 'mcp add' "$CLAUDE_LOG" && bad "G9: a machine-global MCP server was adde
 # A value the consumer set is theirs: an explicit "0" is an opt-out, not a gate to arm.
 jq '.env.AIF_RECAP_GATE = "0"' "$S" > "$S.t" && mv "$S.t" "$S"
 out=$(refresh "$T" --full)
+RC_P50_269_S09=$?
+if [ "$RC_P50_269_S09" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S09, expected 0 (p50-269)"; fi
 [ "$(jq -r '.env.AIF_RECAP_GATE' "$S")" = 0 ] \
   && ok "G8: --refresh --full keeps a consumer's AIF_RECAP_GATE=\"0\"" \
   || bad "G8: --refresh --full overwrote the consumer's AIF_RECAP_GATE=\"0\""
@@ -129,6 +159,8 @@ echo "▶ G5 package.json scripts"
 P="$T/package.json"
 jq 'del(.scripts["check:globs"]) | del(.devDependencies.husky)' "$P" > "$P.t" && mv "$P.t" "$P"
 out=$(refresh "$T")
+RC_P50_269_S10=$?
+if [ "$RC_P50_269_S10" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S10, expected 0 (p50-269)"; fi
 [ "$(jq -r '.scripts["check:globs"] // empty' "$P")" = "bash scripts/check-rule-globs.sh" ] \
   && ok "G5: --refresh merged the missing check:globs script" || bad "G5: check:globs not merged by --refresh"
 [ -z "$(jq -r '.devDependencies.husky // empty' "$P")" ] \
@@ -138,12 +170,16 @@ grep -qF 'devDependency husky (' <<<"$(not_wired <<<"$out")" \
   && ok "G5: the missing husky devDependency is named in the NOT wired summary" \
   || bad "G5: no NOT wired line for the missing husky devDependency"
 cp "$P" "$P.before"; refresh "$T" >/dev/null
+RC_P50_269_S11=$?
+if [ "$RC_P50_269_S11" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S11, expected 0 (p50-269)"; fi
 cmp -s "$P" "$P.before" && ok "G5: a --refresh with nothing to add leaves package.json byte-identical" \
   || bad "G5: --refresh rewrote package.json with nothing to add"
 # `prepare: husky` with no husky behind it fails the consumer's next `npm install` (exit 127): a
 # consumer without the husky devDependency (moved to lefthook, say) gets no `prepare` from a refresh.
 jq 'del(.scripts.prepare)' "$P" > "$P.t" && mv "$P.t" "$P"
 out=$(refresh "$T")
+RC_P50_269_S12=$?
+if [ "$RC_P50_269_S12" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S12, expected 0 (p50-269)"; fi
 [ -z "$(jq -r '.scripts.prepare // empty' "$P")" ] \
   && ok "G5: no husky devDependency → --refresh adds no \`prepare: husky\`" \
   || bad "G5: --refresh added prepare=husky to a package.json without husky (npm install would exit 127)"
@@ -168,6 +204,8 @@ mkdir -p "$T/.github/workflows"
 printf 'name: ci\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n' > "$W"
 cp "$W" "$W.before"
 out=$(refresh "$T")
+RC_P50_269_S13=$?
+if [ "$RC_P50_269_S13" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S13, expected 0 (p50-269)"; fi
 grep -qF 'CI gate check:globs' <<<"$(not_wired <<<"$out")" \
   && ok "G6: --refresh names the CI gate the consumer's workflow lacks" || bad "G6: no NOT wired line for the missing CI gates"
 cmp -s "$W" "$W.before" && ok "G6: the consumer's workflow is not edited" || bad "G6: --refresh edited the consumer's workflow"
@@ -185,8 +223,12 @@ grep -qF "$LIBG" "$C" && bad "G4 precondition: lib glob already in RULE_GLOBS.bo
   || ok "G4 precondition: no lib/ boundary glob before the parse site exists"
 mkdir -p "$T/src/lib"; printf "import { z } from 'zod';\nexport const f = (b: unknown) => z.object({}).parse(b);\n" > "$T/src/lib/input.ts"
 refresh "$T" --dry-run >/dev/null
+RC_P50_269_S14=$?
+if [ "$RC_P50_269_S14" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S14, expected 0 (p50-269)"; fi
 grep -qF "$LIBG" "$C" && bad "G4 neg: --dry-run wrote the glob" || ok "G4 neg: --dry-run writes no glob"
 refresh "$T" >/dev/null
+RC_P50_269_S15=$?
+if [ "$RC_P50_269_S15" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S15, expected 0 (p50-269)"; fi
 grep -qF "$LIBG" "$C" \
   && ok "G4: --refresh added the lib/ parse-site glob to getff's RULE_GLOBS.boundary" \
   || bad "G4: --refresh did not wire R2's boundary glob into getff's eslint.config.mjs"
@@ -199,8 +241,12 @@ mkdir -p "$M/apps/api/src"
 printf '{ "name":"@m/api","devDependencies":{"typescript":"5.6.0"} }\n' > "$M/apps/api/package.json"
 printf 'export default [];\n' > "$M/apps/api/eslint.config.mjs"
 ( cd "$M" && git init -q && bash "$INSTALL" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_270=$?
+if [ "$RC_P50_270" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-270)"; else bad "refresh-rewires: install rc=$RC_P50_270, expected 0 (p50-270)"; fi
 mkdir -p "$M/apps/api/src/routes"; printf 'export const u = 1;\n' > "$M/apps/api/src/routes/users.ts"
 out=$(refresh "$M")
+RC_P50_269_S16=$?
+if [ "$RC_P50_269_S16" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S16, expected 0 (p50-269)"; fi
 grep -qF 'R2 (rules-as-tests/no-unsafe-zod-parse) in apps/api/eslint.config.mjs' <<<"$(not_wired <<<"$out")" \
   && ok "G4: --refresh runs the per-workspace R2 pass (names the consumer's apps/api config)" \
   || bad "G4: the per-workspace R2 pass did not run on --refresh: $(grep -i 'r2' <<<"$out" | tr '\n' '|')"
@@ -254,17 +300,29 @@ _pc_parses() {
     || bad "$2 does not parse as YAML with hooks ${3:-getff-python-pre-push,trailing-whitespace}: $(tail -3 <<<"$got" | tr '\n' '|')"
 }
 py_consumer() {  # $1 = entry body to leave after the marker (pre-fix shape: no end line)
-  local Y; Y=$(mktemp -d); CLEANUP+=("$Y")
+  local Y; Y=$(mktemp -d) || { echo ""; return 1; }; CLEANUP+=("$Y")
   printf '[project]\nname = "demo"\n' > "$Y/pyproject.toml"
   printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n' > "$Y/.pre-commit-config.yaml"
   ( cd "$Y" && git init -q && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  RC_P50_271=$?
+  if [ "$RC_P50_271" -ne 0 ]; then echo ""; return 1; fi
   printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n\n%s\n%s\n' "$MARK" "$1" > "$Y/.pre-commit-config.yaml"
   echo "$Y"
 }
 # The entry sits in column 0 (written before C3, #1935) under the fixture's indented repos: items, so
 # the file is invalid YAML until the entry moves to the items' indent.
 Y=$(py_consumer "$V1_BODY")
+if [ -n "$Y" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 ( cd "$Y" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_272=$?
+if [ "$RC_P50_272" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-272)"; else bad "refresh-rewires: install rc=$RC_P50_272, expected 0 (p50-272)"; fi
 _got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y/.pre-commit-config.yaml")
 [ "$_got" = "$(_ind < "$FRAG")" ] \
   && ok "G7: --refresh replaced a shipped earlier column-0 entry with the current fragment, at the indent of the repos: items" \
@@ -277,12 +335,24 @@ grep -q '^# getff-python-pre-push entry end' "$Y/.pre-commit-config.yaml" \
   || bad "G7: $(grep -cF "$MARK" "$Y/.pre-commit-config.yaml") getff entries after --refresh"
 cp "$Y/.pre-commit-config.yaml" "$Y/pc.before"
 ( cd "$Y" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_273=$?
+if [ "$RC_P50_273" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-273)"; else bad "refresh-rewires: install rc=$RC_P50_273, expected 0 (p50-273)"; fi
 cmp -s "$Y/.pre-commit-config.yaml" "$Y/pc.before" && ok "G7: a second --refresh leaves the file byte-identical" \
   || bad "G7: a second --refresh changed .pre-commit-config.yaml"
 # A consumer edit of getff's entry is theirs: kept byte-identical, named with the reason.
 Y2=$(py_consumer "$(printf '%s\n        args: [--consumer]' "$V1_BODY")")
+if [ -n "$Y2" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 cp "$Y2/.pre-commit-config.yaml" "$Y2/pc.before"
 out=$( cd "$Y2" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_274=$?
+if [ "$RC_P50_274" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-274)"; else bad "refresh-rewires: install rc=$RC_P50_274, expected 0 (p50-274)"; fi
 cmp -s "$Y2/.pre-commit-config.yaml" "$Y2/pc.before" && ok "G7: an edited getff entry is kept as it is" \
   || bad "G7: --refresh overwrote an edited getff entry"
 grep -qF 'getff-python-pre-push entry in .pre-commit-config.yaml — not updated' <<<"$(not_wired <<<"$out")" \
@@ -317,31 +387,79 @@ _stray_item_left() {
 }
 # After a pre-end-line entry (the shape --refresh read as getff's own and rewrote before C6-F3).
 Y3=$(py_consumer "$(printf '%s\n- repo: https://example.invalid/after\n  rev: v1' "$V1_BODY")")
+if [ -n "$Y3" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 cp "$Y3/.pre-commit-config.yaml" "$Y3/pc.before"
 out=$( cd "$Y3" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_275=$?
+if [ "$RC_P50_275" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-275)"; else bad "refresh-rewires: install rc=$RC_P50_275, expected 0 (p50-275)"; fi
 _stray_item_left "$Y3" "a column-0 consumer item after a column-0 earlier entry"
 # After a current column-0 entry with its end line.
 Y11=$(py_consumer "$(printf '%s\n# getff-python-pre-push entry end\n- repo: https://example.invalid/after\n  rev: v1' "$(cat "$FRAG")")")
+if [ -n "$Y11" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 cp "$Y11/.pre-commit-config.yaml" "$Y11/pc.before"
 out=$( cd "$Y11" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_276=$?
+if [ "$RC_P50_276" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-276)"; else bad "refresh-rewires: install rc=$RC_P50_276, expected 0 (p50-276)"; fi
 _stray_item_left "$Y11" "a column-0 consumer item after a current column-0 entry with its end line"
 # Before the entry: the same break, found ahead of getff's entry.
 Y12=$(py_consumer "$V1_BODY")
+if [ -n "$Y12" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n- repo: https://example.invalid/before\n  rev: v1\n\n%s\n%s\n' "$MARK" "$V1_BODY" > "$Y12/.pre-commit-config.yaml"
 cp "$Y12/.pre-commit-config.yaml" "$Y12/pc.before"
 out=$( cd "$Y12" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_277=$?
+if [ "$RC_P50_277" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-277)"; else bad "refresh-rewires: install rc=$RC_P50_277, expected 0 (p50-277)"; fi
 _stray_item_left "$Y12" "a column-0 consumer item before a column-0 earlier entry"
 # After a CURRENT entry at the items' indent, with its end line (train C6 cold review, M2). The entry needs
 # no update, so --refresh took the idempotent no-op path, which returned before the stray-item check: it
 # said «no-op», installed the pre-push stage, and left a file pre-commit cannot load.
 Y14=$(py_consumer "$(printf '%s\n# getff-python-pre-push entry end\n- repo: https://example.invalid/after\n  rev: v1\n  hooks:\n    - id: x' "$(_ind < "$FRAG")")")
+if [ -n "$Y14" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 cp "$Y14/.pre-commit-config.yaml" "$Y14/pc.before"
 out=$( cd "$Y14" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_278=$?
+if [ "$RC_P50_278" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-278)"; else bad "refresh-rewires: install rc=$RC_P50_278, expected 0 (p50-278)"; fi
 _stray_item_left "$Y14" "a column-0 consumer item after a current entry at the items' indent"
 # The same shape as staging's C5-F2 code wrote it: a Y3 file refreshed once by the reconcile without the
 # stray-item check (what the code before C6-F3 was), which moved getff's entry to the items' indent and
 # left the consumer item in column 0; then refreshed by this code, twice.
 Y15=$(py_consumer "$(printf '%s\n- repo: https://example.invalid/after\n  rev: v1' "$V1_BODY")")
+if [ -n "$Y15" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 ( cd "$Y15" && PROJECT_ROOT="$Y15" INSTALL_SH_LIB_ONLY=1 bash -c '
     source "$1/setup.d/lib.sh"; PY_LAYER_LIB_ONLY=1 source "$1/setup.d/45-python.sh"
     _py_precommit_stray_item() { :; }
@@ -353,8 +471,12 @@ _got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry e
   || bad "G7 precondition: the first refresh did not write C5-F2's shape — the arms below prove nothing"
 cp "$Y15/.pre-commit-config.yaml" "$Y15/pc.before"
 out=$( cd "$Y15" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_279=$?
+if [ "$RC_P50_279" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-279)"; else bad "refresh-rewires: install rc=$RC_P50_279, expected 0 (p50-279)"; fi
 _stray_item_left "$Y15" "a file C5-F2's refresh left with a column-0 consumer item"
 out=$( cd "$Y15" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_280=$?
+if [ "$RC_P50_280" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-280)"; else bad "refresh-rewires: install rc=$RC_P50_280, expected 0 (p50-280)"; fi
 _stray_item_left "$Y15" "a second --refresh of that file"
 # pre-commit's own sample style: EVERY repos: item in column 0, which is valid YAML, with a column-0 earlier
 # getff entry and a consumer item after it (train C6 cold review, M3). Column 0 is the items' indent here,
@@ -362,8 +484,18 @@ _stray_item_left "$Y15" "a second --refresh of that file"
 # pre-push stage runs; the next --refresh is the no-op. This pins the `[ -z "$want" ] ||` guards in
 # _py_precommit_reconcile — without them every item of this file reads as a stray one.
 Y13=$(py_consumer "$V1_BODY")
+if [ -n "$Y13" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 printf 'repos:\n-   repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n    -   id: trailing-whitespace\n\n%s\n%s\n-   repo: https://example.invalid/after\n    rev: v1\n' "$MARK" "$V1_BODY" > "$Y13/.pre-commit-config.yaml"
 out=$( cd "$Y13" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_281=$?
+if [ "$RC_P50_281" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-281)"; else bad "refresh-rewires: install rc=$RC_P50_281, expected 0 (p50-281)"; fi
 _got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y13/.pre-commit-config.yaml")
 grep -qF 'updated the getff entry in .pre-commit-config.yaml' <<<"$out" && [ "$_got" = "$(cat "$FRAG")" ] \
   && ok "G7: column-0 repos: items (pre-commit's sample style) — the earlier entry is updated, in column 0" \
@@ -378,6 +510,8 @@ grep -qF 'pre-commit pre-push stage' <<<"$out" && ok "G7: column-0 repos: items 
   || bad "G7: column-0 repos: items — no pre-push stage for a file that loads"
 cp "$Y13/.pre-commit-config.yaml" "$Y13/pc.before"
 out=$( cd "$Y13" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_282=$?
+if [ "$RC_P50_282" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-282)"; else bad "refresh-rewires: install rc=$RC_P50_282, expected 0 (p50-282)"; fi
 cmp -s "$Y13/.pre-commit-config.yaml" "$Y13/pc.before" && grep -qF 'already has the current getff entry' <<<"$out" \
   && ok "G7: column-0 repos: items — a second --refresh is the no-op, byte-identical" \
   || bad "G7: column-0 repos: items — a second --refresh is not the no-op: $(grep -F 'getff entry' <<<"$out" | tr '\n' '|')"
@@ -386,10 +520,20 @@ cmp -s "$Y13/.pre-commit-config.yaml" "$Y13/pc.before" && grep -qF 'already has 
 # fixtures A and A2). Such a line is no stray item: the indented earlier entry is updated like any other.
 for _q in '"' "'"; do
   YQ=$(py_consumer "$V1_BODY")
+  if [ -n "$YQ" ]; then
+    ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+  else
+    bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+    echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+    echo ""; echo "PASS=$PASS FAIL=$FAIL"
+    exit 1
+  fi
   printf 'repos:\n  - repo: https://github.com/psf/black\n    rev: 24.1.0\n    hooks:\n      - id: black\n        name: %sblack\n- formatter%s\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n\n%s\n%s\n' \
     "$_q" "$_q" "$MARK" "$(_ind <<<"$V1_BODY")" > "$YQ/.pre-commit-config.yaml"
   cp "$YQ/.pre-commit-config.yaml" "$YQ/pc.before"
   out=$( cd "$YQ" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+  RC_P50_283=$?
+  if [ "$RC_P50_283" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-283)"; else bad "refresh-rewires: install rc=$RC_P50_283, expected 0 (p50-283)"; fi
   _l="a $_q-quoted name whose second line starts «- » in column 0"
   _got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$YQ/.pre-commit-config.yaml")
   grep -qF 'updated the getff entry in .pre-commit-config.yaml' <<<"$out" && [ "$_got" = "$(_ind < "$FRAG")" ] \
@@ -407,6 +551,14 @@ done
 # closed on their line (with \" and '' inside), and a block scalar whose line starts with a quote, then a
 # real column-0 stray item after the entry — still found.
 YQ=$(py_consumer "$V1_BODY")
+if [ -n "$YQ" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 { cat <<'CFG'
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -423,6 +575,8 @@ CFG
 } > "$YQ/.pre-commit-config.yaml"
 cp "$YQ/.pre-commit-config.yaml" "$YQ/pc.before"
 out=$( cd "$YQ" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_284=$?
+if [ "$RC_P50_284" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-284)"; else bad "refresh-rewires: install rc=$RC_P50_284, expected 0 (p50-284)"; fi
 _stray_item_left "$YQ" "a column-0 consumer item after quotes that open nothing or close on their line"
 # The quote tracker, called directly on files whose loading js-yaml decides (PyYAML SafeLoader and
 # CSafeLoader agree on each). _stray_of <file> — the line _py_precommit_stray_item reports, or nothing.
@@ -521,17 +675,37 @@ _tracker_arm "quotes inside a plain scalar (echo a\":\"b), then a column-0 item"
 - repo: https://example.invalid/after')"
 # An edited entry that already has its end line is kept too.
 Y4=$(py_consumer "$(printf '%s\n        args: [--consumer]\n# getff-python-pre-push entry end' "$(cat "$FRAG")")")
+if [ -n "$Y4" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 cp "$Y4/.pre-commit-config.yaml" "$Y4/pc.before"
 ( cd "$Y4" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_285=$?
+if [ "$RC_P50_285" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-285)"; else bad "refresh-rewires: install rc=$RC_P50_285, expected 0 (p50-285)"; fi
 cmp -s "$Y4/.pre-commit-config.yaml" "$Y4/pc.before" && ok "G7: an edited entry with its end line is kept as it is" \
   || bad "G7: --refresh overwrote an edited entry that has its end line"
 
 # A CRLF file (Windows, autocrlf) is the same entry: matched, never appended a second time. The entry is
 # current and at the items' indent, as the install writes it.
 Y5=$(py_consumer "$(printf '%s\n# getff-python-pre-push entry end' "$(_ind < "$FRAG")")")
+if [ -n "$Y5" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 sed 's/$/\r/' "$Y5/.pre-commit-config.yaml" > "$Y5/crlf" && mv "$Y5/crlf" "$Y5/.pre-commit-config.yaml"
 cp "$Y5/.pre-commit-config.yaml" "$Y5/pc.before"
 ( cd "$Y5" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_286=$?
+if [ "$RC_P50_286" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-286)"; else bad "refresh-rewires: install rc=$RC_P50_286, expected 0 (p50-286)"; fi
 [ "$(grep -c '^# getff-python-pre-push entry — delivered' "$Y5/.pre-commit-config.yaml")" = 1 ] \
   && ok "G7: a CRLF .pre-commit-config.yaml keeps exactly one getff entry" \
   || bad "G7: $(grep -c '^# getff-python-pre-push entry — delivered' "$Y5/.pre-commit-config.yaml") getff entries in a CRLF file after --refresh"
@@ -539,8 +713,18 @@ cmp -s "$Y5/.pre-commit-config.yaml" "$Y5/pc.before" && ok "G7: a current entry 
   || bad "G7: --refresh changed a CRLF file whose getff entry is current"
 # A CRLF file with a shipped earlier entry is updated, and stays CRLF throughout.
 Y6=$(py_consumer "$V1_BODY")
+if [ -n "$Y6" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 sed 's/$/\r/' "$Y6/.pre-commit-config.yaml" > "$Y6/crlf" && mv "$Y6/crlf" "$Y6/.pre-commit-config.yaml"
 ( cd "$Y6" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_287=$?
+if [ "$RC_P50_287" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-287)"; else bad "refresh-rewires: install rc=$RC_P50_287, expected 0 (p50-287)"; fi
 _got=$(tr -d '\r' < "$Y6/.pre-commit-config.yaml" | awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on')
 [ "$_got" = "$(_ind < "$FRAG")" ] && ! grep -qv $'\r$' "$Y6/.pre-commit-config.yaml" \
   && ok "G7: a CRLF file's shipped earlier entry is updated at the items' indent, every line still CRLF" \
@@ -554,11 +738,15 @@ Y7=$(mktemp -d); CLEANUP+=("$Y7")
 printf '[project]\nname = "demo"\n' > "$Y7/pyproject.toml"
 printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n' > "$Y7/.pre-commit-config.yaml"
 ( cd "$Y7" && git init -q && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+RC_P50_288=$?
+if [ "$RC_P50_288" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-288)"; else bad "refresh-rewires: install rc=$RC_P50_288, expected 0 (p50-288)"; fi
 grep -q '^  - repo: local$' "$Y7/.pre-commit-config.yaml" \
   && ok "G7 precondition: the install wrote the entry at the indent of the file's repos: items" \
   || bad "G7 precondition: the install did not indent the entry to the repos: items"
 cp "$Y7/.pre-commit-config.yaml" "$Y7/pc.before"
 out=$( cd "$Y7" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_289=$?
+if [ "$RC_P50_289" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-289)"; else bad "refresh-rewires: install rc=$RC_P50_289, expected 0 (p50-289)"; fi
 cmp -s "$Y7/.pre-commit-config.yaml" "$Y7/pc.before" && ok "G7: --refresh leaves a current indented entry byte-identical" \
   || bad "G7: --refresh changed a file whose indented getff entry is current"
 grep -qF "$_nw_edit" <<<"$(not_wired <<<"$out")" \
@@ -566,7 +754,17 @@ grep -qF "$_nw_edit" <<<"$(not_wired <<<"$out")" \
   || ok "G7: a current indented entry is not named as an edit"
 # An indented earlier entry with no end line (C3 wrote the first fragment that way) is updated in place.
 Y8=$(py_consumer "$(_ind <<<"$V1_BODY")")
+if [ -n "$Y8" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 out=$( cd "$Y8" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_290=$?
+if [ "$RC_P50_290" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-290)"; else bad "refresh-rewires: install rc=$RC_P50_290, expected 0 (p50-290)"; fi
 _got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y8/.pre-commit-config.yaml")
 [ "$_got" = "$(_ind < "$FRAG")" ] && ok "G7: an indented earlier entry is updated to the current fragment, at its indent" \
   || bad "G7: the indented earlier entry is not the current fragment at its indent after --refresh"
@@ -575,11 +773,23 @@ grep -qF "$_nw_edit" <<<"$(not_wired <<<"$out")" \
   || ok "G7: an indented earlier entry is not named as an edit"
 cp "$Y8/.pre-commit-config.yaml" "$Y8/pc.before"
 ( cd "$Y8" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_291=$?
+if [ "$RC_P50_291" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-291)"; else bad "refresh-rewires: install rc=$RC_P50_291, expected 0 (p50-291)"; fi
 cmp -s "$Y8/.pre-commit-config.yaml" "$Y8/pc.before" && ok "G7: a second --refresh leaves the updated indented entry byte-identical" \
   || bad "G7: a second --refresh changed the updated indented entry"
 # The next item of the same sequence, at the entry's indent, does not make the entry an edit.
 Y9=$(py_consumer "$(printf '%s\n  - repo: https://example.invalid/after\n    rev: v1' "$(_ind <<<"$V1_BODY")")")
+if [ -n "$Y9" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 ( cd "$Y9" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_292=$?
+if [ "$RC_P50_292" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-292)"; else bad "refresh-rewires: install rc=$RC_P50_292, expected 0 (p50-292)"; fi
 _got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y9/.pre-commit-config.yaml")
 awk '/^# getff-python-pre-push entry end/{e=1} e && /example.invalid\/after/{f=1} END{exit !f}' "$Y9/.pre-commit-config.yaml" \
   && [ "$_got" = "$(_ind < "$FRAG")" ] \
@@ -588,7 +798,17 @@ awk '/^# getff-python-pre-push entry end/{e=1} e && /example.invalid\/after/{f=1
 # A current entry in column 0 with its end line, under indented items — what --refresh wrote for a
 # pre-#1935 entry before C5-F2 — is moved to the items' indent too, and is then left alone.
 Y10=$(py_consumer "$(printf '%s\n# getff-python-pre-push entry end' "$(cat "$FRAG")")")
+if [ -n "$Y10" ]; then
+  ok "refresh-rewires: py_consumer install rc=0 (p50-271)"
+else
+  bad "refresh-rewires: py_consumer install failed (empty sentinel), expected rc 0 (p50-271)"
+  echo "refresh-rewires: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 out=$( cd "$Y10" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+RC_P50_293=$?
+if [ "$RC_P50_293" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-293)"; else bad "refresh-rewires: install rc=$RC_P50_293, expected 0 (p50-293)"; fi
 _got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y10/.pre-commit-config.yaml")
 [ "$_got" = "$(_ind < "$FRAG")" ] && ok "G7: a current column-0 entry under indented repos: items is rewritten at their indent" \
   || bad "G7: a current column-0 entry under indented repos: items was left in column 0"
@@ -597,6 +817,8 @@ grep -qF "$_nw_edit" <<<"$(not_wired <<<"$out")" \
   && bad "G7: a current column-0 entry is named as an edit" || ok "G7: a current column-0 entry is not named as an edit"
 cp "$Y10/.pre-commit-config.yaml" "$Y10/pc.before"
 ( cd "$Y10" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_294=$?
+if [ "$RC_P50_294" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-294)"; else bad "refresh-rewires: install rc=$RC_P50_294, expected 0 (p50-294)"; fi
 cmp -s "$Y10/.pre-commit-config.yaml" "$Y10/pc.before" && ok "G7: a second --refresh leaves the re-indented entry byte-identical" \
   || bad "G7: a second --refresh changed the re-indented entry"
 
@@ -606,10 +828,20 @@ H=$(mktemp -d); CLEANUP+=("$H")
 printf '{"name":"h","version":"0.0.0","dependencies":{"@hono/zod-openapi":"^0.9.0"}}\n' > "$H/package.json"
 mkdir -p "$H/src"; echo 'export const app = 1;' > "$H/src/app.ts"
 ( cd "$H" && git init -q && bash "$INSTALL" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_295=$?
+if [ "$RC_P50_295" -eq 0 ]; then ok "refresh-rewires: install rc=0 (p50-295)"; else bad "refresh-rewires: install rc=$RC_P50_295, expected 0 (p50-295)"; fi
 grep -qF '<!-- aif:r2-na:begin -->' "$H/.ai-factory/tool-decisions.md" \
   && ok "G4 precondition: a declarative Hono layout has the R2 N/A record" || bad "G4 precondition: no R2 N/A record"
-refresh "$H" >/dev/null; cp "$H/.ai-factory/tool-decisions.md" "$H/td.before"
-refresh "$H" >/dev/null; refresh "$H" >/dev/null
+refresh "$H" >/dev/null
+RC_P50_269_S17=$?
+if [ "$RC_P50_269_S17" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S17, expected 0 (p50-269)"; fi
+cp "$H/.ai-factory/tool-decisions.md" "$H/td.before"
+refresh "$H" >/dev/null
+RC_P50_269_S18=$?
+if [ "$RC_P50_269_S18" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S18, expected 0 (p50-269)"; fi
+refresh "$H" >/dev/null
+RC_P50_269_S19=$?
+if [ "$RC_P50_269_S19" -eq 0 ]; then ok "refresh-rewires: refresh rc=0 (p50-269)"; else bad "refresh-rewires: refresh rc=$RC_P50_269_S19, expected 0 (p50-269)"; fi
 cmp -s "$H/.ai-factory/tool-decisions.md" "$H/td.before" \
   && ok "G4: repeated --refresh leaves tool-decisions.md byte-identical (no blank line per run)" \
   || bad "G4: tool-decisions.md changed across refreshes ($(wc -l < "$H/td.before") → $(wc -l < "$H/.ai-factory/tool-decisions.md") lines)"

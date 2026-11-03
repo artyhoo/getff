@@ -63,9 +63,11 @@ CTRL_REL=".claude/hooks/end-of-turn-reminder.sh"
 # make_consumer — minimal consumer + full ts-server install (non-interactive: stdin closed).
 make_consumer() {
   local T
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+  RC_P50_258=$?
+  if [ "$RC_P50_258" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 
@@ -76,6 +78,14 @@ CONFLICTS_REL=".ai-factory/refresh-conflicts"
 # ARM (a) — diverged file: warning + preserved copy + refreshed to upstream bytes
 # ══════════════════════════════════════════════════════════════════════════════
 TCA=$(make_consumer)
+if [ -n "$TCA" ]; then
+  ok "refresh-divergence-guard: make_consumer install rc=0 (p50-258)"
+else
+  bad "refresh-divergence-guard: make_consumer install failed (empty sentinel), expected rc 0 (p50-258)"
+  echo "refresh-divergence-guard: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 PROBE_A="$TCA/$PROBE_REL"
 if [ ! -f "$PROBE_A" ] || [ ! -f "$TCA/$MANIFEST_REL" ]; then
   bad "arm (a) precondition: install did not deliver $PROBE_REL and/or $MANIFEST_REL"
@@ -96,6 +106,8 @@ else
   SHA8_A=$(hash256 "$PROBE_A"); SHA8_A="${SHA8_A:0:8}"
 
   OUT_A=$( cd "$TCA" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+  RC_P50_259=$?
+  if [ "$RC_P50_259" -eq 0 ]; then ok "refresh-divergence-guard: install rc=0 (p50-259)"; else bad "refresh-divergence-guard: install rc=$RC_P50_259, expected 0 (p50-259)"; fi
 
   # Output: the warning names the dst and the preserved path (ASCII substring + path probe).
   if grep -qF 'overwriting locally-modified file:' <<<"$OUT_A" \
@@ -127,6 +139,14 @@ else
   # neg (LOAD-BEARING): without --refresh the mutation persists — proves the refresh did the
   # overwrite the guard annotates (assertion non-vacuous).
   TCAn=$(make_consumer)
+  if [ -n "$TCAn" ]; then
+    ok "refresh-divergence-guard: make_consumer install rc=0 (p50-258)"
+  else
+    bad "refresh-divergence-guard: make_consumer install failed (empty sentinel), expected rc 0 (p50-258)"
+    echo "refresh-divergence-guard: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+    echo ""; echo "PASS=$PASS FAIL=$FAIL"
+    exit 1
+  fi
   printf 'CONSUMER_DIVERGENCE_MARKER_ARM_A\n' > "$TCAn/$PROBE_REL"
   if grep -qF 'CONSUMER_DIVERGENCE_MARKER_ARM_A' "$TCAn/$PROBE_REL"; then
     ok "arm (a) neg: without --refresh the mutation persists (refresh was the actor, not time)"
@@ -141,7 +161,17 @@ rm -rf "$TCA"
 # ARM (b) — untouched file: NO warning, NO conflicts dir (first-refresh-spam probe)
 # ══════════════════════════════════════════════════════════════════════════════
 TCB=$(make_consumer)
+if [ -n "$TCB" ]; then
+  ok "refresh-divergence-guard: make_consumer install rc=0 (p50-258)"
+else
+  bad "refresh-divergence-guard: make_consumer install failed (empty sentinel), expected rc 0 (p50-258)"
+  echo "refresh-divergence-guard: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 OUT_B=$( cd "$TCB" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_260=$?
+if [ "$RC_P50_260" -eq 0 ]; then ok "refresh-divergence-guard: install rc=0 (p50-260)"; else bad "refresh-divergence-guard: install rc=$RC_P50_260, expected 0 (p50-260)"; fi
 if grep -qF 'overwriting locally-modified file:' <<<"$OUT_B"; then
   bad "arm (b): untouched consumer got divergence claim(s) — first-refresh spam (T-CRI-B): $(printf '%s\n' "$OUT_B" | grep -cF 'overwriting locally-modified file:')"
 else
@@ -165,9 +195,19 @@ rm -rf "$TCB"
 # ARM (c) — pre-manifest consumer: unknown ≠ diverged, zero per-file claims, bytes preserved
 # ══════════════════════════════════════════════════════════════════════════════
 TCC=$(make_consumer)
+if [ -n "$TCC" ]; then
+  ok "refresh-divergence-guard: make_consumer install rc=0 (p50-258)"
+else
+  bad "refresh-divergence-guard: make_consumer install failed (empty sentinel), expected rc 0 (p50-258)"
+  echo "refresh-divergence-guard: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 rm -f "$TCC/$MANIFEST_REL"
 printf 'CONSUMER_DIVERGENCE_MARKER_ARM_C\n' > "$TCC/$PROBE_REL"
 OUT_C=$( cd "$TCC" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_261=$?
+if [ "$RC_P50_261" -eq 0 ]; then ok "refresh-divergence-guard: install rc=0 (p50-261)"; else bad "refresh-divergence-guard: install rc=$RC_P50_261, expected 0 (p50-261)"; fi
 if grep -qF 'overwriting locally-modified file:' <<<"$OUT_C"; then
   bad "arm (c): pre-manifest consumer got divergence claim(s) — a missing entry must be unknown, not diverged"
 else
@@ -192,6 +232,8 @@ if [ -f "$TCC/$MANIFEST_REL" ]; then
   ok "arm (c) neg precondition: refresh re-wrote the manifest (baseline healed)"
   printf 'CONSUMER_DIVERGENCE_MARKER_ARM_C2\n' > "$TCC/$PROBE_REL"
   OUT_C2=$( cd "$TCC" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+  RC_P50_262=$?
+  if [ "$RC_P50_262" -eq 0 ]; then ok "refresh-divergence-guard: install rc=0 (p50-262)"; else bad "refresh-divergence-guard: install rc=$RC_P50_262, expected 0 (p50-262)"; fi
   if grep -qF 'overwriting locally-modified file:' <<<"$OUT_C2" \
     && grep -qF "$PROBE_REL" <<<"$OUT_C2"; then
     ok "arm (c) neg: with a baseline present the same mutation DOES warn (arm c silence was the unknown path)"
@@ -207,12 +249,22 @@ rm -rf "$TCC"
 # ARM (d) — .override.md: unchanged Layer-3 skip path, no conflict copy
 # ══════════════════════════════════════════════════════════════════════════════
 TCD=$(make_consumer)
+if [ -n "$TCD" ]; then
+  ok "refresh-divergence-guard: make_consumer install rc=0 (p50-258)"
+else
+  bad "refresh-divergence-guard: make_consumer install failed (empty sentinel), expected rc 0 (p50-258)"
+  echo "refresh-divergence-guard: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 PROBE_D="$TCD/$PROBE_REL"
 CTRL_D="$TCD/$CTRL_REL"
 printf '# consumer override — Layer 3\n' > "$PROBE_D.override.md"
 printf 'CONSUMER_DIVERGENCE_MARKER_ARM_D\n' > "$PROBE_D"
 printf 'CONSUMER_DIVERGENCE_MARKER_ARM_D\n' > "$CTRL_D"
 OUT_D=$( cd "$TCD" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_263=$?
+if [ "$RC_P50_263" -eq 0 ]; then ok "refresh-divergence-guard: install rc=0 (p50-263)"; else bad "refresh-divergence-guard: install rc=$RC_P50_263, expected 0 (p50-263)"; fi
 if grep -qF 'CONSUMER_DIVERGENCE_MARKER_ARM_D' "$PROBE_D"; then
   ok "arm (d): overridden file kept its consumer bytes (.override.md skip path unchanged)"
 else
@@ -251,11 +303,21 @@ rm -rf "$TCD"
 # ARM (e) — --dry-run: would-flag listed, NOTHING written
 # ══════════════════════════════════════════════════════════════════════════════
 TCE=$(make_consumer)
+if [ -n "$TCE" ]; then
+  ok "refresh-divergence-guard: make_consumer install rc=0 (p50-258)"
+else
+  bad "refresh-divergence-guard: make_consumer install failed (empty sentinel), expected rc 0 (p50-258)"
+  echo "refresh-divergence-guard: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 PROBE_E="$TCE/$PROBE_REL"
 printf 'CONSUMER_DIVERGENCE_MARKER_ARM_E\n' > "$PROBE_E"
 MAN_E_BEFORE=$(mktemp)
 cp "$TCE/$MANIFEST_REL" "$MAN_E_BEFORE"
 OUT_E=$( cd "$TCE" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
+RC_P50_264=$?
+if [ "$RC_P50_264" -eq 0 ]; then ok "refresh-divergence-guard: install rc=0 (p50-264)"; else bad "refresh-divergence-guard: install rc=$RC_P50_264, expected 0 (p50-264)"; fi
 if grep -qF 'would-flag:' <<<"$OUT_E" && grep -qF 'deps-hash-check.sh' <<<"$(printf '%s\n' "$OUT_E" | grep -F 'would-flag:')"; then
   ok "arm (e): --dry-run reports would-flag for the diverged file"
 else
@@ -279,6 +341,8 @@ fi
 # neg (LOAD-BEARING): the real refresh right after DOES warn for the same divergence —
 # the would-flag line predicted a real divergence, not a cosmetic string.
 OUT_E2=$( cd "$TCE" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_265=$?
+if [ "$RC_P50_265" -eq 0 ]; then ok "refresh-divergence-guard: install rc=0 (p50-265)"; else bad "refresh-divergence-guard: install rc=$RC_P50_265, expected 0 (p50-265)"; fi
 if grep -qF 'overwriting locally-modified file:' <<<"$OUT_E2" \
   && grep -qF 'deps-hash-check.sh' <<<"$(printf '%s\n' "$OUT_E2" | grep -F 'overwriting locally-modified file:')"; then
   ok "arm (e) neg: the real refresh warns for exactly the file --dry-run would-flagged (preview is faithful)"

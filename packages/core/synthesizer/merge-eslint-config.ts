@@ -6,9 +6,9 @@
 //
 // Strategy:
 // - 'no-restricted-imports' has a known shape ['severity', { paths: [...] }]
-//   → merge paths[] arrays, dedupe by `name`; severity = 'error' if either side is 'error'.
+//   → merge paths[] arrays, dedupe by `name`; severity = 'error' if either side is 'error' or numeric 2.
 // - 'no-restricted-syntax' has shape ['severity', ...selectorEntries]
-//   → concat selector entries, dedupe by `selector`; severity = 'error' if either side is 'error'.
+//   → concat selector entries, dedupe by `selector`; severity = 'error' if either side is 'error' or numeric 2.
 //   This is the carrier for the declarative forbid tier (multiple data-driven
 //   structural forbids on one ESLint rule), so the merge is load-bearing, not optional.
 // - Every other rule: collision is treated as authoring error and throws.
@@ -58,6 +58,10 @@ function isRestrictedImportsTuple(value: unknown): value is RestrictedImportsCon
   return Array.isArray(value) && value.length >= 1;
 }
 
+function isErrorSeverity(value: unknown): boolean {
+  return value === 'error' || value === 2;
+}
+
 function mergeNoRestrictedImports(
   a: unknown,
   b: unknown,
@@ -79,7 +83,7 @@ function mergeNoRestrictedImports(
     if (!dedup.has(p.name)) dedup.set(p.name, p);
   }
   const severity =
-    sevA === 'error' || sevB === 'error' ? 'error' : sevA;
+    isErrorSeverity(sevA) || isErrorSeverity(sevB) ? 'error' : sevA;
   return [severity, { paths: Array.from(dedup.values()) }];
 }
 
@@ -114,7 +118,7 @@ function mergeNoRestrictedSyntax(
     const key = restrictedSyntaxSelector(e);
     if (!dedup.has(key)) dedup.set(key, e);
   }
-  const severity = sevA === 'error' || sevB === 'error' ? 'error' : sevA;
+  const severity = isErrorSeverity(sevA) || isErrorSeverity(sevB) ? 'error' : sevA;
   return [severity, ...Array.from(dedup.values())];
 }
 

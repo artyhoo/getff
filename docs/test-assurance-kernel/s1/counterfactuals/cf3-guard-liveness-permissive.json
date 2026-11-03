@@ -1,0 +1,41 @@
+{
+  "recordId": "cf3-guard-liveness-permissive",
+  "schema": "tak-s1-counterfactual/1 (spec §6 minimal counterfactual fields)",
+  "obligationId": "KERNEL-guard-liveness (fresh kernel-subject fault, arm 1: permissive matchesViolation fallthrough)",
+  "sourceSha": "2b45e109e8523532744858448204d6545665ed29",
+  "carrier": "packages/core/hooks/checks/guard-liveness.ts — mutated ONLY inside a DETACHED SCRATCH WORKTREE (git worktree add --detach at HEAD, pattern packages/core/audit-self/pre-merge-local.sh:240); main checkout never mutated",
+  "deliveryEdge": "real vitest 4.1.8 run of the kernel's own suite (hooks/checks/guard-liveness.test.ts) inside the scratch worktree; reachability probed by direct tsx call of the exported runRuleLiveness",
+  "fixtureHash": {
+    "guard-liveness.ts HEAD blob (= worktree pre-image)": "b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48",
+    "guard-liveness.ts post-patch": "baba8728963862a580b2ba5f947f01a0f521ae90e34a61b72e51064b7e585f3b"
+  },
+  "testIds": [
+    "guard-liveness.test.ts > PAIRED-NEGATIVE: non-violating negative-test input returns fail status [GLV-1] (recorded suite fixture; uses a CLEAN zero-message input)"
+  ],
+  "faultPatch": {
+    "label": "cf3: guard-liveness matchesViolation permissive (return false -> return true)",
+    "sha256(label\\nfrom\\nto)": "6da3c1c1a80ae38acdc0f56d201277de4f3f1b5ad7eeef617ed7264dfe5aa877",
+    "appliedExactlyOnce": true
+  },
+  "reachabilityObservation": {
+    "method": "REACHABILITY IS INPUT-SHAPE-DEPENDENT (found by static reading of runRuleLiveness, guard-liveness.ts:154-156, BEFORE the run, then proven empirically): the roundtrip config enables exactly one rule, so the only possible messages are violations of that rule (matched unconditionally by the line-93 guard) or FATAL PARSE ERRORS (ruleId null — the only message class reaching the fallthrough); a clean zero-message input never invokes the matcher. Probe input: 'const totally = ;'. tsx probe calls runRuleLiveness directly: 'PROBE status=pass' under the mutant vs 'PROBE status=fail' pristine (failures JSON shows got [{\"rule\":null}])",
+    "evidence": "OK probe /tmp/s1-cf3-AT2cA9/probe-kernel-subject.mts → PROBE status=pass"
+  },
+  "baselineResult": "guard-liveness suite pass in the pristine scratch worktree (vitest JSON: file pass) + healthy probe 'PROBE status=fail'",
+  "mutantResult": {
+    "guard-liveness.test.ts": "pass — SUITE SURVIVED (VITEST-RC counterfactual 0)",
+    "intendedFailedAssertion": "NONE — not killed. CF3-SUITE-OUTCOME survived, reproduced identically on the second run",
+    "gapAnalysis": "the recorded GLV-1 fixture's negative-test input is clean code producing ZERO lint messages, so messages.some(matchesViolation) over an empty array never reaches the mutated fallthrough; the suite therefore cannot distinguish this mutant even though the fault is real and reachable (probe flips)"
+  },
+  "restoredResult": "git checkout -- in scratch worktree + sha256 equality with the HEAD blob (RESTORED packages/core/hooks/checks/guard-liveness.ts sha256=b05a4eb9…) + probe back to 'PROBE status=fail' + scratch suite pass; main checkout proven clean (git status --porcelain on the kernel file = empty); worktree removed",
+  "finalBaselineResult": "guard-liveness suite pass re-run in the MAIN checkout post-experiment (VITEST-RC final 0); report artifacts cleaned up",
+  "runtimeSeconds": 4,
+  "determinism": "run twice (logs below); both exit 0, both emit CF3-SUITE-OUTCOME survived",
+  "classification": "survived",
+  "classificationNote": "NOT equivalent — the fault is reachable and observable via the direct probe (status fail→pass on a parse-error input); the declared suite simply never reaches the fallthrough. Recorded as an honest detection gap (reached-not-killed), routed to docs/test-assurance-kernel/s1/dispositions.md as a blocking queue item; spec §6: non-killed classifications cannot inflate sensitivity",
+  "replayCommand": "bash scripts/test-assurance/counterfactuals/replay-cf3-guard-liveness-permissive.sh",
+  "evidenceLogs": [
+    "docs/test-assurance-kernel/s1/logs/batch-d/cf3-replay.log",
+    "docs/test-assurance-kernel/s1/logs/batch-d/replay2-cf3-guard-liveness-permissive.log"
+  ]
+}

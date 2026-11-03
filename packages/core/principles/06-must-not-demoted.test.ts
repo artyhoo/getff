@@ -14,15 +14,17 @@
  *   underenforced from the start.
  *
  * Detection heuristic: policy fields that contain soft-obligation words WITHOUT an explicit
- *   "MUST" or hard negation nearby. We flag policies containing ONLY soft language with
- *   no hard counterpart — these are the true demotion cases.
+ *   hard obligation or hard negation nearby (bare "must" in any case counts as hard). We
+ *   flag policies containing ONLY soft language with no hard counterpart — these are the
+ *   true demotion cases.
  *
  * Applicability: rules where check.type is "eslint" or "command" or "script" (these have
  *   automated enforcement — so their policy should use hard language). "manual" rules are
  *   exempt since their enforcement is inherently advisory.
  *
  * Pass criterion: automated-check rules must not have policy fields containing ONLY
- *   soft-obligation language with no hard counterpart ("MUST", "must not", "forbidden",
+ *   soft-obligation language (finite set: "should", "consider", "recommended",
+ *   "preferably", …) with no hard counterpart ("must" in any case, "forbidden",
  *   "required", "prohibited", "No ", "never", "always").
  */
 import { describe, it, expect } from 'vitest';
@@ -48,9 +50,14 @@ function loadManifest(): Manifest {
   return JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as Manifest;
 }
 
-/** Soft-obligation patterns that indicate demotion */
+/**
+ * Soft-obligation patterns that indicate demotion. A FINITE lexical set (M01/A01):
+ * plain "should" is part of the set (the header/diagnostic always promised it);
+ * quoted, contextual or ambiguous wording is out of scope here and stays named review.
+ */
 const SOFT_PATTERNS = [
   /\bconsider\b/i,
+  /\bshould\b/i,
   /\bshould consider\b/i,
   /\bif possible\b/i,
   /\bwhere possible\b/i,
@@ -60,9 +67,14 @@ const SOFT_PATTERNS = [
   /\bpreferably\b/i,
 ];
 
-/** Hard-obligation patterns that override soft demotion detection */
+/**
+ * Hard-obligation patterns that override soft demotion detection. Bare "must" is
+ * case-insensitive (M01/A01 prospective grammar clarification: lowercase "must" is an
+ * equally hard obligation, not a runtime-regression claim about the earlier
+ * uppercase-only form).
+ */
 const HARD_PATTERNS = [
-  /\bMUST\b/,
+  /\bmust\b/i,
   /\bmust not\b/i,
   /\bforbidden\b/i,
   /\bprohibited\b/i,
@@ -157,5 +169,83 @@ describe('Principle 6 — MUST not demoted to should (automated-check rules use 
 
     // Should not throw
     expect(() => assertPrinciple6(id, mutated)).not.toThrow();
+  });
+});
+
+describe('Principle 6 — frozen lexical-policy cases (M01/A01 finite floor)', () => {
+  // The seven independently frozen policy alternatives
+  // (docs/test-assurance-kernel/s2/m01-a01/frozen-policy-lexical-cases.json), asserted
+  // directly against the same predicate the manifest aggregate uses. These unit cases
+  // are helper-level coverage only — the aggregate itself is proven by the outer
+  // actual-gate replay over the real manifest (tracked receipt index in the same doc
+  // directory), and never by these tests alone.
+  const frozenRule = (policy: string, type = 'command'): RuleEntry => ({
+    title: 'frozen lexical case carrier',
+    stack: [],
+    check: { type },
+    examples: { bad: '', good: '' },
+    policy,
+  });
+
+  const intendedDiagnostic = /Rule R1: policy for automated-check rule contains only soft-obligation language/;
+
+  it('frozen case plain-should-automated: plain "should" policy is rejected (promised lexical floor)', () => {
+    expect(() =>
+      assertPrinciple6('R1', frozenRule('should use the injected config accessor.')),
+    ).toThrow(intendedDiagnostic);
+  });
+
+  it('frozen case soft-recommendation-automated: "Recommended" policy is rejected', () => {
+    expect(() =>
+      assertPrinciple6(
+        'R1',
+        frozenRule('Recommended to use the injected config accessor where possible.'),
+      ),
+    ).toThrow(intendedDiagnostic);
+  });
+
+  it('frozen case preferably-automated: "Preferably" policy is rejected', () => {
+    expect(() =>
+      assertPrinciple6('R1', frozenRule('Preferably use the injected config accessor.')),
+    ).toThrow(intendedDiagnostic);
+  });
+
+  it('frozen case uppercase-must-with-soft-context: "MUST" + soft context is admitted', () => {
+    expect(() =>
+      assertPrinciple6(
+        'R1',
+        frozenRule('MUST use the injected config accessor. Recommended to add context.'),
+      ),
+    ).not.toThrow();
+  });
+
+  it('frozen case lowercase-must-with-soft-context: bare lowercase "must" + soft context is admitted (prospective grammar)', () => {
+    expect(() =>
+      assertPrinciple6(
+        'R1',
+        frozenRule('must use the injected config accessor. Recommended to add context.'),
+      ),
+    ).not.toThrow();
+  });
+
+  it('frozen case hard-never-with-soft-context: "Never" + soft context is admitted', () => {
+    expect(() =>
+      assertPrinciple6(
+        'R1',
+        frozenRule('Never read environment directly. Recommended to add context.'),
+      ),
+    ).not.toThrow();
+  });
+
+  it('frozen case manual-soft-control: manual rules keep the soft-policy exemption', () => {
+    expect(() =>
+      assertPrinciple6(
+        'R1',
+        frozenRule(
+          'Recommended to use the injected config accessor where possible.',
+          'manual',
+        ),
+      ),
+    ).not.toThrow();
   });
 });

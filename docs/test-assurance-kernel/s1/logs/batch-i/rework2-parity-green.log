@@ -1,0 +1,9 @@
+
+ RUN  v4.1.8 /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core
+
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  21:24:20
+   Duration  185ms (transform 58ms, setup 16ms, import 14ms, tests 55ms, environment 0ms)
+

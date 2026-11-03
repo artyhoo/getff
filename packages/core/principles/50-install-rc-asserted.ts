@@ -9,8 +9,9 @@
  * Declared limits (a line scan, not a shell parser): a helper function that wraps install.sh is
  * judged where install.sh appears, not at its call sites; a captured rc counts as asserted when its
  * name is compared after the capture and before the name is assigned again (a comparison inside a
- * branch that may not run still counts); heredoc bodies are not skipped (no install-sh test writes
- * an install.sh invocation into one as of 2026-10-01).
+ * branch that may not run still counts; full-line comments are skipped in that after-scan — a
+ * comment neither compares nor reassigns); heredoc bodies are not skipped (no install-sh test
+ * writes an install.sh invocation into one as of 2026-10-01).
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -35,7 +36,11 @@ const CONDITION_HEAD = /^\s*(?:if|elif|while|until)\b/;
 const FAILS_ON_ERROR = /\|\|\s*\{?\s*(?:bad|fail|die|exit\s+[1-9])\b/;
 const MASKED = /\|\|\s*(?:true|:)(?:\s|;|$|\))/;
 
-/** Does `name` get compared after line `from`, before it is assigned again? */
+/**
+ * Does `name` get compared after line `from`, before it is assigned again? Full-line comments
+ * are skipped in this scan: a comment neither executes a comparison nor reassigns the name
+ * (a `# … rc=1` note must not read as reassignment; a comparison inside a comment is not one).
+ */
 function comparedAfter(lines: string[], from: number, name: string): boolean {
   const v = String.raw`\$\{?${name}\}?`;
   const cmp = new RegExp(
@@ -43,6 +48,7 @@ function comparedAfter(lines: string[], from: number, name: string): boolean {
   );
   const reassign = new RegExp(String.raw`(?:^|[\s;&|(])${name}=`);
   for (let k = from + 1; k < lines.length; k++) {
+    if (/^\s*#/.test(lines[k])) continue;
     if (cmp.test(lines[k])) return true;
     if (reassign.test(lines[k])) return false;
   }

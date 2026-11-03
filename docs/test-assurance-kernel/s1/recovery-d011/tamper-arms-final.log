@@ -1,0 +1,21 @@
+VERIFY repo=/Users/art/.codex/worktrees/2a8a/rules-as-tests-aif
+VERIFY stage=S1 require-host=unset sysname=darwin
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+TAMPER T0 applied: hid docs/test-assurance-kernel/s1/dispositions.md (pre-state=present (hidden for the arm))
+TAMPER T0 observed: child exit=1 → RED as required
+TAMPER T0 restored docs/test-assurance-kernel/s1/dispositions.md
+VERIFY TAMPER T0 VERDICT: DETECTED exit=0 (the adapter's fail-closed behavior is proven, restoration hash-proven)
+VERIFY repo=/Users/art/.codex/worktrees/2a8a/rules-as-tests-aif
+VERIFY stage=S1 require-host=unset sysname=darwin
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+TAMPER T1 applied: dropped pinned record docs/test-assurance-kernel/s1/counterfactuals/cf1-a03-circular-oracle.json
+TAMPER T1 observed: child exit=1 → RED names the dropped record (cf1-a03-circular-oracle) as required
+TAMPER restored docs/test-assurance-kernel/s1/counterfactuals/cf1-a03-circular-oracle.json sha256=aaa4f77ed44d… (byte-identical)
+VERIFY TAMPER T1 VERDICT: DETECTED exit=0 (the adapter's fail-closed behavior is proven, restoration hash-proven)
+VERIFY repo=/Users/art/.codex/worktrees/2a8a/rules-as-tests-aif
+VERIFY stage=S1 require-host=unset sysname=darwin
+VERIFY oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978 (live-recomputed)
+TAMPER T2 applied: emptied baseline selector baseline/q1-bads.files (driver must refuse, T-TAK-A)
+TAMPER T2 observed: child exit=3 → driver refused the empty selector, adapter refused to conclude (INFRA) as required
+TAMPER restored scripts/test-assurance/driver-expectations.json sha256=c02a12590f10… (byte-identical)
+VERIFY TAMPER T2 VERDICT: DETECTED exit=0 (the adapter's fail-closed behavior is proven, restoration hash-proven)

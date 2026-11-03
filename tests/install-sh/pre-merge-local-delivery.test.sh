@@ -25,16 +25,26 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 make_consumer_profile() {
   local T prof="$1"
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   # < /dev/null: prompts take the declining EOF path (consumer-upgrade-path precedent)
   ( cd "$T" && git init -q && npm_config_cache="$T/.npm-cache" \
       bash "$REPO_ROOT/install.sh" ts-server --profile "$prof" < /dev/null ) >/dev/null 2>&1
+      RC_P50_176=$?
+      if [ "$RC_P50_176" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 
 echo "== delivery: --profile core (F1 — core consumers receive the carrier too) =="
 TC=$(make_consumer_profile core)
+if [ -n "$TC" ]; then
+  ok "pre-merge-local-delivery: make_consumer_profile install rc=0 (p50-176)"
+else
+  bad "pre-merge-local-delivery: make_consumer_profile install failed (empty sentinel), expected rc 0 (p50-176)"
+  echo "pre-merge-local-delivery: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 
 for f in pre-merge-local ci-available-probe; do
   DST="$TC/scripts/$f.sh"
@@ -76,6 +86,8 @@ else
 fi
 
 ( cd "$TC" && npm_config_cache="$TC/.npm-cache" bash "$REPO_ROOT/install.sh" --refresh < /dev/null ) >/dev/null 2>&1
+RC_P50_177=$?
+if [ "$RC_P50_177" -eq 0 ]; then ok "pre-merge-local-delivery: install rc=0 (p50-177)"; else bad "pre-merge-local-delivery: install rc=$RC_P50_177, expected 0 (p50-177)"; fi
 
 if grep -q "$STALE_MARKER" "$TC/scripts/pre-merge-local.sh"; then
   bad "--refresh did NOT update the stale carrier copy (brownfield stranded on v1)"

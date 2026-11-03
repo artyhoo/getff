@@ -148,6 +148,8 @@ P="$T/py"; mkdir "$P"
 ( cd "$P" && git init -q && printf '[project]\nname = "x"\nversion = "0.1"\n' > pyproject.toml \
   && git add -A && git -c user.email=t@t -c user.name=t commit -qm init ) >/dev/null 2>&1
 ( cd "$P" && bash "$REPO_ROOT/install.sh" python ) > "$T/py.log" 2>&1
+RC_P50_139=$?
+if [ "$RC_P50_139" -eq 0 ]; then ok "imr-registration: install rc=0 (p50-139)"; else bad "imr-registration: install rc=$RC_P50_139, expected 0 (p50-139)"; fi
 _arms() { printf '%s %s %s' "$(ours "$1" PostToolUse)" "$(ours "$1" PreToolUse)" "$(ours "$1" SessionStart)"; }
 _want="[\"$NEW\"] [\"Bash\"] [\"compact\"]"
 [ "$(_arms "$P/.claude/settings.json")" = "$_want" ] && ok "L2 fresh python install wires all three arms" \
@@ -160,6 +162,8 @@ jq --arg re 'inject-matching-rule' '
   | .hooks.PostToolUse = ((.hooks.PostToolUse // []) | map(if mine then .matcher = "Edit|Write|MultiEdit" else . end))' \
   "$P/.claude/settings.json" > "$P/s.tmp" && mv "$P/s.tmp" "$P/.claude/settings.json"
 ( cd "$P" && bash "$REPO_ROOT/install.sh" python --refresh ) > "$T/py2.log" 2>&1
+RC_P50_140=$?
+if [ "$RC_P50_140" -eq 0 ]; then ok "imr-registration: install rc=0 (p50-140)"; else bad "imr-registration: install rc=$RC_P50_140, expected 0 (p50-140)"; fi
 [ "$(_arms "$P/.claude/settings.json")" = "$_want" ] && ok "L3 python --refresh widens a pre-slice install to all three arms" \
   || bad "L3 python --refresh: got '$(_arms "$P/.claude/settings.json")', want '$_want' (log: $T/py2.log)"
 

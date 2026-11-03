@@ -756,8 +756,13 @@ test('native model window reaches source context tier while explicit override wi
   try {
     process.env.TMPDIR = temp;
     process.env.AIF_HOOK_LANG = 'en';
-    // This Codex fixture must not inherit a parent Claude SDK session's recap exemption.
-    delete process.env.CLAUDE_CODE_ENTRYPOINT;
+    // env-hermeticity classifies CLAUDE_CODE_ENTRYPOINT as process-structural INHERIT_ON_PURPOSE
+    // — each case pins it. This case asserts the CLI end-of-turn path; end-of-turn-reminder.sh
+    // treats an inherited 'sdk-*' entrypoint as SDK context and returns before the context-tier
+    // logic, so without the pin the outcome depends on which harness launched the suite.
+    // (Supersedes the bare `delete` staging used for "must not inherit a parent Claude SDK
+    // session's recap exemption" — the explicit 'cli' pin covers that case and fixes the tier.)
+    process.env.CLAUDE_CODE_ENTRYPOINT = 'cli';
     delete process.env.AIF_CTX_WINDOW;
     delete process.env.AIF_HANDOFF_GATE;
     rollout(200000);

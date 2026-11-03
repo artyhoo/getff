@@ -222,6 +222,8 @@ printf '{"name":"fence","version":"0.0.0"}\n' > "$T/package.json"
 # Pre-seed a foreign AGENTS.md: this is the case copy_safe silently skipped.
 printf '# Consumer own AGENTS\n\nINSTALL-FOREIGN-KEEPME\n' > "$T/AGENTS.md"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_101=$?
+if [ "$RC_P50_101" -eq 0 ]; then ok "fence-agents-coownership: install rc=0 (p50-101)"; else bad "fence-agents-coownership: install rc=$RC_P50_101, expected 0 (p50-101)"; fi
 
 if [ "$(count_beg "$T/AGENTS.md")" = "1" ] && [ "$(count_end "$T/AGENTS.md")" = "1" ]; then
   ok "wiring: real install wrote exactly one fenced section into a pre-existing AGENTS.md"
@@ -235,6 +237,8 @@ grep -qF 'INSTALL-FOREIGN-KEEPME' "$T/AGENTS.md" \
 # Second real install → still one section (installer-level idempotence).
 SNAP=$(cat "$T/AGENTS.md")
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_102=$?
+if [ "$RC_P50_102" -eq 0 ]; then ok "fence-agents-coownership: install rc=0 (p50-102)"; else bad "fence-agents-coownership: install rc=$RC_P50_102, expected 0 (p50-102)"; fi
 if [ "$(count_beg "$T/AGENTS.md")" = "1" ] && [ "$SNAP" = "$(cat "$T/AGENTS.md")" ]; then
   ok "wiring: second real install is byte-identical (no duplicated section)"
 else

@@ -1,0 +1,9 @@
+# rework round 2 GREEN — post-fix driver bytes (this commit's scripts/test-assurance/driver.mjs)
+# same probe as the RED log: unparseable driver-expectations.json, --arm D1-PERM-Q1
+# claim: the catch-all maps the unexpected exception to INFRASTRUCTURE-FAILURE exit 3
+
+$ node <scratch-wt>/scripts/test-assurance/driver.mjs --arm D1-PERM-Q1
+INFRASTRUCTURE-FAILURE: unexpected exception: SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+    at JSON.parse (<anonymous>)
+    at file:///tmp/s1-r2-green-MHsh/scripts/test-assurance/driver.mjs:134:18
+DRIVER_EXIT=3

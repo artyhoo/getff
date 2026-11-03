@@ -1,0 +1,36 @@
+{
+  "source_head": "24671be0333fc627e72994678129244d5f55b466",
+  "detector_path": "packages/core/principles/50-install-rc-asserted.ts",
+  "detector_sha256": "481bccb8b309731b99abcbb45d1d332e11b4cce60af9b9a2716353977715ae6b",
+  "owning_contract": "P50header: capture actualstatusandcomparebeforeexecutable reassignment. Fullshellcomments neitherexecutecomparison norreassignstatus.",
+  "cases": [
+    {
+      "id": "real-compare-comment-assignment-decoy",
+      "source": "#!/usr/bin/env bash\nset -uo pipefail\nbash \"$REPO_ROOT/install.sh\" ts-server --force\nrc=$?\n# Before wiring this was rc=1; this is a comment.\n[ \"$rc\" -eq 0 ] || exit 1\n",
+      "expected_hit_lines": []
+    },
+    {
+      "id": "comment-only-comparison",
+      "source": "#!/usr/bin/env bash\nset -uo pipefail\nbash \"$REPO_ROOT/install.sh\" ts-server --force\nrc=$?\n# [ \"$rc\" -eq 0 ] || exit 1\necho done\n",
+      "expected_hit_lines": [
+        3
+      ]
+    },
+    {
+      "id": "real-status-reassigned-before-compare",
+      "source": "#!/usr/bin/env bash\nset -uo pipefail\nbash \"$REPO_ROOT/install.sh\" ts-server --force\nrc=$?\nrc=0\n[ \"$rc\" -eq 0 ] || exit 1\n",
+      "expected_hit_lines": [
+        3
+      ]
+    },
+    {
+      "id": "real-compare-no-decoy",
+      "source": "#!/usr/bin/env bash\nset -uo pipefail\nbash \"$REPO_ROOT/install.sh\" ts-server --force\nrc=$?\n[ \"$rc\" -eq 0 ] || exit 1\n",
+      "expected_hit_lines": []
+    }
+  ],
+  "scope": "Onlyfull-linecomment decoys incomparedAfter. No universal shell/dataflow/control-flow/analyzer claim orblanketheredoc/quotedstring exemptions.",
+  "frozen_before_detector_change_and_measurement": true,
+  "real_population_witness": "react-spa-wiring.test.sh:26/27/31 realrc capture/compare whilecomment:30 rc=1 changesactualverdict. Alreadyindependentlyobserved.",
+  "original_326_record": "Immutablehistorical candidatepopulation, not326bugs. Anychangedactualratchetrowsmustreconcile exactresolvedcommentswithsource/control evidence andnewlyexposedactualunconsumedstatuses; no scalarfloorerase."
+}

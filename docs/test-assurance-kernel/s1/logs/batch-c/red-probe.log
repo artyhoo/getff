@@ -1,0 +1,136 @@
+# Batch C RED probe — channel-absent proof on THIS base (Linux, node v22.23.3)
+recorded: 2026-10-08T12:52:36Z  repo HEAD: 7a5d1caf58c3e207ca7868eea6f6d396975378be
+scratch root: /tmp/s1-batch-c-redprobe.yAjYXE (throwaway; corpus files in repo NEVER touched)
+runner: /tmp/s1-batch-c-redprobe.yAjYXE/node_modules/.bin/vitest [vitest/4.1.8 linux-x64 node-v22.23.3]
+env scrub: CLAUDE_CODE_ENTRYPOINT, CLAUDECODE (S0 §5.2)
+
+## scratch construction
+/tmp/s1-batch-c-redprobe.yAjYXE:
+total 12
+lrwxrwxrwx 1 node node  115 Oct  8 12:52 node_modules -> /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/node_modules
+-rw-r--r-- 1 node node   68 Oct  8 12:52 package.json
+drwxr-xr-x 2 node node 4096 Oct  8 12:52 tests
+
+/tmp/s1-batch-c-redprobe.yAjYXE/tests:
+total 20
+-rw-r--r-- 1 node node 580 Oct  8 12:52 q4-aux-fabricated-status.test.ts
+-rw-r--r-- 1 node node 900 Oct  8 12:52 q4-bad-ignored-exit.test.ts
+-rw-r--r-- 1 node node 648 Oct  8 12:52 q4-good-asserted-exit.test.ts
+-rw-r--r-- 1 node node 774 Oct  8 12:52 q5-bad-circular-phrase.test.ts
+-rw-r--r-- 1 node node 494 Oct  8 12:52 q5-good-behavior-backed.test.ts
+patch sha256 (q4 files, pre-flip):
+e685522077817442d18725e14679aa42244d40c6daa5050c57d9a05986e142ba  /tmp/s1-batch-c-redprobe.yAjYXE/tests/q4-bad-ignored-exit.test.ts
+14609efcad03c54004402bf7317a74dc1959b69205ab300abe41c21b31f6b828  /tmp/s1-batch-c-redprobe.yAjYXE/tests/q4-good-asserted-exit.test.ts
+patch sha256 (q5 good, pre-fault):
+541563ca0724b322a7704be765df255a83561e3755dd06fcb6a8ab38da0da9c4  /tmp/s1-batch-c-redprobe.yAjYXE/tests/q5-good-behavior-backed.test.ts
+
+## RUN: q4+q5 baseline — fixture exits 42 / helper healthy
+$ env -u CLAUDE_CODE_ENTRYPOINT -u CLAUDECODE /tmp/s1-batch-c-redprobe.yAjYXE/node_modules/.bin/vitest run tests/q4-bad-ignored-exit.test.ts tests/q4-good-asserted-exit.test.ts tests/q4-aux-fabricated-status.test.ts tests/q5-bad-circular-phrase.test.ts tests/q5-good-behavior-backed.test.ts
+
+ RUN  v4.1.8 /tmp/s1-batch-c-redprobe.yAjYXE
+
+ ✓ tests/q4-aux-fabricated-status.test.ts (1 test) 2ms
+ ✓ tests/q5-good-behavior-backed.test.ts (1 test) 2ms
+ ✓ tests/q5-bad-circular-phrase.test.ts (1 test) 2ms
+ ✓ tests/q4-good-asserted-exit.test.ts (1 test) 19ms
+ ✓ tests/q4-bad-ignored-exit.test.ts (1 test) 20ms
+
+ Test Files  5 passed (5)
+      Tests  5 passed (5)
+   Start at  12:52:37
+   Duration  153ms (transform 124ms, setup 0ms, import 167ms, tests 45ms, environment 0ms)
+
+EXIT CODE: 0
+
+## PATCH: q4 flip — sed 's/process\.exit(42)/process.exit(0)/' applied to q4-bad-ignored-exit.test.ts + q4-good-asserted-exit.test.ts
+patch sha256 (post-flip):
+4960c31037bdad7fc4f4b4c934820a874191ca06e2b58b35d950a8fc937cafa5  /tmp/s1-batch-c-redprobe.yAjYXE/tests/q4-bad-ignored-exit.test.ts
+d1a58e22d976398892db5264f19bce1febaca503f872b7030c0d29506131c319  /tmp/s1-batch-c-redprobe.yAjYXE/tests/q4-good-asserted-exit.test.ts
+
+## RUN: q4 flip — fixture now exits 0
+$ env -u CLAUDE_CODE_ENTRYPOINT -u CLAUDECODE /tmp/s1-batch-c-redprobe.yAjYXE/node_modules/.bin/vitest run tests/q4-bad-ignored-exit.test.ts tests/q4-good-asserted-exit.test.ts tests/q4-aux-fabricated-status.test.ts
+
+ RUN  v4.1.8 /tmp/s1-batch-c-redprobe.yAjYXE
+
+ ✓ tests/q4-aux-fabricated-status.test.ts (1 test) 2ms
+ ✓ tests/q4-bad-ignored-exit.test.ts (1 test) 21ms
+ ❯ tests/q4-good-asserted-exit.test.ts (1 test | 1 failed) 24ms
+     × the verifier exits 42 on a bad payload 23ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/q4-good-asserted-exit.test.ts > q4 good: asserted subprocess status > the verifier exits 42 on a bad payload
+AssertionError: expected +0 to be 42 // Object.is equality
+
+- Expected
++ Received
+
+- 42
++ 0
+
+ ❯ tests/q4-good-asserted-exit.test.ts:13:24
+     11|       encoding: 'utf8',
+     12|     });
+     13|     expect(res.status).toBe(42);
+       |                        ^
+     14|   });
+     15| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 2 passed (3)
+   Start at  12:52:37
+   Duration  132ms (transform 60ms, setup 0ms, import 82ms, tests 46ms, environment 0ms)
+
+EXIT CODE: 1
+
+## PATCH: q5 fault — sed 's/sealed = true;/sealed = false;/' applied to q5-good-behavior-backed.test.ts (helper body = the case production surface; assertions untouched)
+patch sha256 (post-fault):
+13863332db9e2a677ffcca73ef9c8a891eb69e1acf2a6bfbe2d982e2ad59eb15  /tmp/s1-batch-c-redprobe.yAjYXE/tests/q5-good-behavior-backed.test.ts
+
+## RUN: q5 fault — backing behavior broken
+$ env -u CLAUDE_CODE_ENTRYPOINT -u CLAUDECODE /tmp/s1-batch-c-redprobe.yAjYXE/node_modules/.bin/vitest run tests/q5-bad-circular-phrase.test.ts tests/q5-good-behavior-backed.test.ts
+
+ RUN  v4.1.8 /tmp/s1-batch-c-redprobe.yAjYXE
+
+ ✓ tests/q5-bad-circular-phrase.test.ts (1 test) 2ms
+ ❯ tests/q5-good-behavior-backed.test.ts (1 test | 1 failed) 5ms
+     × ensureSealed seals the unit 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/q5-good-behavior-backed.test.ts > q5 good: phrase backed by invoked behavior > ensureSealed seals the unit
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/q5-good-behavior-backed.test.ts:14:28
+     12| describe('q5 good: phrase backed by invoked behavior', () => {
+     13|   it('ensureSealed seals the unit', () => {
+     14|     expect(ensureSealed()).toBe(true);
+       |                            ^
+     15|     expect(sealed).toBe(true);
+     16|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 1 passed (2)
+   Start at  12:52:37
+   Duration  108ms (transform 40ms, setup 0ms, import 54ms, tests 6ms, environment 0ms)
+
+EXIT CODE: 1
+
+## summary (expected gap on an UNREPAIRED base)
+baseline exit 0 (every bad case passes while ignoring exit-42 / with zero backing behavior): 0
+q4 flip: good.asserted-exit must FAIL (intended assertion), bad + fabricated must stay green: 1
+q5 fault: good.behavior-backed must FAIL (intended assertion), bad.circular must stay green: 1
+
+scratch left in place for inspection: /tmp/s1-batch-c-redprobe.yAjYXE

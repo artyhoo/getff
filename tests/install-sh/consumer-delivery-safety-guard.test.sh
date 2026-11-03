@@ -122,9 +122,11 @@ fi
 # ── Live arms: one real consumer, reused across arms 3 and 4 ─────────────────
 make_consumer() {
   local T
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null ) >/dev/null 2>&1
+  RC_P50_024=$?
+  if [ "$RC_P50_024" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 
@@ -133,6 +135,14 @@ make_consumer() {
 # ══════════════════════════════════════════════════════════════════════════════
 echo ""; echo "▶ Arm 3: pre-manifest --force — only the 2 real edits preserved (post-processed parity)"
 TC=$(make_consumer)
+if [ -n "$TC" ]; then
+  ok "consumer-delivery-safety-guard: make_consumer install rc=0 (p50-024)"
+else
+  bad "consumer-delivery-safety-guard: make_consumer install failed (empty sentinel), expected rc 0 (p50-024)"
+  echo "consumer-delivery-safety-guard: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 L2="$TC/.claude/hooks/deps-hash-check.sh"
 SKILL="$TC/.claude/skills/getff/SKILL.md"
 if [ ! -f "$L2" ] || [ ! -f "$SKILL" ]; then
@@ -147,6 +157,8 @@ else
   echo "// ARM3 L2 EDIT" >> "$L2"
   echo "ARM3 SKILL EDIT" >> "$SKILL"
   OUT3=$( cd "$TC" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 )
+  RC_P50_025=$?
+  if [ "$RC_P50_025" -eq 0 ]; then ok "consumer-delivery-safety-guard: install rc=0 (p50-025)"; else bad "consumer-delivery-safety-guard: install rc=$RC_P50_025, expected 0 (p50-025)"; fi
   N_PRESERVED=$(ls -1 "$TC/$CONFLICTS_REL" 2>/dev/null | wc -l | tr -d ' ')
   if grep -qF "preserved 2 unbaselined diverged file(s)" <<<"$OUT3"; then
     ok "arm 3: aggregate line reports exactly 2 preserved"
@@ -206,6 +218,8 @@ rm -rf "$TC/$CONFLICTS_REL"
 echo "ARM4 SKILL EDIT" >> "$SKILL"
 MAN_BEFORE=$(mktemp); cp "$TC/$MANIFEST_REL" "$MAN_BEFORE"
 OUT4=$( cd "$TC" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
+RC_P50_026=$?
+if [ "$RC_P50_026" -eq 0 ]; then ok "consumer-delivery-safety-guard: install rc=0 (p50-026)"; else bad "consumer-delivery-safety-guard: install rc=$RC_P50_026, expected 0 (p50-026)"; fi
 if grep -qF ".claude/skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4" | grep -F "would-flag:")"; then
   ok "arm 4: --refresh --dry-run reports would-flag for the diverged plain skill (native path)"
 else
@@ -223,6 +237,8 @@ cmp -s "$TC/$MANIFEST_REL" "$MAN_BEFORE" \
 # neg (LOAD-BEARING): the real refresh right after DOES warn + preserve — the would-flag
 # predicted a real divergence (preview faithful).
 OUT4B=$( cd "$TC" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_027=$?
+if [ "$RC_P50_027" -eq 0 ]; then ok "consumer-delivery-safety-guard: install rc=0 (p50-027)"; else bad "consumer-delivery-safety-guard: install rc=$RC_P50_027, expected 0 (p50-027)"; fi
 if grep -qF ".claude/skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4B" | grep -F "overwriting locally-modified file:")"; then
   ok "arm 4 neg: the real refresh warns for exactly the file the dry-run would-flagged"
 else

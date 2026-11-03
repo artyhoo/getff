@@ -314,10 +314,15 @@ export default defineConfig(
 
   // Tests
   {
-    files: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**'],
+    files: [
+      '**/*.{test,spec,unit,audit,integration}.{ts,tsx}',
+      '**/__tests__/**',
+      'tests/**/*.{ts,tsx}',
+    ],
     plugins: {
       vitest: vitestPlugin,
       'testing-library': testingLibrary,
+      'rules-as-tests': customRules,
     },
     rules: {
       ...vitestPlugin.configs.recommended.rules,
@@ -331,6 +336,11 @@ export default defineConfig(
       'vitest/no-conditional-tests': 'error',
       'vitest/no-conditional-expect': 'error',
       'vitest/expect-expect': 'error',
+
+      // Q1/Q2 test-quality metachecks (decidable syntax only — semantic
+      // remainder routes to the review channel, not these detectors).
+      'rules-as-tests/no-vacuous-assertion': 'error',
+      'rules-as-tests/require-effective-assertion': 'error',
 
       'testing-library/no-debugging-utils': 'error',
       'testing-library/no-dom-import': 'error',

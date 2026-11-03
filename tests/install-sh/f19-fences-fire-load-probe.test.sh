@@ -36,6 +36,8 @@ printf '{"name":"f19","version":"0.0.0","type":"module"}\n' > "$T/package.json"
 ( cd "$T" && git init -q && git config user.email t@t && git config user.name t \
     && git add -A && git commit -q -m base \
     && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$T/.install.log" 2>&1
+RC_P50_087=$?
+if [ "$RC_P50_087" -eq 0 ]; then ok "f19-fences-fire-load-probe: install rc=0 (p50-087)"; else bad "f19-fences-fire-load-probe: install rc=$RC_P50_087, expected 0 (p50-087)"; fi
 # A MINIMAL loadable placed config whose ONLY external import is @eslint/js (so the RED
 # arm can make exactly that dep absent). Overwrites the full shipped config for a
 # hermetic single-variable probe.

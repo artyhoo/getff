@@ -53,9 +53,11 @@ CONFLICTS_REL=".ai-factory/refresh-conflicts"
 
 make_consumer() {
   local T
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+  RC_P50_253=$?
+  if [ "$RC_P50_253" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 
@@ -65,12 +67,22 @@ make_consumer() {
 # This is the exact reproduction from the ledger: consumer adds their own fixture, `--refresh`
 # printed a bare "(refreshed)" and the file was GONE with conflicts=no.
 TC1=$(make_consumer)
+if [ -n "$TC1" ]; then
+  ok "refresh-dir-payload-ownership: make_consumer install rc=0 (p50-253)"
+else
+  bad "refresh-dir-payload-ownership: make_consumer install failed (empty sentinel), expected rc 0 (p50-253)"
+  echo "refresh-dir-payload-ownership: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 if [ ! -d "$TC1/$DIR_REL" ]; then
   bad "arm 1 precondition: install did not deliver the $DIR_REL directory payload"
 else
   ok "arm 1 precondition: install delivered the $DIR_REL directory payload"
   printf 'export const mine = 1;\n' > "$TC1/$DIR_REL/my-rule.bad.ts"
   OUT_1=$( cd "$TC1" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+  RC_P50_254=$?
+  if [ "$RC_P50_254" -eq 0 ]; then ok "refresh-dir-payload-ownership: install rc=0 (p50-254)"; else bad "refresh-dir-payload-ownership: install rc=$RC_P50_254, expected 0 (p50-254)"; fi
   if [ -f "$TC1/$DIR_REL/my-rule.bad.ts" ]; then
     ok "arm 1: consumer-authored file under the directory payload survived --refresh"
   else
@@ -90,6 +102,14 @@ rm -rf "$TC1"
 # ARM 2 — a MODIFIED framework file inside the payload is warned + preserved
 # ══════════════════════════════════════════════════════════════════════════════
 TC2=$(make_consumer)
+if [ -n "$TC2" ]; then
+  ok "refresh-dir-payload-ownership: make_consumer install rc=0 (p50-253)"
+else
+  bad "refresh-dir-payload-ownership: make_consumer install failed (empty sentinel), expected rc 0 (p50-253)"
+  echo "refresh-dir-payload-ownership: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 FW_FILE=$(fw_file_of "$TC2")
 [ -n "$FW_FILE" ] || { echo "FATAL: the installed $DIR_REL payload is empty — probe unavailable"; exit 1; }
 PROBE_2="$TC2/$DIR_REL/$FW_FILE"
@@ -100,6 +120,8 @@ else
   printf 'CONSUMER_DIR_PAYLOAD_EDIT_ARM_2\n' > "$PROBE_2"
   SHA8_2=$(hash256 "$PROBE_2"); SHA8_2="${SHA8_2:0:8}"
   OUT_2=$( cd "$TC2" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+  RC_P50_255=$?
+  if [ "$RC_P50_255" -eq 0 ]; then ok "refresh-dir-payload-ownership: install rc=0 (p50-255)"; else bad "refresh-dir-payload-ownership: install rc=$RC_P50_255, expected 0 (p50-255)"; fi
 
   if grep -qF "$FW_FILE" <<<"$(printf '%s\n' "$OUT_2" | grep -F 'overwriting locally-modified file:')"; then
     ok "arm 2: divergence warning printed for a modified file INSIDE a directory payload"
@@ -126,11 +148,21 @@ rm -rf "$TC2"
 #         gets ZERO divergence claims for the payload (no first-refresh spam)
 # ══════════════════════════════════════════════════════════════════════════════
 TC3=$(make_consumer)
+if [ -n "$TC3" ]; then
+  ok "refresh-dir-payload-ownership: make_consumer install rc=0 (p50-253)"
+else
+  bad "refresh-dir-payload-ownership: make_consumer install failed (empty sentinel), expected rc 0 (p50-253)"
+  echo "refresh-dir-payload-ownership: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 PROBE_3="$TC3/$DIR_REL/$FW_FILE"
 MAN_3_BEFORE=$(mktemp)
 cp "$TC3/$MANIFEST_REL" "$MAN_3_BEFORE"
 printf 'CONSUMER_DIR_PAYLOAD_EDIT_ARM_3\n' > "$PROBE_3"
 OUT_3=$( cd "$TC3" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
+RC_P50_256=$?
+if [ "$RC_P50_256" -eq 0 ]; then ok "refresh-dir-payload-ownership: install rc=0 (p50-256)"; else bad "refresh-dir-payload-ownership: install rc=$RC_P50_256, expected 0 (p50-256)"; fi
 if grep -qF "$FW_FILE" <<<"$(printf '%s\n' "$OUT_3" | grep -F 'would-flag:')"; then
   ok "arm 3: --dry-run reports would-flag for a diverged file inside a directory payload"
 else
@@ -150,7 +182,17 @@ rm -f "$MAN_3_BEFORE"
 rm -rf "$TC3"
 
 TC3b=$(make_consumer)
+if [ -n "$TC3b" ]; then
+  ok "refresh-dir-payload-ownership: make_consumer install rc=0 (p50-253)"
+else
+  bad "refresh-dir-payload-ownership: make_consumer install failed (empty sentinel), expected rc 0 (p50-253)"
+  echo "refresh-dir-payload-ownership: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 OUT_3b=$( cd "$TC3b" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+RC_P50_257=$?
+if [ "$RC_P50_257" -eq 0 ]; then ok "refresh-dir-payload-ownership: install rc=0 (p50-257)"; else bad "refresh-dir-payload-ownership: install rc=$RC_P50_257, expected 0 (p50-257)"; fi
 if grep -qF "$DIR_REL" <<<"$(printf '%s\n' "$OUT_3b" | grep -F 'overwriting locally-modified file:')"; then
   bad "arm 3b: untouched consumer got divergence claims for the directory payload (first-refresh spam)"
 else

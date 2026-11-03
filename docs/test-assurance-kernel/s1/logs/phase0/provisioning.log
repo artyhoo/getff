@@ -1,0 +1,9 @@
+# node_modules provisioning — 2026-10-08T10:41:06Z
+method: per-entry symlinks from primary checkout
+primary: /home/www/rules-as-tests-aif
+worktree: /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+root links: 251 (failed 0), core links: 25
+vitest/4.1.8 linux-x64 node-v22.23.3
+v10.4.1
+tsx v4.22.4
+js-yaml@4.3.2 (lockfile-pinned) + argparse symlinked from /tmp/s1-devdeps into packages/core/node_modules — 10:43:20Z

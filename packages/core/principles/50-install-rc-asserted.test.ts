@@ -53,6 +53,7 @@
  * staging appends took 300-306, and the register allocates the next free ID — see the note on the row)
  */
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -256,5 +257,41 @@ describe('principle 50 — the ratchet', () => {
 
   it('passes an exact match', () => {
     expect(ratchetProblems({ 'a.test.sh': 2 }, { 'a.test.sh': 2 })).toEqual([]);
+  });
+});
+
+describe('principle 50 — full-line comment decoys (Root-frozen cases)', () => {
+  // A full-line shell comment neither executes a comparison nor reassigns the captured
+  // status: a comment mentioning `rc=` must not read as reassignment, and a comparison
+  // that exists only inside a comment must not credit the invocation. Fixture is the
+  // Root-frozen byte-exact file, pinned by sha256 below (frozen 2026-10-14, head 24671be0).
+  const FROZEN_PATH = resolve(
+    REPO_ROOT,
+    'docs/test-assurance-kernel/s2/m10-comment-status-cases.json',
+  );
+  const FROZEN = readFileSync(FROZEN_PATH, 'utf8');
+  const FROZEN_SHA256 =
+    '0d116a13a666be52ef9a5ced381536c2cc5ac487e5a13a29473b0153c4e85c52';
+
+  interface FrozenCase {
+    id: string;
+    source: string;
+    expected_hit_lines: number[];
+  }
+
+  it('holds the Root-frozen fixture bytes exactly', () => {
+    expect(createHash('sha256').update(FROZEN).digest('hex')).toBe(
+      FROZEN_SHA256,
+    );
+  });
+
+  it.each(
+    (JSON.parse(FROZEN).cases as FrozenCase[]).map((c) => [
+      c.id,
+      c.source,
+      c.expected_hit_lines,
+    ]),
+  )('frozen case %s — exact hit lines', (_id, source, expected) => {
+    expect(findUnasserted(source).map((f) => f.line)).toEqual(expected);
   });
 });

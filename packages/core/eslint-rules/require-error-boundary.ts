@@ -49,34 +49,58 @@ export const requireErrorBoundary: TSESLint.RuleModule<MessageIds> = {
     const lines = sourceCode.lines;
 
     let hasJSX = false;
-    let hasErrorBoundaryInJSX = false;
+    let hasUnprotectedJSX = false;
     let firstJSXNode: TSESTree.JSXOpeningElement | null = null;
+    let firstUnprotectedNode: TSESTree.JSXOpeningElement | null = null;
 
     return {
       JSXOpeningElement(node: TSESTree.JSXOpeningElement) {
         hasJSX = true;
-        // Track first JSX node for reporting (and for audit:exempt line-check)
+        // Track first JSX node for the whole-file audit:exempt line-check (contract unchanged)
         if (firstJSXNode === null) firstJSXNode = node;
 
-        // AST ancestor check (T-MS-A): detect ErrorBoundary in JSX tree, NOT string grep on import.
-        // An import statement does NOT produce a JSXOpeningElement node, so a component that is
-        // imported but never rendered never sets hasErrorBoundaryInJSX=true.
+        // AST check (T-MS-A): a boundary is recognized in the JSX tree, NOT by string grep on
+        // imports — an import produces no JSXOpeningElement, so an imported-but-never-rendered
+        // boundary never protects anything.
         const name = extractJSXElementName(node.name);
-        if (name !== null && isErrorBoundaryLike(name)) {
-          hasErrorBoundaryInJSX = true;
+        if (name !== null && isErrorBoundaryLike(name)) return; // a boundary itself, not a violation
+
+        // A05 repair: protection requires an ErrorBoundary ANCESTOR in the file's JSX tree
+        // (RULES.react-spa.md §R-SPA-EB: «as an ancestor in the file's JSX tree»). The previous
+        // whole-file any-presence flag let an unrelated wrapped component — or a wrapped JSX
+        // sibling — mask the diagnostic on unprotected content (seed A05, frozen cases
+        // unrelated-wrapped-before/after-app, fragment-unwrapped-sibling).
+        // TSESTree gives JSXOpeningElement.parent the precise JSXElement type; the walk
+        // needs the general node union (same idiom as no-vacuous-assertion.ts).
+        for (
+          let p: TSESTree.Node | undefined = node.parent;
+          p && p.type !== 'Program';
+          p = p.parent
+        ) {
+          if (p.type === 'JSXElement') {
+            const ancName = extractJSXElementName(p.openingElement.name);
+            if (ancName !== null && isErrorBoundaryLike(ancName)) return; // protected by ancestor
+          }
         }
+        hasUnprotectedJSX = true;
+        if (firstUnprotectedNode === null) firstUnprotectedNode = node;
       },
 
       'Program:exit'(program: TSESTree.Program) {
-        // Rule only fires when JSX is present (i.e. this is a React component file).
+        // Rule only fires when JSX is present (i.e. this is a React component file) and at
+        // least one JSX element is not protected by a boundary ancestor.
         // Glob scoping in eslint.config.react.mjs ensures this runs only on app-root files.
-        if (!hasJSX || hasErrorBoundaryInJSX) return;
+        if (!hasJSX || !hasUnprotectedJSX) return;
 
-        const reportNode: TSESTree.Node = firstJSXNode ?? program;
+        const reportNode: TSESTree.Node =
+          firstUnprotectedNode ?? firstJSXNode ?? program;
 
-        // audit:exempt line check — mirrors require-use-server-directive.ts pattern
-        const line = lines[reportNode.loc.start.line - 1] ?? '';
-        if (line.includes('// audit:exempt')) return;
+        // audit:exempt line check — mirrors require-use-server-directive.ts pattern; stays on
+        // the FIRST JSX element of the file (whole-file exemption contract, unchanged by A05).
+        const exemptLine = firstJSXNode
+          ? (lines[firstJSXNode.loc.start.line - 1] ?? '')
+          : '';
+        if (exemptLine.includes('// audit:exempt')) return;
 
         context.report({
           node: reportNode,

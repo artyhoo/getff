@@ -23,6 +23,8 @@ exports[`render-rules > renders a stable snapshot from the committed manifest 1`
 | **R18 TanStack Query / SWR** | react-next | ESLint \`no-restricted-syntax\` |
 | **R19 Styles** | react-next | \`depcruise --validate (blocks styled-components/@emotion)\` |
 | **R20 Server Actions** | react-next | ESLint \`no-restricted-syntax\` |
+| **R21 Non-vacuous test assertions** | ts-server, react-next | ESLint \`rules-as-tests/no-vacuous-assertion\` |
+| **R22 Effective test assertion presence** | ts-server, react-next | ESLint \`rules-as-tests/require-effective-assertion\` |
 | **IR1 API contracts** | microservices | \`CI job: zod-to-openapi diff against published OpenAPI\` |
 | **IR2 Consumer-driven contracts (Pact)** | microservices | \`CI: pact-publish + pact-verify + can-i-deploy\` |
 | **IR3 Event schemas (async messaging)** | microservices | \`audit-ai-docs.sh probe — \`publish()\` calls reference @org/event-schemas\` |

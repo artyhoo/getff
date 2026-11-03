@@ -1,0 +1,12 @@
+{
+  "id": "cx2b",
+  "tag": "intendedfail+skipped-sibling",
+  "provenance": "derived from cx2 (amended-1/evidence/coordinator-classifier-result.json case 2): the same intended-fail + required-not-executed combination with a well-formed report body",
+  "filters": ["done.test.ts", "skipped.test.ts"],
+  "rootDir": "/r4-replay",
+  "report": {"success": false, "numTotalTests": 2, "testResults": [{"name": "done.test.ts", "status": "failed", "assertionResults": [{"status": "failed", "failureMessages": ["intended"]}]}, {"name": "skipped.test.ts", "status": "passed", "assertionResults": [{"status": "skipped"}]}]},
+  "stdout": "",
+  "exitCode": 1,
+  "expected_amended2": "not-executed",
+  "note": "A3: well-formed cx2 completion — done executed+failed (detection-grade evidence), skipped never-executed; not-executed is returned BEFORE detection credit."
+}

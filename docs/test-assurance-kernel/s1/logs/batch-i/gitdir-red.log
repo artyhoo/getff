@@ -1,0 +1,11 @@
+DRIVER repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+DRIVER oracle sha256=069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978
+DRIVER expectations=2026-10-08 arms=6 (only D1-PERM-Q1)
+== phase: baseline pre (real CLI over the frozen static matrix) ==
+OBS OK baseline/q1-bads cli files=5 rc=1 want=1 diag=rules-as-tests/no-vacuous-assertion :: 
+OBS OK baseline/q2-bads cli files=4 rc=1 want=1 diag=rules-as-tests/require-effective-assertion :: 
+OBS OK baseline/goods cli files=12 rc=0 want=0 :: 
+OBS OK baseline/fixtures cli files=3 rc=0 want=0 :: 
+OBS OK baseline/wrong-import-honest-admission cli files=1 rc=0 want=0 :: HONEST LIMIT, not a detection claim: the static lane admits the wrong-import bad (no syntax gate may claim dataflow); its reject expectation is review-routed (oracle channel_map.wrong-import) and is evidenced by the named cold-review protocol + blocking dispositions queue, never by this CLI.
+== phase: arm D1-PERM-Q1 (permissive, K=K3) — carrier packages/core/eslint-rules/no-vacuous-assertion.mjs ==
+INFRASTRUCTURE-FAILURE: git show HEAD:packages/core/eslint-rules/no-vacuous-assertion.mjs failed (rc=128): fatal: not a git repository: '/tmp/no-such-repo'

@@ -1,0 +1,12 @@
+# Promote-gate mode isolation (rework round 1, 2026-10-08)
+# --promote-gate must be a standalone mode: combined with --step/--tamper-arm it refuses with exit 3 before anything runs (T-TAK-A: never a weakened or silently-ignored flag).
+
+$ node scripts/test-assurance/verify.mjs --stage S1 --promote-gate --step dispositions
+VERIFY-REFUSAL: --promote-gate is a standalone mode — it does not combine with --step or --tamper-arm
+usage: node scripts/test-assurance/verify.mjs --stage S1|S2|S3|S4 [--require-host darwin|linux] [--step <id>] [--tamper-arm T0|T1|T2] [--promote-gate]
+EXIT=3
+
+$ node scripts/test-assurance/verify.mjs --stage S1 --promote-gate --tamper-arm T0
+VERIFY-REFUSAL: --promote-gate is a standalone mode — it does not combine with --step or --tamper-arm
+usage: node scripts/test-assurance/verify.mjs --stage S1|S2|S3|S4 [--require-host darwin|linux] [--step <id>] [--tamper-arm T0|T1|T2] [--promote-gate]
+EXIT=3

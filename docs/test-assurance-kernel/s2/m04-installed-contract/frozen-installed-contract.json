@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "scope": "Structural byte identity of three independently approved fresh default installed configs; not universal runtime semantics or kept consumer policy.",
+  "profiles": [
+    {
+      "stack": "ts-server",
+      "source_template": "templates/ts-server/eslint.config.mjs",
+      "approved_config_sha256": "dd40d657ac8405f7c4d0e883840487e93196fe7c69be33da44c82d8181a27463"
+    },
+    {
+      "stack": "react-next",
+      "source_template": "packages/preset-next-15-canonical/templates/eslint.config.react.mjs",
+      "approved_config_sha256": "1961c07229416f2654a315f9d3a262112c17b81908d04cefd1356a1e0bf8ce2b"
+    },
+    {
+      "stack": "react-spa",
+      "source_template": "packages/preset-react-spa/templates/eslint.config.react.mjs",
+      "approved_config_sha256": "eb9b43c39d721910fa3de21d8258188fd6b9ecb79a4209960636b3cb916d4653"
+    }
+  ],
+  "provenance": "Accepted original M08exactartifact and E917/b0a4 actual intended-diagnostic/positive-companion observations; input hashes frozen before canonical implementation.",
+  "renewal": "Legitimate default-artifact byte changes require independent expectation review and affected semantic evidence; never compute these expected values from live producer/output.",
+  "native_manual": "Expo/bare/common retain separately accepted manualQ1Q2 scope; not instantiated by this structural default contract."
+}

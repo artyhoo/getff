@@ -1,0 +1,27 @@
+{
+  "schema": "tak.s3.coverage/v1",
+  "matrixStatus": "MEASURED",
+  "historicalOpen": [
+    {
+      "id": "s0-12-raw-logs",
+      "status": "NOT_RETRIEVED",
+      "detail": "historical twelve raw qualification logs not retrievable; original S0 acceptance is not reopened or relabeled"
+    },
+    {
+      "id": "cf37-broad-fixture",
+      "status": "observed-RED-not-rebased",
+      "detail": "original cf37 broad fixture observed RED and never rebaselined; never rerun, never relabeled"
+    },
+    {
+      "id": "rule-538-to-430.4",
+      "status": "open",
+      "detail": "final measured matrix medians do NOT meet the frozen dominant-rule policy — policy verdict RED: dominant median 1099 -> 1079 is below the 20% reduction floor"
+    },
+    {
+      "id": "ci",
+      "status": "NOT_STARTED",
+      "detail": "no CI run exists for this private candidate (private package, no push, no PR) — s4 ci-record undeclared"
+    }
+  ],
+  "note": "Honest open-items registry consumed by the s3-final-acceptance step. Any entry whose status is not 'closed' is a computed, genuine open item — the step derives RED from this registry, the structural performance validation and the live s4 declaration; it is never a constant."
+}

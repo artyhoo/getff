@@ -11,6 +11,14 @@
 # f14-lintstaged-resolves.test.sh). Asserting "the PM was invoked with the dep list" is what proves
 # RUN-not-just-declare — exactly the T-CIC-C distinction.
 #
+# EXIT-STATUS CLASSIFICATION (INDEPENDENT-CIC-FAKE-PM-RC-RULING.json, f253d186…): this deliberate
+# partial fixture is NOT a healthy whole-toolchain install — it places no tsx/eslint, so a --full
+# install's STRICT self-verify correctly fails dep-missing and finalize honestly exits 1
+# (setup.d/99-finalize.sh; GH #974). The suite certifies ONLY its declared fake-PM contract (argv,
+# bin stubs, manifests, overrides, commit wiring): full fake-PM arms EXPECT rc=1 WITH the named
+# strict dep-missing reason (asserted from the retained per-arm $dir.installer.log); non-full arms
+# (B/F/G, PM never invoked) keep their actual expected 0.
+#
 # PAIRED-NEGATIVES:
 #   - Arm B: no --full + non-interactive stdin → PM is NOT invoked and node_modules/.bin/lint-staged
 #     stays ABSENT (the dead/declared-only state) → gate works AND declare≠install is real.
@@ -77,16 +85,37 @@ make_fake_pm npm
 make_fake_pm pnpm
 export PATH="$FAKEBIN:$PATH"
 
-run_install() {  # $1=dir  ; rest=args ; stdin from /dev/null unless caller pipes
-  local d="$1"; shift
-  ( cd "$d" && bash "$REPO_ROOT/install.sh" "$@" ) >/dev/null 2>&1
+run_install() {  # $1=dir $2=expected_rc ; rest=args ; stdin from /dev/null unless caller pipes
+  local d="$1" want="$2"; shift 2
+  # rc contract per owning fake fixture (INDEPENDENT-CIC-FAKE-PM-RC-RULING.json, f253d186…): the
+  # fake PMs create only lint-staged/husky/sort-package-json stubs — NO tsx/eslint — so a --full
+  # install's STRICT self-verify (setup.d/99-finalize.sh fences-fire arm) correctly fails
+  # dep-missing and finalize honestly exits 1 (GH #974). Full fake-PM arms therefore EXPECT rc=1
+  # WITH that named reason; non-full arms (PM not invoked) keep their actual expected 0. Output is
+  # captured to the retained $d.installer.log and the expected-1 reason is asserted from it, so an
+  # unrelated rc=1 cannot pass. No waiver, no either-0-or-1, no producer forcing.
+  ( cd "$d" && bash "$REPO_ROOT/install.sh" "$@" ) >"$d.installer.log" 2>&1
+  RC_P50_021=$?
+  if [ "$RC_P50_021" -eq "$want" ]; then
+    ok "cic-s3-dep-install: install rc=$RC_P50_021 == expected $want (p50-021)"
+  else
+    bad "cic-s3-dep-install: install rc=$RC_P50_021, expected $want (p50-021, see $d.installer.log)"
+  fi
+  if [ "$want" -eq 1 ]; then
+    if grep -q 'dep-missing skip(s) are failures' "$d.installer.log" \
+       && grep -q 'Installation finished, but self-verify FAILED' "$d.installer.log"; then
+      ok "p50-021 reason: strict self-verify dep-missing (tsx/eslint absent) named in $d.installer.log"
+    else
+      bad "p50-021 reason: expected strict dep-missing self-verify failure absent from $d.installer.log — unrelated rc=1, not the declared fake-fixture contract"
+    fi
+  fi
 }
 
 # ════ Arm A — flat consumer, --full → npm install RUNS; hooks get tools; commit SUCCEEDS ════
 A=$(mktemp -d); export AIF_PM_LOG="$A.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"a","version":"0.0.0" }\n' > "$A/package.json"
 ( cd "$A" && git init -q && git config user.email t@t && git config user.name t )
-run_install "$A" ts-server --force --full < /dev/null
+run_install "$A" 1 ts-server --force --full < /dev/null
 
 grep -q -- '--save-dev' "$AIF_PM_LOG" \
   && ok "A: --full → fake npm invoked with 'install --save-dev …' (RUN, not just declared)" \
@@ -130,7 +159,7 @@ fi
 B=$(mktemp -d); export AIF_PM_LOG="$B.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"b","version":"0.0.0" }\n' > "$B/package.json"
 ( cd "$B" && git init -q )
-run_install "$B" ts-server --force < /dev/null   # no --full, stdin not a tty → default No
+run_install "$B" 0 ts-server --force < /dev/null   # no --full, stdin not a tty → default No
 
 [ ! -s "$AIF_PM_LOG" ] \
   && ok "B neg: no --full + non-interactive → PM NOT invoked (default-No gate holds)" \
@@ -144,7 +173,7 @@ C=$(mktemp -d); export AIF_PM_LOG="$C.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"c","version":"0.0.0" }\n' > "$C/package.json"
 printf 'packages:\n  - "apps/*"\n' > "$C/pnpm-workspace.yaml"
 ( cd "$C" && git init -q )
-run_install "$C" ts-server --force --full < /dev/null
+run_install "$C" 1 ts-server --force --full < /dev/null
 
 grep -Eq 'add .*-D' "$AIF_PM_LOG" \
   && ok "C: pnpm consumer → 'pnpm add -D …' invoked" \
@@ -163,7 +192,7 @@ D=$(mktemp -d); export AIF_PM_LOG="$D.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"d","version":"0.0.0" }\n' > "$D/package.json"
 printf '' > "$D/pnpm-lock.yaml"     # flat pnpm marker, NO pnpm-workspace.yaml
 ( cd "$D" && git init -q )
-run_install "$D" ts-server --force --full < /dev/null
+run_install "$D" 1 ts-server --force --full < /dev/null
 
 grep -Eq 'add .*-D' "$AIF_PM_LOG" \
   && ok "D: flat pnpm consumer → 'pnpm add -D …' invoked" \
@@ -188,7 +217,7 @@ fi
 E=$(mktemp -d); export AIF_PM_LOG="$E.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"e","version":"0.0.0" }\n' > "$E/package.json"
 ( cd "$E" && git init -q && git config user.email t@t && git config user.name t )
-run_install "$E" react-native --force --full < /dev/null
+run_install "$E" 1 react-native --force --full < /dev/null
 
 _rn_devdep_line=$(sed -n '1p' "$AIF_PM_LOG")
 _rn_ts_tokens=$(printf '%s\n' "$_rn_devdep_line" | tr ' ' '\n' | grep -cE '^typescript(@.*)?$' || true)
@@ -210,7 +239,9 @@ grep -q 'typescript@\^5\.7\.0' <<< "$_rn_devdep_line" \
 F=$(mktemp -d); export AIF_PM_LOG="$F.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"f","version":"0.0.0" }\n' > "$F/package.json"
 ( cd "$F" && git init -q )
-F_OUT=$( cd "$F" && bash "$REPO_ROOT/install.sh" react-native --force < /dev/null 2>&1 )
+F_OUT=$( cd "$F" && bash "$REPO_ROOT/install.sh" react-native --force < /dev/null 2>&1 | tee "$F.installer.log" )
+RC_P50_022=$?
+if [ "$RC_P50_022" -eq 0 ]; then ok "cic-s3-dep-install: install rc=0 (p50-022)"; else bad "cic-s3-dep-install: install rc=$RC_P50_022, expected 0 (p50-022, see $F.installer.log)"; fi
 
 grep -qE '^ *(npm install|pnpm add|yarn add)' <<<"$F_OUT" \
   && bad "F: no --full → the install still prints a dependency command to copy" \
@@ -223,7 +254,9 @@ grep -q 'not installed' <<<"$(printf '%s\n' "$F_OUT" | grep -E '^[[:space:]]*- d
 G=$(mktemp -d); export AIF_PM_LOG="$G.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"g","version":"0.0.0" }\n' > "$G/package.json"
 ( cd "$G" && git init -q )
-G_OUT=$( cd "$G" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 )
+G_OUT=$( cd "$G" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 | tee "$G.installer.log" )
+RC_P50_023=$?
+if [ "$RC_P50_023" -eq 0 ]; then ok "cic-s3-dep-install: install rc=0 (p50-023)"; else bad "cic-s3-dep-install: install rc=$RC_P50_023, expected 0 (p50-023, see $G.installer.log)"; fi
 
 grep -qE '^ *(npm install|pnpm add|yarn add)' <<<"$G_OUT" \
   && bad "G: ts-server no --full → the install still prints a dependency command to copy" \
@@ -239,7 +272,7 @@ grep -q 'not installed' <<<"$(printf '%s\n' "$G_OUT" | grep -E '^[[:space:]]*- d
 H=$(mktemp -d); export AIF_PM_LOG="$H.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"h","version":"0.0.0" }\n' > "$H/package.json"
 ( cd "$H" && git init -q && git config user.email t@t && git config user.name t )
-run_install "$H" react-next --force --full < /dev/null
+run_install "$H" 1 react-next --force --full < /dev/null
 
 for _spec in 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0' \
              'storybook@\^10\.5\.0' '@storybook/nextjs-vite@\^10\.5\.0' '@storybook/test-runner@\^0\.24\.4' \
@@ -374,7 +407,7 @@ _vitest_pin=$(sed -n '/^CORE_DEVDEPS=(/,/^)/p' "$REPO_ROOT/setup.d/70-deps.sh" \
 J=$(mktemp -d); export AIF_PM_LOG="$J.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"j","version":"0.0.0" }\n' > "$J/package.json"
 ( cd "$J" && git init -q && git config user.email t@t && git config user.name t )
-run_install "$J" ts-server --force --full < /dev/null
+run_install "$J" 1 ts-server --force --full < /dev/null
 _j_ovr=$(_read_vitest_override "$J/package.json")
 if [ -z "$_vitest_pin" ]; then
   bad "J: could not extract the bare vitest pin from CORE_DEVDEPS (harness stale vs 70-deps.sh)"
@@ -390,7 +423,7 @@ fi
 K=$(mktemp -d); export AIF_PM_LOG="$K.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"k","version":"0.0.0","overrides":{"@vitest/eslint-plugin":{"vitest":"^3.0.0"}} }\n' > "$K/package.json"
 ( cd "$K" && git init -q && git config user.email t@t && git config user.name t )
-run_install "$K" ts-server --force --full < /dev/null
+run_install "$K" 1 ts-server --force --full < /dev/null
 _k_ovr=$(_read_vitest_override "$K/package.json")
 [ "$_k_ovr" = "^3.0.0" ] \
   && ok "K neg: pre-existing overrides.vitest=^3.0.0 preserved (merge is non-destructive)" \
@@ -404,7 +437,7 @@ L=$(mktemp -d); export AIF_PM_LOG="$L.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"l","version":"0.0.0" }\n' > "$L/package.json"
 printf '' > "$L/pnpm-lock.yaml"     # flat pnpm marker → detect_pm yields pnpm
 ( cd "$L" && git init -q && git config user.email t@t && git config user.name t )
-run_install "$L" ts-server --force --full < /dev/null
+run_install "$L" 1 ts-server --force --full < /dev/null
 _l_ovr=$(_read_vitest_override "$L/package.json")
 if [ -z "$_l_ovr" ]; then
   ok "L neg: pnpm consumer → NO top-level overrides.vitest (guard is npm-scoped, non-vacuous)"

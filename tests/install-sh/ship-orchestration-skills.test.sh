@@ -29,6 +29,8 @@ printf '{"name":"ship-orch","version":"0.0.0"}\n' > "$T/package.json"
 # night-mode, harvest, story), which the F7 split gates behind this flag. The default set no
 # longer ships them — the flag installs the full nine so this transform assertion stays reachable.
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force --with-aif-suite ) >/dev/null 2>&1
+RC_P50_314=$?
+if [ "$RC_P50_314" -eq 0 ]; then ok "ship-orchestration-skills: install rc=0 (p50-314)"; else bad "ship-orchestration-skills: install rc=$RC_P50_314, expected 0 (p50-314)"; fi
 
 # ── pos: the orchestration companion skills land ─────────────────────────────
 for s in dispatcher aif-doctor template-audit night-mode ai-doc rule-research harvest story; do

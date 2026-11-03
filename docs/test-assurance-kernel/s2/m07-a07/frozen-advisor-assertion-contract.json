@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "case": "tests/advisor-bridge-beta/protocol.test.mjs:309 path validation",
+  "expected_actual_child_status": 4,
+  "retired_current_finding": "tests/advisor-bridge-beta/protocol.test.mjs:309 rules-as-tests/require-effective-assertion",
+  "expected": {
+    "baseline_lint_target_findings": 1,
+    "repaired_lint_target_findings": 0,
+    "historical_legacy_pins": 12,
+    "historical_additional_fixture_pins": 10,
+    "historical_baseline_findings": 22,
+    "current_after_ordinary_repair": 21,
+    "unchanged_static_corpus": 30
+  },
+  "unchanged_inputs": {
+    "tests/advisor-bridge-beta/protocol.test.mjs": "77ba03d02eba4630de9c3fa5186cd22b8fb1915c57cffba5a9874d80f246c264",
+    "scripts/advisor-bridge-beta/cli.mjs": "eaeb0831100c3d7bf29ce2f02e50da9e65ba8db04f504d35511ad07045d79651",
+    "packages/core/principles/51-test-quality-corpus-conformance.test.ts": "661a8548e2a317724c9f5c420237787f39df02e3a7a58f62b9b815bc855fe596",
+    "packages/core/principles/51-test-quality-population-s2.expected.json": "50f2b0479a8cb16c2de666c6c71ea4ace65c6cb4400986dfc6df1d06eaa572c6",
+    "scripts/test-assurance/expectations.json": "069d2a70165ba84e6e71157350c1d2324a69f83fd8fc58586524e3e5de525978"
+  },
+  "scope": "Legitimate existing helper; explicit direct real-result assertion and one current ratchet retirement only. No new CLI behavior, generic helper detector or runtime-coverage increase."
+}

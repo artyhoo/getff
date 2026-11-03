@@ -1,0 +1,47 @@
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+== phase: scratch worktree at HEAD (b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48) ==
+Preparing worktree (detached HEAD 2b45e109e)
+== phase: baseline suite (pristine worktree) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /tmp/s1-cf4-Pop1l5/packages/core/stdout-baseline.log
+FILE guard-liveness.test.ts pass
+OK file-status guard-liveness.test.ts=pass
+== phase: healthy probe (fault absent → the miss IS reported) ==
+PROBE status=fail
+PROBE failures=["input[0] did not produce 'rules-as-tests/no-server-imports-in-client' for 'rules-as-tests/no-server-imports-in-client'; got []"]
+OK probe /tmp/s1-cf4-Pop1l5/probe-kernel-subject.mts → PROBE status=fail
+== phase: fault — fail-status inversion, scratch worktree only ==
+PATCH-LABEL cf4: guard-liveness terminal verdict fail -> pass
+PATCH-SHA256 ca2188fbeed28d2a8e4d6b495063db2fed4b655c7cdf125f4357e3014aa75e4c
+PATCH-BEFORE-SHA256 b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48
+PATCH-AFTER-SHA256 142ecb211b2c9937af905f19085aa2360bc315ee733441c3d2cf9d01ea481f03
+PATCH-OCCURRENCES 1
+== phase: reachability under the fault (the miss is no longer reported) ==
+PROBE status=pass
+PROBE failures=["input[0] did not produce 'rules-as-tests/no-server-imports-in-client' for 'rules-as-tests/no-server-imports-in-client'; got []"]
+OK probe /tmp/s1-cf4-Pop1l5/probe-kernel-subject.mts → PROBE status=pass
+== phase: counterfactual suite — the gate's own suite must catch this ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /tmp/s1-cf4-Pop1l5/packages/core/stdout-counterfactual.log
+FILE guard-liveness.test.ts fail
+  MSG AssertionError: expected 'pass' to be 'fail' // Object.is equality |     at /tmp/s1-cf4-Pop1l5/packages/core/hooks/checks/guard-liveness.test.ts:96:29 |     at file:///home/www/rules-as-tests-aif/node_modules/@vitest/runner/dist/chunk-artif
+  MSG AssertionError: expected 'pass' to be 'fail' // Object.is equality |     at /tmp/s1-cf4-Pop1l5/packages/core/hooks/checks/guard-liveness.test.ts:160:29 |     at file:///home/www/rules-as-tests-aif/node_modules/@vitest/runner/dist/chunk-arti
+  MSG AssertionError: expected false to be true // Object.is equality |     at /tmp/s1-cf4-Pop1l5/packages/core/hooks/checks/guard-liveness.test.ts:221:66 |     at file:///home/www/rules-as-tests-aif/node_modules/@vitest/runner/dist/chunk-artifac
+OK file-status guard-liveness.test.ts=fail
+OK intended-assertion guard-liveness.test.ts /expected 'pass' to be 'fail'/
+OK killed-test named: [GLV-1] appears in the counterfactual suite output
+== phase: restoration (git checkout + hash equality with the HEAD blob) ==
+RESTORED packages/core/hooks/checks/guard-liveness.ts sha256=b05a4eb96df941028a786d135a6f5e39937fd7943050ce78a0da5252c5ec1d48
+PROBE status=fail
+PROBE failures=["input[0] did not produce 'rules-as-tests/no-server-imports-in-client' for 'rules-as-tests/no-server-imports-in-client'; got []"]
+OK probe /tmp/s1-cf4-Pop1l5/probe-kernel-subject.mts → PROBE status=fail
+VITEST-RC restored 0
+VITEST-STDOUT /tmp/s1-cf4-Pop1l5/packages/core/stdout-restored.log
+FILE guard-liveness.test.ts pass
+OK file-status guard-liveness.test.ts=pass
+== phase: final passing baseline in the MAIN checkout (post-experiment) ==
+VITEST-RC final 0
+VITEST-STDOUT /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/stdout-final.log
+FILE guard-liveness.test.ts pass
+OK file-status guard-liveness.test.ts=pass
+CF4 VERDICT: pass (inverted verdict reached via zero-message probe; killed by [GLV-1] on the intended assertion; restored + final baseline green)

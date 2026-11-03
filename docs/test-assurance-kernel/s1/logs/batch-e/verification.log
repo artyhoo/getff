@@ -1,0 +1,80 @@
+# Batch E verification log — 2026-10-08T14:43:44Z
+# All commands run from the repo root. Exits are verbatim.
+
+## 1. Batch-D regression: shared counterfactual-lib.sh was extended (expect_intended
+    falls back to the file-level `message` for suite-crash failures — additive);
+    cf4 re-proves the lib change is behavior-neutral for Batch D.
+$ bash scripts/test-assurance/counterfactuals/replay-cf4-guard-liveness-status-inversion.sh
+FILE guard-liveness.test.ts pass
+OK file-status guard-liveness.test.ts=pass
+CF4 VERDICT: pass (inverted verdict reached via zero-message probe; killed by [GLV-1] on the intended assertion; restored + final baseline green)
+CF4-EXIT=0
+
+## 2. Typecheck over the new/changed kernel surfaces
+$ node_modules/.bin/tsc --noEmit -p packages/core
+TSC-EXIT=0
+TSC output lines: 0
+
+## 3. The delivered root config lints its own new Batch-E surfaces (K5 dogfood)
+$ node_modules/.bin/eslint packages/core/principles/53-delivery-discovery-conformance.ts packages/core/principles/53-delivery-discovery-conformance.test.ts packages/core/principles/52-subprocess-status-conformance.ts
+
+/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/principles/52-subprocess-status-conformance.ts
+  0:0  warning  File ignored because no matching configuration was supplied
+
+/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/principles/53-delivery-discovery-conformance.ts
+  0:0  warning  File ignored because no matching configuration was supplied
+
+✖ 2 problems (0 errors, 2 warnings)
+
+ESLINT-EXIT=0
+
+## 4. Full principles suite (baseline = 3 known pre-existing content REDs: 14/37/48)
+$ cd packages/core && npm run test:principles
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  principles/14-skill-drift-detection.test.ts > Principle 14 — skill drift detection (D-AuditC-5 channel 3 / CI last resort) > detects 0 broken refs and 0 missing frontmatter in current repo state
+FAIL: 4 broken ref(s) found.
+FAIL: 7 file(s) with a wrong or missing invocation-channel contract.
+check-skill-drift: FAIL (2 error category/categories)
+ FAIL  principles/37-make-target-claim-liveness.test.ts > Principle 37 — make-target claim liveness > every `make <target>` claim in tests/ + scripts/ is true
+ FAIL  principles/48-skill-description-budget.test.ts > principle 48 — skill description budget > holds for every skill this repo authors or ships
+ Test Files  3 failed | 57 passed (60)
+SUITE-PIPELINE-EXIT=0
+
+### 3a. eslint warning detail (exit was 0; the 2 warnings must be classified pre-existing vs introduced)
+/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/principles/52-subprocess-status-conformance.ts
+  0:0  warning  File ignored because no matching configuration was supplied
+/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/principles/53-delivery-discovery-conformance.ts
+  0:0  warning  File ignored because no matching configuration was supplied
+✖ 2 problems (0 errors, 2 warnings)
+ESLINT-EXIT=0
+
+### 3b. pre-existing warning class: same rules on an UNTOUCHED principle file
+0
+(count of warnings on two untouched principle test files; >0 = same warning class pre-existing)
+
+## 5. Isolated test runs with RAW exits (no pipe masking)
+### 5a. principle 53 test suite
+P53-EXIT=1
+### 5b. principle 52 test suite (edited INTENDED_ASSERTIONS must not regress)
+P52-EXIT=1
+
+## 6. Markdown gates
+### 6a. markdownlint-cli2 on the batches ledger
+MARKDOWNLINT-EXIT=0
+markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)
+Finding: docs/test-assurance-kernel/s1/batches.md
+Linting: 1 file
+Summary: 0 issues in 0 files
+### 6b. 600-line gate
+330 docs/test-assurance-kernel/s1/batches.md
+
+### 5-fix. previous 5a/5b were INFRASTRUCTURE errors (bad --reporter=basic flag: 'Failed to load custom Reporter from basic') — not test results; re-run with reporter=default
+### 5a. principle 53 test suite (raw exit)
+P53-EXIT=0
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+### 5b. principle 52 test suite (raw exit)
+P52-EXIT=0
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+NOTE: an earlier attempt at section 5a in this same session misfired on an unset log-path variable (ambiguous redirect) and printed a spurious P53-EXIT=1 line; that line was removed. The retained run above is the clean raw result (P53-EXIT=0, Test Files 1 passed / 13 tests).

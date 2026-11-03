@@ -1,0 +1,92 @@
+▶ Byte-identical snapshot compare (4 npm stacks × {greenfield,brownfield} + python × 3 cells + cargo × 2 cells + go × 2 cells)
+
+  ▶ Snapshot harness: SNAPSHOT_MODE=compare
+  
+    ✗ FAIL: ts-server/greenfield — diff:
+  194c194
+  < 73091b8bfcdb22606c7804e62554615affd4777833780eb097d5394ecffe5b0f  .ai-factory/refresh-baseline.json
+  ---
+  > a84a60971fc91b2681750b0968367e1e7ed2f97340cf20a6aa5ec5033a7ce85c  .ai-factory/refresh-baseline.json
+  543c543
+  < b29827f2235fea6bbfad1732de0e3ef7282c8dc359f473b1b1d7ad6fb91a2946  scripts/prove-rules.mjs
+  ---
+  > ea47e72adc5ca9f4ad00e59221dbb007a684f31b46ef4321696a6e74adf0e0e3  scripts/prove-rules.mjs
+    ✗ FAIL: ts-server/brownfield — diff:
+  193c193
+  < ccfa0ff4dc64bb37e77f9c7c17af9a55c2dc3dfb2365f4e4d2b54e432aed0dba  .ai-factory/refresh-baseline.json
+  ---
+  > a298628c1ce4358ac7ffe00b63c60b6ad78ec5d0330e270f8e1f4c6da7f989b6  .ai-factory/refresh-baseline.json
+  541c541
+  < b29827f2235fea6bbfad1732de0e3ef7282c8dc359f473b1b1d7ad6fb91a2946  scripts/prove-rules.mjs
+  ---
+  > ea47e72adc5ca9f4ad00e59221dbb007a684f31b46ef4321696a6e74adf0e0e3  scripts/prove-rules.mjs
+    ✗ FAIL: react-next/greenfield — diff:
+  196c196
+  < 8f093d673594e57001a10702d8032198cc1d47b752e0d645efabfefde473cd7d  .ai-factory/refresh-baseline.json
+  ---
+  > 70408bddddf69e6d82d00b29e58b2ace3845976119c587b2b0872214df523583  .ai-factory/refresh-baseline.json
+  555c555
+  < b29827f2235fea6bbfad1732de0e3ef7282c8dc359f473b1b1d7ad6fb91a2946  scripts/prove-rules.mjs
+  ---
+  > ea47e72adc5ca9f4ad00e59221dbb007a684f31b46ef4321696a6e74adf0e0e3  scripts/prove-rules.mjs
+    ✗ FAIL: react-next/brownfield — diff:
+  195c195
+  < d063b33daa182aade208bd5fe03acdcced895e79ba8ab8bc2f5d066968b6762f  .ai-factory/refresh-baseline.json
+  ---
+  > 53737c8aba835d06c67a7f3f5a7c4a07872bbbf9abc35893e0bf0120d69cdec6  .ai-factory/refresh-baseline.json
+  553c553
+  < b29827f2235fea6bbfad1732de0e3ef7282c8dc359f473b1b1d7ad6fb91a2946  scripts/prove-rules.mjs
+  ---
+  > ea47e72adc5ca9f4ad00e59221dbb007a684f31b46ef4321696a6e74adf0e0e3  scripts/prove-rules.mjs
+    ✗ FAIL: react-spa/greenfield — diff:
+  196c196
+  < afcc6d3700f077c9ba262ef299b5dd1d17f7d63510a7b0d792608ef3f0326ec4  .ai-factory/refresh-baseline.json
+  ---
+  > d0c2da3989b044522e105b8e282b61b590d4fc4b59b1ac7cdf4b34c92432c1cb  .ai-factory/refresh-baseline.json
+  547c547
+  < b29827f2235fea6bbfad1732de0e3ef7282c8dc359f473b1b1d7ad6fb91a2946  scripts/prove-rules.mjs
+  ---
+  > ea47e72adc5ca9f4ad00e59221dbb007a684f31b46ef4321696a6e74adf0e0e3  scripts/prove-rules.mjs
+    ✗ FAIL: react-spa/brownfield — diff:
+  195c195
+  < 4a88da0fb17be8c17410810535f530ced6c005fe68f7957dab05990ccc4a0731  .ai-factory/refresh-baseline.json
+  ---
+  > 39f15eea89628c0344a2784f542ba992391e06e71d3d9960aa68d8be5e9f3973  .ai-factory/refresh-baseline.json
+  545c545
+  < b29827f2235fea6bbfad1732de0e3ef7282c8dc359f473b1b1d7ad6fb91a2946  scripts/prove-rules.mjs
+  ---
+  > ea47e72adc5ca9f4ad00e59221dbb007a684f31b46ef4321696a6e74adf0e0e3  scripts/prove-rules.mjs
+    ✗ FAIL: react-native/greenfield — diff:
+  196c196
+  < c125974a550015187353477880b39803ed1b0a9092e3eb9c313695321e2acd57  .ai-factory/refresh-baseline.json
+  ---
+  > d1728fba8e15d7bc51dc3b943d62c5cfcbe264d2b89bd25090555c5a9e7cfd7a  .ai-factory/refresh-baseline.json
+  547c547
+  < b29827f2235fea6bbfad1732de0e3ef7282c8dc359f473b1b1d7ad6fb91a2946  scripts/prove-rules.mjs
+  ---
+  > ea47e72adc5ca9f4ad00e59221dbb007a684f31b46ef4321696a6e74adf0e0e3  scripts/prove-rules.mjs
+    ✗ FAIL: react-native/brownfield — diff:
+  195c195
+  < 7994017c1c65b47ae2caf54053cada0776a81115cad775ec1b810dad35dfbc3f  .ai-factory/refresh-baseline.json
+  ---
+  > 47f6258515874c9155a24cde9dd2d540b9599a39400b140b1bb09b05a5d95df1  .ai-factory/refresh-baseline.json
+  545c545
+  < b29827f2235fea6bbfad1732de0e3ef7282c8dc359f473b1b1d7ad6fb91a2946  scripts/prove-rules.mjs
+  ---
+  > ea47e72adc5ca9f4ad00e59221dbb007a684f31b46ef4321696a6e74adf0e0e3  scripts/prove-rules.mjs
+    ✓ PASS: python/greenfield — byte-identical
+    ✓ PASS: python/brownfield-ruff — byte-identical
+    ✓ PASS: python/brownfield-sgconfig — byte-identical
+    ✓ PASS: cargo/greenfield — byte-identical
+    ✓ PASS: cargo/brownfield-clippy — byte-identical
+    ✓ PASS: go/greenfield — byte-identical
+    ✓ PASS: go/brownfield-golangci — byte-identical
+  
+  Result: 7 pass / 8 fail
+  ✗ snapshot compare: one or more stacks/modes differ from baseline (see diff above)
+
+▶ Shellcheck gate
+  ⊝ shellcheck not found on PATH — skipping shellcheck gate
+    (install shellcheck >= 0.9.0 to enable this gate locally)
+
+Result: 0 pass / 1 fail

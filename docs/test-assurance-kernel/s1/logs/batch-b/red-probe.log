@@ -1,0 +1,17 @@
+# red-probe.log — Batch B RED-first evidence: the Q1/Q2 channel is ABSENT on this base (T-TAK-A baseline)
+# generated: 2026-10-08T12:16:00Z @ e03ab279f
+# method: real ESLint Linter + the shipped rules-as-tests plugin AS IT EXISTS TODAY (all existing rules at error) over every q1/q2 corpus bad — expect 0 problems each (no Q1/Q2 rule exists yet)
+
+scripts/test-assurance/corpus/q1-vacuous/bad.literal-identity.ts -> 0 problems (channel absent)
+scripts/test-assurance/corpus/q1-vacuous/bad.literal-arithmetic.ts -> 0 problems (channel absent)
+scripts/test-assurance/corpus/q1-vacuous/bad.string-literal-identity.ts -> 0 problems (channel absent)
+scripts/test-assurance/corpus/q1-vacuous/bad.negated-literal.ts -> 0 problems (channel absent)
+scripts/test-assurance/corpus/q1-vacuous/bad.fabricated-status.ts -> 0 problems (channel absent)
+scripts/test-assurance/corpus/q2-noassertion/bad.comment-only.ts -> 0 problems (channel absent)
+scripts/test-assurance/corpus/q2-noassertion/bad.empty-body.ts -> 0 problems (channel absent)
+scripts/test-assurance/corpus/q2-noassertion/bad.console-only.ts -> 0 problems (channel absent)
+scripts/test-assurance/corpus/q2-noassertion/bad.await-without-assert.ts -> 0 problems (channel absent)
+TOTAL problems across 9 Q1/Q2 bads: 0
+PROBE-RED: channel absent, as expected (S0 baseline reproduced on this base)
+
+exit: 0

@@ -1,0 +1,145 @@
+
+############ replay-fences-fire-deletion.sh ############
+--- START 14:42:38Z
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+== phase: scratch worktree at HEAD (b27b103294d76052f69761d75c5ad787241ea04637b13429cef66faf1013d04b) ==
+Preparing worktree (detached HEAD 2907f7dc5)
+== phase: baseline suite (pristine worktree) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /tmp/s1-batch-e-fences-N9i5MU/packages/core/stdout-baseline.log
+FILE plugin-dual-engine.test.ts pass
+OK file-status plugin-dual-engine.test.ts=pass
+== phase: delivery break — delete the committed fences-fire good fixture ==
+DELETED packages/core/audit-self/fixtures/fences-fire/no-vacuous-assertion.good.txt (pre-delete sha256=b27b103294d76052f69761d75c5ad787241ea04637b13429cef66faf1013d04b, HEAD blob sha256=b27b103294d76052f69761d75c5ad787241ea04637b13429cef66faf1013d04b)
+== phase: counterfactual suite — verification must fail with the intended throw ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /tmp/s1-batch-e-fences-N9i5MU/packages/core/stdout-counterfactual.log
+FILE plugin-dual-engine.test.ts fail
+OK file-status plugin-dual-engine.test.ts=fail
+OK intended-assertion plugin-dual-engine.test.ts /no-vacuous-assertion: no good fixture/
+OK killed-by: 'no-vacuous-assertion: no good fixture' appears in the counterfactual output
+== phase: restoration (git checkout + hash equality with the HEAD blob) ==
+RESTORED packages/core/audit-self/fixtures/fences-fire/no-vacuous-assertion.good.txt sha256=b27b103294d76052f69761d75c5ad787241ea04637b13429cef66faf1013d04b
+VITEST-RC restored 0
+VITEST-STDOUT /tmp/s1-batch-e-fences-N9i5MU/packages/core/stdout-restored.log
+FILE plugin-dual-engine.test.ts pass
+OK file-status plugin-dual-engine.test.ts=pass
+== phase: final passing baseline in the MAIN checkout (post-experiment) ==
+VITEST-RC final 0
+VITEST-STDOUT /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/stdout-final.log
+FILE plugin-dual-engine.test.ts pass
+OK file-status plugin-dual-engine.test.ts=pass
+FENCES-FIRE-DELETION VERDICT: pass (deleted committed triple reached the real suite; verification failed with the intended throw; restored + final baseline green)
+--- replay-fences-fire-deletion.sh EXIT=0
+
+############ replay-template-dangling-ref.sh ############
+--- START 14:42:41Z
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+== phase: scratch worktree at HEAD (2ef94b06113e3ae77d0d84e36c978df00faec1e9a8e7836e5a7b710a4ee65c52) ==
+Preparing worktree (detached HEAD 2907f7dc5)
+== phase: baseline principle run (pristine worktree) ==
+VITEST-RC baseline 0
+VITEST-STDOUT /tmp/s1-batch-e-tmpl-Nc6JUx/packages/core/stdout-baseline.log
+FILE 25-template-rule-ref-resolution.test.ts pass
+OK file-status 25-template-rule-ref-resolution.test.ts=pass
+== phase: delivery break — seed the dangling ref into the shipped template ==
+PATCH-LABEL batch-e: template family — seed dangling rules-as-tests/s1-replay-dangling-ref ref
+PATCH-SHA256 b9c942ef8db368e9e0087bd5734317efe97517104b2a1112ffe25cfc48be08a5
+PATCH-BEFORE-SHA256 2ef94b06113e3ae77d0d84e36c978df00faec1e9a8e7836e5a7b710a4ee65c52
+PATCH-AFTER-SHA256 f670a7d0bbbb8fb34ff8c1dd17e79bb9dfee914e10d2f58137574d57c79bc94a
+PATCH-OCCURRENCES 1
+== phase: counterfactual — principle 25 must go RED naming the dangling id ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /tmp/s1-batch-e-tmpl-Nc6JUx/packages/core/stdout-counterfactual.log
+FILE 25-template-rule-ref-resolution.test.ts fail
+  MSG AssertionError: Dangling template rule refs (no backing barrel export): |   templates/ts-server/eslint.config.mjs → rules-as-tests/s1-replay-dangling-ref: expected [ Array(1) ] to have a length of +0 but got 1 |     at Proxy.<anonymous> (fi
+OK file-status 25-template-rule-ref-resolution.test.ts=fail
+OK intended-assertion 25-template-rule-ref-resolution.test.ts /s1-replay-dangling-ref/
+OK killed-by: 'rules-as-tests/s1-replay-dangling-ref' named in the principle-25 failure
+== phase: restoration (git checkout + hash equality with the HEAD blob) ==
+RESTORED templates/ts-server/eslint.config.mjs sha256=2ef94b06113e3ae77d0d84e36c978df00faec1e9a8e7836e5a7b710a4ee65c52
+VITEST-RC restored 0
+VITEST-STDOUT /tmp/s1-batch-e-tmpl-Nc6JUx/packages/core/stdout-restored.log
+FILE 25-template-rule-ref-resolution.test.ts pass
+OK file-status 25-template-rule-ref-resolution.test.ts=pass
+== phase: final passing baseline in the MAIN checkout (post-experiment) ==
+VITEST-RC final 0
+VITEST-STDOUT /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/stdout-final.log
+FILE 25-template-rule-ref-resolution.test.ts pass
+OK file-status 25-template-rule-ref-resolution.test.ts=pass
+TEMPLATE-DANGLING-REF VERDICT: pass (dangling ref reached the real gate; principle 25 failed naming it; restored + final baseline green)
+--- replay-template-dangling-ref.sh EXIT=0
+
+############ replay-principle-rename-break.sh ############
+--- START 14:42:44Z
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+== phase: scratch worktree at HEAD (f88d56ea8419788f3f020774efe1f621c63f66db755e5db38bdfaf8b4c1c27f7) + Batch-E files copied in as fixture ==
+Preparing worktree (detached HEAD 2907f7dc5)
+== phase: baseline — the 53 ratchet is green and the runner SELECTS the 52 test ==
+VITEST-RC baseline 0
+VITEST-STDOUT /tmp/s1-batch-e-rename-kN8BoE/packages/core/stdout-baseline.log
+FILE 53-delivery-discovery-conformance.test.ts pass
+OK file-status 53-delivery-discovery-conformance.test.ts=pass
+OK baseline: 52 test selectable and green (rc=0)
+== phase: delivery break — rename the committed principle test outside the grammar ==
+== phase: THE SILENT DROP — the runner can no longer target the file it just ran ==
+VITEST-TARGET-RC after rename: 1 (was 0); 'No test files found' lines: 1
+OK silent drop demonstrated: no test, no gate, no reference — an empty selection, not a detection [T-TAK-A]
+== phase: THE RATCHET CATCH — principle 53 goes RED naming the orphaned module 52 ==
+VITEST-RC counterfactual 1
+VITEST-STDOUT /tmp/s1-batch-e-rename-kN8BoE/packages/core/stdout-counterfactual.log
+FILE 53-delivery-discovery-conformance.test.ts fail
+  MSG AssertionError: orphaned principle modules (no grammar-selected <n>-*.test.ts sibling): principles/52-subprocess-status-conformance.ts: expected [ { …(2) } ] to deeply equal [] |     at /tmp/s1-batch-e-rename-kN8BoE/packages/core/principles
+OK file-status 53-delivery-discovery-conformance.test.ts=fail
+OK intended-assertion 53-delivery-discovery-conformance.test.ts /52-subprocess-status-conformance/
+OK killed-by: pairing ratchet names the orphaned module 'principles/52-subprocess-status-conformance.ts'
+== phase: restoration (git mv back + hash equality with the HEAD blob; drop the fixture copies) ==
+RESTORED packages/core/principles/52-subprocess-status-conformance.test.ts sha256=f88d56ea8419788f3f020774efe1f621c63f66db755e5db38bdfaf8b4c1c27f7 (worktree principles/ clean)
+== phase: final passing baseline in the MAIN checkout (post-experiment) ==
+VITEST-RC final 0
+VITEST-STDOUT /home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2/packages/core/stdout-final.log
+FILE 52-subprocess-status-conformance.test.ts pass
+FILE 53-delivery-discovery-conformance.test.ts pass
+OK file-status 53-delivery-discovery-conformance.test.ts=pass
+OK file-status 52-subprocess-status-conformance.test.ts=pass
+PRINCIPLE-RENAME-BREAK VERDICT: pass (rename silently dropped the test from the runner; the 53 pairing ratchet caught it naming the orphan; restored + final baseline green)
+--- replay-principle-rename-break.sh EXIT=0
+
+############ replay-a12-emitted-corruption.sh ############
+--- START 14:42:52Z
+CF-LIB repo=/home/www/rules-as-tests-aif-feature-test-assurance-kernel-bd2bc9-bd2bc9be-23d9-498c-b7d5-2e1220f43fd2
+== phase: A12 characterization through the real fence.ts modules (read-only) ==
+A12-CHARACTERIZATION healthy-match=true
+A12-CHARACTERIZATION body-drift-caught=true
+A12-CHARACTERIZATION hash-attribute-parsed=true
+A12-CHARACTERIZATION corrupted-hash-still-matches=true
+== phase: main checkout untouched (read-only characterization) ==
+A12-EMITTED-CORRUPTION VERDICT: pass-as-CHARACTERIZATION
+  - caught today:        body drift (regionsMatch byte comparison) — arm 1
+  - demonstrated gap:    a corrupted hash= attribute parses, is exposed, and cannot
+                         fail any check (never verified) — arm 2, the WI-1 seam
+  - classification:      SURVIVED (demonstrated gap) → blocking dispositions queue,
+                         S2 obligation; NO repair attempted in S1 (out of scope)
+--- replay-a12-emitted-corruption.sh EXIT=0
+
+############ live disk-side stray-file probe (batch flow, once) ############
+--- START 14:43:24Z
+== baseline reconcile over the REAL corpus + frozen registry (must be clean) ==
+BASELINE mismatches=0
+population=30
+BASELINE-RECONCILE-EXIT=0
+== plant a transient unregistered stray ($STRAY) ==
+[
+ {
+  "kind": "on-disk-but-unregistered",
+  "detail": "corpus file on disk is NOT registered in expectations.json (deleted key, new unlisted extension?): scripts/test-assurance/corpus/q1-vacuous/s1-batch-e-stray.test.mts"
+ }
+]
+STRAY-FLAGGED ok
+PLANTED-RECONCILE-EXIT=0
+== restoration ==
+STRAY REMOVED
+0
+RESTORED mismatches=0
+RESTORED-RECONCILE-EXIT=0
+--- live probe END

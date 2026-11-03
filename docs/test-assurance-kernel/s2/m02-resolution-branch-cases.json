@@ -1,0 +1,57 @@
+{
+  "previous_fixed_four_case_file_sha256": "001bf985b699101b8ab1c43d87a44784f5dd3ab0ead623c0f20257d7a0fc9636",
+  "cases": [
+    {
+      "id": "real-npm-test-body-with-passed-filter",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npm --prefix packages/core test -- skills/\n",
+      "scripts": {
+        "test": "vitest run --reporter=default"
+      },
+      "expected_filters": [
+        "skills/"
+      ]
+    },
+    {
+      "id": "echo-npm-test-body-must-not-credit-passed-args",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npm --prefix packages/core test -- skills/\n",
+      "scripts": {
+        "test": "echo no-tests-executed"
+      },
+      "expected_filters": []
+    },
+    {
+      "id": "real-npx-vitest-subcommand",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npx --prefix packages/core vitest run packages/core/skills/\n",
+      "scripts": {},
+      "expected_filters": [
+        "skills/"
+      ]
+    },
+    {
+      "id": "different-npx-subcommand-only-mentions-vitest",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npx --prefix packages/core --no-install echo vitest run skills/\n",
+      "scripts": {},
+      "expected_filters": []
+    },
+    {
+      "id": "other-real-npx-cli-prints-version-without-running-vitest",
+      "workflow": "jobs:\n  test:\n    steps:\n      - run: npx --prefix packages/core --no-install eslint --version vitest run skills/\n",
+      "scripts": {},
+      "expected_filters": []
+    }
+  ],
+  "scope": "All existing M02 command resolution branches plus an actual installed unrelated npx CLI that succeeds without invoking Vitest. Original four cases and expected outcomes unchanged. No generic parser/platform requirement.",
+  "real_cli_control_expected_exit": 0,
+  "real_cli_control_argv": [
+    "npx",
+    "--prefix",
+    "packages/core",
+    "--no-install",
+    "eslint",
+    "--version",
+    "vitest",
+    "run",
+    "skills/"
+  ],
+  "frozen_before_new_control_measurement_and_responding_source_changes": true
+}

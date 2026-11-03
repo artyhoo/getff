@@ -238,6 +238,8 @@ TC="$WORK/consumer-hooks"; mkdir -p "$TC/.husky"
 ( cd "$TC" && git init -q . && printf '{ "name":"c","version":"0.0.0" }\n' > package.json )
 printf '#!/bin/sh\necho consumer-own-pre-commit\n' > "$TC/.husky/pre-commit"; chmod +x "$TC/.husky/pre-commit"
 OUT_H=$( cd "$TC" && env -u CI bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
+RC_P50_147=$?
+if [ "$RC_P50_147" -eq 0 ]; then ok "install-self-verify-skip-and-exit: install rc=0 (p50-147)"; else bad "install-self-verify-skip-and-exit: install rc=$RC_P50_147, expected 0 (p50-147)"; fi
 if grep -q '\.husky/pre-commit' <<<"$(printf '%s\n' "$OUT_H" | grep -A20 'NOT wired')"; then
   ok "NW-h: the kept consumer .husky/pre-commit is named in the NOT wired summary"
 else
@@ -264,6 +266,8 @@ for _h in pre-commit pre-push; do
   printf '#!/bin/sh\necho consumer-own-%s\n' "$_h" > "$TC2/.husky/$_h"; chmod +x "$TC2/.husky/$_h"
 done
 OUT_H2=$( cd "$TC2" && env -u CI bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
+RC_P50_148=$?
+if [ "$RC_P50_148" -eq 0 ]; then ok "install-self-verify-skip-and-exit: install rc=0 (p50-148)"; else bad "install-self-verify-skip-and-exit: install rc=$RC_P50_148, expected 0 (p50-148)"; fi
 for _h in pre-commit pre-push; do
   case "$_h" in pre-commit) _what='lint-staged' ;; *) _what='pre-push\.bundle\.mjs' ;; esac
   _line=$(printf '%s\n' "$OUT_H2" | grep "your own \.husky/$_h is kept" | head -1)

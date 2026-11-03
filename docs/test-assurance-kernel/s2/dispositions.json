@@ -1,0 +1,2698 @@
+{
+ "meta": {
+  "stage": "S2 exact110candidate scoped dispositions, subject to actual stage execution and independent acceptance",
+  "base_head": "ac17594f1f1edaad7d98b0acb2ddcd08e748518f",
+  "generated_utc": "2026-10-14T02:24:10Z",
+  "rule": "a hit is a CANDIDATE, never an assumed bug (spec §2/§7); every candidate links evidence + owning mechanism; blocking_for_s2done flags the eventual S2 completion denominator (nothing is repaired in this intake)",
+  "correction": "correction-1 (4/5): +cand-r4-suite-sensitivity (M06, blocking); M15 entries carry coordinator-observed resolution attempts (GitHub 422, SSH timeout) — all three M15 entries remain candidate-needs-review / pending.",
+  "m15_decision": {
+   "decision": "tak-m15-real-lineage-successor-decision-20261014.json",
+   "decision_sha256": "d438e3722bcc48b7e0adc61bbacd33e4adb9cc14ca6afbf52bebf99fdc810f7d",
+   "selected": "B_PROSPECTIVE_ACTUAL_LINEAGE_SUCCESSOR_CONDITIONAL_ON_EXACT_DELTA_REVIEW",
+   "brief_sha256": "484f7d4b5d022dcb897b0d8d99fdda37dc9eda3ccef589ae61f48d9dd62e0652",
+   "correction_review_sha256": "09826c35bc99f55361b0e3a12836e5e9073a4c619645d39b707cf11b157bcb21",
+   "recorded_utc": "2026-10-14T03:59:30Z",
+   "effect": "six-path corrected successor only (verify.mjs actual-lineage + receipts + live-freshness arm; s1 dispositions.md §M15 appended after the complete original prefix; three s1 doc sections; three M15 rows here); applied pending independent exact delta review",
+   "still_disclosed_missing": "historical 46c8d1d5f78 (local/GitHub absent, remote UNKNOWN) and historical be84 — never synthesized",
+   "public_rearm": "disp-m15-successor-s2-entry-regen (s1 dispositions.md, owner-stage S4): merge-forward then-current staging/native + regenerate integrated accepted inputs with shared owner renewal + same-head CI/publication/final acceptance"
+  },
+  "m15_note": "correction of the three M15 rows only (CAND-098/099/100), regenerated from the 3d130 base per review 09826c35: statuses → retired with decision receipts; counters (110 total, M15=3 by owner) unchanged; every other row untouched; the first proposal (be79f2e0/175f9917) stays immutable as history",
+  "independent_scope_ruling": "final-scope-ruling.json sha256016348f0200e718a870746b62962f1978a14347953b9948e965afebdf209379b"
+ },
+ "counts": {
+  "total": 110,
+  "by_owner": [
+   [
+    "M10",
+    73
+   ],
+   [
+    "none — frozen fixture, pinned as-is",
+    11
+   ],
+   [
+    "M07",
+    1
+   ],
+   [
+    "M12",
+    11
+   ],
+   [
+    "review channel (review-sidecar §1) + M12 triage",
+    1
+   ],
+   [
+    "M11",
+    1
+   ],
+   [
+    "M14",
+    1
+   ],
+   [
+    "M13",
+    2
+   ],
+   [
+    "M15",
+    3
+   ],
+   [
+    "M01",
+    1
+   ],
+   [
+    "M02",
+    1
+   ],
+   [
+    "M05",
+    1
+   ],
+   [
+    "M08",
+    1
+   ],
+   [
+    "M09",
+    1
+   ],
+   [
+    "M06",
+    1
+   ]
+  ],
+  "by_status": {
+   "verified-behavioral": 5,
+   "verified-structural": 82,
+   "candidate-needs-review": 0,
+   "demonstrated-gap": 0,
+   "not-executed": 0,
+   "intentional-fixture": 11,
+   "external-contract": 5,
+   "retired": 7
+  }
+ },
+ "dispositions": [
+  {
+   "id": "CAND-001",
+   "source": "p50-baseline:audit-r4-shipped.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "d8ee5124d96a047cbcccba53ee78f7562ae9a3ff19efbbd92406a6099e7208a7",
+   "call_ids": [
+    "p50-001"
+   ],
+   "per_call_status_counts": {
+    "verified-behavioral": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-002",
+   "source": "p50-baseline:byte-identical.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "203d6014afa6445e1f07e9bb34f7f622406dae487a8ca48a10100f57dc3676d9",
+   "call_ids": [
+    "p50-002"
+   ],
+   "per_call_status_counts": {
+    "not-executed": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-003",
+   "source": "p50-baseline:c1-wiring.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "9ca8804fe72368ad7d05909a609becfbdd45d44c73c9b2105d376666f733da9c",
+   "call_ids": [
+    "p50-003",
+    "p50-004"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-004",
+   "source": "p50-baseline:cargo-entry-lane.test.sh (15 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "cac33e460558080c57cfe7059ab96c0a9ef36c92ae6956b9aa2d65ad0006a10f",
+   "call_ids": [
+    "p50-005",
+    "p50-006",
+    "p50-007",
+    "p50-008",
+    "p50-009",
+    "p50-010",
+    "p50-011",
+    "p50-012",
+    "p50-013",
+    "p50-014",
+    "p50-015",
+    "p50-016",
+    "p50-017",
+    "p50-018",
+    "p50-019"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 15
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-005",
+   "source": "p50-baseline:check-fences-fire-full-barrel.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "c1619e64edbba119b2ec6977b426bdd730cf428a0ad5b8e8c23e2db6b64b7102",
+   "call_ids": [
+    "p50-020"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-006",
+   "source": "p50-baseline:cic-s3-dep-install.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "4791baf430a6e398b49852808301a67cec3b7db33a7f7ef93ee724645bc91c18",
+   "call_ids": [
+    "p50-021",
+    "p50-022",
+    "p50-023"
+   ],
+   "per_call_status_counts": {
+    "verified-behavioral": 1,
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-007",
+   "source": "p50-baseline:consumer-delivery-safety-guard.test.sh (4 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "0d880609d09abb7fbab480266339448f0c358219148d2cb5422695e6a62c8687",
+   "call_ids": [
+    "p50-024",
+    "p50-025",
+    "p50-026",
+    "p50-027"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 4
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-008",
+   "source": "p50-baseline:consumer-upgrade-path.test.sh (17 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "7c6d85155b19ae983c321635be83d8e5694a377f24839de9c096a2f6037af94c",
+   "call_ids": [
+    "p50-028",
+    "p50-029",
+    "p50-030",
+    "p50-031",
+    "p50-032",
+    "p50-033",
+    "p50-034",
+    "p50-035",
+    "p50-036",
+    "p50-037",
+    "p50-038",
+    "p50-039",
+    "p50-040",
+    "p50-041",
+    "p50-042",
+    "p50-043",
+    "p50-044"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 17
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-009",
+   "source": "p50-baseline:deliver-gate-scripts.test.sh (7 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "51d6a6f8154c69ea9845a3359bfcc7f7167808c15733a7559deccbf248cbc5ae",
+   "call_ids": [
+    "p50-045",
+    "p50-046",
+    "p50-047",
+    "p50-048",
+    "p50-049",
+    "p50-050",
+    "p50-051"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 7
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-010",
+   "source": "p50-baseline:depcruise-config-esm.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "a0fd9b5e3ddf9a279ab116d8302fbe359f537932d860dbdb6008005af24c32d8",
+   "call_ids": [
+    "p50-052",
+    "p50-053"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-011",
+   "source": "p50-baseline:eslint-barrel-preserve-consumer.test.sh (5 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "7fb30e31201aebcc7a2403b2948067c8a4ef874aebbdaefa84dac136283c841a",
+   "call_ids": [
+    "p50-054",
+    "p50-055",
+    "p50-056",
+    "p50-057",
+    "p50-058"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 5
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-012",
+   "source": "p50-baseline:eslint-rule-prune-by-manifest.test.sh (4 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "c1212fcf72502ca7373c6223a5d010d3cbc560cc937441537bce04ac6d7a389a",
+   "call_ids": [
+    "p50-059",
+    "p50-060",
+    "p50-061",
+    "p50-062"
+   ],
+   "per_call_status_counts": {
+    "verified-behavioral": 1,
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-013",
+   "source": "p50-baseline:f1-ts-arm.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "c4b9dc19ca9c691615e0383f4db5daa73df4da18868ce17f8dbec6cbcc74b3db",
+   "call_ids": [
+    "p50-063"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-014",
+   "source": "p50-baseline:f11-ci-node-version.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "07cee743d9f6af50d78518201209ad76831942e474143902a24e2dea43684f3d",
+   "call_ids": [
+    "p50-064"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-015",
+   "source": "p50-baseline:f12-workflow-integrity-shipped.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "0a57f2529cd53aa258c9f33ecf6490487dc304bd5d8c890ee01da367a33d863b",
+   "call_ids": [
+    "p50-065",
+    "p50-066"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-016",
+   "source": "p50-baseline:f13-stryker-pm.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "c8dea6e8b635900acabdb584c901d4b2bd950628372cadeb3cbe9bd63cae1e3c",
+   "call_ids": [
+    "p50-067",
+    "p50-068"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-017",
+   "source": "p50-baseline:f14-lintstaged-resolves.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "394bc3da052dd44441216e1e62521b79dc7bc50650b6bb961fc4ade20edbb41a",
+   "call_ids": [
+    "p50-069",
+    "p50-070",
+    "p50-071"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-018",
+   "source": "p50-baseline:f15-prettierignore.test.sh (15 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "8ab26100298f624d7f7f8bd75203b5e146b20633a9ee2fa030939aa576aef755",
+   "call_ids": [
+    "p50-072",
+    "p50-073",
+    "p50-074",
+    "p50-075",
+    "p50-076",
+    "p50-077",
+    "p50-078",
+    "p50-079",
+    "p50-080",
+    "p50-081",
+    "p50-082",
+    "p50-083",
+    "p50-084",
+    "p50-085",
+    "p50-086"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 15
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-019",
+   "source": "p50-baseline:f19-fences-fire-load-probe.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "e2b2b67df01252afec496aead3acd23d945caa56808477cd580d71aea7bacf4d",
+   "call_ids": [
+    "p50-087"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-020",
+   "source": "p50-baseline:f2-hook-activation.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "36974c5d370341073d30fa77addb185b783aa58c086decce01fe3baf63c46d84",
+   "call_ids": [
+    "p50-088",
+    "p50-089"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-021",
+   "source": "p50-baseline:f20-stryker-monorepo-emit.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "c5f51d42a6c1dadf9c3c5e5303b342126a5e4f34feba0640e55c83148521d422",
+   "call_ids": [
+    "p50-090"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-022",
+   "source": "p50-baseline:f3-f7-rule-globs.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "481aef6d86dd1590eb89022be9bd20cc33cafb64ce7aac8aad077131f8b8603d",
+   "call_ids": [
+    "p50-091"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-023",
+   "source": "p50-baseline:f5-stryker-globs.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "52c0ba25938e04cdf7eb8c627261760f0dbf4e31fc8eb30ed75b6ffdf7e4141a",
+   "call_ids": [
+    "p50-092"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": {
+    "actual_source_commit": "0556b7cd747d3952ef386ec3cdbe4ed1a638de1a",
+    "actual_application_receipt": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/s2-m09-a10/execution-1/source-application/ACTUAL-SOURCE-APPLICATION.json",
+    "receipt_sha256": "17f69a4855651d6b4d867d353fc681c1ac4d7186637f3e0e5389bddb5e20c133",
+    "independent_GO_sha256": "574232d53c3154812823a8e04aaac0480bdb461c717207a894d354ad0bed7933",
+    "scope": "M09 preserves actual installer status admission and adds actual selected mutation population; known accepted complete F5 PASS6/FAIL0. Historical M10 file-hash binding is not silently reused."
+   }
+  },
+  {
+   "id": "CAND-024",
+   "source": "p50-baseline:f8-agents-scripts-shipped.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "f0c01a0cacf660340d4ca2050bd7590e4ee742eddb20c9373ec7765ae140423a",
+   "call_ids": [
+    "p50-093",
+    "p50-094"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-025",
+   "source": "p50-baseline:f8b-rulecreator-doc-urls.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "41a3c7ff92873a0b63252c3b7befabb5427b78ee7e5630810d76b63525ab10b9",
+   "call_ids": [
+    "p50-095"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-026",
+   "source": "p50-baseline:f8c-no-husky-init-advice.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "2a60450c2c21e9d71ede7537c986f9cc5c081cf88bd835ba02f0f9060fbb0dd9",
+   "call_ids": [
+    "p50-096"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-027",
+   "source": "p50-baseline:f8d-ai-factory-sot-materialized.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "1cdf02d60063618f41295dc1a2cf1c107028d013300ac20a207eda2fff397711",
+   "call_ids": [
+    "p50-097",
+    "p50-098",
+    "p50-099"
+   ],
+   "per_call_status_counts": {
+    "verified-behavioral": 1,
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-028",
+   "source": "p50-baseline:f9-aif-commands-honesty.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "13aa44ec344a061002c7dd0f69ab7c15a90056fe0bfe4de58a9cb18736c69852",
+   "call_ids": [
+    "p50-100"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-029",
+   "source": "p50-baseline:fence-agents-coownership.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "c23e37af8491ed3d113f60b4812ff1e29a5b1bde86a44adf57d0369e6a0b9a45",
+   "call_ids": [
+    "p50-101",
+    "p50-102"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-030",
+   "source": "p50-baseline:first-commit-passable.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "d8012b6e0e32f53984f703e279067a9e47f5f4c4918cf497c8b6ab13774aea46",
+   "call_ids": [
+    "p50-103"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-031",
+   "source": "p50-baseline:foreign-tool-configs.test.sh (4 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "c8d2f96872651ab0df1e5ed19063c2540fec49c1647291f96400665ec91e5dce",
+   "call_ids": [
+    "p50-104",
+    "p50-105",
+    "p50-106",
+    "p50-107"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 4
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-032",
+   "source": "p50-baseline:getff-default-branch-substitution.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "7a8863041be8d5555ea78a69f07c829d6f7f0004168783b507eec16632db9d93",
+   "call_ids": [
+    "p50-108"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-033",
+   "source": "p50-baseline:gh-531-shipped-prettier.test.sh (4 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "1b68ba1f6d8ac5718c394a1c8dd4d3a7cb209fa9233f9f91dea824767e9ce224",
+   "call_ids": [
+    "p50-109",
+    "p50-110",
+    "p50-111",
+    "p50-112"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 4
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-034",
+   "source": "p50-baseline:gh-934-ship-doc-authority-hook.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "c02d1a1dc20f4613d4a460f0ba3b7500613ce0f73b6cab0d526d13a1ef8865ca",
+   "call_ids": [
+    "p50-113",
+    "p50-114",
+    "p50-115"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-035",
+   "source": "p50-baseline:gh-934-ship-eot-hook.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "8cfbdccb34391bf2a6faaa9705a6a026fb25c0e317865e49312fdba6c67312eb",
+   "call_ids": [
+    "p50-116",
+    "p50-117",
+    "p50-118"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-036",
+   "source": "p50-baseline:gh-934-ship-output-language-hook.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "1f0393ee88e8274a6c5967effa93c3fe07fa7b27ad68d227117a39a04dd77946",
+   "call_ids": [
+    "p50-119",
+    "p50-120",
+    "p50-121"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-037",
+   "source": "p50-baseline:gh-934-ship-project-agnostic-hooks.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "61dd73bd48c1f60be8c5ea737f35c2bbab9c83c097519d955b193eef9b67c6d3",
+   "call_ids": [
+    "p50-122",
+    "p50-123",
+    "p50-124"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-038",
+   "source": "p50-baseline:gh-934-ship-session-ux-hooks.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "91058f5cd665c1c86156f4df3a50a0ab1b35988f2d225ec0ca89bce07f4c7eba",
+   "call_ids": [
+    "p50-125",
+    "p50-126",
+    "p50-127"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-039",
+   "source": "p50-baseline:gh-974-honest-incomplete-deps.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "40094ef0ad4ade220bf27f7327ccae07123118c4ac1aaa0d5f1b0471a66c51da",
+   "call_ids": [
+    "p50-128"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-040",
+   "source": "p50-baseline:go-entry-lane.test.sh (5 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "03fe0be1339ed72416799519d0f303531e4db65b4685df3b5c094e800b120192",
+   "call_ids": [
+    "p50-129",
+    "p50-130",
+    "p50-131",
+    "p50-132",
+    "p50-133"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 5
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-041",
+   "source": "p50-baseline:hookspath-consumer-owned.test.sh (4 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "bf6f273e27bc743af8ab762bd8444c2c86b75bf20de381f340a3154d757caafb",
+   "call_ids": [
+    "p50-134",
+    "p50-135",
+    "p50-136",
+    "p50-137"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 4
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-042",
+   "source": "p50-baseline:imr-registration.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "3e69564155ab3000b915c55d3f2f5912eb538269b6b9c1fd3a4a5225b293a60e",
+   "call_ids": [
+    "p50-138",
+    "p50-139",
+    "p50-140"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-043",
+   "source": "p50-baseline:install-no-manual-step.test.sh (6 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "7b0e37a69d3aa0bf998efd4b71d3dabe3b186dec608009e15e47dc5972e8b0ad",
+   "call_ids": [
+    "p50-141",
+    "p50-142",
+    "p50-143",
+    "p50-144",
+    "p50-145",
+    "p50-146"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 6
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-044",
+   "source": "p50-baseline:install-self-verify-skip-and-exit.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "60b9687b931d1cfadac004cda8d053e1b7726f3323664b1281f8e4c246cea10f",
+   "call_ids": [
+    "p50-147",
+    "p50-148"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-045",
+   "source": "p50-baseline:lane-orphan-residue.test.sh (23 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "1e5e421d4fdcdcd58ed771db38b23a53827a6c51a73bcc2219e4deed4dd50949",
+   "call_ids": [
+    "p50-149",
+    "p50-150",
+    "p50-151",
+    "p50-152",
+    "p50-153",
+    "p50-154",
+    "p50-155",
+    "p50-156",
+    "p50-157",
+    "p50-158",
+    "p50-159",
+    "p50-160",
+    "p50-161",
+    "p50-162",
+    "p50-163",
+    "p50-164",
+    "p50-165",
+    "p50-166",
+    "p50-167",
+    "p50-168",
+    "p50-169",
+    "p50-170",
+    "p50-171"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 23
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-046",
+   "source": "p50-baseline:mcp-layer.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "2557c7fab6817162d0adf3a40c1e09829d4ff3477c6e4ae3f8cceaf44fc00121",
+   "call_ids": [
+    "p50-172"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-047",
+   "source": "p50-baseline:multi-stack-monorepo.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "96222a957f658b2598b4f4b199bcabfe07866aa4dd406e552bbd00c76b761aff",
+   "call_ids": [
+    "p50-173",
+    "p50-174"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-048",
+   "source": "p50-baseline:nvmrc-ci-drift.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "5d6ddca3190e92a593e3cd5c09c02c918ee768afcf74119acceed234be30e541",
+   "call_ids": [
+    "p50-175"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-049",
+   "source": "p50-baseline:pre-merge-local-delivery.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "d4f6caade3621c17c6dec942631bbe1b145de7fc413f974a703c5cb48e408d85",
+   "call_ids": [
+    "p50-176",
+    "p50-177"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-050",
+   "source": "p50-baseline:python-agent-surface-refresh.test.sh (10 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "fbd88d37e3bc79960968f5d6da3888b658cf214e94577abd7ec6de92aef9c8ce",
+   "call_ids": [
+    "p50-178",
+    "p50-179",
+    "p50-180",
+    "p50-181",
+    "p50-182",
+    "p50-183",
+    "p50-184",
+    "p50-185",
+    "p50-186",
+    "p50-187"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 10
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-051",
+   "source": "p50-baseline:python-entry-lane.test.sh (25 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "bcdc5676076a1e4f64d0ae538da350ae327543d1bfd76f06bfdb22c9f9e65681",
+   "call_ids": [
+    "p50-188",
+    "p50-189",
+    "p50-190",
+    "p50-191",
+    "p50-192",
+    "p50-193",
+    "p50-194",
+    "p50-195",
+    "p50-196",
+    "p50-197",
+    "p50-198",
+    "p50-199",
+    "p50-200",
+    "p50-201",
+    "p50-202",
+    "p50-203",
+    "p50-204",
+    "p50-205",
+    "p50-206",
+    "p50-207",
+    "p50-208",
+    "p50-209",
+    "p50-210",
+    "p50-211",
+    "p50-212"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 25
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-052",
+   "source": "p50-baseline:python-rules-lock.test.sh (18 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "17028bb2b08dee824671fb055e97ba1eec96ba7443dcde8f2cc7582662272287",
+   "call_ids": [
+    "p50-213",
+    "p50-214",
+    "p50-215",
+    "p50-216",
+    "p50-217",
+    "p50-218",
+    "p50-219",
+    "p50-220",
+    "p50-221",
+    "p50-222",
+    "p50-223",
+    "p50-224",
+    "p50-225",
+    "p50-226",
+    "p50-227",
+    "p50-228",
+    "p50-229",
+    "p50-230"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 18
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-053",
+   "source": "p50-baseline:r2-auto-wire.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "5ee12b3985ef8266b2e7c1edff841046ac72da91584929558a1258679571c035",
+   "call_ids": [
+    "p50-231"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-054",
+   "source": "p50-baseline:r2-glob-reach.test.sh (4 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "28c043033a1217df622fa4be98124d5a34cf34deece18060939ac4efe4cd740b",
+   "call_ids": [
+    "p50-232",
+    "p50-233",
+    "p50-234",
+    "p50-235"
+   ],
+   "per_call_status_counts": {
+    "verified-behavioral": 1,
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-055",
+   "source": "p50-baseline:react-native-wiring.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "2f9acb5b8cd35f8326001c39b120e502ed95425e31ed736beb03d04a15ee4b9f",
+   "call_ids": [
+    "p50-236"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-056",
+   "source": "p50-baseline:react-spa-wiring.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "retired",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Retire only the alleged unasserted-call candidate; the underlying suite remains in its existing declared lane, with no behavioral certification.",
+   "current_source_sha256": "e4095853ae27633b8f4a5853f1da6ba86117ec39e8c80de4f0617bb2a7870396",
+   "call_ids": [],
+   "per_call_status_counts": {},
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": {
+    "removed_false_positive": {
+     "id": "p50-237",
+     "file": "tests/install-sh/react-spa-wiring.test.sh",
+     "line": 26,
+     "resolution": "Accepted M10 actual09da source and133fd stock manifest; full-line comment rc=1 previously masked real executable comparison."
+    },
+    "actual_native_status_source": "react-spa-wiring.test.sh:26 actual install,27capture,31expected0; full-line comment containing rc=1 previously masked executable comparison; accepted M10 actual09da/133fd in frozen join."
+   }
+  },
+  {
+   "id": "CAND-057",
+   "source": "p50-baseline:refresh-baseline-survives-early-exit.test.sh (15 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "1e14537a09aa5c6c839bb35b14285f0187a73ab46e5cb71b4a6eb66d099e991b",
+   "call_ids": [
+    "p50-238",
+    "p50-239",
+    "p50-240",
+    "p50-241",
+    "p50-242",
+    "p50-243",
+    "p50-244",
+    "p50-245",
+    "p50-246",
+    "p50-247",
+    "p50-248",
+    "p50-249",
+    "p50-250",
+    "p50-251",
+    "p50-252"
+   ],
+   "per_call_status_counts": {
+    "intentional-fixture": 1,
+    "verified-structural": 14
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-058",
+   "source": "p50-baseline:refresh-dir-payload-ownership.test.sh (5 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "6927b37b6978639aec9aab4bd36f761c8793b40a8c1c29edf19031ce423cfdd0",
+   "call_ids": [
+    "p50-253",
+    "p50-254",
+    "p50-255",
+    "p50-256",
+    "p50-257"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 5
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-059",
+   "source": "p50-baseline:refresh-divergence-guard.test.sh (8 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "b1d65771c014dbd3f82e6cef588685b97ca36744aebaec434da03820db84e1fc",
+   "call_ids": [
+    "p50-258",
+    "p50-259",
+    "p50-260",
+    "p50-261",
+    "p50-262",
+    "p50-263",
+    "p50-264",
+    "p50-265"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 8
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-060",
+   "source": "p50-baseline:refresh-offers-lintstaged-migration.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "543cdd74fd706f6ed6a809af8a71ef83ff618705f0a04b1df9701e90526495d5",
+   "call_ids": [
+    "p50-266"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-061",
+   "source": "p50-baseline:refresh-reconciles-skill-rename.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "92b6ad9521d590dadfd4c8a5ecca506f523f2b9dc79449a7e9672c17f9197f9b",
+   "call_ids": [
+    "p50-267"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-062",
+   "source": "p50-baseline:refresh-rewires.test.sh (28 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "dac710dd3747f9921b50644b62990ee8889b074261085b85c9b1dff2c46c119b",
+   "call_ids": [
+    "p50-268",
+    "p50-269",
+    "p50-270",
+    "p50-271",
+    "p50-272",
+    "p50-273",
+    "p50-274",
+    "p50-275",
+    "p50-276",
+    "p50-277",
+    "p50-278",
+    "p50-279",
+    "p50-280",
+    "p50-281",
+    "p50-282",
+    "p50-283",
+    "p50-284",
+    "p50-285",
+    "p50-286",
+    "p50-287",
+    "p50-288",
+    "p50-289",
+    "p50-290",
+    "p50-291",
+    "p50-292",
+    "p50-293",
+    "p50-294",
+    "p50-295"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 28
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-063",
+   "source": "p50-baseline:refresh-vendor-single-delivery.test.sh (6 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "15ac9f64c5ef40d838e5a22c8b53ad4c64cba8f6e0299de9f298fa4d1130f4f9",
+   "call_ids": [
+    "p50-296",
+    "p50-297",
+    "p50-298",
+    "p50-299",
+    "p50-300",
+    "p50-301"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 6
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-064",
+   "source": "p50-baseline:rules-lock-malformed-values.test.sh (4 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "6ce0612b8167871d4fea643e7930a57b8a8760b32fb6e2ead9b5c6abe4591b05",
+   "call_ids": [
+    "p50-302",
+    "p50-303",
+    "p50-304",
+    "p50-305"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 4
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-065",
+   "source": "p50-baseline:rules-lock-schema-parity.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "8e2afedbcc705bcfdc1486a0cb9fa95111838ab121ae39af7eba7625510a555f",
+   "call_ids": [
+    "p50-306",
+    "p50-307",
+    "p50-308"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-066",
+   "source": "p50-baseline:rules-lock-version-diff.test.sh (2 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "271e7db4ff6d021a5d71858be0b8d1328cc13160ebc2450ef6a23abf9b48d5be",
+   "call_ids": [
+    "p50-309",
+    "p50-310"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 2
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-067",
+   "source": "p50-baseline:s3-wire-ci.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "6fd690e3ca2982e9783635e8e07a96862d4f2c7de9523682ccc89bcb2803ce5c",
+   "call_ids": [
+    "p50-311",
+    "p50-312",
+    "p50-313"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-068",
+   "source": "p50-baseline:ship-orchestration-skills.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "2f4011712c162cff1e319ad73bce6690fc7daf6d2e9335c737a9deb179264294",
+   "call_ids": [
+    "p50-314"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-069",
+   "source": "p50-baseline:snapshot-exclusion-guard.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "ff8f8d73fae6cb5e006f520d9a794c77de4705ca51988c93dd1147e6fed98d0d",
+   "call_ids": [
+    "p50-315"
+   ],
+   "per_call_status_counts": {
+    "verified-behavioral": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-070",
+   "source": "p50-baseline:synth-wire-consumer-config.test.sh (0 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "retired",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Retire only the alleged unasserted-call candidate; the underlying suite remains in its existing declared lane, with no behavioral certification.",
+   "current_source_sha256": "920abac84a59813dad39751dc4510a3e6dc630539357f831a1cb54fa1605e5f7",
+   "call_ids": [],
+   "per_call_status_counts": {},
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": {
+    "original_census_call_count": 0,
+    "current_zero_ratchet_entry": 0,
+    "meaning": "An explicit zero allowance is a strict ratchet sentinel, not evidence of an unasserted call or an excluded suite. Current source executes real status refusals; no repair invented."
+   }
+  },
+  {
+   "id": "CAND-071",
+   "source": "p50-baseline:v2-strict-runtime-armed.test.sh (3 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "90ddf07de28e7591751a1475943b5ba850db4c977eb04406f8e9f6158f0710b9",
+   "call_ids": [
+    "p50-316",
+    "p50-317",
+    "p50-318"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 3
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-072",
+   "source": "p50-baseline:vitest-layout-roots.test.sh (1 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "b04201f9bf145fe45040c28245f1d89e64428fd3348c5fb4d2c407436e0968ab",
+   "call_ids": [
+    "p50-319"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 1
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-073",
+   "source": "p50-baseline:with-aif-suite-flag.test.sh (7 call(s))",
+   "class": "unasserted-installer-call (ratchet candidate — hit is NOT a bug claim)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M10",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/50-install-rc-asserted.baseline.json (73 entries; evidence 04 §1)",
+   "scope": "Every joined site retains its individually reviewed effective disposition below; runtime receipts, non-executed shellcheck input and intentional fixtures stay separately typed. No whole-file behavioral upgrade.",
+   "current_source_sha256": "e709178ecd0fd2e3f2005b4e978f4ff080a1a8102b30f45b0e9269b0a921e03c",
+   "call_ids": [
+    "p50-320",
+    "p50-321",
+    "p50-322",
+    "p50-323",
+    "p50-324",
+    "p50-325",
+    "p50-326"
+   ],
+   "per_call_status_counts": {
+    "verified-structural": 7
+   },
+   "call_evidence": "docs/test-assurance-kernel/s2/m10-effective325.json (frozen, unchanged); F5 separately renewed by accepted M09 source",
+   "specific_resolution": "Exact accepted M10 source bytes preserved"
+  },
+  {
+   "id": "CAND-074",
+   "source": "pin51:docs/test-assurance-kernel/s0/logs/probes/q1-scratch/noassertion.test.ts:5 rules-as-tests/require-effective-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-075",
+   "source": "pin51:docs/test-assurance-kernel/s0/logs/probes/q1-scratch/noassertion.test.ts:8 rules-as-tests/require-effective-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-076",
+   "source": "pin51:docs/test-assurance-kernel/s0/logs/probes/q1-scratch/vacuous.test.ts:5 rules-as-tests/no-vacuous-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-077",
+   "source": "pin51:docs/test-assurance-kernel/s0/logs/probes/q1-scratch/vacuous.test.ts:8 rules-as-tests/no-vacuous-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-078",
+   "source": "pin51:tests/advisor-bridge-beta/protocol.test.mjs:309 rules-as-tests/require-effective-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "retired",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M07",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "M07 explicit returnedcode assertion removes current ordinary Q2finding; actual CLI/helper already checked native4. No fabricated claim of fixing an ignored real exit; retain actualP51/lint0/1/0 and actual checker control."
+  },
+  {
+   "id": "CAND-079",
+   "source": "pin51:scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.mjs:7 rules-as-tests/no-vacuous-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-080",
+   "source": "pin51:scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts:7 rules-as-tests/no-vacuous-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-081",
+   "source": "pin51:scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.tsx:7 rules-as-tests/no-vacuous-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-082",
+   "source": "pin51:scripts/test-assurance/recovery-d011/fixtures/r4-runner/healthy.test.ts:7 rules-as-tests/no-vacuous-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-083",
+   "source": "pin51:scripts/test-assurance/recovery-d011/fixtures/r4-runner/intended-fail.test.ts:8 rules-as-tests/no-vacuous-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-084",
+   "source": "pin51:scripts/test-assurance/recovery-d011/fixtures/r4-runner/skipped.test.ts:1 rules-as-tests/no-vacuous-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-085",
+   "source": "pin51:scripts/test-assurance/recovery-d011/fixtures/r4-runner/unhandled.test.ts:1 rules-as-tests/no-vacuous-assertion",
+   "class": "Q1/Q2 population finding (principle 51 ratchet)",
+   "status": "intentional-fixture",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "none — frozen fixture, pinned as-is",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "intentional-fixture",
+   "historical_intake_evidence": "packages/core/principles/51-test-quality-corpus-conformance.test.ts:161-175 + docs/test-assurance-kernel/s1/dispositions.md",
+   "scope": "Preserve exact named frozen fixture status/path/reason. No exclusion broadening or runtime certification."
+  },
+  {
+   "id": "CAND-086",
+   "source": "adv-sweep:p1 snapshot-only suite",
+   "class": "outside-S1-class (semantic staleness)",
+   "status": "external-contract",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "s1/logs/batch-h/adversarial-sweep.log p1 (exit=0 not caught)",
+   "scope": "Snapshot usefulness/semantic staleness stays namedreview; exact required queue source CAND-086, resolved boundary ruling does not waive future findings.",
+   "queue_source": "CAND-086"
+  },
+  {
+   "id": "CAND-087",
+   "source": "adv-sweep:p2 wholesale it.skip",
+   "class": "outside-S1-class (runner-level skip)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "s1/logs/batch-h/adversarial-sweep.log p2",
+   "scope": "Required-case skipped/pending report =>not-executed in strict P52grammar, including actualM14 it.skipcontrol. No generic ordinary-suite runtime or wholesale-skip ban."
+  },
+  {
+   "id": "CAND-088",
+   "source": "adv-sweep:p3 bare toThrow()",
+   "class": "outside-S1-class (semantic)",
+   "status": "external-contract",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "s1/logs/batch-h/adversarial-sweep.log p3",
+   "scope": "Exception specificity depends on declared contract; exact required queue source CAND-088, no universal toThrow ban.",
+   "queue_source": "CAND-088"
+  },
+  {
+   "id": "CAND-089",
+   "source": "adv-sweep:p5 mock-only assertions",
+   "class": "outside-S1-class (review-routed)",
+   "status": "external-contract",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "review channel (review-sidecar §1) + M12 triage",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "s1/logs/batch-h/adversarial-sweep.log p5",
+   "scope": "Interaction/outcome mockfidelity belongs to namedreview; exact required queue source CAND-089, no blanket mock ban.",
+   "queue_source": "CAND-089"
+  },
+  {
+   "id": "CAND-090",
+   "source": "adv-sweep:p6 unawaited promise w/ expect in .then",
+   "class": "outside-S1-class (runner-level)",
+   "status": "external-contract",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "s1/logs/batch-h/adversarial-sweep.log p6",
+   "scope": "Async lifecycle ownership is semantic; exact required queue source CAND-090. Keep existing strict kernel unhandled-error/pending classifications distinct from arbitrary dataflow.",
+   "queue_source": "CAND-090"
+  },
+  {
+   "id": "CAND-091",
+   "source": "preset-react-spa empty selection",
+   "class": "declared aggregate entrypoint cannot pass (vitest run exit 1, no passWithNoTests)",
+   "status": "verified-behavioral",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "live receipt evidence 03 (exit 1) vs react-native control (exit 0 + guard comment)",
+   "scope": "Exact SPA public barrel7tests and3missing-export fault/restoration controls; unchanged native Vitest selection, no passWithNoTests escape."
+  },
+  {
+   "id": "CAND-092",
+   "source": "root default discovery includes intentional fixtures",
+   "class": "discovery mapping (27 fixtures incl intended-RED; 3 canonical node--test files)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "evidence 03 root list diff (360 packages/* + 30 others)",
+   "scope": "Preserve individually named intentional fixtures and rootdefault discoverability as data, not execution. Existing CI canonical3 positive chain is explicit; no global absence or dynamic coverage claim."
+  },
+  {
+   "id": "CAND-093",
+   "source": "glv-suite-fallthrough",
+   "class": "guard-liveness suite-level parse-error fallthrough (honest limit)",
+   "status": "verified-behavioral",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "s1/honest-limits.md §GLV-suite-fallthrough; discharged at gate level by D5-PERM-GLV",
+   "scope": "Exact guard-liveness matcher/status fallthrough contract with accepted26normal and reached matcherfault/restoration; not a universal testquality certificate."
+  },
+  {
+   "id": "CAND-094",
+   "source": "s1-disp:disp-a12-emitted-corruption (WI-1)",
+   "class": "demonstrated-gap: emitted hash= corruption fails nothing",
+   "status": "external-contract",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M11",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "demonstrated-gap",
+   "historical_intake_evidence": "scripts/test-assurance/delivery/replay-a12-emitted-corruption.sh + s1/dispositions.md",
+   "scope": "A12historical unknownhash survival remains true characterization; current Surface3bodygate versus prospectiveWI1metadata distinction accepted. Required queue source CAND-094 and original replay-a12-emitted-corruption latest boundary resolution; no new hash feature.",
+   "queue_source": "CAND-094"
+  },
+  {
+   "id": "CAND-095",
+   "source": "s1-disp:disp-wrong-import-review-routed",
+   "class": "no executable wrong-import detector",
+   "status": "verified-behavioral",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M14",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "s1/dispositions.md + oracle reject-by-review case",
+   "scope": "M14 exact registered governed/wrong implementation pair, actual reached producerfault, strict classifier permissive/overreject/it.skip controls and restoration. Arbitrary imports/aliases remain namedreview."
+  },
+  {
+   "id": "CAND-096",
+   "source": "s1-disp:disp-c4-preset-rules-md-catalogs",
+   "class": "preset RULES.md catalogs lack rows for the 2 test-quality rules",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M13",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "s1/dispositions.md C4",
+   "scope": "M13 exact shipped preset RULES catalog registration R21/R22, preserving RNmanual status and accepted P05scope."
+  },
+  {
+   "id": "CAND-097",
+   "source": "s1-disp:disp-c5-rules-manifest-registration",
+   "class": "rules unregistered in manifest/rules-manifest.json (guard-liveness fullsweep blind to them)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M13",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "s1/dispositions.md C5",
+   "scope": "M13 actualmanifest R21/R22 registration and existing delivery-family consumers; no promise of model invocation or global liveness."
+  },
+  {
+   "id": "CAND-098",
+   "source": "s1-disp:disp-rework5-host-commit-merge-carrier",
+   "class": "coordinator host commit 46c8d1d5f78 not in this lineage (git cat-file fails at HEAD — observed)",
+   "status": "retired",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M15",
+   "blocking_for_s2done": false,
+   "m15_decision": {
+    "decision": "tak-m15-real-lineage-successor-decision-20261014.json",
+    "decision_sha256": "d438e3722bcc48b7e0adc61bbacd33e4adb9cc14ca6afbf52bebf99fdc810f7d",
+    "selected": "B_PROSPECTIVE_ACTUAL_LINEAGE_SUCCESSOR_CONDITIONAL_ON_EXACT_DELTA_REVIEW",
+    "successor_record": "disp-m15-successor-merge-carrier"
+   },
+   "historical_intake_state": "retired",
+   "historical_intake_evidence": "live receipt evidence 04 §2 (carrier-pending in dispositions step output). Coordinator-observed 2026-10-14 (operator directive, not re-derived here): legacy host 46c8 object does not resolve locally; bounded GitHub commit lookup returned 422; configured SSH container probe timed out — M15 stays pending, no self-discharge, coordinator reconciling separately M15 successor correction 2026-10-14 (chief decision d438e372…, option B; independent review 09826c35 corrected): the literal 46-carry requirement is replaced by the verified actual lineage (recovered 4fa71b5d/tree 4229a3a3 → accepted source 1cb4a51d/tree 63a480ca → generation ac17594f/tree a5da6f40 → HEAD; manifest@generation 23596776…), enforced LIVE by the verify.mjs stepDispositions arm with no carrier fallback, bound to six byte-exact embedded receipts (dispositions.md §M15: SOURCE_GO 56f33fd1…, S1_GO e011679d…, OWNERSHIP_RENEWAL 23575146…, FRESHNESS_RESULTS 114ced73…, GENERATION_INPUT bf297320…, GENERATION_AFTER d00ccc4c…; pinned in verify.mjs) plus live stock freshness (build-getff-dist.sh --check + build-runtime-bundles.mjs --check against LIVE source every run). 46c8d1d5f78 stays disclosed missing (remote UNKNOWN, never synthesized). Row retired for the private stage.",
+   "scope": "Preserve existing M15 actual-lineage successor and disclosed unresolvable historical46c8; no fabricated carrier or mainmerge authority."
+  },
+  {
+   "id": "CAND-099",
+   "source": "s1-disp:disp-rework5-s2-entry-manifest-regen",
+   "class": "S2 entry condition: one lockfile-clean host regen of build-getff-dist",
+   "status": "retired",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M15",
+   "blocking_for_s2done": false,
+   "m15_decision": {
+    "decision": "tak-m15-real-lineage-successor-decision-20261014.json",
+    "decision_sha256": "d438e3722bcc48b7e0adc61bbacd33e4adb9cc14ca6afbf52bebf99fdc810f7d",
+    "selected": "B_PROSPECTIVE_ACTUAL_LINEAGE_SUCCESSOR_CONDITIONAL_ON_EXACT_DELTA_REVIEW",
+    "successor_record": "disp-m15-successor-s2-entry-regen"
+   },
+   "historical_intake_state": "retired",
+   "historical_intake_evidence": "s1/dispositions.md; NOTE private generation at accepted source already produced MANIFEST 23596776… with both --check gates green at HEAD (S1-GO generated_acceptance) — whether this discharges the entry is the coordinator intake decision, not flipped here. Coordinator-observed 2026-10-14 (operator directive, not re-derived here): legacy host 46c8 object does not resolve locally; bounded GitHub commit lookup returned 422; configured SSH container probe timed out — M15 stays pending, no self-discharge, coordinator reconciling separately M15 successor correction 2026-10-14: private-stage DISCHARGE — the reciprocal generation ac17594f regenerated packages/getff/MANIFEST.sha256 from accepted source 1cb4a51d (diff = that path only; sha256 23596776…; ownership renewal receipt 23575146… embedded byte-exact in dispositions.md §M15; independent S1 GO e011679d…; both stock --check gates green, re-verified LIVE every dispositions run). Re-arms at public integration via s1 disp-m15-successor-s2-entry-regen (owner-stage S4), not as an S2DONE blocker.",
+   "scope": "Private entry regeneration discharged; existing source-linked shared/public regeneration obligation explicitly re-arms at S4, not waived."
+  },
+  {
+   "id": "CAND-100",
+   "source": "s1-disp:disp-d011-shared-derived-hold",
+   "class": "three derived bundle/MANIFEST paths held pending reciprocal generation",
+   "status": "retired",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M15",
+   "blocking_for_s2done": false,
+   "m15_decision": {
+    "decision": "tak-m15-real-lineage-successor-decision-20261014.json",
+    "decision_sha256": "d438e3722bcc48b7e0adc61bbacd33e4adb9cc14ca6afbf52bebf99fdc810f7d",
+    "selected": "B_PROSPECTIVE_ACTUAL_LINEAGE_SUCCESSOR_CONDITIONAL_ON_EXACT_DELTA_REVIEW",
+    "successor_record": "disp-m15-successor-d011-hold"
+   },
+   "historical_intake_state": "retired",
+   "historical_intake_evidence": "s1/dispositions.md; S1-GO generated_acceptance recorded the reciprocal generation (dist/runtime --check exit 0, unlisted unchanged) — discharge confirmation is the coordinator intake decision. Coordinator-observed 2026-10-14 (operator directive, not re-derived here): legacy host 46c8 object does not resolve locally; bounded GitHub commit lookup returned 422; configured SSH container probe timed out — M15 stays pending, no self-discharge, coordinator reconciling separately M15 successor correction 2026-10-14: DISCHARGED — the reciprocal generation ac17594f renewed the three held paths (pre-push.bundle.mjs 893ad89e…, rule-bootstrap-cli.bundle.mjs 780c9de1…, MANIFEST.sha256 23596776…; unlisted generated unchanged; native 0166 slots untouched), accepted-input checks renewed (ownership renewal receipt 23575146… embedded byte-exact), both stock --check gates green and re-verified LIVE by the dispositions arm; S1 GO e011679d… recorded generated_acceptance, pinned in dispositions.md §M15. Share-ownership residual re-arms at public integration via the S4 entry.",
+   "scope": "Existing D011 privatehold discharged under actual-lineage successor; keep public integration custody/renewal gate."
+  },
+  {
+   "id": "CAND-101",
+   "source": "principle-51 population narrowing",
+   "class": "enumeration covers *.test.{ts,tsx,mjs}/*.spec.ts only; wider class adds 21 paths (1 real + 20 fixtures)",
+   "status": "verified-behavioral",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "evidence 04 §3 (mechanical comm)",
+   "scope": "Exact currentP51finding population21, historical12array andS2supp10 unchanged with actualcurrentordinaryretirement; actual checker regression controls, no new recognizer."
+  },
+  {
+   "id": "CAND-102",
+   "source": "seed A01 (P06 policy wording)",
+   "class": "seed replay pending",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M01",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "evidence 05 A01",
+   "scope": "M01 finite documented policy-wording grammar and actual weakening/legitimate-wording corpus; no generic semantic policy recognizer."
+  },
+  {
+   "id": "CAND-103",
+   "source": "seed A02 (P38 workflow command)",
+   "class": "seed replay pending",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M02",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "evidence 05 A02",
+   "scope": "M02 actual workflow invocation context/literal mode correction and comment-only/true replacement controls; no claim of freshCIexecution."
+  },
+  {
+   "id": "CAND-104",
+   "source": "seed A05 (ErrorBoundary ancestor scope)",
+   "class": "seed replay pending (twins matrix)",
+   "status": "verified-behavioral",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M05",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "evidence 05 A05",
+   "scope": "M05 independent lexical-ancestor sixcasefreeze688e over actualTS/MJStwins, public export reach; native14will be explicitly registered, not source-copied predicate."
+  },
+  {
+   "id": "CAND-105",
+   "source": "seed A09 (lint scope conventions)",
+   "class": "seed replay pending (scratch installs)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M08",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "evidence 05 A09; ts-server template NOW covers all five suffixes (observed) — the matrix must confirm every sibling preset",
+   "scope": "M08 complete6effective-profile naming/config binding378qualified,315original+63distinctTSXappend; actualclassCLI receipts scoped separately,84native/manual, foreign2excluded with reasons."
+  },
+  {
+   "id": "CAND-106",
+   "source": "seed A10 (structural limits)",
+   "class": "seed replay pending",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M09",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "evidence 05 A10",
+   "scope": "M09 finite6known-noop/comment grammar and actual installedStryker file-selection requirement, actualemptyselection0/1/0 control. Do not imply generalBash semantics or mutation score."
+  },
+  {
+   "id": "CAND-107",
+   "source": "advisor-bridge-beta protocol.test.mjs execution lane",
+   "class": "no declared runner observed (package.json/CI/hooks greps)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "evidence 04/05 + live grep (only unrelated ask-file mention in workflows)",
+   "scope": "Explicit existingS2adapter nativeNode registration will execute all53protocolcases with required identities/statuses/counts; currentmanual53 stays manual until actual stage execution. No global missing-caller claim or wholeprotocol behavioral certification."
+  },
+  {
+   "id": "CAND-108",
+   "source": "tests/advisor-role-reminders/test_reminders.py execution lane",
+   "class": "python unittest suite with no declared runner observed (workflows/Makefile/package.json greps, this run)",
+   "status": "retired",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "live grep this run (no matches) + file head: unittest main vs scripts/advisor-role-reminders/reminders.py",
+   "scope": "Accepted positive actualCI test:hooks->Vitestwrapper->nativePython/statusassert chain disproves missingrunner premise. Actual child testcount remains unknown where raw only records one wrapperpass."
+  },
+  {
+   "id": "CAND-109",
+   "source": "unclassified test-like paths",
+   "class": "wide-filter paths not claimed by any runner rule (must be empty after M12)",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M12",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "population.json entries where category=unclassified-testlike",
+   "scope": "ExactGitNUL38source additions/twoactualnewtests: SPA7existingpackage lane and M05native14explicitS2adapter lane. No invented CAND111, GLVwasmodified notnew. Native pendinguntil actual67caseexecution."
+  },
+  {
+   "id": "CAND-110",
+   "source": "correction-1:tests/install-sh/audit-r4-shipped.test.sh sensitivity",
+   "class": "behavioral overclaim removed (finding 3): R4-SHELL control certifies the recovery-d011 surface, not this installer suite; per-file sensitivity never receipted",
+   "status": "verified-structural",
+   "evidence": [
+    "docs/test-assurance-kernel/s2/final-scope-ruling.json",
+    "docs/test-assurance-kernel/s2/README.md"
+   ],
+   "owner_mechanism": "M06",
+   "blocking_for_s2done": false,
+   "historical_intake_state": "candidate-needs-review",
+   "historical_intake_evidence": "independent findings S2-A-INTAKE-FINDINGS.json (sha 60897c44…) unsupported_behavioral_borrowing + population entry note at HEAD~1",
+   "scope": "Accepted real shipping probe presence/copy-edge status sensitivity; actualinstaller0 and placed probe true/false/true, permissive+overreject outer controls. Do not borrow R4-shell semantics or claim full behavioral assurance."
+  }
+ ]
+}

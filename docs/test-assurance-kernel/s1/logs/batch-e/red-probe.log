@@ -1,0 +1,105 @@
+# Batch E RED probe — Q6 delivery channel absent on this base
+Date: 2026-10-08T14:14:04Z  HEAD: 2907f7dc50f59e4611b7ba078592876e0f517d26
+
+Claim proven here: the delivered root eslint.config.mjs is consumed by NO automated
+gate — forcing severity off in a byte-faithful copy silently disconnects the real
+CLI gate (exit 1 -> 0) with zero RED anywhere. This is the A04 residual the Q6
+delivery-conformance channel (principle 53) closes.
+
+## 1. scratch fixture (delivered config VERBATIM + real twins + real corpus bad case)
+config sha256: 01a5f45caa8f6039e9978a0a4da44a8d6c4fbe9c3c07988b2408facfa04c0991
+config copy: byte-identical
+
+## 2. baseline — real eslint CLI over the delivered config rejects the vacuous probe
+exit=1 (expect 1 = rejected)
+intended rule in output: rules-as-tests/no-vacuous-assertion
+  8:5  error  Vacuous assertion: `expect(<literal>)` compares a constant to itself and survives every production fault (Q1). Assert the real subject instead. Intentional fixture: add `// audit:exempt` on this line with a reason  rules-as-tests/no-vacuous-assertion
+
+✖ 1 problem (1 error, 0 warnings)
+
+
+## 3. delivery break (A04) — severity 'error' -> 'off' in the SCRATCH copy only
+patch-label: batch-e-redprobe: severity error -> off
+patch-sha256: 3ee425631a82eabf26d9ca0c5be55ee2c71cd4a80017d97d8b7689316570bdd0
+before-sha256: 01a5f45caa8f6039e9978a0a4da44a8d6c4fbe9c3c07988b2408facfa04c0991
+after-sha256: 67384a3af6929a748e9289bed32aa6d697c0011deb40c8830d6e5cd944cd66e6
+occurrences: 1
+exit=0 (the gate is SILENTLY DISCONNECTED — same bad test, zero diagnostics)
+broken-run output lines: 0
+
+## 4. restoration of the scratch copy — delivery live again
+exit=1 (expect 1 = restored)
+
+## 5. no automated consumer of the root config exists (grep evidence)
+-- references to eslint.config.mjs under packages/core (mechanism consumers):
+packages/core/hooks/pre-push.bundle.mjs:2079:            "/tmp/no-eslint-config-smoke.mjs",
+packages/core/hooks/pre-push.ts:1582:            '/tmp/no-eslint-config-smoke.mjs',
+packages/core/hooks/checks/cmd-script-liveness.ts:198: *     `eslint.config.react.mjs` is `packages/getff/packages/preset-next-15-canonical/
+packages/core/hooks/checks/cmd-script-liveness.ts:247: * order. That is live in this repo: `eslint.config.react.mjs` is tracked under BOTH
+packages/core/synthesizer/menu-pick.ts:13:import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
+packages/core/synthesizer/synthesize.ts:17:import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
+packages/core/synthesizer/generate.ts:17:import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
+packages/core/synthesizer/generate.ts:129:    // eslint config merge: declarative → no-restricted-syntax(selector,message); eslint → candidate.eslintConfig
+packages/core/synthesizer/merge-eslint-config.ts:157:      'rule has no defined merge strategy — disambiguate recipes or add a strategy in merge-eslint-config.ts',
+packages/core/synthesizer/compile-declarative-md.ts:36: * (selectors are unique post-merge — merge-eslint-config dedupes by selector). Returns
+packages/core/eslint-rules/require-error-boundary.mjs:59:                // Glob scoping in eslint.config.react.mjs ensures this runs only on app-root files.
+packages/core/eslint-rules/require-error-boundary.ts:72:        // Glob scoping in eslint.config.react.mjs ensures this runs only on app-root files.
+packages/core/install/synth-and-wire.ts:6: * emitted rules-as-tests slice into the consumer's eslint.config.mjs. Idempotent:
+packages/core/install/synth-and-wire.ts:11: * eslint.config is confirmed/updated first. R2 (no-unsafe-zod-parse) still uses its
+packages/core/install/synth-and-wire.ts:22: *       --stack react-next --path ./eslint.config.mjs [--dry-run]
+packages/core/install/synth-and-wire.ts:48:// Only patterns that produce eslint config entries for the consumer's root config (R12/R14/R20);
+packages/core/install/synth-and-wire.ts:71:// eslint.config.mjs (copy_safe), so the preset rules are APPENDED — and an unscoped append turned
+packages/core/install/synth-and-wire.ts:73:// packages/preset-next-15-canonical/templates/eslint.config.react.mjs; the drift guard is the
+packages/core/install/synth-and-wire.ts:106: * this set could break out of the string literal in the generated eslint.config.mjs (RCE).
+packages/core/install/synth-and-wire.ts:199:      '                  into the consumer eslint.config.mjs',
+packages/core/install/synth-and-wire.ts:203:      '  --path <file>   Config file to wire (default: ./eslint.config.mjs)',
+packages/core/install/synth-and-wire.ts:220:  const configPath = resolve(pathIdx >= 0 ? argv[pathIdx + 1] : './eslint.config.mjs');
+packages/core/install/synth-and-wire.ts:413:  return 'its export is not a flat-config array getff can append to (`export default [...]`, `export default tseslint.config(...)`, `export default defineConfig(...)`)';
+packages/core/install/wire-eslint-r2.ts:222:  const sf = project.createSourceFile('eslint.config.mjs', source, { overwrite: true });
+packages/core/install/wire-eslint-r2.ts:291: * an unescaped `'...'` or `"..."` literal in the generated eslint.config.mjs.
+packages/core/install/wire-eslint-r2.ts:428:  // match the preset template idiom (eslint.config.react.mjs); the import is injected by wireNRules.
+packages/core/install/wire-eslint-r2.ts:714:      }).createSourceFile('eslint.config.mjs', source, { overwrite: true })
+packages/core/install/wire-eslint-r2.ts:890:// The install used to keep a consumer-owned eslint config byte-identical and print «add it by hand»
+packages/core/install/wire-eslint-r2.ts:957:/** The list a flat config's elements live in: an array literal, or a call's arguments (tseslint.config(…)). */
+packages/core/install/wire-eslint-r2.ts:961: * A call to one of the variadic flat-config helpers — `defineConfig(…)` (eslint/config) or
+packages/core/install/wire-eslint-r2.ts:1065:  const sf = project.createSourceFile('eslint.config.mjs', source, { overwrite: true });
+packages/core/install/wire-eslint-r2.ts:1680:      return [...notes, notWired('its export is not a flat-config array getff can append to (`export default [...]`, `export default tseslint.config(...)`, `export default defineConfig(...)`), so it added nothing to it')];
+packages/core/install/wire-eslint-r2.ts:1705:      'wire-eslint-r2 — wire R2 (rules-as-tests/no-unsafe-zod-parse) into eslint.config.mjs',
+packages/core/install/wire-eslint-r2.ts:1708:      '  --path <file>   Config to wire (default: ./eslint.config.mjs)',
+packages/core/install/wire-eslint-r2.ts:1724:  const configPath = resolve(pathIdx >= 0 ? argv[pathIdx + 1] : './eslint.config.mjs');
+packages/core/install/synth-and-wire.bundle.mjs:9681:// packages/core/synthesizer/merge-eslint-config.ts
+packages/core/install/synth-and-wire.bundle.mjs:9772:      "rule has no defined merge strategy \u2014 disambiguate recipes or add a strategy in merge-eslint-config.ts"
+packages/core/install/synth-and-wire.bundle.mjs:10224:  const sf = project.createSourceFile("eslint.config.mjs", source, { overwrite: true });
+packages/core/install/synth-and-wire.bundle.mjs:10567:  }).createSourceFile("eslint.config.mjs", source, { overwrite: true }) : void 0;
+packages/core/install/synth-and-wire.bundle.mjs:10809:  const sf = project.createSourceFile("eslint.config.mjs", source, { overwrite: true });
+packages/core/install/synth-and-wire.bundle.mjs:11175:      return [...notes, notWired("its export is not a flat-config array getff can append to (`export default [...]`, `export default tseslint.config(...)`, `export default defineConfig(...)`), so it added nothing to it")];
+packages/core/install/synth-and-wire.bundle.mjs:11196:      "wire-eslint-r2 \u2014 wire R2 (rules-as-tests/no-unsafe-zod-parse) into eslint.config.mjs",
+packages/core/install/synth-and-wire.bundle.mjs:11199:      "  --path <file>   Config to wire (default: ./eslint.config.mjs)",
+packages/core/install/synth-and-wire.bundle.mjs:11214:  const configPath = resolve5(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
+packages/core/install/synth-and-wire.bundle.mjs:11406:      "                  into the consumer eslint.config.mjs",
+packages/core/install/synth-and-wire.bundle.mjs:11410:      "  --path <file>   Config file to wire (default: ./eslint.config.mjs)",
+packages/core/install/synth-and-wire.bundle.mjs:11425:  const configPath = resolve6(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
+packages/core/install/synth-and-wire.bundle.mjs:11569:  return "its export is not a flat-config array getff can append to (`export default [...]`, `export default tseslint.config(...)`, `export default defineConfig(...)`)";
+packages/core/install/rule-bootstrap-cli.bundle.mjs:11429:// packages/core/synthesizer/merge-eslint-config.ts
+packages/core/install/rule-bootstrap-cli.bundle.mjs:11504:      "rule has no defined merge strategy \u2014 disambiguate recipes or add a strategy in merge-eslint-config.ts"
+packages/core/install/rule-bootstrap-cli.bundle.mjs:11509:var init_merge_eslint_config = __esm({
+packages/core/install/rule-bootstrap-cli.bundle.mjs:11510:  "packages/core/synthesizer/merge-eslint-config.ts"() {
+packages/core/install/rule-bootstrap-cli.bundle.mjs:11813:    init_merge_eslint_config();
+packages/core/audit-self/prove-rules.mjs:373:    'eslint.config.mjs',
+packages/core/audit-self/prove-rules.mjs:374:    'eslint.config.js',
+packages/core/audit-self/prove-rules.mjs:375:    'eslint.config.cjs',
+packages/core/audit-self/prove-rules.mjs:376:    'eslint.config.ts',
+packages/core/audit-self/prove-rules.mjs:377:    'eslint.config.mts',
+packages/core/audit-self/prove-rules.mjs:378:    'eslint.config.cts',
+packages/core/audit-self/prove-rules.mjs:830:    // A one-line default export — `export default tseslint.config(a, b);`, the shape getff's wirer leaves
+packages/core/audit-self/prove-rules.mjs:1097:      'nothing of getff to remove: no .oxlintrc.json and no eslint.config.* here',
+packages/core/audit-self/prove-rules.mjs:1328:      early: 'no .oxlintrc.json and no eslint.config.* in this project',
+packages/core/audit-self/prove-rules.mjs:2057:    (e) => `eslint.config.getff-shrink.${e}`,
+packages/core/audit-self/prove-rules.mjs:2149:        `· lint baseline ${rel} not shrunk: getff keeps per-file exemptions only in .oxlintrc.json or eslint.config.*`,
+packages/core/audit-self/prove-rules.mjs:2169:        : rel.replace(/^eslint\.config\./, 'eslint.config.getff-shrink.'),
+packages/core/audit-self/fixtures/foreign-scan-triage/sandbox/eslint.config.mjs:1:// Consumer fixture eslint.config.mjs — has RULE_GLOBS.boundary so check-rule-globs.sh
+-- guard-liveness reads the root config?
+  guard-liveness.ts: no reference (it builds an inline Linter config — not a consumer of the delivered artifact)
+
+RED-PROBE CONCLUSION: severity 'off' in the delivered artifact flips the real CLI gate
+1 -> 0 with zero automated RED. The Q6 channel (principle 53) closes this gap.

@@ -14,6 +14,8 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 T=$(mktemp -d)
 printf '{ "name": "c1t", "version": "0.0.0", "scripts": { "test": "echo keep" } }\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_003=$?
+if [ "$RC_P50_003" -eq 0 ]; then ok "c1-wiring: install rc=0 (p50-003)"; else bad "c1-wiring: install rc=$RC_P50_003, expected 0 (p50-003)"; fi
 
 # P1 — seed lands so deps-hash-check.sh no longer short-circuits to silent exit 0
 [ -f "$T/.ai-factory/tool-decisions.md" ] && ok "P1: tool-decisions.md seeded" || bad "P1: tool-decisions.md missing"
@@ -59,6 +61,8 @@ grep -qi 'tool-bootstrap' <<<"$out_pos" && ok "P1-pos: seed + sentinel hash → 
 C548=$(mktemp -d)
 printf '{ "name": "c548t", "version": "0.0.0", "dependencies": { "lodash": "4.17.21" } }\n' > "$C548/package.json"
 ( cd "$C548" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+RC_P50_004=$?
+if [ "$RC_P50_004" -eq 0 ]; then ok "c1-wiring: install rc=0 (p50-004)"; else bad "c1-wiring: install rc=$RC_P50_004, expected 0 (p50-004)"; fi
 HOOK_C548="$C548/.claude/hooks/deps-hash-check.sh"
 
 if [ -x "$HOOK_C548" ]; then

@@ -1,0 +1,489 @@
+{
+  "startedUtc": "2026-10-31T11:38:11.919578+00:00",
+  "supersedes": "matrix-24 (aborted: fixture leaked across workload blocks; docs t2 exit 1 both roles)",
+  "cells": [
+    {
+      "workload": "docs",
+      "role": "frozen",
+      "trial": 1,
+      "seq": 1,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 2351,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t1.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t1.stderr.log",
+      "stdoutBytes": 52,
+      "stderrBytes": 149
+    },
+    {
+      "workload": "docs",
+      "role": "optimized",
+      "trial": 1,
+      "seq": 2,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 2478,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t1.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t1.stderr.log",
+      "stdoutBytes": 52,
+      "stderrBytes": 149
+    },
+    {
+      "workload": "rule",
+      "role": "frozen",
+      "trial": 1,
+      "seq": 3,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 1088,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t1.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t1.stderr.log",
+      "stdoutBytes": 371,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "rule",
+      "role": "optimized",
+      "trial": 1,
+      "seq": 4,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 1091,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t1.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t1.stderr.log",
+      "stdoutBytes": 365,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "kernel",
+      "role": "frozen",
+      "trial": 1,
+      "seq": 5,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 10536,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t1.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t1.stderr.log",
+      "stdoutBytes": 5610,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "kernel",
+      "role": "optimized",
+      "trial": 1,
+      "seq": 6,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 10557,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t1.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t1.stderr.log",
+      "stdoutBytes": 5599,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "fallback",
+      "role": "frozen",
+      "trial": 1,
+      "seq": 7,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 25159,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t1.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t1.stderr.log",
+      "stdoutBytes": 396,
+      "stderrBytes": 112
+    },
+    {
+      "workload": "fallback",
+      "role": "optimized",
+      "trial": 1,
+      "seq": 8,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 33725,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t1.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t1.stderr.log",
+      "stdoutBytes": 391,
+      "stderrBytes": 112
+    },
+    {
+      "workload": "docs",
+      "role": "frozen",
+      "trial": 2,
+      "seq": 9,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 2422,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t2.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t2.stderr.log",
+      "stdoutBytes": 52,
+      "stderrBytes": 149
+    },
+    {
+      "workload": "docs",
+      "role": "optimized",
+      "trial": 2,
+      "seq": 10,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 2493,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t2.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t2.stderr.log",
+      "stdoutBytes": 52,
+      "stderrBytes": 149
+    },
+    {
+      "workload": "rule",
+      "role": "frozen",
+      "trial": 2,
+      "seq": 11,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 1099,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t2.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t2.stderr.log",
+      "stdoutBytes": 371,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "rule",
+      "role": "optimized",
+      "trial": 2,
+      "seq": 12,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 1079,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t2.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t2.stderr.log",
+      "stdoutBytes": 365,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "kernel",
+      "role": "frozen",
+      "trial": 2,
+      "seq": 13,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 10872,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t2.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t2.stderr.log",
+      "stdoutBytes": 5611,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "kernel",
+      "role": "optimized",
+      "trial": 2,
+      "seq": 14,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 10744,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t2.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t2.stderr.log",
+      "stdoutBytes": 5602,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "fallback",
+      "role": "frozen",
+      "trial": 2,
+      "seq": 15,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 25672,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t2.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t2.stderr.log",
+      "stdoutBytes": 397,
+      "stderrBytes": 112
+    },
+    {
+      "workload": "fallback",
+      "role": "optimized",
+      "trial": 2,
+      "seq": 16,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 33859,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t2.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t2.stderr.log",
+      "stdoutBytes": 392,
+      "stderrBytes": 112
+    },
+    {
+      "workload": "docs",
+      "role": "frozen",
+      "trial": 3,
+      "seq": 17,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 2434,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t3.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-frozen-t3.stderr.log",
+      "stdoutBytes": 52,
+      "stderrBytes": 149
+    },
+    {
+      "workload": "docs",
+      "role": "optimized",
+      "trial": 3,
+      "seq": 18,
+      "argv": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 2493,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t3.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/docs-optimized-t3.stderr.log",
+      "stdoutBytes": 52,
+      "stderrBytes": 149
+    },
+    {
+      "workload": "rule",
+      "role": "frozen",
+      "trial": 3,
+      "seq": 19,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 1110,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t3.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-frozen-t3.stderr.log",
+      "stdoutBytes": 371,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "rule",
+      "role": "optimized",
+      "trial": 3,
+      "seq": 20,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 1077,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t3.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/rule-optimized-t3.stderr.log",
+      "stdoutBytes": 365,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "kernel",
+      "role": "frozen",
+      "trial": 3,
+      "seq": 21,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 10991,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t3.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-frozen-t3.stderr.log",
+      "stdoutBytes": 5599,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "kernel",
+      "role": "optimized",
+      "trial": 3,
+      "seq": 22,
+      "argv": [
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 11040,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t3.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/kernel-optimized-t3.stderr.log",
+      "stdoutBytes": 5608,
+      "stderrBytes": 0
+    },
+    {
+      "workload": "fallback",
+      "role": "frozen",
+      "trial": 3,
+      "seq": 23,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/priority-continuation-20261028/original-S3-preparation/execution-views/frozen-s0",
+      "exitCode": 0,
+      "wallMs": 25425,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t3.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-frozen-t3.stderr.log",
+      "stdoutBytes": 397,
+      "stderrBytes": 112
+    },
+    {
+      "workload": "fallback",
+      "role": "optimized",
+      "trial": 3,
+      "seq": 24,
+      "argv": [
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "cwd": "/Users/art/.codex/visualizations/2026/10/12/01a12f25-6bcc-7c71-922e-d36eca2e9a5c/outputs/tak-resume-20261013/continuation-20261031/S3-acceptance-layer-and-final-measurements/candidate",
+      "exitCode": 0,
+      "wallMs": 33216,
+      "stdoutPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t3.log",
+      "stderrPath": "docs/test-assurance-kernel/s3/logs/fallback-optimized-t3.stderr.log",
+      "stdoutBytes": 391,
+      "stderrBytes": 112
+    }
+  ],
+  "fixtureBlocks": [
+    {
+      "trial": 1,
+      "reversedUtc": "2026-10-31T11:39:42.837615+00:00",
+      "frozenClean": true,
+      "optimizedCleanOutsideEvidence": true
+    },
+    {
+      "trial": 2,
+      "reversedUtc": "2026-10-31T11:41:12.984148+00:00",
+      "frozenClean": true,
+      "optimizedCleanOutsideEvidence": true
+    },
+    {
+      "trial": 3,
+      "reversedUtc": "2026-10-31T11:42:42.570707+00:00",
+      "frozenClean": true,
+      "optimizedCleanOutsideEvidence": true
+    }
+  ],
+  "preflightReversal": {
+    "frozen": "2026-10-31T11:38:13.143713+00:00",
+    "optimized": "2026-10-31T11:38:13.943309+00:00"
+  },
+  "stoppedEarly": null,
+  "finishedUtc": "2026-10-31T11:42:42.571538+00:00",
+  "remainingSecondsAtEnd": 1170.929339
+}

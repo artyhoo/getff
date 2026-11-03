@@ -1,0 +1,20 @@
+# C2 (Batch I cold review) — refusal-grammar raw receipts
+# Generated: 2026-10-08T17:09:25Z on Linux/linux node v22.23.3
+# Grammar under proof: every refusal path exits 3 (INFRASTRUCTURE), never 0, and prints VERIFY-REFUSAL to stderr.
+
+== R1: unknown stage (S2 registry has not landed) — verify.mjs:648-651 ==
+VERIFY-REFUSAL: no acceptance registry registered for stage S2 — it has not landed yet (S1 is the first stage; S2/S3/S4 register their own steps when they deliver)
+R1_EXIT=3
+
+== R2: host mismatch — --require-host darwin on linux (reviewer Mac contract; fails closed here) — verify.mjs:628-634 ==
+VERIFY-REFUSAL: host mismatch — this contract requires darwin, running on linux; refusing to run (the host check is never weakened)
+R2_EXIT=3
+
+== R3: unknown --step — verify.mjs:652-654 ==
+VERIFY-REFUSAL: --step "NO-SUCH-STEP": no such step (registered: prereqs, k7-records, static-matrix, driver, counterfactuals, delivery, suites, twins, tsc, dispositions)
+usage: node scripts/test-assurance/verify.mjs --stage S1|S2|S3|S4 [--require-host darwin|linux] [--step <id>] [--tamper-arm T0|T1|T2]
+R3_EXIT=3
+
+== R4: repo-identity guard — cwd is not a checkout of this repo — verify.mjs:636-645 ==
+VERIFY-REFUSAL: repo-identity guard — cwd (/tmp) is not a checkout of this adapter's repository (git common dir unresolvable != /home/www/rules-as-tests-aif/.git); refusing to run (host-verify.sh #1971 guard)
+R4_EXIT=3

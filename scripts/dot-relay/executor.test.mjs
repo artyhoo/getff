@@ -2031,7 +2031,7 @@ const ghNever = () => ({
 
 const PR_R10 = 'https://github.com/artyhoo/getff/pull/9001';
 
-async function runCaptureReject({ name, buildOuter, exitCode = 0 }) {
+async function assertCaptureReject({ name, buildOuter, exitCode = 0 }) {
   const { dir, ledger } = env0();
   const solution = queuedSolution(ledger, dir);
   const manifest = ledger.getManifest(solution.id);
@@ -2090,7 +2090,7 @@ for (const [name, mutate] of [
   ['outer model not the pinned glm-5.3', ({ outer, report }) => ({ session_id: outer.session_id, modelUsage: {}, is_error: false, result: JSON.stringify(report) })],
 ]) {
   test(`R10 reject: ${name} -> BLOCKED_CAPTURE, terminal slot, no worker report`, async () => {
-    await runCaptureReject({
+    await assertCaptureReject({
       name,
       buildOuter: (ctx) => mutate({
         outer: outerCapture(ctx.sessionId, JSON.stringify(codeCompleteReport({ ...ctx, prUrl: PR_R10 }))),
@@ -2101,7 +2101,7 @@ for (const [name, mutate] of [
 }
 
 test('R10 reject: nonzero child exit -> BLOCKED_CAPTURE even with an otherwise valid report', async () => {
-  await runCaptureReject({
+  await assertCaptureReject({
     name: 'child exit code 1',
     exitCode: 1,
     buildOuter: (ctx) => outerCapture(ctx.sessionId, JSON.stringify(codeCompleteReport({ ...ctx, prUrl: PR_R10 }))),
@@ -4197,7 +4197,7 @@ for (const [name, rawOf] of [
   ['exactly 16385 UTF-8 bytes with multibyte padding', (j) => padReportBytes(j, 16_385)],
 ]) {
   test(`R10 strict reject: ${name} -> BLOCKED_CAPTURE, terminal slot, no worker report`, async () => {
-    await runCaptureReject({
+    await assertCaptureReject({
       name,
       buildOuter: (ctx) => outerCapture(ctx.sessionId, rawOf(JSON.stringify(codeCompleteReport({ ...ctx, prUrl: PR_R10 })))),
     });

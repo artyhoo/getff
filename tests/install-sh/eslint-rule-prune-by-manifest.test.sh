@@ -27,9 +27,11 @@ RL_DIR="eslint-rules-local"
 
 make_consumer() {
   local T
-  T=$(mktemp -d)
+  T=$(mktemp -d) || { echo ""; return 1; }
   printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
   ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+  RC_P50_059=$?
+  if [ "$RC_P50_059" -ne 0 ]; then echo ""; return 1; fi
   echo "$T"
 }
 
@@ -58,9 +60,19 @@ done
 # stack into eslint-rules-local/ and edits it. Under the basename heuristic the next `./setup`
 # deletes it with one info line, bypassing the divergence guard every other overwrite consults.
 TC1=$(make_consumer)
+if [ -n "$TC1" ]; then
+  ok "eslint-rule-prune-by-manifest: make_consumer install rc=0 (p50-059)"
+else
+  bad "eslint-rule-prune-by-manifest: make_consumer install failed (empty sentinel), expected rc 0 (p50-059)"
+  echo "eslint-rule-prune-by-manifest: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 printf '// CONSUMER_ADAPTED_RULE_ARM_1\nexport default {};\n' > "$TC1/$RL_DIR/$STRAY.ts"
 printf '// CONSUMER_ADAPTED_RULE_ARM_1\nexport default {};\n' > "$TC1/$RL_DIR/$STRAY.mjs"
 OUT_1=$( cd "$TC1" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
+RC_P50_060=$?
+if [ "$RC_P50_060" -eq 0 ]; then ok "eslint-rule-prune-by-manifest: install rc=0 (p50-060)"; else bad "eslint-rule-prune-by-manifest: install rc=$RC_P50_060, expected 0 (p50-060)"; fi
 if [ -f "$TC1/$RL_DIR/$STRAY.ts" ] && grep -qF 'CONSUMER_ADAPTED_RULE_ARM_1' "$TC1/$RL_DIR/$STRAY.ts"; then
   ok "arm 1: the consumer's adapted [$STRAY].ts survived a re-install (ownership read from the manifest)"
 else
@@ -86,6 +98,14 @@ rm -rf "$TC1"
 # The cross-stack prune must survive the fix: a stray rule that the framework really delivered
 # and the consumer never touched is ours to remove.
 TC2=$(make_consumer)
+if [ -n "$TC2" ]; then
+  ok "eslint-rule-prune-by-manifest: make_consumer install rc=0 (p50-059)"
+else
+  bad "eslint-rule-prune-by-manifest: make_consumer install failed (empty sentinel), expected rc 0 (p50-059)"
+  echo "eslint-rule-prune-by-manifest: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 cp "$STRAY_SRC" "$TC2/$RL_DIR/$STRAY.ts"
 printf 'export default {};\n' > "$TC2/$RL_DIR/$STRAY.mjs"
 # Record it in the baseline as a framework delivery with its exact bytes — which is what a real
@@ -101,6 +121,8 @@ os.makedirs(os.path.dirname(man), exist_ok=True)
 json.dump(data, open(man, "w"), sort_keys=True)
 PYEOF
 OUT_2=$( cd "$TC2" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
+RC_P50_061=$?
+if [ "$RC_P50_061" -eq 0 ]; then ok "eslint-rule-prune-by-manifest: install rc=0 (p50-061)"; else bad "eslint-rule-prune-by-manifest: install rc=$RC_P50_061, expected 0 (p50-061)"; fi
 if [ ! -e "$TC2/$RL_DIR/$STRAY.ts" ] && [ ! -e "$TC2/$RL_DIR/$STRAY.mjs" ]; then
   ok "arm 2: a pristine framework-delivered stray [$STRAY] is still pruned (#882 intact)"
 else
@@ -121,9 +143,19 @@ rm -rf "$TC2"
 # deletion — the same «unknown = today's behaviour, never destructive» rule the divergence guard
 # already follows.
 TC3=$(make_consumer)
+if [ -n "$TC3" ]; then
+  ok "eslint-rule-prune-by-manifest: make_consumer install rc=0 (p50-059)"
+else
+  bad "eslint-rule-prune-by-manifest: make_consumer install failed (empty sentinel), expected rc 0 (p50-059)"
+  echo "eslint-rule-prune-by-manifest: fixture setup failed — refusing to derive paths from an empty sentinel (M10-R5-1); stopping the suite"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL"
+  exit 1
+fi
 cp "$STRAY_SRC" "$TC3/$RL_DIR/$STRAY.ts"      # byte-identical to the framework rule…
 rm -f "$TC3/.ai-factory/refresh-baseline.json" # …but nothing on record says we delivered it
 ( cd "$TC3" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+RC_P50_062=$?
+if [ "$RC_P50_062" -eq 0 ]; then ok "eslint-rule-prune-by-manifest: install rc=0 (p50-062)"; else bad "eslint-rule-prune-by-manifest: install rc=$RC_P50_062, expected 0 (p50-062)"; fi
 if [ -f "$TC3/$RL_DIR/$STRAY.ts" ]; then
   ok "arm 3: an unrecorded [$STRAY].ts is left alone (no manifest entry = not attributable to us)"
 else

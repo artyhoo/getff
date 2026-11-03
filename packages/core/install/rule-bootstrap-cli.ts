@@ -107,7 +107,7 @@ function parseArgs(argv: string[]): Args {
 // diagnostics/registry.ts:193), and install() needs Node at install time, which the python lane
 // does not have — staying Node-free is that lane's defining property (setup.d/45-python.sh:1702).
 // (Until D8/#1169 this sentence said the lane FORBIDS `.ai-factory/`; it has shipped the agent
-// surface there ever since — tests/install-sh/python-entry-lane.test.sh:51.) The SHIPPED researched-
+// surface there ever since — tests/install-sh/python-entry-lane.test.sh:52.) The SHIPPED researched-
 // python generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →
 // `researchedPracticeToNode` bridge → `renderAstgrep` (both pure, proven LG-S1 INC-1/2).
 //

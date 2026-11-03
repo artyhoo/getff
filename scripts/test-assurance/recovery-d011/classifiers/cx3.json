@@ -1,0 +1,27 @@
+{
+  "id": "cx3",
+  "tag": "samefile-intendedfail+pending",
+  "provenance": "chief counterexample, input bytes verbatim from amended-2/evidence/coordinator-required-execution-result.json (one file, fileStatus failed, assertions [failed-intended, pending-required], exit 1); the amended-2 proposed classifier returns 'detection' on it — the A3 remaining finding",
+  "filters": ["one.test.ts"],
+  "rootDir": "/r4-replay",
+  "report": {
+    "success": false,
+    "numTotalTests": 2,
+    "testResults": [
+      {
+        "name": "/r4-replay/one.test.ts",
+        "status": "failed",
+        "assertionResults": [
+          { "status": "failed", "failureMessages": ["intended detection: expected true to be false"] },
+          { "status": "pending", "failureMessages": [] }
+        ]
+      }
+    ]
+  },
+  "stdout": "",
+  "exitCode": 1,
+  "amended2_actual": "detection",
+  "expected_amended2": "detection",
+  "expected_am3": "not-executed",
+  "note": "A3/amended-3: file failure must NOT mask a never-executed required assertion in the SAME file — the run is incomplete execution, never detection credit (coordinator-required-execution-result.json requires not-executed or infrastructure-failure)."
+}
