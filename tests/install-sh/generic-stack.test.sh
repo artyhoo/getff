@@ -114,6 +114,116 @@ if [ "${1:-}" = --generic-slot-regression ]; then
   echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]; exit $?
 fi
 
+# ── R9 (GH #2142 CODE-REPAIR): getff-rules.yml ignore admission is delivery-gated ──
+# ignore_shipped_configs' candidate list carries .github/workflows/getff-rules.yml (the gh-531
+# arm-1d completeness guard requires the token there), but that workflow is DELIVERED only inside
+# the drivable generic branch above (40-configs.sh). On every route that never attempts its
+# delivery — non-generic stacks, or generic without the eslint/oxlint + lint-command signals — an
+# existing getff-rules.yml is the CONSUMER's own file, and its absence from SKIPPED is not
+# ownership evidence there (no delivery → no skip recorded). The admission must key on the
+# framework's actual delivery record (getff_delivered), never on the file merely existing — else
+# a consumer's workflow is silently dropped from its own formatting check. Same mini-harness
+# shape as generic_slot_case: source the real lib + real layer, then run the real finalize-stage
+# helper against the SKIPPED/staging state that layer honestly produced.
+r9_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
+r9_wf_ignore_case() {
+  local name="$1" kind="$2" d rc ign in_block pkg
+  d=$(mktemp -d); TMPS+=("$d")
+  ign="$d/.prettierignore"
+  printf 'dist/\n' > "$ign"   # pre-existing consumer ignore content
+  pkg='{
+  "name": "r9-generic",
+  "version": "0.0.0"
+}
+'
+  if [ "$kind" != nondrivable ]; then   # the drivable two-signal gate: eslint + a lint script
+    pkg='{
+  "name": "r9-generic",
+  "version": "0.0.0",
+  "scripts": {
+    "lint": "eslint ."
+  }
+}
+'
+    printf 'export default [];\n' > "$d/eslint.config.mjs"
+  fi
+  printf '%s' "$pkg" > "$d/package.json"
+  if [ "$kind" != greenfield ]; then
+    # consumer-owned getff-rules.yml (deliberately NOT prettier-conformant, so any fixture that
+    # ignores it also stops reporting the planted violation — see the executed full-install arms)
+    mkdir -p "$d/.github/workflows"
+    printf '%s\n' 'name: consumer-own' 'on:' '  push:' '      branches: [ main ]' 'jobs:' '  build:' '      runs-on:   ubuntu-latest' '      steps:' '          - uses:   actions/checkout@v4' \
+      > "$d/.github/workflows/getff-rules.yml"
+    cp "$d/.github/workflows/getff-rules.yml" "$d/.r9-wf-orig"
+    r9_mode "$d/.github/workflows/getff-rules.yml" > "$d/.r9-wf-mode"
+  fi
+  (
+    PROJECT_ROOT="$d"; PKG_ROOT="$REPO_ROOT"; STACK=generic
+    FORCE=""; DRY_RUN=""; SKIPPED=(); NOT_WIRED=()
+    unset LINTER_SLOT FORMATTER_SLOT
+    INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+    source "$REPO_ROOT/setup.d/40-configs.sh" > "$d/.layer-log" 2>&1 || exit $?
+    ignore_shipped_configs >> "$d/.layer-log" 2>&1 || exit $?
+    printf '%s\n' ${SKIPPED[@]+"${SKIPPED[@]}"} > "$d/.r9-skipped"
+  ); rc=$?
+  [ "$rc" -eq 0 ] && ok "(r9:$name) real generic layer + ignore helper complete" \
+    || { bad "(r9:$name) layer/helper exit $rc: $(tail -3 "$d/.layer-log")"; return; }
+  grep -qx 'dist/' "$ign" && ok "(r9:$name) consumer 'dist/' line survives" \
+    || bad "(r9:$name) consumer 'dist/' line lost"
+  in_block=$(awk '/^# >>> rules-as-tests-aif shipped-configs \(managed\) >>>$/{f=1;next}
+    /^# <<< rules-as-tests-aif shipped-configs \(managed\) <<<$/{f=0;next}
+    f && $0==".github/workflows/getff-rules.yml"{n++} END{print n+0}' "$ign")
+  case "$kind" in
+    nondrivable)
+      for p in scripts/run-armed.sh eslint-rules-local; do
+        [ ! -e "$d/$p" ] && ok "(r9:$name) arm shape: no $p (delivery never attempted)" \
+          || bad "(r9:$name) arm shape broken: $p exists — the arm is NOT nondrivable"
+      done
+      grep -qxF "$d/.github/workflows/getff-rules.yml" "$d/.r9-skipped" \
+        && bad "(r9:$name) wf unexpectedly in SKIPPED (nothing attempted it)" \
+        || ok "(r9:$name) wf absent from SKIPPED — no delivery attempted, nothing to keep"
+      [ "$in_block" -eq 0 ] \
+        && ok "(r9:$name) consumer-owned wf NOT added to the managed block (stays format-checked)" \
+        || bad "(r9:$name) consumer-owned wf IGNORED on a route that delivered nothing — formatting coverage silently weakened (GH #2142 R9)"
+      cmp -s "$d/.r9-wf-orig" "$d/.github/workflows/getff-rules.yml" \
+        && ok "(r9:$name) consumer wf bytes untouched" \
+        || bad "(r9:$name) consumer wf bytes rewritten"
+      ;;
+    greenfield)
+      [ -f "$d/.github/workflows/getff-rules.yml" ] \
+        && ok "(r9:$name) framework DELIVERED the workflow (drivable)" \
+        || bad "(r9:$name) delivery missing — arm shape broken"
+      grep -qxF "$d/.github/workflows/getff-rules.yml" "$d/.r9-skipped" \
+        && bad "(r9:$name) fresh delivery recorded as a SKIPPED keep — arm shape broken" \
+        || ok "(r9:$name) fresh write, not a SKIPPED keep"
+      [ "$in_block" -eq 1 ] \
+        && ok "(r9:$name) DELIVERED workflow IS ignored (fresh framework delivery, correctly exempt)" \
+        || bad "(r9:$name) delivered workflow not ignored — the gate over-blocks the legitimate fresh case"
+      ;;
+    kept)
+      [ -f "$d/.github/workflows/getff-rules.yml" ] \
+        && ok "(r9:$name) consumer wf still present" || bad "(r9:$name) consumer wf gone"
+      grep -qxF "$d/.github/workflows/getff-rules.yml" "$d/.r9-skipped" \
+        && ok "(r9:$name) wf recorded in SKIPPED (consumer keep — the copy_safe skip path fired)" \
+        || bad "(r9:$name) wf NOT in SKIPPED — arm shape broken (keep path never exercised)"
+      [ "$in_block" -eq 0 ] \
+        && ok "(r9:$name) consumer-KEPT wf stays format-checked (SKIPPED protection retained)" \
+        || bad "(r9:$name) consumer-kept wf ignored — the keep protection regressed"
+      cmp -s "$d/.r9-wf-orig" "$d/.github/workflows/getff-rules.yml" \
+        && ok "(r9:$name) kept wf bytes untouched" \
+        || bad "(r9:$name) kept wf bytes rewritten"
+      [ "$(r9_mode "$d/.github/workflows/getff-rules.yml")" = "$(cat "$d/.r9-wf-mode")" ] \
+        && ok "(r9:$name) kept wf mode unchanged ($(cat "$d/.r9-wf-mode"))" \
+        || bad "(r9:$name) kept wf mode changed: $(cat "$d/.r9-wf-mode") → $(r9_mode "$d/.github/workflows/getff-rules.yml")"
+      [ ! -L "$d/.github/workflows/getff-rules.yml" ] \
+        && ok "(r9:$name) kept wf is not a link" || bad "(r9:$name) kept wf became a link"
+      ;;
+  esac
+}
+r9_wf_ignore_case nondrivable-generic nondrivable
+r9_wf_ignore_case drivable-greenfield greenfield
+r9_wf_ignore_case drivable-consumer-kept kept
+
 repo() {  # $1 = kind: java | plainjs | python
   local d; d=$(mktemp -d); TMPS+=("$d")
   ( cd "$d" && git init -q && git config user.email t@t && git config user.name t
@@ -127,6 +237,47 @@ repo() {  # $1 = kind: java | plainjs | python
     git add -A && git commit -q -m base )
   echo "$d"
 }
+
+# ── (21) R9 executed: generic FULL install, NON-drivable (no lint signals), consumer-owned wf ──
+# The mini-harness arms above prove admission state deterministically; this arm EXECUTES the
+# published defect end-to-end on the second non-delivery path of the finding (generic without
+# the required lint signals) using the established gh-531 arm-6 method: a real install, then the
+# real formatter over the tree. The planted workflow is non-conformant under ANY config, so
+# `prettier --check .` must KEEP citing it; the defect (file in the managed block) makes the
+# citation count drop to 0 — the silently-weakened check.
+G9=$(repo plainjs)
+printf 'dist/\n' > "$G9/.prettierignore"
+mkdir -p "$G9/.github/workflows"
+printf '%s\n' 'name: consumer-own' 'on:' '  push:' '      branches: [ main ]' 'jobs:' '  build:' '      runs-on:   ubuntu-latest' '      steps:' '          - uses:   actions/checkout@v4' \
+  > "$G9/.github/workflows/getff-rules.yml"
+cp "$G9/.github/workflows/getff-rules.yml" "$G9/.r9-wf-orig"
+out=$( cd "$G9" && bash "$INSTALL" generic --full < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] && ok "(21) full generic install on a non-drivable consumer exits 0" \
+  || bad "(21) exit $rc (tail: $(tail -5 <<<"$out" | tr '\n' '|'))"
+[ ! -e "$G9/scripts/run-armed.sh" ] && [ ! -e "$G9/eslint-rules-local" ] \
+  && ok "(21) arm shape: the generic route is genuinely non-drivable (no payloads delivered)" \
+  || bad "(21) arm shape broken: drivable payloads exist — wrong route under test"
+r9inblock=$(awk '/^# >>> rules-as-tests-aif shipped-configs \(managed\) >>>$/{f=1;next}
+  /^# <<< rules-as-tests-aif shipped-configs \(managed\) <<<$/{f=0;next}
+  f && $0==".github/workflows/getff-rules.yml"{n++} END{print n+0}' "$G9/.prettierignore")
+[ "$r9inblock" = "0" ] \
+  && ok "(21) consumer-owned wf NOT in the managed block after a full non-drivable install" \
+  || bad "(21) consumer-owned wf IGNORED after a full non-drivable install (GH #2142 R9 executed)"
+cmp -s "$G9/.r9-wf-orig" "$G9/.github/workflows/getff-rules.yml" \
+  && ok "(21) consumer wf bytes untouched by the full install" \
+  || bad "(21) consumer wf bytes rewritten by the full install"
+grep -qx 'dist/' "$G9/.prettierignore" \
+  && ok "(21) consumer 'dist/' line survives the full install" \
+  || bad "(21) consumer 'dist/' line lost by the full install"
+if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
+  ( cd "$G9" && npx --yes prettier@3.8.3 --check . ) > "$G9/.r9-check.log" 2>&1; r9rc=$?
+  r9cited=$(grep -c 'getff-rules\.yml' "$G9/.r9-check.log")
+  [ "$r9rc" -ne 0 ] && [ "$r9cited" -ge 1 ] \
+    && ok "(21) executed: planted wf violation still CAUGHT (prettier rc=$r9rc, citations=$r9cited)" \
+    || bad "(21) executed: violation not caught (rc=$r9rc, citations=$r9cited) — the consumer's formatting check was silently weakened"
+else
+  echo "  · (21) executed prettier arm skipped (npx prettier@3.8.3 unreachable)"
+fi
 
 # ── (1) Java repo, --full, no positional ─────────────────────────────────────────────────────────
 J=$(repo java)
@@ -258,26 +409,26 @@ drivable_fixture "$D9"
 mkdir -p "$D9/node_modules"
 ( cd "$D9" && git init -q && git config user.email t@t && git config user.name t ) >/dev/null 2>&1
 out=$( cd "$D9" && bash "$INSTALL" generic --full < /dev/null 2>&1 ); rc=$?
-[ "$rc" -eq 0 ] && ok "(9) drivable generic install exits 0" || bad "(9) exit $rc (tail: $(tail -5 <<<"$out" | tr '\n' '|'))"
+[ "$rc" -eq 0 ] && ok "(21) drivable generic install exits 0" || bad "(21) exit $rc (tail: $(tail -5 <<<"$out" | tr '\n' '|'))"
 for p in scripts/run-armed.sh scripts/prove-rules.mjs scripts/run-generated-rule-mutation.sh \
          eslint-rules-local/index.mjs .husky/pre-commit .github/workflows/getff-rules.yml; do
-  [ -f "$D9/$p" ] && ok "(9) delivered: $p" || bad "(9) missing: $p"
+  [ -f "$D9/$p" ] && ok "(21) delivered: $p" || bad "(21) missing: $p"
 done
 for p in packages/core/hooks/pre-push.bundle.mjs packages/core/hooks/pre-push.fallback.sh \
          .husky/pre-push .lintstagedrc.json tsconfig.json vitest.config.ts; do
-  [ ! -e "$D9/$p" ] && ok "(9) route B delivers no $p" || bad "(9) npm-lane piece created: $p"
+  [ ! -e "$D9/$p" ] && ok "(21) route B delivers no $p" || bad "(21) npm-lane piece created: $p"
 done
 grep -q 'run-armed.sh validate' "$D9/.github/workflows/getff-rules.yml" \
-  && ok "(9) workflow gate step runs run-armed.sh validate" || bad "(9) workflow lacks the validate step"
+  && ok "(21) workflow gate step runs run-armed.sh validate" || bad "(21) workflow lacks the validate step"
 grep -q "node-version: '20'" "$D9/.github/workflows/getff-rules.yml" \
-  && ok "(9) GETFF-SUBST-NODE pinned '20' (no .nvmrc)" || bad "(9) node-version substitution missing"
+  && ok "(21) GETFF-SUBST-NODE pinned '20' (no .nvmrc)" || bad "(21) node-version substitution missing"
 grep -q -- '--probe' "$D9/.husky/pre-commit" && grep -q -- '--fold' "$D9/.husky/pre-commit" \
-  && ok "(9) pre-commit is probe→fold (N1), never blocking" || bad "(9) pre-commit content wrong"
-[ -x "$D9/.husky/pre-commit" ] && ok "(9) pre-commit executable" || bad "(9) pre-commit not +x"
+  && ok "(21) pre-commit is probe→fold (N1), never blocking" || bad "(21) pre-commit content wrong"
+[ -x "$D9/.husky/pre-commit" ] && ok "(21) pre-commit executable" || bad "(21) pre-commit not +x"
 grep -q 'cache:' "$D9/.github/workflows/getff-rules.yml" \
-  && bad "(9) workflow carries a cache: key (must be omitted entirely)" || ok "(9) no cache: key in the workflow"
+  && bad "(21) workflow carries a cache: key (must be omitted entirely)" || ok "(21) no cache: key in the workflow"
 grep -q 'npm run lint' <<<"$(grep -A2 '^armed:' "$D9/.ai-factory/tool-decisions.md")" \
-  && ok "(9) green own lint armed at install (PLACE_LINT_OK path)" || bad "(9) own lint not armed at install"
+  && ok "(21) green own lint armed at install (PLACE_LINT_OK path)" || bad "(21) own lint not armed at install"
 
 # ── (10) C1: fresh clone — CI steps verbatim; good0, and the same bad file blocks (bad1) ────────
 ( cd "$D9" && git add -A && git commit -qm base ) >/dev/null 2>&1

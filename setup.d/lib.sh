@@ -2405,6 +2405,18 @@ ignore_shipped_configs() {
   for rel in "${candidates[@]}"; do
     [ -e "$PROJECT_ROOT/$rel" ] || continue                       # not shipped for this stack/preset
     _prettierignore_in_skipped "$PROJECT_ROOT/$rel" && continue   # consumer owned it → keep checking
+    # GH #2142 CODE-REPAIR: the getff-rules workflow ships ONLY inside the drivable generic
+    # branch (40-configs.sh); no other route attempts its delivery, so an existing file there is
+    # the CONSUMER's and no SKIPPED entry exists to prove a keep. Admit this one candidate only
+    # on the framework's actual delivery record (getff_delivered — same-run staging, or a flushed
+    # baseline manifest entry from an earlier install): absence from SKIPPED alone is not
+    # ownership evidence on a route that delivered nothing, else a ts-server or non-drivable-
+    # generic consumer's own workflow lands in .prettierignore and its formatting coverage is
+    # silently weakened. The SKIPPED check above keeps outranking this gate, so a real consumer
+    # keep on a DELIVERING route stays format-checked even when bytes happen to match the template.
+    if [ "$rel" = ".github/workflows/getff-rules.yml" ] && ! getff_delivered "$PROJECT_ROOT/$rel"; then
+      continue
+    fi
     grep -qxF "$rel" "$ign" && continue                           # already ignored (idempotent re-install)
     fresh+=("$rel")
   done
@@ -2522,7 +2534,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3459-3467, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3471-3479, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
