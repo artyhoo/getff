@@ -32,7 +32,7 @@
  */
 import { describe, it, expect, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
-import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, toMsysArg, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   copyFileSync,
   existsSync,
@@ -159,7 +159,13 @@ function runHook(
   // The stdin file_path goes out POSIX-shaped (forward separators): the SUT's canonical
   // `.agents/hooks` / `.claude/hooks` matchers never match a backslash path, so on win32
   // every canonical-path arm would silently pass as "not my channel" (measured #1799).
-  const posixPath = absPath.split(sep).join('/');
+  // The DRIVE PREFIX converts too (run 41189657830, CL-H): the SUT strips `"$REPO_ROOT/"`
+  // where REPO_ROOT comes from its own `cd … && pwd` in MSYS form (`/c/Users/…`), so a
+  // `C:/Users/…` file_path never reduces to a relative `.agents/hooks/*.sh` word, the
+  // canonical case arm falls to `*) exit 0` and BOTH "rejects a missing marker" arms got
+  // 0 where 2 was asserted (the marker-present arms passed vacuously, out-of-scope also
+  // exits 0). toMsysArg is the identity on POSIX.
+  const posixPath = toMsysArg(absPath.split(sep).join('/'));
   const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify({
       tool_name: tool,
