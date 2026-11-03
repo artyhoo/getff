@@ -22,12 +22,12 @@
  *   N2 absent bundle → exit 0 + SKIP line (this suite skips)
  *   P1 live bundle → exit 0 + "all assertions green"
  */
-import { execFileSync } from 'node:child_process';
 import { existsSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const script = join(here, '../../../scripts/probe-zcode-runtime.sh');
@@ -38,47 +38,45 @@ interface RunResult {
   out: string;
 }
 
-function runProbe(env: Record<string, string>): RunResult {
-  try {
-    const out = execFileSync('bash', [script], {
-      env: { ...process.env, ...env },
-      encoding: 'utf8',
-      timeout: 60_000,
-    });
-    return { status: 0, out };
-  } catch (e) {
-    const err = e as { status?: number; stdout?: string };
-    return { status: err.status ?? 1, out: err.stdout ?? '' };
-  }
+function runProbe(ctx: Skippable, env: Record<string, string>): RunResult {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  // The old execFileSync try/catch mapped throw-on-non-zero to {status: err.status ?? 1};
+  // spawnSync's result object carries the same status/stdout without the throw.
+  const r = spawnBashOrSkip(ctx, 'bash', [script], {
+    env: { ...process.env, ...env },
+    encoding: 'utf8',
+    timeout: 60_000,
+  });
+  return { status: r.status ?? 1, out: r.stdout ?? '' };
 }
 
 describe('zcode-runtime-probe — parity SSOT vs installed binary (Fork B)', () => {
-  it('P1: live bundle (when present) — all assertions green', { timeout: 90_000 }, () => {
+  it('P1: live bundle (when present) — all assertions green', { timeout: 90_000 }, (ctx) => {
     if (!existsSync(defaultBundle)) {
       console.warn(`SKIP: ${defaultBundle} absent — runtime probe asserts nothing here (by design).`);
       return;
     }
-    const r = runProbe({});
+    const r = runProbe(ctx, {});
     expect(r.out).toContain('probe-zcode-runtime:');
     expect(r.status).toBe(0);
     expect(r.out).toContain('all assertions green');
     expect(r.out).not.toContain('DRIFT');
   });
 
-  it('N2: absent bundle → script SKIPs (exit 0, loud notice), never fails CI', () => {
-    const r = runProbe({ ZCODE_RUNTIME_BUNDLE: '/nonexistent/zcode.cjs' });
+  it('N2: absent bundle → script SKIPs (exit 0, loud notice), never fails CI', (ctx) => {
+    const r = runProbe(ctx, { ZCODE_RUNTIME_BUNDLE: '/nonexistent/zcode.cjs' });
     expect(r.status).toBe(0);
     expect(r.out).toContain('SKIP:');
   });
 
-  it('N1: bundle without the trust-channel markers → exit 1 + DRIFT names the lockstep rule', () => {
+  it('N1: bundle without the trust-channel markers → exit 1 + DRIFT names the lockstep rule', (ctx) => {
     const fake = join(mkdtempSync(join(tmpdir(), 'zcp-probe-')), 'zcode.cjs');
     // Carries the enum so early assertions pass, but none of the §4 trust markers.
     writeFileSync(
       fake,
       'x ["SessionStart","UserPromptSubmit","PreToolUse","PermissionRequest","PostToolUse","PostToolUseFailure","Stop"] x',
     );
-    const r = runProbe({ ZCODE_RUNTIME_BUNDLE: fake });
+    const r = runProbe(ctx, { ZCODE_RUNTIME_BUNDLE: fake });
     expect(r.status).toBe(1);
     expect(r.out).toContain('DRIFT');
     expect(r.out).toContain('update this probe + doctrine in lockstep');

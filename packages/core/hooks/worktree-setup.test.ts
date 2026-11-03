@@ -19,7 +19,8 @@
  * is absent — exercising only the jq-missing path would yield no signal).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { execFileSync, execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   copyFileSync,
   existsSync,
@@ -67,24 +68,21 @@ interface Result {
 }
 
 function runHook(
+  ctx: Skippable,
   input: Record<string, unknown>,
   env: Record<string, string> = {},
 ): Result {
-  try {
-    const stdout = execFileSync('bash', [HOOK], {
-      input: JSON.stringify(input),
-      encoding: 'utf8',
-      env: { ...process.env, ...env },
-    });
-    return { stdout: stdout.toString().trim(), stderr: '', status: 0 };
-  } catch (e) {
-    const err = e as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
-    return {
-      stdout: (err.stdout?.toString() ?? '').trim(),
-      stderr: (err.stderr?.toString() ?? '').trim(),
-      status: err.status ?? 1,
-    };
-  }
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
+    input: JSON.stringify(input),
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+  return {
+    stdout: (r.stdout ?? '').trim(),
+    stderr: (r.stderr ?? '').trim(),
+    status: r.status ?? 1,
+  };
 }
 
 function setupTempRepo(): string {
@@ -192,6 +190,11 @@ function payload(name: string, cwd: string, session = 'sess-1'): Record<string, 
   };
 }
 
+// win32: the SUT (worktree-setup.sh) links node_modules with `ln -s`, which MSYS copies
+// by default (nativestrict needs admin/Dev-Mode) — the link-shape assertions cannot hold (#1799).
+// SELF-HEAL cold-primary stays live: it only asserts the NOT-a-symlink shape.
+const WIN_SUT_LINK = process.platform === 'win32';
+
 describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLOW_SHELL_MS }, () => {
   let repo: string;
 
@@ -202,28 +205,30 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
     teardown(repo);
   });
 
-  it('valid stdin → creates worktree, prints absolute path on stdout, exit 0', () => {
-    const r = runHook(payload('my-wt', repo), { CLAUDE_PROJECT_DIR: repo });
+  it('valid stdin → creates worktree, prints absolute path on stdout, exit 0', (ctx) => {
+    const r = runHook(ctx, payload('my-wt', repo), { CLAUDE_PROJECT_DIR: repo });
     expect(r.status).toBe(0);
     const expected = `${repo}/.claude/worktrees/my-wt`;
     expect(r.stdout).toBe(expected);
     expect(existsSync(expected)).toBe(true);
   });
 
-  it('symlinks node_modules from primary checkout (project D2 customisation)', () => {
-    const r = runHook(payload('sym-root', repo), { CLAUDE_PROJECT_DIR: repo });
+  // win32: the SUT links with `ln -s` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('symlinks node_modules from primary checkout (project D2 customisation)', (ctx) => {
+    const r = runHook(ctx, payload('sym-root', repo), { CLAUDE_PROJECT_DIR: repo });
     expect(r.status).toBe(0);
     const wt = `${repo}/.claude/worktrees/sym-root`;
     expect(readlinkSync(`${wt}/node_modules`)).toBe(`${repo}/node_modules`);
   });
 
-  it('symlinks packages/core/node_modules to the primary REAL nested dir when it exists (shadowing fix, 2026-07-02)', () => {
+  // win32: the SUT links with `ln -s` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('symlinks packages/core/node_modules to the primary REAL nested dir when it exists (shadowing fix, 2026-07-02)', (ctx) => {
     // Primary carries a real nested layer (root lock plans diverging dep
     // versions there) — the worktree link must target IT, not ../../node_modules,
     // or esbuild bundles root versions and synth-bundle --check false-drifts.
     mkdirSync(resolve(repo, 'packages/core/node_modules'), { recursive: true });
     writeFileSync(resolve(repo, 'packages/core/node_modules/.keep'), '');
-    const r = runHook(payload('sym-core-nested', repo), { CLAUDE_PROJECT_DIR: repo });
+    const r = runHook(ctx, payload('sym-core-nested', repo), { CLAUDE_PROJECT_DIR: repo });
     expect(r.status).toBe(0);
     const wt = `${repo}/.claude/worktrees/sym-core-nested`;
     expect(readlinkSync(`${wt}/packages/core/node_modules`)).toBe(
@@ -231,8 +236,9 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
     );
   });
 
-  it('falls back to ../../node_modules when primary has no nested packages/core/node_modules', () => {
-    const r = runHook(payload('sym-core', repo), { CLAUDE_PROJECT_DIR: repo });
+  // win32: the SUT links with `ln -s` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('falls back to ../../node_modules when primary has no nested packages/core/node_modules', (ctx) => {
+    const r = runHook(ctx, payload('sym-core', repo), { CLAUDE_PROJECT_DIR: repo });
     expect(r.status).toBe(0);
     const wt = `${repo}/.claude/worktrees/sym-core`;
     expect(readlinkSync(`${wt}/packages/core/node_modules`)).toBe('../../node_modules');
@@ -240,7 +246,7 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
 
   // ── Self-heal: tsx toolchain reachability (incident 2026-07-21) ──
 
-  it('SELF-HEAL: cold primary (tsx unreachable at both probe paths) → installs packages/core so tsx becomes reachable', () => {
+  it('SELF-HEAL: cold primary (tsx unreachable at both probe paths) → installs packages/core so tsx becomes reachable', (ctx) => {
     // Reproduce a worktree created while the primary was still cold: no tsx in
     // either probe path, so symlink delivery cannot surface it. Stub `npm` on
     // PATH so the self-heal `npm ci --prefix` is deterministic + offline — it
@@ -265,7 +271,7 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
     writeFileSync(resolve(repo, 'packages/core/package-lock.json'), '{}\n');
     execSync('git add packages/core/package-lock.json && git commit -q -m lock', { cwd: repo });
     try {
-      const r = runHook(payload('self-heal', repo), {
+      const r = runHook(ctx, payload('self-heal', repo), {
         CLAUDE_PROJECT_DIR: repo,
         PATH: `${fakeBin}:${process.env.PATH}`,
       });
@@ -280,7 +286,8 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
     }
   });
 
-  it('SELF-HEAL NO-OP: tsx already reachable via root-node_modules symlink → no reinstall, delivery symlink preserved', () => {
+  // win32: the SUT links with `ln -s` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('SELF-HEAL NO-OP: tsx already reachable via root-node_modules symlink → no reinstall, delivery symlink preserved', (ctx) => {
     // Warm primary in workspace-hoist layout: tsx in ROOT node_modules. The
     // worktree's root symlink surfaces it via the 2nd probe path, so self-heal
     // must NOT fire (must not clobber the packages/core delivery symlink). Stub
@@ -290,7 +297,7 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
     const fakeBin = mkdtempSync(resolve(tmpdir(), 'wtc-fakenpm-noop-'));
     writeFileSync(resolve(fakeBin, 'npm'), '#!/usr/bin/env bash\nexit 7\n', { mode: 0o755 });
     try {
-      const r = runHook(payload('noop', repo), {
+      const r = runHook(ctx, payload('noop', repo), {
         CLAUDE_PROJECT_DIR: repo,
         PATH: `${fakeBin}:${process.env.PATH}`,
       });
@@ -305,31 +312,31 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
     }
   });
 
-  it('branch name follows CC default convention: worktree-<name>', () => {
-    runHook(payload('branch-conv', repo), { CLAUDE_PROJECT_DIR: repo });
+  it('branch name follows CC default convention: worktree-<name>', (ctx) => {
+    runHook(ctx, payload('branch-conv', repo), { CLAUDE_PROJECT_DIR: repo });
     const wtList = execSync(`git -C "${repo}" worktree list --porcelain`, {
       encoding: 'utf8',
     });
     expect(wtList).toContain('branch refs/heads/worktree-branch-conv');
   });
 
-  it('idempotent: re-invoke with same name → reuse (same stdout path, exit 0)', () => {
-    const a = runHook(payload('idem', repo), { CLAUDE_PROJECT_DIR: repo });
-    const b = runHook(payload('idem', repo), { CLAUDE_PROJECT_DIR: repo });
+  it('idempotent: re-invoke with same name → reuse (same stdout path, exit 0)', (ctx) => {
+    const a = runHook(ctx, payload('idem', repo), { CLAUDE_PROJECT_DIR: repo });
+    const b = runHook(ctx, payload('idem', repo), { CLAUDE_PROJECT_DIR: repo });
     expect(a.status).toBe(0);
     expect(b.status).toBe(0);
     expect(b.stdout).toBe(a.stdout);
   });
 
-  it('stdout is a single line (path-only contract — multi-line breaks CC)', () => {
-    const r = runHook(payload('one-line', repo), { CLAUDE_PROJECT_DIR: repo });
+  it('stdout is a single line (path-only contract — multi-line breaks CC)', (ctx) => {
+    const r = runHook(ctx, payload('one-line', repo), { CLAUDE_PROJECT_DIR: repo });
     expect(r.status).toBe(0);
     expect(r.stdout.split('\n').length).toBe(1);
     expect(r.stdout.startsWith('/')).toBe(true);
   });
 
-  it('CLAUDE_PROJECT_DIR env takes precedence over stdin .cwd', () => {
-    const r = runHook(payload('env-precedes', '/nonexistent/bogus-cwd'), {
+  it('CLAUDE_PROJECT_DIR env takes precedence over stdin .cwd', (ctx) => {
+    const r = runHook(ctx, payload('env-precedes', '/nonexistent/bogus-cwd'), {
       CLAUDE_PROJECT_DIR: repo,
     });
     expect(r.status).toBe(0);
@@ -341,9 +348,10 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
   // was swallowed by `|| true` — the worktree stayed silently unlinked from the
   // canonical store. Now the miss is announced on stderr (stdout stays path-only).
 
-  it('LOUD-WARN: missing link-coordination.sh → stderr notice, stdout still path-only, exit 0', () => {
+  it('LOUD-WARN: missing link-coordination.sh → stderr notice, stdout still path-only, exit 0', (ctx) => {
     // The fixture repo ships no scripts/link-coordination.sh — the miss path.
-    const r = spawnSync('bash', [HOOK], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
       input: JSON.stringify(payload('loud-warn', repo)),
       encoding: 'utf8',
       env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
@@ -355,11 +363,12 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
     expect(out.startsWith('/')).toBe(true);
   });
 
-  it('helper present → invoked with (worktree, project) args, no missing-helper warning', () => {
+  it('helper present → invoked with (worktree, project) args, no missing-helper warning', (ctx) => {
     const stub = resolve(repo, 'scripts/link-coordination.sh');
     const marker = resolve(repo, 'link-ran.txt');
     writeFileSync(stub, `#!/usr/bin/env bash\nprintf '%s %s\\n' "$1" "$2" > "${marker}"\n`, { mode: 0o755 });
-    const r = spawnSync('bash', [HOOK], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
       input: JSON.stringify(payload('helper-hit', repo)),
       encoding: 'utf8',
       env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
@@ -373,8 +382,9 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
 
   // ── Paired-negative scenarios: failure modes the hook is paid to detect ──
 
-  it('PAIRED-NEGATIVE: missing .name → exit non-zero, no stdout (creation MUST fail)', () => {
+  it('PAIRED-NEGATIVE: missing .name → exit non-zero, no stdout (creation MUST fail)', (ctx) => {
     const r = runHook(
+      ctx,
       { session_id: 's', cwd: repo, hook_event_name: 'WorktreeCreate' },
       { CLAUDE_PROJECT_DIR: repo },
     );
@@ -383,15 +393,15 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
     expect(r.stderr).toMatch(/missing \.name/);
   });
 
-  it('PAIRED-NEGATIVE: empty .name → exit non-zero (same path as missing)', () => {
-    const r = runHook(payload('', repo), { CLAUDE_PROJECT_DIR: repo });
+  it('PAIRED-NEGATIVE: empty .name → exit non-zero (same path as missing)', (ctx) => {
+    const r = runHook(ctx, payload('', repo), { CLAUDE_PROJECT_DIR: repo });
     expect(r.status).not.toBe(0);
     expect(r.stdout).toBe('');
   });
 
   // ── Bug 1 regression (2026-05-30): stale origin/HEAD must not stale-base ──
 
-  it('BUG-1: refreshes origin/HEAD → worktree bases on the live default (staging, not stale main)', () => {
+  it('BUG-1: refreshes origin/HEAD → worktree bases on the live default (staging, not stale main)', (ctx) => {
     const work = setupRepoWithStaleOriginHead();
     const parent = dirname(work);
     try {
@@ -401,7 +411,7 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
       }).trim();
       expect(staleHead).toBe('refs/remotes/origin/main');
 
-      const r = runHook(payload('bug1', work), { CLAUDE_PROJECT_DIR: work });
+      const r = runHook(ctx, payload('bug1', work), { CLAUDE_PROJECT_DIR: work });
       expect(r.status).toBe(0);
 
       // The worktree must reflect staging's marker — proving the hook refreshed
@@ -421,29 +431,23 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLO
     }
   });
 
-  it('PAIRED-NEGATIVE: unresolvable project root → exit non-zero', () => {
+  it('PAIRED-NEGATIVE: unresolvable project root → exit non-zero', (ctx) => {
     // No CLAUDE_PROJECT_DIR env, stdin .cwd points nowhere, and we invoke from
     // a directory with no git context.
     const tmp = mkdtempSync(resolve(tmpdir(), 'wtc-norepo-'));
     try {
-      const r = (() => {
-        try {
-          const stdout = execFileSync('bash', [HOOK], {
-            input: JSON.stringify(payload('orphan', '/nonexistent')),
-            encoding: 'utf8',
-            cwd: tmp,
-            env: { ...process.env, CLAUDE_PROJECT_DIR: '' },
-          });
-          return { stdout: stdout.toString().trim(), stderr: '', status: 0 };
-        } catch (e) {
-          const err = e as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
-          return {
-            stdout: (err.stdout?.toString() ?? '').trim(),
-            stderr: (err.stderr?.toString() ?? '').trim(),
-            status: err.status ?? 1,
-          };
-        }
-      })();
+      // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      const res = spawnBashOrSkip(ctx, 'bash', [HOOK], {
+        input: JSON.stringify(payload('orphan', '/nonexistent')),
+        encoding: 'utf8',
+        cwd: tmp,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: '' },
+      });
+      const r = {
+        stdout: (res.stdout ?? '').trim(),
+        stderr: (res.stderr ?? '').trim(),
+        status: res.status ?? 1,
+      };
       expect(r.status).not.toBe(0);
       expect(r.stdout).toBe('');
     } finally {

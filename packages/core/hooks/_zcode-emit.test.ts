@@ -32,7 +32,7 @@
  * makes every `_ze_classify`/`_ze_emit` test fail with "function not defined".
  */
 import { describe, it, expect } from 'vitest';
-import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -50,6 +50,7 @@ const HELPER = resolve(REPO_ROOT, 'plugin/hooks/_zcode-emit');
  * in isolation, exactly as a future adopter would compose it (plan-v3 §"Composition").
  */
 function runHelper(
+  ctx: Skippable,
   fn: '_ze_classify' | '_ze_emit',
   stdin: string,
   opts: { zcode?: boolean } = {},
@@ -67,7 +68,8 @@ function runHelper(
   };
   // Explicitly unset ZCODE_PROJECT_DIR when not zcode (process.env may leak it).
   if (!opts.zcode) env.ZCODE_PROJECT_DIR = '';
-  const r = spawnSync('bash', ['-c', script], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', ['-c', script], {
     input: stdin,
     encoding: 'utf8',
     env,
@@ -76,31 +78,31 @@ function runHelper(
 }
 
 describe('_zcode-emit helper — _ze_classify classification matrix', () => {
-  it('empty_silent_exit0: empty stdin → no stdout, exit 0', () => {
+  it('empty_silent_exit0: empty stdin → no stdout, exit 0', (ctx) => {
     // plan-v3 §"Edge cases" row 1: empty stdin must NOT emit {"additionalContext:""}.
-    const r = runHelper('_ze_classify', '');
+    const r = runHelper(ctx, '_ze_classify', '');
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('whitespace_only_silent_exit0: whitespace-only stdin → no stdout, exit 0', () => {
+  it('whitespace_only_silent_exit0: whitespace-only stdin → no stdout, exit 0', (ctx) => {
     // Boundary: tr-d-strip guard must catch pure whitespace, not just empty string.
-    const r = runHelper('_ze_classify', '   \n\t  \n');
+    const r = runHelper(ctx, '_ze_classify', '   \n\t  \n');
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('passthrough_valid_json_allowed_key: {"system":[…]} → byte-identical pass-through', () => {
+  it('passthrough_valid_json_allowed_key: {"system":[…]} → byte-identical pass-through', (ctx) => {
     // plan-v3 §1.7 Forward row 1: stdin {"additionalContext":[...]} → stdout byte-identical.
     // (Using additionalContext as the allowed key — the canonical PostToolUse shape.)
     const input = '{"additionalContext":"hello world"}';
-    const r = runHelper('_ze_classify', input);
+    const r = runHelper(ctx, '_ze_classify', input);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     // Byte-identical: stdout must equal input verbatim (no jq reserialization, no trailing nl added).
     expect(r.stdout).toBe(input);
   });
 
-  it('passthrough_preserves_all_allowed_keys: each allowed key → pass-through', () => {
+  it('passthrough_preserves_all_allowed_keys: each allowed key → pass-through', (ctx) => {
     // Sweep over the full allowed-key set so a regression on any one is caught.
     const cases = [
       '{"additionalContext":"x"}',
@@ -113,15 +115,15 @@ describe('_zcode-emit helper — _ze_classify classification matrix', () => {
       '{"suppressOutput":true}',
     ];
     for (const input of cases) {
-      const r = runHelper('_ze_classify', input);
+      const r = runHelper(ctx, '_ze_classify', input);
       expect(r.status, `stderr on ${input}: ${r.stderr}`).toBe(0);
       expect(r.stdout, `pass-through failed for ${input}`).toBe(input);
     }
   });
 
-  it('wrap_plain_text: stdin `hello` → stdout {"additionalContext":"hello"}', () => {
+  it('wrap_plain_text: stdin `hello` → stdout {"additionalContext":"hello"}', (ctx) => {
     // plan-v3 §1.7 Forward row 2: plain text wraps as additionalContext.
-    const r = runHelper('_ze_classify', 'hello');
+    const r = runHelper(ctx, '_ze_classify', 'hello');
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     const parsed = JSON.parse(r.stdout);
     expect(parsed.additionalContext).toBe('hello');
@@ -129,18 +131,18 @@ describe('_zcode-emit helper — _ze_classify classification matrix', () => {
     expect(Object.keys(parsed)).toEqual(['additionalContext']);
   });
 
-  it('wrap_plain_text_escapes_special_chars: quotes + backslash + newline', () => {
+  it('wrap_plain_text_escapes_special_chars: quotes + backslash + newline', (ctx) => {
     // Defense check: jq -Rs string-escapes safely (no JSON injection / parse break).
-    const r = runHelper('_ze_classify', 'he said "hi"\nwith `back`slash \\');
+    const r = runHelper(ctx, '_ze_classify', 'he said "hi"\nwith `back`slash \\');
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     const parsed = JSON.parse(r.stdout);
     expect(parsed.additionalContext).toBe('he said "hi"\nwith `back`slash \\');
   });
 
-  it('wrap_zero_allowed_keys: {"foo":"bar"} → wrapped as {additionalContext:"<raw>"}', () => {
+  it('wrap_zero_allowed_keys: {"foo":"bar"} → wrapped as {additionalContext:"<raw>"}', (ctx) => {
     // plan-v3 §"Edge cases" row 3: valid JSON but no allowed top-level key → wrap raw bytes.
     const input = '{"foo":"bar"}';
-    const r = runHelper('_ze_classify', input);
+    const r = runHelper(ctx, '_ze_classify', input);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     const parsed = JSON.parse(r.stdout);
     expect(parsed.additionalContext).toBe(input);
@@ -148,14 +150,14 @@ describe('_zcode-emit helper — _ze_classify classification matrix', () => {
     expect(parsed.foo).toBeUndefined();
   });
 
-  it('multiline_trailing_newline: multi-line JSON + \\n after } → pass-through (trailing \\n stripped)', () => {
+  it('multiline_trailing_newline: multi-line JSON + \\n after } → pass-through (trailing \\n stripped)', (ctx) => {
     // plan-v3 §"Edge cases" row 5: pretty-printed JSON + trailing newline →
     // "strip → classify → re-emit". The `$(cat)` command substitution that captures
     // stdin strips trailing newlines (bash invariant), so the re-emitted payload
     // loses the trailing `\n` but preserves the adopter's chosen pretty-printing.
     // This is the documented behaviour (strip-then-emit), not a bug.
     const input = '{\n  "additionalContext": "value"\n}\n';
-    const r = runHelper('_ze_classify', input);
+    const r = runHelper(ctx, '_ze_classify', input);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     // Trailing newline stripped (bash $(cat) invariant); body byte-identical.
     expect(r.stdout).toBe(input.replace(/\n$/, ''));
@@ -164,11 +166,11 @@ describe('_zcode-emit helper — _ze_classify classification matrix', () => {
     expect(parsed.additionalContext).toBe('value');
   });
 
-  it('double_wrap_prevention: already-wrapped JSON → pass-through (never re-wrapped)', () => {
+  it('double_wrap_prevention: already-wrapped JSON → pass-through (never re-wrapped)', (ctx) => {
     // plan-v3 §"Edge cases" row 6 / §1.7 Forward row 4: an already-additionalContext
     // JSON must NOT be re-wrapped (would produce {additionalContext:'{additionalContext:…}'}).
     const input = '{"additionalContext":"already wrapped"}';
-    const r = runHelper('_ze_classify', input);
+    const r = runHelper(ctx, '_ze_classify', input);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toBe(input);
     // Sanity: stdout is single-level JSON, not a nested stringified blob.
@@ -177,17 +179,17 @@ describe('_zcode-emit helper — _ze_classify classification matrix', () => {
     expect(parsed.additionalContext).toBe('already wrapped');
   });
 
-  it('decision_block_passthrough: Stop-hook shape → byte-identical', () => {
+  it('decision_block_passthrough: Stop-hook shape → byte-identical', (ctx) => {
     // The end-of-turn-reminder Stop-hook emit shape — load-bearing for Bespoke #1 Part B.
     const input = '{"decision":"block","reason":"recap nudge","systemMessage":"🎯 goal"}';
-    const r = runHelper('_ze_classify', input);
+    const r = runHelper(ctx, '_ze_classify', input);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toBe(input);
   });
 
-  it('non_json_garbage_wraps_safely: stray chars → wrapped (jq -Rs escapes)', () => {
+  it('non_json_garbage_wraps_safely: stray chars → wrapped (jq -Rs escapes)', (ctx) => {
     // Not valid JSON, contains braces but not parseable. Must wrap as text.
-    const r = runHelper('_ze_classify', 'not json {broken');
+    const r = runHelper(ctx, '_ze_classify', 'not json {broken');
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     const parsed = JSON.parse(r.stdout);
     expect(parsed.additionalContext).toBe('not json {broken');
@@ -195,50 +197,52 @@ describe('_zcode-emit helper — _ze_classify classification matrix', () => {
 });
 
 describe('_zcode-emit helper — _ze_emit _is_zcode gate', () => {
-  it('non_zcode_passthrough_cat: ZCODE_PROJECT_DIR unset → _ze_emit cats stdin unchanged', () => {
+  it('non_zcode_passthrough_cat: ZCODE_PROJECT_DIR unset → _ze_emit cats stdin unchanged', (ctx) => {
     // plan-v3 §1.7 Forward row 5 + Backward "non-ZCode gate": on CC dogfood the
     // helper is a no-op; stdin (plain text, JSON, anything) is passed through byte-for-byte.
     const cases = ['plain text here', '{"additionalContext":"x"}', 'multi\nline\ntext'];
     for (const input of cases) {
-      const r = runHelper('_ze_emit', input, { zcode: false });
+      const r = runHelper(ctx, '_ze_emit', input, { zcode: false });
       expect(r.status, `stderr on ${JSON.stringify(input)}: ${r.stderr}`).toBe(0);
       expect(r.stdout, `non-zcode cat must be byte-identical for ${JSON.stringify(input)}`).toBe(input);
     }
   });
 
-  it('zcode_routes_to_classify: ZCODE_PROJECT_DIR set → _ze_emit classifies (plain text wraps)', () => {
+  it('zcode_routes_to_classify: ZCODE_PROJECT_DIR set → _ze_emit classifies (plain text wraps)', (ctx) => {
     // The gate routes through _ze_classify when _is_zcode=true. Same input that
     // cats unchanged on non-ZCode wraps as {additionalContext} on ZCode.
-    const r = runHelper('_ze_emit', 'hello', { zcode: true });
+    const r = runHelper(ctx, '_ze_emit', 'hello', { zcode: true });
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     const parsed = JSON.parse(r.stdout);
     expect(parsed.additionalContext).toBe('hello');
   });
 
-  it('zcode_passes_through_allowed_json: valid JSON with allowed key → byte-identical', () => {
+  it('zcode_passes_through_allowed_json: valid JSON with allowed key → byte-identical', (ctx) => {
     // End-to-end through the gate: pass-through path on ZCode for allowed JSON.
     const input = '{"additionalContext":"x"}';
-    const r = runHelper('_ze_emit', input, { zcode: true });
+    const r = runHelper(ctx, '_ze_emit', input, { zcode: true });
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toBe(input);
   });
 
-  it('zcode_empty_silent: empty stdin on ZCode → silent', () => {
+  it('zcode_empty_silent: empty stdin on ZCode → silent', (ctx) => {
     // End-to-end: empty path composes through the gate (no stray empty-context emit).
-    const r = runHelper('_ze_emit', '', { zcode: true });
+    const r = runHelper(ctx, '_ze_emit', '', { zcode: true });
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toBe('');
   });
 });
 
 describe('_zcode-emit helper — sourcing contract', () => {
-  it('adopter_must_define_is_zcode: helper does not define its own _is_zcode', () => {
+  it('adopter_must_define_is_zcode: helper does not define its own _is_zcode', (ctx) => {
     // Sourcing the helper alone MUST NOT define _is_zcode — the adopter owns it
     // (canonical form verified across 7 plugin twins). This is the composition
     // contract from plan-v3 §"Composition (option d, verified correct)".
     // `declare -F <name>` prints the function name if defined, exits non-zero + empty
     // stdout if not — a clean signal without bash's noisy `type: not found` stderr.
-    const r = spawnSync(
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(
+      ctx,
       'bash',
       ['-c', `source "${HELPER}"; declare -F _is_zcode || echo "NOT-DEFINED"`],
       { encoding: 'utf8' },
@@ -246,8 +250,10 @@ describe('_zcode-emit helper — sourcing contract', () => {
     expect(r.stdout.trim()).toBe('NOT-DEFINED');
   });
 
-  it('helper_defines_two_functions: _ze_classify and _ze_emit are exported on source', () => {
-    const r = spawnSync(
+  it('helper_defines_two_functions: _ze_classify and _ze_emit are exported on source', (ctx) => {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(
+      ctx,
       'bash',
       ['-c', `source "${HELPER}"; declare -F _ze_classify _ze_emit`],
       { encoding: 'utf8' },

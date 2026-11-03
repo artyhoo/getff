@@ -34,8 +34,8 @@ import {
   readFileSync,
   writeFileSync,
   rmSync,
-  symlinkSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
 import { tmpdir } from 'node:os';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -48,7 +48,7 @@ const HOOK = resolve(REPO_ROOT, '.agents/hooks/inject-session-bootstrap.sh');
  * realistic input matching CC's SessionStart shape for accuracy.
  *
  * env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path —
- * mirrors deps-hash-check.test.ts:336). Default-scrub ZCODE_PROJECT_DIR so the CC-plain-text
+ * mirrors deps-hash-check.test.ts:354). Default-scrub ZCODE_PROJECT_DIR so the CC-plain-text
  * assertions below do not flip to the ZCode-JSON branch when the suite runs inside ZCode itself.
  */
 function runHook(
@@ -436,7 +436,13 @@ describe('inject-session-bootstrap.sh — R4 consumer-aware digest (issue 1484)'
     expect(first.stdout).toContain(GOAL_ANCHOR);
   });
 
-  it('R4(f1) /bin/bash (stock macOS bash 3.2): degraded digest intact, exit 0', () => {
+  it('R4(f1) /bin/bash (stock macOS bash 3.2): degraded digest intact, exit 0', (ctx) => {
+    if (process.platform === 'win32')
+      ctx.skip(
+        'the arm pins the STOCK macOS bash 3.2 dialect — no bash 3.2 exists on Windows '
+          + '(Git for Windows ships bash >= 4.4), so running under it would pass while '
+          + 'proving nothing about the 3.2 degradation path — #1799 win32 platform impossibility',
+      );
     // runHook normally takes `bash` from PATH (possibly 5.x) — a bash-4ism would
     // pass every arm above and still kill the injection on consumer macOS.
     const fixture = makeFixture();
@@ -450,14 +456,15 @@ describe('inject-session-bootstrap.sh — R4 consumer-aware digest (issue 1484)'
     expect(stdout).toContain(OPENING_TAG);
   });
 
-  it('R4(f2) jq absent from PATH: CC plain path still emits the full digest (no new jq requirement)', () => {
+  it('R4(f2) jq absent from PATH: CC plain path still emits the full digest (no new jq requirement)', (ctx: Skippable) => {
     // PATH trimmed to a bin dir holding only bash/dirname/grep — jq unavailable,
     // so _emit_ctx must take the plain-stdout branch on the CC path.
     const binDir = mkdtempSync(join(tmpdir(), 'r4-digest-bin-'));
     fixtureRoots.push(binDir);
-    symlinkSync('/bin/bash', join(binDir, 'bash'));
-    symlinkSync('/usr/bin/dirname', join(binDir, 'dirname'));
-    symlinkSync('/usr/bin/grep', join(binDir, 'grep'));
+    // tool binaries are files: junctions cannot express them → named win32 skip
+    symlinkOrJunctionOrSkip(ctx, '/bin/bash', join(binDir, 'bash'));
+    symlinkOrJunctionOrSkip(ctx, '/usr/bin/dirname', join(binDir, 'dirname'));
+    symlinkOrJunctionOrSkip(ctx, '/usr/bin/grep', join(binDir, 'grep'));
     const { stdout, status } = runHook('r4-no-jq', {
       CLAUDE_PROJECT_DIR: REPO_ROOT,
       PATH: binDir,

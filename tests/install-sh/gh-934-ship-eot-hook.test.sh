@@ -68,8 +68,12 @@ TR="$T/transcript.jsonl"
 
 _run_hook() {  # $1 = lang ('' | ru) [$2 = transcript, def $TR] [$3 = session id, def g934]
   local lang="$1" tr="${2:-$TR}" sid="${3:-g934}"
+  # Unset CLAUDE_CODE_ENTRYPOINT: a sweep launched from an Agent-SDK session exports it as
+  # sdk-*, and the hook's SDK-entrypoint guard then exits 0 before every firing arm — the
+  # arms would test the launch environment, not the recap. Same hermeticity as handoff-group's
+  # CLEAN list. CI never sets the var, which is why this only fails on an SDK-launched host.
   printf '{"transcript_path":"%s","stop_hook_active":false,"session_id":"%s"}' "$tr" "$sid" \
-    | AIF_HOOK_LANG="${lang:-en}" bash "$H/end-of-turn-reminder.sh" 2>/dev/null
+    | env -u CLAUDE_CODE_ENTRYPOINT AIF_HOOK_LANG="${lang:-en}" bash "$H/end-of-turn-reminder.sh" 2>/dev/null
 }
 
 # ── ARM (D): firing EN ────────────────────────────────────────────────────────
@@ -119,7 +123,9 @@ JQLESS=$(mktemp -d)
 for _t in bash sh grep cat tail head cut tr sed printf env; do
   _p=$(command -v "$_t" 2>/dev/null) && ln -sf "$_p" "$JQLESS/$_t" 2>/dev/null
 done
-_guard_out=$(printf '{"transcript_path":"%s","stop_hook_active":false}' "$TR" | PATH="$JQLESS" bash "$H/end-of-turn-reminder.sh" 2>/dev/null); _guard_rc=$?
+# env -u CLAUDE_CODE_ENTRYPOINT as in _run_hook: with it leaked, this arm would pass for the
+# SDK guard's reason instead of the jq-absent guard it exists to prove (vacuous green).
+_guard_out=$(printf '{"transcript_path":"%s","stop_hook_active":false}' "$TR" | env -u CLAUDE_CODE_ENTRYPOINT PATH="$JQLESS" bash "$H/end-of-turn-reminder.sh" 2>/dev/null); _guard_rc=$?
 if [ "$_guard_rc" -eq 0 ] && [ -z "$_guard_out" ]; then
   ok "(F) consumer-skip guard: jq absent → exit 0, no output (no per-turn error-spam)"
 else

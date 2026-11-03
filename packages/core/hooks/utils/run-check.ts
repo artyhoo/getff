@@ -32,6 +32,11 @@ export interface RunCheckOptions {
   /** Wall-clock cap; the child is killed with SIGTERM past this. Default 120s. */
   timeoutMs?: number;
   env?: NodeJS.ProcessEnv;
+  /** Bytes piped to the child's stdin. Used to pass large inputs (e.g. the citation
+   *  checker's affected-file list) off the command line — win32 CreateProcess caps the
+   *  whole command line at 32767 chars, and a big changed-set serialised into argv
+   *  died as `spawnSync node ENAMETOOLONG` (run 41559999951, windows-hooks cell). */
+  input?: string;
 }
 
 export const DEFAULT_TIMEOUT_MS = 120_000;
@@ -48,7 +53,7 @@ export const SPAWN_FAILURE_EXIT_CODE = 127;
  * (EINVAL, surfaced here as ENOENT). Measured on Windows 11 / Node 24.19.0:
  * `node`, `git`, `bash`, `python3`, `ruff` and `actionlint` all spawn bare and
  * only `npm` + `npx` fail — so this rewrite covers the whole failing set. The
- * user-visible symptom was `pre-push.ts:1109` announcing "npx not found — install
+ * user-visible symptom was `pre-push.ts:1113` announcing "npx not found — install
  * Node.js" on a machine running the hook *under* Node.
  *
  * `shell: true` is deliberately NOT the fix: runCheck is the single funnel for
@@ -86,6 +91,73 @@ export function resolveNodeToolShim(
 }
 
 /**
+ * Locate bash.exe on win32: PATH first (a user/tooling install wins), then
+ * GitHub's documented `shell: bash` roots (docs.github.com workflow syntax) —
+ * CI images expose only Git\cmd on PATH, so the roots arm is load-bearing there.
+ * Production twin of the test seam's resolver (spawn-bash-or-skip.ts); the seam
+ * is test material and cannot be imported from shipped code.
+ */
+export function findGitBashExe(
+  env: NodeJS.ProcessEnv = process.env,
+  exists: (p: string) => boolean = existsSync,
+): string | null {
+  const roots = [
+    ...(env.PATH ?? '').split(pathWin32.delimiter).filter(Boolean),
+    pathWin32.join(env['ProgramFiles'] ?? 'C:\\Program Files', 'Git', 'bin'),
+    pathWin32.join(
+      env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)',
+      'Git',
+      'bin',
+    ),
+    pathWin32.join(
+      env['LOCALAPPDATA'] ??
+        pathWin32.join(env['USERPROFILE'] ?? '', 'AppData', 'Local'),
+      'Programs',
+      'Git',
+      'bin',
+    ),
+  ];
+  for (const dir of roots) {
+    const candidate = pathWin32.join(dir, 'bash.exe');
+    if (exists(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Drive-letter-absolute path -> MSYS form (`D:\a\x` or `D:/a/x` -> `/d/a/x`).
+ *  Cygwin accepts the Windows spelling too, but the MSYS form is unambiguous for
+ *  a script argument (no backslash-escape reinterpretation anywhere downstream). */
+const toMsysPath = (p: string): string =>
+  /^[A-Za-z]:[\\/]/.test(p)
+    ? `/${p[0]!.toLowerCase()}${p.slice(2).replace(/\\/g, '/')}`
+    : p;
+
+/**
+ * Windows-only rewrite of a `.sh` runner command into `bash.exe <runner> …`.
+ *
+ * CreateProcess runs PE images only, so `spawnSync('C:\\…\\runner.sh', …)` fails
+ * before the script exists to bash (EFTYPE/EACCES — the #1799 windows-hooks cell
+ * lost all eight executing arms of pre-push.heavy-runner.test.ts this way).
+ * PREPUSH_HEAVY_RUNNER names "an executable"; on POSIX a +x `.sh` IS one via its
+ * shebang, so the same contract is honoured on win32 by spawning Git Bash on the
+ * script. Mirrors resolveNodeToolShim's shape (win32-only rewrite, argv stays a
+ * real array, no shell); when no bash resolves the command passes through
+ * unchanged and fails exactly as before — loud, never silently skipped.
+ */
+export function resolveShRunnerOnWindows(
+  cmd: string,
+  args: readonly string[],
+  platform: NodeJS.Platform = process.platform,
+  findBash: () => string | null = findGitBashExe,
+): { cmd: string; args: readonly string[] } {
+  if (platform !== 'win32') return { cmd, args };
+  if (!/\.sh$/i.test(cmd)) return { cmd, args };
+  const bashExe = findBash();
+  if (!bashExe) return { cmd, args };
+  return { cmd: bashExe, args: [toMsysPath(cmd), ...args] };
+}
+
+/**
  * Run `cmd args` synchronously, capturing exit code + output. Never throws on a
  * non-zero exit or a missing binary — the caller routes on the returned shape.
  */
@@ -102,6 +174,7 @@ export function runCheck(
     encoding: 'utf8',
     timeout: timeoutMs,
     maxBuffer: 32 * 1024 * 1024,
+    input: opts.input,
   });
 
   const errCode = (result.error as NodeJS.ErrnoException | undefined)?.code;

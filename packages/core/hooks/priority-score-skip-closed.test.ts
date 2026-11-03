@@ -34,6 +34,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -153,11 +154,13 @@ exit 0
 }
 
 function runHelper(
+  ctx: Skippable,
   sandboxRoot: string,
   fakeGh: string,
   extraEnv: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
     encoding: 'utf8',
     env: { ...process.env, REPO_ROOT: sandboxRoot, MO_GH_BIN: fakeGh, ...extraEnv },
   });
@@ -169,7 +172,7 @@ function lineFor(stdout: string, name: string): string | undefined {
 }
 
 describe('priority-score.sh — skip-closed optimisation (AC-1 + AC-2)', { timeout: SLOW_SHELL_MS }, () => {
-  it('excludes cheap-closed (done.md + branch) from the C2 subset, keeps C2-only + open in it; DONE-membership unchanged', () => {
+  it('excludes cheap-closed (done.md + branch) from the C2 subset, keeps C2-only + open in it; DONE-membership unchanged', (ctx) => {
     // Targets priority-score.sh skip-closed pre-filter block:
     //   _open_survivors = umbrellas with kickoff.md, NO done.md, NO merged-branch match
     //   dup-detect called with MO_UMBRELLA_SUBSET="${_open_survivors}"
@@ -194,7 +197,7 @@ describe('priority-score.sh — skip-closed optimisation (AC-1 + AC-2)', { timeo
       50,
     );
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
 
     // ── AC-1: the expensive scan input excludes cheap-closed umbrellas ──
@@ -219,7 +222,7 @@ describe('priority-score.sh — skip-closed optimisation (AC-1 + AC-2)', { timeo
     expect(openLine).not.toMatch(/done_pr=/);
   });
 
-  it('PAIRED-NEGATIVE (no cheap-closed): with no done.md and no branch-match, ALL umbrellas reach the C2 subset', () => {
+  it('PAIRED-NEGATIVE (no cheap-closed): with no done.md and no branch-match, ALL umbrellas reach the C2 subset', (ctx) => {
     // Proves the filter does not OVER-exclude: when nothing is cheap-closed, the subset
     // equals the full candidate set, so the C2 scan still sees every umbrella.
     const sandbox = makeSandbox();
@@ -229,7 +232,7 @@ describe('priority-score.sh — skip-closed optimisation (AC-1 + AC-2)', { timeo
     // jaccardName intentionally matches none → all OK, but the subset still records membership
     const fakeDup = makeSubsetAwareDupDetect(sandbox, probeFile, '__none__', 0, 0);
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
     const subset = readFileSync(probeFile, 'utf8').split(/\s+/).filter(Boolean);
     expect(subset.sort()).toEqual(['alpha', 'beta', 'gamma']);
@@ -239,7 +242,7 @@ describe('priority-score.sh — skip-closed optimisation (AC-1 + AC-2)', { timeo
     }
   });
 
-  it('EDGE (all cheap-closed): every umbrella has done.md → dup-detect is NOT invoked, all still DONE', () => {
+  it('EDGE (all cheap-closed): every umbrella has done.md → dup-detect is NOT invoked, all still DONE', (ctx) => {
     // When _open_survivors is empty, priority-score.sh skips the dup-detect call entirely
     // (the `-n "${_open_survivors}"` guard) — the C2 scan has nothing to find. The fake
     // dup-detect therefore never runs, so the probe file is never written.
@@ -251,7 +254,7 @@ describe('priority-score.sh — skip-closed optimisation (AC-1 + AC-2)', { timeo
     const probeFile = join(sandbox, 'subset-probe.txt');
     const fakeDup = makeSubsetAwareDupDetect(sandbox, probeFile, '__none__', 0, 0);
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
     // dup-detect was never invoked (no open survivors) → probe absent:
     expect(existsSync(probeFile)).toBe(false);

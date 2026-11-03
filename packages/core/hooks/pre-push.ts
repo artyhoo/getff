@@ -47,7 +47,11 @@ import { fileURLToPath } from 'node:url';
 // the bundle's `external` list. Since trigger build S3 that list is ONE module long:
 // cmd-script-liveness ships to consumers (owner `both`), so it is statically
 // imported and INLINED into the bundle like every other consumer-visible check.
-import { runCheck, type CheckResult } from './utils/run-check.ts';
+import {
+  runCheck,
+  resolveShRunnerOnWindows,
+  type CheckResult,
+} from './utils/run-check.ts';
 import {
   runPriorArtCheck,
   loadSsotIds,
@@ -2213,15 +2217,16 @@ function lineCitationsSection(ctx: SectionCtx): void {
   const changed = getChangedFiles(rb.base, 'ACMR', rb.head);
   if (changed.length === 0) return;
   const timeoutMs = lineCitationsTimeoutMs();
+  // The affected list travels on stdin, not argv: win32 CreateProcess caps the whole
+  // command line at 32767 chars, and serialising the changed set (thousands of paths vs
+  // an empty-tree base) as `--affected-by=` args killed the spawn itself with
+  // `ENAMETOOLONG` — mis-routed below as «stale citations» (run 41559999951,
+  // windows-hooks cell). Same set, same semantics: the checker merges
+  // --affected-from-stdin lines with any --affected-by flags.
   const r = runCheck(
     'node',
-    [
-      'scripts/check-line-citations.mjs',
-      '--check',
-      '--corpus',
-      ...changed.map((f) => `--affected-by=${f}`),
-    ],
-    { cwd: REPO_ROOT, timeoutMs },
+    ['scripts/check-line-citations.mjs', '--check', '--corpus', '--affected-from-stdin'],
+    { cwd: REPO_ROOT, timeoutMs, input: changed.join('\n') },
   );
   if (r.notFound) return; // no node — the other node-dependent sections already die loudly
   // Checked before exitCode: a timeout synthesises exit 124, and routing it to the
@@ -2287,7 +2292,11 @@ function runCoreSuite(script: string): CheckResult {
   // GIT_DIR from the invoking worktree would re-target those into THIS checkout
   // (D2081-S01). The object-directory vars the heavy-runner contract relies on are
   // NOT in the scrub table (see HOOK_LEAKED_DISCOVERY_VARS above).
-  const r = runCheck(runner, ['npm', 'run', script], {
+  // win32: CreateProcess cannot run a `.sh` image, so a POSIX-shaped runner is
+  // dispatched through Git Bash (resolveShRunnerOnWindows) — argv stays a real
+  // array, POSIX behaviour byte-identical (the rewrite is a win32 no-op there).
+  const dispatch = resolveShRunnerOnWindows(runner, ['npm', 'run', script]);
+  const r = runCheck(dispatch.cmd, dispatch.args, {
     cwd: CORE,
     timeoutMs: HEAVY_RUNNER_TIMEOUT_MS,
     env: scrubbedHookEnv(),

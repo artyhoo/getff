@@ -110,16 +110,19 @@ ln -s "$(command -v node)" "$NOJQ/node"
     || echo "BAD add_getff_mcp_servers without jq: $(tr '\n' ' ' < "$m")"
   # Negative controls: a file that is not a JSON object stays byte-identical, leaves no .tmp behind,
   # and the hook is a NOT-wired line — never a partial write, never «✓ registered».
+  # ${bad_json} braces: /bin/bash 3.2 parses `»` after the name as NAME bytes — the unbound abort
+  # would kill this subshell mid-loop while the caller (which re-reads OK/BAD from u.out and never
+  # checks the subshell rc) still reported the section green, silently dropping these controls.
   for bad_json in '{ "hooks": ' '[]'; do
     b="$WORK/u/bad-$(printf '%s' "$bad_json" | tr -cd '[:alnum:]')x/.claude/settings.json"; mkdir -p "${b%/*}"
     printf '%s\n' "$bad_json" > "$b"; before=$(cat "$b"); nw_before=${#NOT_WIRED[@]}
     PATH="$NOJQ" register_cc_hook "$b" Stop "bash .claude/hooks/eot.sh" eot.sh > "$WORK/u-bad.out" 2>&1
     [ "$before" = "$(cat "$b")" ] && [ ! -e "$b.tmp" ] \
-      && echo "OK a settings.json holding «$bad_json» stays byte-identical, no .tmp left" \
-      || echo "BAD a settings.json holding «$bad_json» was changed: $(tr '\n' ' ' < "$b")"
+      && echo "OK a settings.json holding «${bad_json}» stays byte-identical, no .tmp left" \
+      || echo "BAD a settings.json holding «${bad_json}» was changed: $(tr '\n' ' ' < "$b")"
     [ "${#NOT_WIRED[@]}" -gt "$nw_before" ] && ! grep -q '✓' "$WORK/u-bad.out" \
-      && echo "OK a settings.json holding «$bad_json» makes the hook a NOT-wired line" \
-      || echo "BAD a settings.json holding «$bad_json»: no NOT-wired line, output: $(tr '\n' '|' < "$WORK/u-bad.out")"
+      && echo "OK a settings.json holding «${bad_json}» makes the hook a NOT-wired line" \
+      || echo "BAD a settings.json holding «${bad_json}»: no NOT-wired line, output: $(tr '\n' '|' < "$WORK/u-bad.out")"
   done
   # One entry per file: in a multi-stack monorepo the per-workspace synth-wire and the R2 wirer can
   # both add getff's block to the same consumer config, and the summary listed it twice.

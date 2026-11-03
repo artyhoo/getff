@@ -78,7 +78,18 @@ describe('hooks-tree-guard — .claude/hooks/ leak tripwire (paired-negative)', 
     expect(() => assertNoHooksTreeDelta(before, snapshotHooksTree(root))).toThrow(/c4-test/);
   });
 
-  it('PAIRED-NEGATIVE: mode-only 755→644 flip (observed leak shape) → throws', () => {
+  it('PAIRED-NEGATIVE: mode-only 755→644 flip (observed leak shape) → throws', (ctx) => {
+    // win32: the seeded break is inexpressible — node chmod maps only the write bit to the
+    // NTFS readonly attribute (exec bits ignored; statSync reports 0o666 for every
+    // writable file), and a working-tree chmod never reaches the git index, so no channel
+    // the guard reads (FS stat, git index, git status under core.filemode) can observe a
+    // 755→644 flip on Windows — run 38988360013: `expected [Function] to throw`. The
+    // other five arms of this contract run unchanged on win32. POSIX arm unchanged.
+    if (process.platform === 'win32') {
+      ctx.skip(
+        'skipped on win32: 755→644 flip inexpressible — NTFS has no Unix mode bits and a chmod never reaches the git index — #1799',
+      );
+    }
     const { root, hook } = makeRepo();
     const before = snapshotHooksTree(root);
     chmodSync(hook, 0o644);

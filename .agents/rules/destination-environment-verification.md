@@ -234,7 +234,7 @@ tested). Its *execution* is a command the orchestrator runs, not yet a gate — 
   `#budget-sized-to-the-wrong-machine` shape (§4) enumerated 62 hard-coded budgets repo-wide and
   found **16** stating a measurement with no environment named — none of them reachable by this
   gate or its runner: e.g. `.github/workflows/guard-liveness-fullsweep.yml:31` («measured
-  **locally**», enforced on a GitHub runner), `packages/core/hooks/done-md-completion-filter.test.ts:64`
+  **locally**», enforced on a GitHub runner), `packages/core/hooks/done-md-completion-filter.test.ts:67`
   («observed 14-51s» justifying a 30s budget — the evidence exceeds the budget it supports),
   `.husky/pre-push:25` and its shipped consumer twin `packages/core/templates/shared/husky-pre-push.sh:34` <!-- cite:historical the consumer twin lost its tsx probe and this ~130ms claim when it moved to the prebuilt hook bundle, 2026-09-28 -->
   («~130ms/push», no machine). Closing that population is a **separate** change, deliberately not

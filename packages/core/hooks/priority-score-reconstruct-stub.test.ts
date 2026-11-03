@@ -16,6 +16,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -88,10 +89,12 @@ function makeFakeGh(root: string): string {
 }
 
 function runHelper(
+  ctx: Skippable,
   root: string,
   wavePlan: string,
 ): { status: number; stdout: string } {
-  const r = spawnSync('bash', [HELPER], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -104,7 +107,7 @@ function runHelper(
 }
 
 describe('priority-score.sh — D6 reconstruct-stub (paired-negative contract)', { timeout: SLOW_SHELL_MS }, () => {
-  it('POSITIVE — missing-kickoff umbrella WITH a committed plan row → RECONSTRUCT-STUB notice', () => {
+  it('POSITIVE — missing-kickoff umbrella WITH a committed plan row → RECONSTRUCT-STUB notice', (ctx) => {
     // Targets the kickoff=missing branch: grep -qF "${name}" "${MO_WAVE_PLAN}" → emit notice.
     const root = makeSandbox();
     makeMissingKickoffUmbrella(root, 'legacy-umbrella');
@@ -113,13 +116,13 @@ describe('priority-score.sh — D6 reconstruct-stub (paired-negative contract)',
       '# Wave plan\n\n| legacy-umbrella | shipped | #42 |\n',
     );
 
-    const r = runHelper(root, wavePlan);
+    const r = runHelper(ctx, root, wavePlan);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('legacy-umbrella kickoff=missing');
     expect(r.stdout).toMatch(/RECONSTRUCT-STUB: legacy-umbrella /);
   });
 
-  it('NEGATIVE — missing-kickoff umbrella WITHOUT a plan row → silent (no RECONSTRUCT-STUB)', () => {
+  it('NEGATIVE — missing-kickoff umbrella WITHOUT a plan row → silent (no RECONSTRUCT-STUB)', (ctx) => {
     // Paired negative: same missing-kickoff state, but the name is absent from the plan.
     const root = makeSandbox();
     makeMissingKickoffUmbrella(root, 'orphan-umbrella');
@@ -128,19 +131,19 @@ describe('priority-score.sh — D6 reconstruct-stub (paired-negative contract)',
       '# Wave plan\n\n| some-other-umbrella | shipped | #7 |\n',
     );
 
-    const r = runHelper(root, wavePlan);
+    const r = runHelper(ctx, root, wavePlan);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('orphan-umbrella kickoff=missing');
     expect(r.stdout).not.toContain('RECONSTRUCT-STUB: orphan-umbrella');
   });
 
-  it('NO AUTO-WRITE — the notice does NOT create kickoff.md (Direction A REJECTED)', () => {
+  it('NO AUTO-WRITE — the notice does NOT create kickoff.md (Direction A REJECTED)', (ctx) => {
     // Falsifier for the rejected "synthesize plan" smell: only a notice is emitted.
     const root = makeSandbox();
     makeMissingKickoffUmbrella(root, 'legacy-umbrella');
     const wavePlan = writeWavePlan(root, '| legacy-umbrella | shipped | #42 |\n');
 
-    runHelper(root, wavePlan);
+    runHelper(ctx, root, wavePlan);
     expect(
       existsSync(
         join(root, '.claude/orchestrator-prompts/legacy-umbrella/kickoff.md'),
@@ -148,37 +151,37 @@ describe('priority-score.sh — D6 reconstruct-stub (paired-negative contract)',
     ).toBe(false);
   });
 
-  it('CONTROL — umbrella WITH kickoff.md never emits RECONSTRUCT-STUB (only kickoff=missing does)', () => {
+  it('CONTROL — umbrella WITH kickoff.md never emits RECONSTRUCT-STUB (only kickoff=missing does)', (ctx) => {
     // Guards against the notice firing on present-kickoff umbrellas.
     const root = makeSandbox();
     makeKickoffUmbrella(root, 'present-umbrella');
     const wavePlan = writeWavePlan(root, '| present-umbrella | active | #99 |\n');
 
-    const r = runHelper(root, wavePlan);
+    const r = runHelper(ctx, root, wavePlan);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('present-umbrella');
     expect(r.stdout).not.toContain('RECONSTRUCT-STUB: present-umbrella');
   });
 
-  it('WORD-BOUNDARY NEGATIVE — short name that is a SUBSTRING of an unrelated plan row → no false RECONSTRUCT-STUB', () => {
+  it('WORD-BOUNDARY NEGATIVE — short name that is a SUBSTRING of an unrelated plan row → no false RECONSTRUCT-STUB', (ctx) => {
     // Targets the word-boundary grep (_rs_re): "ux" must NOT match "ux-improvements".
     const root = makeSandbox();
     makeMissingKickoffUmbrella(root, 'ux');
     const wavePlan = writeWavePlan(root, '# Wave plan\n\n| ux-improvements | active | #5 |\n');
 
-    const r = runHelper(root, wavePlan);
+    const r = runHelper(ctx, root, wavePlan);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('ux kickoff=missing');
     expect(r.stdout).not.toContain('RECONSTRUCT-STUB: ux ');
   });
 
-  it('WORD-BOUNDARY POSITIVE — same short name AS a whole cell → RECONSTRUCT-STUB still fires', () => {
+  it('WORD-BOUNDARY POSITIVE — same short name AS a whole cell → RECONSTRUCT-STUB still fires', (ctx) => {
     // Paired positive: "ux" delimited by table pipes is a real plan-row reference.
     const root = makeSandbox();
     makeMissingKickoffUmbrella(root, 'ux');
     const wavePlan = writeWavePlan(root, '# Wave plan\n\n| ux | active | #6 |\n');
 
-    const r = runHelper(root, wavePlan);
+    const r = runHelper(ctx, root, wavePlan);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/RECONSTRUCT-STUB: ux /);
   });

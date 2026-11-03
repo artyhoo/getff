@@ -23,6 +23,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,9 +36,11 @@ const HELPER = resolve(
 );
 
 function runHelper(
+  ctx: Skippable,
   env?: Record<string, string>,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
     encoding: 'utf8',
     env: { ...process.env, ...env },
   });
@@ -46,8 +49,8 @@ function runHelper(
 
 describe('render-status.sh — /pipeline status (AC-4, degraded path)', () => {
   // ✅ THREE-SECTIONS-PRESENT
-  it('THREE-SECTIONS-PRESENT: In-factory, Parked questions, Ready-to-harvest headers all present', () => {
-    const r = runHelper({ RUNTIME_BRIDGE_AIF_URL: 'http://localhost:1' }); // unreachable
+  it('THREE-SECTIONS-PRESENT: In-factory, Parked questions, Ready-to-harvest headers all present', (ctx) => {
+    const r = runHelper(ctx, { RUNTIME_BRIDGE_AIF_URL: 'http://localhost:1' }); // unreachable
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/In-factory/i);
     expect(r.stdout).toMatch(/Parked questions/i);
@@ -55,15 +58,15 @@ describe('render-status.sh — /pipeline status (AC-4, degraded path)', () => {
   });
 
   // ✅ HEADER-MARKER
-  it('HEADER-MARKER: stdout starts with "## Pipeline status"', () => {
-    const r = runHelper({ RUNTIME_BRIDGE_AIF_URL: 'http://localhost:1' });
+  it('HEADER-MARKER: stdout starts with "## Pipeline status"', (ctx) => {
+    const r = runHelper(ctx, { RUNTIME_BRIDGE_AIF_URL: 'http://localhost:1' });
     expect(r.status).toBe(0);
     expect(r.stdout.trim().split('\n')[0]).toMatch(/^##\s+Pipeline status/);
   });
 
   // ✅ SUGGESTED-NEXT-TAIL
-  it('SUGGESTED-NEXT-TAIL: stdout ends with one or more "→ next:" suggestion lines', () => {
-    const r = runHelper({ RUNTIME_BRIDGE_AIF_URL: 'http://localhost:1' });
+  it('SUGGESTED-NEXT-TAIL: stdout ends with one or more "→ next:" suggestion lines', (ctx) => {
+    const r = runHelper(ctx, { RUNTIME_BRIDGE_AIF_URL: 'http://localhost:1' });
     expect(r.status).toBe(0);
     const lines = r.stdout.trim().split('\n');
     // Find at least one "→ next:" or "next:" suggestion in the last 6 lines.
@@ -72,16 +75,17 @@ describe('render-status.sh — /pipeline status (AC-4, degraded path)', () => {
   });
 
   // ✅ GRACEFUL-BRICK-UNAVAILABLE — bridge unreachable → graceful message
-  it('GRACEFUL-BRICK-UNAVAILABLE: bridge unreachable → graceful message in In-factory section', () => {
-    const r = runHelper({ RUNTIME_BRIDGE_AIF_URL: 'http://localhost:1' });
+  it('GRACEFUL-BRICK-UNAVAILABLE: bridge unreachable → graceful message in In-factory section', (ctx) => {
+    const r = runHelper(ctx, { RUNTIME_BRIDGE_AIF_URL: 'http://localhost:1' });
     expect(r.status).toBe(0); // exit 0 — degraded is success per spec
     expect(r.stdout).toMatch(/bridge unreachable|unreachable/i);
   });
 
   // ✅ NO-CRASH-WHEN-GH-ABSENT — strip PATH so gh is missing
-  it('NO-CRASH-WHEN-GH-ABSENT: missing gh → graceful Ready-to-harvest section, exit 0', () => {
+  it('NO-CRASH-WHEN-GH-ABSENT: missing gh → graceful Ready-to-harvest section, exit 0', (ctx) => {
     // Constrained PATH with only /usr/bin (typically no gh); helper must degrade.
-    const r = spawnSync('bash', [HELPER], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
       encoding: 'utf8',
       env: {
         ...process.env,
@@ -107,7 +111,7 @@ describe('render-status.sh — /pipeline status (AC-4, degraded path)', () => {
   // plus an operator TODO. The template is fixed (the `→` and the `mergeable=` label moved
   // outside the \(…) interpolations), so the guard is live: reverting the fix turns this
   // test RED instead of merely "expectedly failing".
-  it('NON-DEGRADED-PR-SECTION: jq template extracted from render-status.sh renders PR row with arrow + mergeable', () => {
+  it('NON-DEGRADED-PR-SECTION: jq template extracted from render-status.sh renders PR row with arrow + mergeable', (ctx) => {
     // Read the actual render-status.sh to extract the jq template used for PR rows.
     const script = readFileSync(HELPER, 'utf8');
     // Find the jq template in the Ready-to-harvest section: `jq -r '.[] | "..."'`
@@ -132,7 +136,9 @@ describe('render-status.sh — /pipeline status (AC-4, degraded path)', () => {
       },
     ]);
 
-    const r = spawnSync(
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(
+      ctx,
       'bash',
       ['-c', `printf '%s' '${fixture}' | jq -r '${jqExpr}' 2>&1`],
       { encoding: 'utf8' },

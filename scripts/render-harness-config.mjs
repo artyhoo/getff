@@ -35,7 +35,7 @@ import {
   unlinkSync,
   realpathSync,
 } from 'node:fs';
-import { join, dirname, resolve, relative } from 'node:path';
+import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { emitCodex } from './render-codex-contributor.mjs';
 import { createHash } from 'node:crypto';
@@ -577,6 +577,10 @@ const EMITTERS = [
 ];
 
 const renderJson = (value) => JSON.stringify(value, null, 2) + '\n';
+/** `relative()` is separator-native (backslashes on win32) while every stored op path is
+ *  POSIX-shaped — normalize before comparing so a clean tree is not read as "escapes
+ *  checkout". No-op on POSIX, where sep is already '/'. */
+const toPosix = (p) => p.split(sep).join('/');
 function mergedJson(root, op) {
   const p = join(root, op.path);
   // merge-json owns ONE key and byte-preserves the rest, so the file must pre-exist.
@@ -594,7 +598,7 @@ function assertGeneratedDestination(root, op) {
   if (op.kind === 'note' || op.kind === 'remove-owned') return;
   const base = resolve(root),
     abs = resolve(base, op.path);
-  const rel = relative(base, abs);
+  const rel = toPosix(relative(base, abs));
   if (rel !== op.path || rel.startsWith('../') || !rel)
     throw new Error(`${op.path}: generated destination escapes checkout`);
   for (let parent = dirname(abs); parent !== base; parent = dirname(parent)) {
@@ -654,7 +658,7 @@ function applyOp(root, op) {
 
 function assertOwnedRemoval(root, path) {
   const abs = resolve(root, path);
-  const rel = relative(resolve(root), abs);
+  const rel = toPosix(relative(resolve(root), abs));
   const allowed = (p) =>
     p.startsWith('.agents/skills/') || p.startsWith('.codex/agents/');
   if (!allowed(rel) || path !== rel)
@@ -666,9 +670,8 @@ function assertOwnedRemoval(root, path) {
     realpathSync(ancestor),
     relative(ancestor, dirname(abs)),
   );
-  const physicalRelative = relative(
-    realpathSync(root),
-    join(parent, 'owned-file'),
+  const physicalRelative = toPosix(
+    relative(realpathSync(root), join(parent, 'owned-file')),
   );
   if (!allowed(physicalRelative))
     throw new Error(
@@ -684,6 +687,19 @@ const isLink = (p) => {
   }
 };
 
+/** Platform-portable comparison forms. On win32 readlinkSync returns
+ *  backslash-separated targets even when the link was stored from a POSIX-form
+ *  literal (both git-checkout-created and symlinkSync-created links — run
+ *  41189657830: 22 `.claude/agents/*.md` rows + `.zcode/skills` reported
+ *  `symlink -> ..\..\.agents\… (want ../../.agents/…)` immediately after a
+ *  fresh --write), and a core.autocrlf=true checkout materializes CRLF text
+ *  (same run: `.codex/contributor-inventory.json: drift vs SSOT` with LF-identical
+ *  content in git). Byte-equality against the POSIX/LF SSOT literals would report
+ *  drift on an otherwise-correct tree. Normalizing both sides is the identity on
+ *  POSIX — LF stays LF, '/' stays '/'. */
+const normLinkTarget = (s) => s.split(/[\\/]/).join('/');
+const normEol = (s) => s.replace(/\r\n/g, '\n');
+
 /** Returns drift lines for one op ([] = clean). Assumes the op's emitter is not skipped. */
 function checkOp(root, op) {
   if (op.kind === 'note') {
@@ -698,7 +714,7 @@ function checkOp(root, op) {
       : [];
   }
   if (op.kind === 'text')
-    return existsSync(abs) && readFileSync(abs, 'utf8') === op.value
+    return existsSync(abs) && normEol(readFileSync(abs, 'utf8')) === normEol(op.value)
       ? []
       : [`${op.path}: missing or drift vs SSOT`];
   if (op.kind === 'json' || op.kind === 'merge-json') {
@@ -706,7 +722,7 @@ function checkOp(root, op) {
       return op.optional ? [] : [`${op.path}: missing (run --write)`];
     const want =
       op.kind === 'json' ? renderJson(op.value) : mergedJson(root, op);
-    return readFileSync(abs, 'utf8') === want
+    return normEol(readFileSync(abs, 'utf8')) === normEol(want)
       ? []
       : [`${op.path}: drift vs SSOT`];
   }
@@ -715,7 +731,7 @@ function checkOp(root, op) {
       return op.optional && !existsSync(abs)
         ? [`${op.path}: symlink missing`]
         : [`${op.path}: not a symlink`];
-    return readlinkSync(abs) === op.target
+    return normLinkTarget(readlinkSync(abs)) === normLinkTarget(op.target)
       ? []
       : [`${op.path}: symlink -> ${readlinkSync(abs)} (want ${op.target})`];
   }

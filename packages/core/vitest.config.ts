@@ -45,5 +45,15 @@ export default defineConfig({
       '**/dist/**',
       '**/.claude/worktrees/**',
     ],
+    // Same-file mirror of the repo-root vitest.config.ts testTimeout (60_000). Pre-push and
+    // the Windows CI cell run these very files from repo root under 60s, while this
+    // workspace config kept the vitest default 5s — the same real-shell arms (husky
+    // worktree/pre-commit chains, inject-matching-rule concurrency spawns, repo-root-anchor
+    // gh probes, intent-ask-advice task-state fetch) that fit on an exclusive CI runner
+    // time out under local suite-parallel load (measured 2026-10-26 sanitized aggregate:
+    // 5.0s-16.1s reds, every file green isolated and on CI). Aligning the two configs
+    // removes the divergence without touching a single test. Ceiling discipline (root
+    // config note): MUST NOT exceed 120_000 without a paired slow-test-triage R-phase.
+    testTimeout: 60_000,
   },
 });

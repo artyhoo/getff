@@ -27,7 +27,8 @@
  * precedent) — the hook itself no-ops without jq, so jq-less coverage is honest-empty.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   existsSync,
   lstatSync,
@@ -68,8 +69,9 @@ interface RunResult {
  * `projectDir` = the session's CLAUDE_PROJECT_DIR; defaults to the worktree the
  * file was written into (derived from the path, as the hook itself does).
  */
-function runHook(filePath: string, canon: string, projectDir?: string): RunResult {
-  const r = spawnSync('bash', [HOOK], {
+function runHook(ctx: Skippable, filePath: string, canon: string, projectDir?: string): RunResult {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify({ tool_input: { file_path: filePath } }),
     encoding: 'utf8',
     env: {
@@ -124,6 +126,11 @@ afterEach(() => {
   }
 });
 
+// win32: the SUT (adopt-orchestrator-prompts.sh) links adopted files with `ln -s`, which MSYS
+// copies by default (nativestrict needs admin/Dev-Mode) — the is-a-symlink assertions cannot
+// hold; the tracked-skip / no-adoption negatives stay live (real file on both platforms).
+const WIN_SUT_LINK = process.platform === 'win32';
+
 describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-write', () => {
   let canon: string;
   beforeEach(() => {
@@ -131,7 +138,8 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
   });
 
   // ── (green) ADOPT-ON-WRITE ──────────────────────────────────────────────────
-  it('adopts a new real prompt file on write: becomes a symlink, content moves to $CANON', () => {
+  // win32: the SUT links the adopted file with `ln -s` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('adopts a new real prompt file on write: becomes a symlink, content moves to $CANON', (ctx) => {
     const wt = track(makeWorktree('adopt'));
     const foo = promptFile(wt, 'my-umbrella/foo.md');
     writeFileSync(foo, '# fresh kickoff\nBorn in a worktree.\n');
@@ -139,7 +147,7 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
     // Pre-condition: real file, CANON empty.
     expect(lstatSync(foo).isSymbolicLink()).toBe(false);
 
-    const r = runHook(foo, canon);
+    const r = runHook(ctx, foo, canon);
     expect(r.status, `hook stderr: ${r.stderr}`).toBe(0);
 
     // Post: worktree path is now a symlink, real content lives in $CANON.
@@ -154,29 +162,30 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
   });
 
   // ── (green) IDEMPOTENT ──────────────────────────────────────────────────────
-  it('is idempotent: firing again on an already-adopted file leaves it a symlink, no conflict', () => {
+  // win32: the SUT links the adopted file with `ln -s` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('is idempotent: firing again on an already-adopted file leaves it a symlink, no conflict', (ctx) => {
     const wt = track(makeWorktree('idem'));
     const foo = promptFile(wt, 'my-umbrella/foo.md');
     writeFileSync(foo, '# kickoff\n');
 
-    const r1 = runHook(foo, canon);
+    const r1 = runHook(ctx, foo, canon);
     expect(r1.status, `first run stderr: ${r1.stderr}`).toBe(0);
     expect(lstatSync(foo).isSymbolicLink()).toBe(true);
 
     // Fire again — must not conflict, must stay a symlink, exit 0.
-    const r2 = runHook(foo, canon);
+    const r2 = runHook(ctx, foo, canon);
     expect(r2.status, `second run stderr: ${r2.stderr}`).toBe(0);
     expect(lstatSync(foo).isSymbolicLink(), 'still a symlink after re-fire').toBe(true);
     expect(readFileSync(resolve(canon, 'my-umbrella/foo.md'), 'utf8')).toBe('# kickoff\n');
   });
 
   // ── (negative) SKIP-LIST: tracked done.md / README.md are never adopted ──────
-  it('PAIRED-NEGATIVE: writing done.md leaves it a REAL file (tracked-skip, not over-adopted)', () => {
+  it('PAIRED-NEGATIVE: writing done.md leaves it a REAL file (tracked-skip, not over-adopted)', (ctx) => {
     const wt = track(makeWorktree('neg-done'));
     const done = promptFile(wt, 'my-umbrella/done.md');
     writeFileSync(done, '# my-umbrella — DONE\n');
 
-    const r = runHook(done, canon);
+    const r = runHook(ctx, done, canon);
     expect(r.status, `hook stderr: ${r.stderr}`).toBe(0);
 
     expect(lstatSync(done).isSymbolicLink(), 'done.md must NOT be symlinked').toBe(false);
@@ -185,12 +194,12 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
     expect(existsSync(resolve(canon, 'my-umbrella/done.md'))).toBe(false);
   });
 
-  it('PAIRED-NEGATIVE: writing umbrella README.md leaves it a REAL file (tracked-skip)', () => {
+  it('PAIRED-NEGATIVE: writing umbrella README.md leaves it a REAL file (tracked-skip)', (ctx) => {
     const wt = track(makeWorktree('neg-readme'));
     const readme = promptFile(wt, 'my-umbrella/README.md');
     writeFileSync(readme, '# umbrella readme\n');
 
-    const r = runHook(readme, canon);
+    const r = runHook(ctx, readme, canon);
     expect(r.status, `hook stderr: ${r.stderr}`).toBe(0);
 
     expect(lstatSync(readme).isSymbolicLink(), 'README.md must NOT be symlinked').toBe(false);
@@ -199,7 +208,7 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
   });
 
   // ── (guard) PATH-FILTER: off-path write does NOT fire adoption ──────────────
-  it('TRIGGER-GATE: an off-path write does not fire adoption (in-script path filter)', () => {
+  it('TRIGGER-GATE: an off-path write does not fire adoption (in-script path filter)', (ctx) => {
     const wt = track(makeWorktree('offpath'));
     // A real adoptable file sits inside orchestrator-prompts...
     const inside = promptFile(wt, 'my-umbrella/foo.md');
@@ -209,7 +218,7 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
     mkdirSync(dirname(outside), { recursive: true });
     writeFileSync(outside, 'unrelated\n');
 
-    const r = runHook(outside, canon);
+    const r = runHook(ctx, outside, canon);
     expect(r.status, `hook stderr: ${r.stderr}`).toBe(0);
 
     // Path filter must have short-circuited BEFORE link-coordination ran, so the
@@ -223,7 +232,7 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
   // hard-coded path and `exit 0`'d silently when absent — inert with zero signal.
   // Now: tiered resolution (project root → own checkout → written-file worktree) and
   // a LOUD DID-NOT-RUN notice on the additionalContext channel when every tier misses.
-  it('LOUD-SKIP: helper absent in every tier → DID-NOT-RUN notice on stdout+stderr, exit 0, no adoption', () => {
+  it('LOUD-SKIP: helper absent in every tier → DID-NOT-RUN notice on stdout+stderr, exit 0, no adoption', (ctx) => {
     // Copy the hook into a bare fake root so tier 2 ($0-based) has no scripts/ dir;
     // point tier 1 (CLAUDE_PROJECT_DIR) at the same bare root; the temp worktree
     // (tier 3) has no scripts/ either.
@@ -236,7 +245,8 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
     const foo = promptFile(wt, 'my-umbrella/foo.md');
     writeFileSync(foo, '# kickoff\n');
 
-    const r = spawnSync('bash', [hookCopy], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [hookCopy], {
       input: JSON.stringify({ tool_input: { file_path: foo } }),
       encoding: 'utf8',
       env: { ...process.env, CLAUDE_COORDINATION_DIR: canon, CLAUDE_PROJECT_DIR: fakeRoot },
@@ -254,14 +264,14 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
   // file under a scratch consumer project's orchestrator-prompts reached the helper
   // as WT_DIR (derived from the written path). Tier 1 resolves the PROJECT's helper,
   // whose repo-identity guard must refuse the foreign worktree.
-  it('FOREIGN-WRITE: project = repo A, write lands in repo B → no adoption, no links, $CANON untouched', () => {
+  it('FOREIGN-WRITE: project = repo A, write lands in repo B → no adoption, no links, $CANON untouched', (ctx) => {
     const project = track(makeWorktree('project'));
     writeFileSync(resolve(canon, '_handoff-proj.md'), 'canon handoff\n');
     const foreign = track(makeWorktree('foreign', 'my-umbrella', false));
     const foo = promptFile(foreign, 'my-umbrella/foo.md');
     writeFileSync(foo, '# foreign file\n');
 
-    const r = runHook(foo, canon, project);
+    const r = runHook(ctx, foo, canon, project);
     expect(r.status, `hook stderr: ${r.stderr}`).toBe(0); // still never a gate
 
     expect(lstatSync(foo).isSymbolicLink(), 'foreign file must stay real').toBe(false);
@@ -273,11 +283,11 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
   });
 
   // ── (guard) FLUSH-GUARD: a not-yet-flushed (absent) file is a clean no-op ────
-  it('FLUSH-GUARD: an absent file path is a no-op (exit 0, no $CANON writes)', () => {
+  it('FLUSH-GUARD: an absent file path is a no-op (exit 0, no $CANON writes)', (ctx) => {
     const wt = track(makeWorktree('flush'));
     const ghost = promptFile(wt, 'my-umbrella/never-flushed.md'); // never written
 
-    const r = runHook(ghost, canon);
+    const r = runHook(ctx, ghost, canon);
     expect(r.status, `hook stderr: ${r.stderr}`).toBe(0);
     // $CANON has no umbrella dir — adoption never ran.
     expect(readdirSync(canon).length, '$CANON stays empty').toBe(0);

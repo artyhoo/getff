@@ -9,13 +9,13 @@ import { checkStaleRevert, collectArchaeology, gitProviderAt } from './pr-stale-
 const BIN = fileURLToPath(new URL('./pr-stale-revert-bin.ts', import.meta.url));
 
 /**
- * tsx is spawned by absolute path, not via `npx`: these runs use `cwd: <fixture repo>`
- * (the bin reads git from the process cwd), and an `npx` there would resolve nothing
- * locally and try the network. `packages/core/node_modules` is the CI layout
- * (`npm ci --prefix packages/core`); the repo-root one is the workspace-hoisted layout.
+ * tsx is spawned as `node <tsx>/dist/cli.mjs`, not via the `.bin/tsx` shim: the shim is a
+ * symlink, which CreateProcess cannot execute on win32 (#1799), while the cli.mjs target is
+ * a plain file node runs identically on every OS. `packages/core/node_modules` is the CI
+ * layout (`npm ci --prefix packages/core`); the repo-root one is the workspace-hoisted layout.
  */
 function resolveTsx(): string {
-  for (const rel of ['../../node_modules/.bin/tsx', '../../../../node_modules/.bin/tsx']) {
+  for (const rel of ['../../node_modules/tsx/dist/cli.mjs', '../../../../node_modules/tsx/dist/cli.mjs']) {
     const p = fileURLToPath(new URL(rel, import.meta.url));
     if (existsSync(p)) return p;
   }
@@ -76,7 +76,7 @@ afterAll(() => {
 /** Run the bin with an env set; returns { code, stdout, stderr }. */
 function run(env: Record<string, string | undefined>) {
   try {
-    const stdout = execFileSync(TSX, [BIN], {
+    const stdout = execFileSync(process.execPath, [TSX, BIN], {
       cwd: repo,
       env: { ...process.env, BASE_REF: undefined, BASE_SHA: undefined, HEAD_SHA: undefined, PR_BODY: undefined, ...env },
       encoding: 'utf8',

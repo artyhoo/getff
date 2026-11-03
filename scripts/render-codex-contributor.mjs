@@ -7,6 +7,11 @@ import { join, dirname, resolve, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { emitCodexHooks } from './lib/codex-hooks.mjs';
 
+/** CRLF → LF. Identity on an LF tree; on a core.autocrlf=true win32 checkout it makes
+ *  the recomputed inventory fingerprints match the committed LF ones (see the
+ *  fingerprint site for the run 41559999951 incident). */
+const normEol = (s) => s.replace(/\r\n/g, '\n');
+
 /** Reachability control (GH-4201345519): every resource a generated card promises through a
  * symlink must resolve on the canonical side — a dangling link (any depth) fails the render
  * BEFORE any write instead of shipping broken discovery. */
@@ -197,9 +202,16 @@ export function emitCodex(model, root) {
         ? op.target
         : createHash('sha256')
             .update(
-              op.kind === 'json'
-                ? JSON.stringify(op.value, null, 2) + '\n'
-                : op.value,
+              // LF-normalized before hashing (win32 runner, run 41559999951: a
+              // core.autocrlf=true checkout materializes CRLF bytes in the skill
+              // sources, so the freshly computed fingerprint diverged from the
+              // LF-committed inventory and the whole op reported «drift vs SSOT»
+              // with EOL being the ONLY difference). Identity on a LF tree.
+              normEol(
+                op.kind === 'json'
+                  ? JSON.stringify(op.value, null, 2) + '\n'
+                  : op.value,
+              ),
             )
             .digest('hex'),
   }));

@@ -42,9 +42,9 @@ import {
   readlinkSync,
   unlinkSync,
   rmSync,
-  symlinkSync,
   existsSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -135,7 +135,13 @@ describe('harness-config-drift — positives (P1–P3)', () => {
     const second = gen(s, '--write');
     expect(second.status, second.out).toBe(0); // guards the rmSync-on-symlink crash class
     expect(snap()).toBe(first);
-    expect(readlinkSync(join(s, '.zcode/skills'))).toBe('../.claude/skills'); // link survives re-write
+    // Separator-normalized link-target equality: win32 readlinkSync returns
+    // `..\.claude\skills` even for a link symlinkSync stored from the POSIX literal
+    // (run 41189657830 P1 received exactly that); the invariant under test is the
+    // TARGET THE SSOT NAMES, not the platform's separator spelling of it.
+    expect(readlinkSync(join(s, '.zcode/skills')).split(/[\\/]/).join('/')).toBe(
+      '../.claude/skills',
+    ); // link survives re-write
   });
 
   it('P3: --write leaves settings.json foreign keys (env, permissions) byte-identical', () => {
@@ -222,7 +228,7 @@ describe('harness-config-drift — negatives (N1–N5)', () => {
 });
 
 describe('harness-config-drift — robustness (cold-QA #894)', () => {
-  it('D1: invoking via a symlinked script path still executes run() (no silent no-op)', () => {
+  it('D1: invoking via a symlinked script path still executes run() (no silent no-op)', (ctx) => {
     const s = sandbox();
     // A symlink to the generator, mimicking a git worktree behind a symlinked ancestor.
     // Node resolves `import.meta.url` through the symlink but not `process.argv[1]`, so a
@@ -230,7 +236,8 @@ describe('harness-config-drift — robustness (cold-QA #894)', () => {
     const linkDir = mkdtempSync(join(tmpdir(), 'harness-drift-link-'));
     sandboxes.push(linkDir);
     const linkedGen = join(linkDir, 'render-harness-config.mjs');
-    symlinkSync(GEN, linkedGen);
+    // file target (.mjs): junctions cannot express it → named win32 skip (POSIX unchanged)
+    symlinkOrJunctionOrSkip(ctx, GEN, linkedGen);
     const r = spawnSync('node', [linkedGen, '--write', '--root', s], {
       encoding: 'utf8',
     });

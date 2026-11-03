@@ -24,10 +24,11 @@
  *
  * Skips gracefully when jq is unavailable (the ZCode JSON branch needs jq).
  * Precedent: inject-project-digest.test.ts (temp-repo + dual-event pattern),
- * deps-hash-check.test.ts:402 (ZCode schema arm).
+ * deps-hash-check.test.ts:421 (ZCode schema arm).
  */
 import { describe, it, expect } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,12 +48,14 @@ const JQ = hasJq();
 
 /** Run the hook with explicit env control. SessionStart does not read stdin for dispatch. */
 function runHook(
+  ctx: Skippable,
   env: Record<string, string | undefined>,
 ): { status: number; stdout: string; stderr: string } {
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: '',
     encoding: 'utf8',
     env: fullEnv,
@@ -65,16 +68,16 @@ function runHook(
 }
 
 describe('session-start — plugin SessionStart bootstrap (CC plain-stdout path)', () => {
-  it('CC: plain stdout carries the getff bootstrap anchor block (exit 0)', () => {
-    const r = runHook({ ZCODE_PROJECT_DIR: undefined });
+  it('CC: plain stdout carries the getff bootstrap anchor block (exit 0)', (ctx) => {
+    const r = runHook(ctx, { ZCODE_PROJECT_DIR: undefined });
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('[getff plugin — session bootstrap]');
     expect(r.stdout).toContain('using-getff');
     expect(r.stdout).toContain('earliest reachable channel');
   });
 
-  it('CC: plain stdout mentions the instruction-priority ladder (repo wins)', () => {
-    const r = runHook({ ZCODE_PROJECT_DIR: undefined });
+  it('CC: plain stdout mentions the instruction-priority ladder (repo wins)', (ctx) => {
+    const r = runHook(ctx, { ZCODE_PROJECT_DIR: undefined });
     expect(r.stdout).toContain('Instruction priority');
     expect(r.stdout).toContain('WIN over');
   });
@@ -83,8 +86,8 @@ describe('session-start — plugin SessionStart bootstrap (CC plain-stdout path)
 describe.skipIf(!JQ)(
   'session-start — ZCode JSON path + schema-compliance (jq required)',
   () => {
-    it('ZCode: emits {additionalContext} JSON carrying the bootstrap block', () => {
-      const r = runHook({ ZCODE_PROJECT_DIR: REPO_ROOT });
+    it('ZCode: emits {additionalContext} JSON carrying the bootstrap block', (ctx) => {
+      const r = runHook(ctx, { ZCODE_PROJECT_DIR: REPO_ROOT });
       expect(r.status).toBe(0);
       const json = JSON.parse(r.stdout);
       expect(typeof json.additionalContext).toBe('string');
@@ -92,14 +95,14 @@ describe.skipIf(!JQ)(
       expect(json.additionalContext).toContain('using-getff');
     });
 
-    it('ZCode schema-compliance: top-level keys match CCt.strict() (no stray hookEventName)', () => {
+    it('ZCode schema-compliance: top-level keys match CCt.strict() (no stray hookEventName)', (ctx) => {
       // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
       // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
       // discarded). This plugin hook emits a minimal {additionalContext} shape today, but there
       // was NO guard against a future edit adding hookEventName (or any other key) at top level,
       // which ZCode would silently reject. Regression guard (cold backward-sweep finding GAP-3):
-      // pin the allowed top-level set. Precedent: ask-question-reminder.test.ts:153.
-      const r = runHook({ ZCODE_PROJECT_DIR: REPO_ROOT });
+      // pin the allowed top-level set. Precedent: ask-question-reminder.test.ts:158.
+      const r = runHook(ctx, { ZCODE_PROJECT_DIR: REPO_ROOT });
       const json = JSON.parse(r.stdout);
       const allowedTopLevel = new Set([
         'additionalContext',
@@ -125,11 +128,11 @@ describe.skipIf(!JQ)(
       ).toBeUndefined();
     });
 
-    it('SSOT: ZCode additionalContext === CC plain stdout (same block, one source)', () => {
+    it('SSOT: ZCode additionalContext === CC plain stdout (same block, one source)', (ctx) => {
       // Dual-harness contract: both paths deliver the SAME bootstrap block from ONE source
       // (the heredoc at hook:35-58). A divergence would mean the two paths drift.
-      const cc = runHook({ ZCODE_PROJECT_DIR: undefined }).stdout;
-      const zcode = JSON.parse(runHook({ ZCODE_PROJECT_DIR: REPO_ROOT }).stdout)
+      const cc = runHook(ctx, { ZCODE_PROJECT_DIR: undefined }).stdout;
+      const zcode = JSON.parse(runHook(ctx, { ZCODE_PROJECT_DIR: REPO_ROOT }).stdout)
         .additionalContext as string;
       expect(zcode.trim()).toBe(cc.trim());
     });

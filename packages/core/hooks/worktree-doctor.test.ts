@@ -24,6 +24,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
@@ -58,6 +59,7 @@ function installDoctor(repo: string, src: string = readFileSync(DOCTOR, 'utf8'))
 }
 
 function run(
+  ctx: Skippable,
   script: string,
   cwd: string,
   args: string[] = ['--fix'],
@@ -69,7 +71,8 @@ function run(
   }
   env.GIT_CONFIG_NOSYSTEM = '1';
   Object.assign(env, extra);
-  const r = spawnSync('bash', [script, ...args], { cwd, env, encoding: 'utf8' });
+  // POSIX: byte-identical pass-through; win32: Git Bash resolution or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [script, ...args], { cwd, env, encoding: 'utf8' });
   return { status: r.status ?? -1, out: `${r.stdout}${r.stderr}` };
 }
 
@@ -80,6 +83,11 @@ const provisioned = (wt: string): boolean => {
     return false;
   }
 };
+
+// win32: provisioning goes through worktree-node-modules.sh's `ln -sfn`, which MSYS copies
+// by default (nativestrict needs admin/Dev-Mode) — the provisioned()-is-a-link assertions
+// below cannot hold (#1799). (d6) stays live: it only asserts the NOT-provisioned shape.
+const WIN_SUT_LINK = process.platform === 'win32';
 
 describe('worktree-doctor.sh — repo anchor', () => {
   let own: { primary: string; wt: string };
@@ -96,42 +104,47 @@ describe('worktree-doctor.sh — repo anchor', () => {
     for (const d of [own.primary, foreign.primary]) rmSync(d, { recursive: true, force: true });
   });
 
-  it('(d1) FOREIGN CWD + --fix: the foreign worktree is not provisioned; the own repo is', () => {
-    const r = run(script, foreign.primary);
+  // win32: the sweep provisions via `ln -sfn` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('(d1) FOREIGN CWD + --fix: the foreign worktree is not provisioned; the own repo is', (ctx) => {
+    const r = run(ctx, script, foreign.primary);
     expect(provisioned(foreign.wt), `the foreign worktree must stay untouched\n${r.out}`).toBe(false);
     expect(provisioned(own.wt), `the sweep must act on the script's own repo\n${r.out}`).toBe(true);
     expect(r.status, r.out).toBe(0);
   });
 
-  it('(d2) OWN CHECKOUT as cwd: the unprovisioned linked worktree is fixed', () => {
-    const r = run(script, own.primary);
+  // win32: the sweep provisions via `ln -sfn` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('(d2) OWN CHECKOUT as cwd: the unprovisioned linked worktree is fixed', (ctx) => {
+    const r = run(ctx, script, own.primary);
     expect(r.status, r.out).toBe(0);
     expect(provisioned(own.wt), r.out).toBe(true);
   });
 
-  it('(d3) OWN LINKED WORKTREE: the script run from inside that worktree still sweeps its repo', () => {
+  // win32: the sweep provisions via `ln -sfn` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('(d3) OWN LINKED WORKTREE: the script run from inside that worktree still sweeps its repo', (ctx) => {
     const wtScript = installDoctor(own.wt);
-    const r = run(wtScript, own.wt);
+    const r = run(ctx, wtScript, own.wt);
     expect(r.status, r.out).toBe(0);
     expect(provisioned(own.wt), r.out).toBe(true);
     expect(existsSync(resolve(foreign.wt, 'node_modules'))).toBe(false);
   });
 
-  it('(d4) exported GIT_DIR of the foreign repo: its worktrees are still left alone', () => {
-    const r = run(script, foreign.primary, ['--fix'], { GIT_DIR: resolve(foreign.primary, '.git') });
+  // win32: the sweep provisions via `ln -sfn` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('(d4) exported GIT_DIR of the foreign repo: its worktrees are still left alone', (ctx) => {
+    const r = run(ctx, script, foreign.primary, ['--fix'], { GIT_DIR: resolve(foreign.primary, '.git') });
     expect(provisioned(foreign.wt), `a foreign GIT_DIR must not redirect the sweep\n${r.out}`).toBe(false);
     expect(provisioned(own.wt), r.out).toBe(true);
   });
 
-  it('(d5) CDPATH naming a dir with its own scripts/: a relative run still sweeps the own repo', () => {
+  // win32: the sweep provisions via `ln -sfn` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('(d5) CDPATH naming a dir with its own scripts/: a relative run still sweeps the own repo', (ctx) => {
     mkdirSync(resolve(foreign.primary, 'scripts'), { recursive: true });
-    const r = run('scripts/worktree-doctor.sh', own.primary, ['--fix'], { CDPATH: foreign.primary });
+    const r = run(ctx, 'scripts/worktree-doctor.sh', own.primary, ['--fix'], { CDPATH: foreign.primary });
     expect(r.status, r.out).toBe(0);
     expect(provisioned(own.wt), r.out).toBe(true);
     expect(provisioned(foreign.wt), r.out).toBe(false);
   });
 
-  it('(d6) LOCK-DIVERGED: --fix reports the worktree and never runs a real install itself', () => {
+  it('(d6) LOCK-DIVERGED: --fix reports the worktree and never runs a real install itself', (ctx) => {
     // The helper's --check exits 3 when the worktree's lock plans a tree the primary does not
     // have installed. A sweep must not turn that into N installs of ~1.8 GB each (2026-09-30
     // census: 84 of 128 worktrees) — it names the per-worktree command instead.
@@ -149,7 +162,7 @@ describe('worktree-doctor.sh — repo anchor', () => {
     const marker = resolve(stubDir, 'called');
     writeFileSync(resolve(stubDir, 'npm'), `#!/usr/bin/env bash\ntouch "${marker}"\n`, { mode: 0o755 });
 
-    const r = run(script, own.primary, ['--fix'], { WNM_NPM: resolve(stubDir, 'npm') });
+    const r = run(ctx, script, own.primary, ['--fix'], { WNM_NPM: resolve(stubDir, 'npm') });
 
     expect(existsSync(marker), `the sweep must not install\n${r.out}`).toBe(false);
     expect(provisioned(own.wt), `a diverged worktree must not be linked\n${r.out}`).toBe(false);
@@ -159,11 +172,12 @@ describe('worktree-doctor.sh — repo anchor', () => {
     rmSync(stubDir, { recursive: true, force: true });
   });
 
-  it('(d-neg) PAIRED-NEGATIVE: with the REPO-ANCHOR block stripped, the foreign worktree IS provisioned', () => {
+  // win32: the sweep provisions via `ln -sfn` (MSYS copies) — see WIN_SUT_LINK.
+  it.skipIf(WIN_SUT_LINK)('(d-neg) PAIRED-NEGATIVE: with the REPO-ANCHOR block stripped, the foreign worktree IS provisioned', (ctx) => {
     const src = readFileSync(DOCTOR, 'utf8');
     const stripped = src.replace(/# ── REPO-ANCHOR[\s\S]*?# ── END REPO-ANCHOR[^\n]*\n/, '');
     expect(stripped, 'the REPO-ANCHOR block must be present to strip').not.toBe(src);
-    run(installDoctor(own.primary, stripped), foreign.primary);
+    run(ctx, installDoctor(own.primary, stripped), foreign.primary);
     expect(provisioned(foreign.wt), 'without the anchor the foreign worktree receives node_modules').toBe(true);
   });
 });

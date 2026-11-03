@@ -457,12 +457,13 @@ done
 # train C7's cold review (#1959): the header was not seen, the quote opened, and the item went unnoticed.
 for _h in '!!str |' '&a >-' '!!str &a |2'; do
   printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n        entry: %s\n          "a block line opens nothing\n- repo: https://example.invalid/after\n  rev: v1\n' "$_h" > "$YT/.pre-commit-config.yaml"
-  _l="a block scalar under the header «entry: $_h» holding a quote"
+  # ${_h}/${_s}/${s} braces: /bin/bash 3.2 parses `»` after the name as NAME bytes → unbound abort.
+  _l="a block scalar under the header «entry: ${_h}» holding a quote"
   [ "$(_loads "$YT/.pre-commit-config.yaml")" = no ] && ok "G7 precondition: $_l, then a column-0 item — the file does not load" \
     || bad "G7 precondition: $_l, then a column-0 item — the file loads; the arm below proves nothing"
   _s=$(_stray_of "$YT/.pre-commit-config.yaml")
   [ "$_s" = 8 ] && ok "G7: $_l — the column-0 item on line 8 is found" \
-    || bad "G7: $_l — the stray item on line 8 was not found (got «$_s»)"
+    || bad "G7: $_l — the stray item on line 8 was not found (got «${_s}»)"
 done
 # The adjacent-`:` rule holds only for a key that is itself a quoted scalar: after a plain key or in plain
 # text (`--fmt=%h:'%s`, `k:"v`, `a":"b`) the quote is text, and a `[`/`{` inside a plain scalar opens no
@@ -480,7 +481,7 @@ _tracker_arm() {
   else
     ln=$(grep -n 'example.invalid' "$2" | cut -d: -f1)
     [ -n "$ln" ] && [ "$s" = "$ln" ] && ok "G7: $1 — the file does not load and the stray item on line $ln is found" \
-      || bad "G7: $1 — the stray item on line ${ln:-?} was not found (got «$s»)"
+      || bad "G7: $1 — the stray item on line ${ln:-?} was not found (got «${s}»)"
   fi
 }
 _fx() { printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n%s\n' "$1" > "$YT/.pre-commit-config.yaml"; echo "$YT/.pre-commit-config.yaml"; }

@@ -123,7 +123,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
 - The PostToolUse feedback hook: `.agents/hooks/check-hook-marker.sh` — the
   feedback-channel explanation at `:29` to `:32`, the harness-specific output
   at `:54`, and the post-write file inspection at `:117` to `:140`.
-- The paired tests: `packages/core/hooks/check-hook-marker.test.ts:123` to
+- The paired tests: `packages/core/hooks/check-hook-marker.test.ts:124` to
   `:141` writes the fixture before invoking the hook; `:174` to `:178` checks
   Claude Code's exit-2 feedback, and `:225` to `:268` checks ZCode's advisory
   context with exit 0.

@@ -46,6 +46,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -129,10 +130,12 @@ exit 0
 }
 
 function runHelper(
+  ctx: Skippable,
   sandboxRoot: string,
   fakeGh: string,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -144,7 +147,7 @@ function runHelper(
 }
 
 describe('priority-score.sh — branch-matcher (paired-negative contract)', { timeout: SLOW_SHELL_MS }, () => {
-  it('POSITIVE: merged PR `feat/<umbrella>` tags umbrella with `status=DONE done_pr=<num>`', () => {
+  it('POSITIVE: merged PR `feat/<umbrella>` tags umbrella with `status=DONE done_pr=<num>`', (ctx) => {
     // Targets priority-score.sh branch-matcher block:
     //   merged_prs_json="$(${MO_GH_BIN} pr list --state merged ...)"
     //   jq … sub("^(feat|fix|chore|docs|research)/"; "") == $name … .number
@@ -156,7 +159,7 @@ describe('priority-score.sh — branch-matcher (paired-negative contract)', { ti
     ]);
     const fakeGh = makeFakeGh(sandbox, mergedJson);
 
-    const r = runHelper(sandbox, fakeGh);
+    const r = runHelper(ctx, sandbox, fakeGh);
     expect(r.status).toBe(0);
     // alpha-umbrella matched → DONE
     expect(r.stdout).toMatch(
@@ -170,7 +173,7 @@ describe('priority-score.sh — branch-matcher (paired-negative contract)', { ti
     expect(betaLine).not.toMatch(/status=DONE/);
   });
 
-  it('POSITIVE-PREFIXES: fix/, chore/, docs/, research/ all strip to exact match → DONE', () => {
+  it('POSITIVE-PREFIXES: fix/, chore/, docs/, research/ all strip to exact match → DONE', (ctx) => {
     // Targets the regex `^(feat|fix|chore|docs|research)/` in the jq sub() call.
     // Each prefix variant must trigger the same DONE tagging.
     const sandbox = makeSandbox();
@@ -188,7 +191,7 @@ describe('priority-score.sh — branch-matcher (paired-negative contract)', { ti
     ]);
     const fakeGh = makeFakeGh(sandbox, mergedJson);
 
-    const r = runHelper(sandbox, fakeGh);
+    const r = runHelper(ctx, sandbox, fakeGh);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/fix-umbrella .* status=DONE done_pr=100/);
     expect(r.stdout).toMatch(/chore-umbrella .* status=DONE done_pr=101/);
@@ -196,7 +199,7 @@ describe('priority-score.sh — branch-matcher (paired-negative contract)', { ti
     expect(r.stdout).toMatch(/research-umbrella .* status=DONE done_pr=103/);
   });
 
-  it('PR #236 CASE: `meta-orchestrator-skill-memory` umbrella with merged feat/<same-name> → DONE done_pr=236', () => {
+  it('PR #236 CASE: `meta-orchestrator-skill-memory` umbrella with merged feat/<same-name> → DONE done_pr=236', (ctx) => {
     // Replays the literal 2026-05-28 mis-classification incident (kickoff §0 P2,
     // bullet «Concrete incident»). Before this matcher, the umbrella surfaced
     // as winner with open_prs=0; after the matcher it carries status=DONE
@@ -208,14 +211,14 @@ describe('priority-score.sh — branch-matcher (paired-negative contract)', { ti
     ]);
     const fakeGh = makeFakeGh(sandbox, mergedJson);
 
-    const r = runHelper(sandbox, fakeGh);
+    const r = runHelper(ctx, sandbox, fakeGh);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(
       /meta-orchestrator-skill-memory .* status=DONE done_pr=236/,
     );
   });
 
-  it('NEGATIVE: open umbrella with no matching merged PR → line WITHOUT `status=DONE`', () => {
+  it('NEGATIVE: open umbrella with no matching merged PR → line WITHOUT `status=DONE`', (ctx) => {
     // Targets the negative branch: jq returns empty, done_pr stays empty,
     // the legacy echo path emits the original 6-field line.
     const sandbox = makeSandbox();
@@ -223,7 +226,7 @@ describe('priority-score.sh — branch-matcher (paired-negative contract)', { ti
     // gh returns NO merged PRs at all.
     const fakeGh = makeFakeGh(sandbox, '[]');
 
-    const r = runHelper(sandbox, fakeGh);
+    const r = runHelper(ctx, sandbox, fakeGh);
     expect(r.status).toBe(0);
     const line = r.stdout
       .split('\n')
@@ -237,7 +240,7 @@ describe('priority-score.sh — branch-matcher (paired-negative contract)', { ti
     expect(line).toMatch(/open_prs=0/);
   });
 
-  it('PR #266 CASE (mid-umbrella per convention): merged `feat/<umbrella>-s2` does NOT match bare `<umbrella>` → still candidate', () => {
+  it('PR #266 CASE (mid-umbrella per convention): merged `feat/<umbrella>-s2` does NOT match bare `<umbrella>` → still candidate', (ctx) => {
     // Multi-stage umbrellas use `feat/<umbrella>-s<N>` branches per kickoff §3
     // recursive-self-application clause. The bare umbrella name does NOT match
     // `<umbrella>-s2` after prefix strip — `meta-orch-no-arg-overview` ≠
@@ -253,7 +256,7 @@ describe('priority-score.sh — branch-matcher (paired-negative contract)', { ti
     ]);
     const fakeGh = makeFakeGh(sandbox, mergedJson);
 
-    const r = runHelper(sandbox, fakeGh);
+    const r = runHelper(ctx, sandbox, fakeGh);
     expect(r.status).toBe(0);
     const line = r.stdout
       .split('\n')
@@ -273,11 +276,13 @@ describe('priority-score.sh — branch-matcher (paired-negative contract)', { ti
  * a named umbrella arg is passed.
  */
 function runHelperNamed(
+  ctx: Skippable,
   sandboxRoot: string,
   fakeGh: string,
   umbrellaArg: string,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER, umbrellaArg], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER, umbrellaArg], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -289,7 +294,7 @@ function runHelperNamed(
 }
 
 describe('priority-score.sh — named-mode early-exit (pipeline-ux Stage 1B)', { timeout: SLOW_SHELL_MS }, () => {
-  it('named-mode early-exit: non-empty string arg → exits 0 with skip-line, no full scan', () => {
+  it('named-mode early-exit: non-empty string arg → exits 0 with skip-line, no full scan', (ctx) => {
     // Targets priority-score.sh named-mode guard:
     //   _ARG="${1:-}"
     //   if [[ -n "$_ARG" ]] && [[ "$_ARG" =~ [^0-9] ]]; then
@@ -301,7 +306,7 @@ describe('priority-score.sh — named-mode early-exit (pipeline-ux Stage 1B)', {
     setupRepo(sandbox, ['alpha-umbrella', 'beta-umbrella', 'gamma-umbrella']);
     const fakeGh = makeFakeGh(sandbox, '[]');
 
-    const r = runHelperNamed(sandbox, fakeGh, 'any-umbrella-name');
+    const r = runHelperNamed(ctx, sandbox, fakeGh, 'any-umbrella-name');
     expect(r.status).toBe(0);
     // Skip-line must appear
     expect(r.stdout).toContain('named-mode skip');
@@ -311,7 +316,7 @@ describe('priority-score.sh — named-mode early-exit (pipeline-ux Stage 1B)', {
     expect(r.stdout).not.toContain('=== priority-score: candidate umbrellas ===');
   });
 
-  it('named-mode early-exit PAIRED-NEGATIVE: integer arg proceeds to full scan', () => {
+  it('named-mode early-exit PAIRED-NEGATIVE: integer arg proceeds to full scan', (ctx) => {
     // Integer arg = top-N V4 request → NOT early-exit; full scan proceeds.
     // Counters the risk of the guard firing on integer args (V4 binding).
     const sandbox = makeSandbox();
@@ -319,7 +324,7 @@ describe('priority-score.sh — named-mode early-exit (pipeline-ux Stage 1B)', {
     const fakeGh = makeFakeGh(sandbox, '[]');
 
     // Integer arg "5" should NOT trigger early-exit
-    const r = runHelperNamed(sandbox, fakeGh, '5');
+    const r = runHelperNamed(ctx, sandbox, fakeGh, '5');
     expect(r.status).toBe(0);
     // Full scan header must appear (not the named-mode skip line)
     expect(r.stdout).toContain('=== priority-score: candidate umbrellas ===');
@@ -331,7 +336,7 @@ describe('priority-score.sh — named-mode early-exit (pipeline-ux Stage 1B)', {
 });
 
 describe('priority-score.sh — rank-order (pipeline-ux Stage 1B)', { timeout: SLOW_SHELL_MS }, () => {
-  it('rank-order: umbrella with larger kickoff.md appears before umbrella with smaller kickoff', () => {
+  it('rank-order: umbrella with larger kickoff.md appears before umbrella with smaller kickoff', (ctx) => {
     // Targets priority-score.sh volume scoring:
     //   loc="$(wc -l < "${kickoff}")"
     //   volume="S" if loc<100, "M" if loc<250, "L" otherwise
@@ -361,7 +366,7 @@ describe('priority-score.sh — rank-order (pipeline-ux Stage 1B)', { timeout: S
     writeFileSync(join(promptsDir, 'umbrella-small', 'kickoff.md'), smallContent, 'utf8');
 
     const fakeGh = makeFakeGh(sandbox, '[]');
-    const r = runHelper(sandbox, fakeGh);
+    const r = runHelper(ctx, sandbox, fakeGh);
     expect(r.status).toBe(0);
 
     // Both umbrellas appear in output

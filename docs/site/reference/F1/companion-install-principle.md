@@ -123,7 +123,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
 - The shipped no-pin arm: `scripts/check-ships-manifest.mjs:206` to `:216`;
   findings cause exit 1 at `:224` to `:227`. Pre-commit wiring:
   `.husky/pre-commit:211` to `:227`. CI wiring:
-  `.github/workflows/audit-self.yml:2765` to `:2770`.
+  `.github/workflows/audit-self.yml:2825` to `:2830`.
 - Paired fixture coverage at the current staging base:
   `scripts/check-ships-manifest.test.sh:156` to `:160` accepts the unpinned
   row and rejects npm and marketplace version pins. The manifest's six

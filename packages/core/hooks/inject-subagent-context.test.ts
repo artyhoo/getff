@@ -22,7 +22,7 @@
  * first user message), not persistent-lifecycle as on CC — honest, best-available.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, failLoudSkipContext, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -44,17 +44,27 @@ const SOURCE_DIGEST = resolve(REPO_ROOT, '.agents/hooks/inject-session-bootstrap
 // assertion (`appended ⊇ source digest`) stays meaningful (verifies the hook reads + appends the
 // block verbatim, without mangling).
 let FIXTURE_ROOT: string;
-beforeAll(() => {
-  const sourceDigest = execFileSync(
-    'bash',
-    ['-c', `env -u ZCODE_PROJECT_DIR bash "${SOURCE_DIGEST}"`],
-    { encoding: 'utf8' },
+/** Plain output of inject-session-bootstrap.sh with ZCODE_PROJECT_DIR scrubbed — the digest
+ *  source both the beforeAll fixture seed and the SSOT assertion compare against.
+ *  POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799). */
+function sourceDigest(ctx: Skippable): string {
+  return (
+    spawnBashOrSkip(ctx, 'bash', ['-c', `env -u ZCODE_PROJECT_DIR bash "${SOURCE_DIGEST}"`], {
+      encoding: 'utf8',
+    }).stdout ?? ''
   ).trim();
+}
+beforeAll(() => {
+  // beforeAll has no per-test ctx to plumb — the fail-loud ctx fires only if a win32 run ever
+  // reaches the skip arm (same module-scope doctrine as check-doc-authority's makeGitRepo).
+  const sourceDigestText = sourceDigest(
+    failLoudSkipContext('inject-subagent-context beforeAll fixture seed'),
+  );
   FIXTURE_ROOT = mkdtempSync(join(tmpdir(), 'isc-test-'));
   mkdirSync(join(FIXTURE_ROOT, '.claude'), { recursive: true });
   writeFileSync(
     join(FIXTURE_ROOT, '.claude', 'session-bootstrap.md'),
-    `# Bootstrap\n\n<!-- digest:start -->\n${sourceDigest}\n<!-- digest:end -->\n`,
+    `# Bootstrap\n\n<!-- digest:start -->\n${sourceDigestText}\n<!-- digest:end -->\n`,
     'utf8',
   );
 });
@@ -64,24 +74,12 @@ afterAll(() => {
 
 /** Run the hook with a PreToolUse:Agent stdin payload and explicit env control. */
 function runHook(
+  ctx: Skippable,
   input: Record<string, unknown>,
   env: Record<string, string | undefined>,
 ): { status: number; stdout: string } {
-  // spawnSync inherits process.env by default; we explicitly delete ZCODE_PROJECT_DIR for the
-  // CC branch because the test runner may itself run inside zcode (env carries the var).
-  const fullEnv = { ...process.env };
-  if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
-  else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
-  // CLAUDE_PROJECT_DIR selects the digest-source root (hook:44); zcode-branch tests point it at
-  // the hermetic fixture so the hook reads a populated digest block instead of the real file.
-  if (env.CLAUDE_PROJECT_DIR !== undefined) fullEnv.CLAUDE_PROJECT_DIR = env.CLAUDE_PROJECT_DIR;
-  const r = execFileSync('bash', [HOOK], {
-    input: JSON.stringify(input),
-    encoding: 'utf8',
-    env: fullEnv,
-  });
-  // execFileSync throws on non-zero; return trimmed stdout for the JSON branches.
-  return { status: 0, stdout: r };
+  const { status, stdout } = runHookStatus(ctx, input, env);
+  return { status, stdout };
 }
 
 /**
@@ -89,10 +87,11 @@ function runHook(
  * stdout). stderr is part of the contract: the hook's non-string-prompt guard (hook:72) exists
  * precisely to keep jq's type error off stderr, and WITHOUT that guard the hook still exits 0
  * with empty stdout — stderr is the only observable that separates guarded from unguarded.
- * execFileSync forwards the child's stderr to the parent instead of returning it, so these runs
- * go through spawnSync.
+ * These runs need the spawnSync result shape (stderr captured in-band, not forwarded), which
+ * spawnBashOrSkip preserves byte-identically on POSIX.
  */
 function runHookStatus(
+  ctx: Skippable,
   input: Record<string, unknown>,
   env: Record<string, string | undefined>,
 ): { status: number; stdout: string; stderr: string } {
@@ -100,7 +99,8 @@ function runHookStatus(
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   if (env.CLAUDE_PROJECT_DIR !== undefined) fullEnv.CLAUDE_PROJECT_DIR = env.CLAUDE_PROJECT_DIR;
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify(input),
     encoding: 'utf8',
     env: fullEnv,
@@ -119,8 +119,8 @@ function runHookStatus(
  * Asserting the precondition — a well-formed Agent payload in THIS env DOES emit updatedInput —
  * makes the negatives fail when the guard is removed instead of passing for the wrong reason.
  */
-function assertDigestReachable(env: Record<string, string | undefined>): void {
-  const { status, stdout } = runHookStatus(agentPayload(), env);
+function assertDigestReachable(ctx: Skippable, env: Record<string, string | undefined>): void {
+  const { status, stdout } = runHookStatus(ctx, agentPayload(), env);
   expect(status, 'precondition: the hook must run to completion in this env').toBe(0);
   expect(
     stdout,
@@ -141,14 +141,14 @@ const agentPayload = (overrides: Partial<Record<string, unknown>> = {}) => ({
 });
 
 describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', () => {
-  it('CC branch (ZCODE_PROJECT_DIR unset): silent exit 0, no stdout — primary owns CC', () => {
-    const { status, stdout } = runHookStatus(agentPayload(), { ZCODE_PROJECT_DIR: undefined });
+  it('CC branch (ZCODE_PROJECT_DIR unset): silent exit 0, no stdout — primary owns CC', (ctx) => {
+    const { status, stdout } = runHookStatus(ctx, agentPayload(), { ZCODE_PROJECT_DIR: undefined });
     expect(status).toBe(0);
     expect(stdout).toBe('');
   });
 
-  it('zcode branch: emits PreToolUse JSON with updatedInput.prompt enriched by the digest', () => {
-    const { status, stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
+  it('zcode branch: emits PreToolUse JSON with updatedInput.prompt enriched by the digest', (ctx) => {
+    const { status, stdout } = runHook(ctx, agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     expect(status).toBe(0);
     const json = JSON.parse(stdout);
     expect(json.hookSpecificOutput.hookEventName).toBe('PreToolUse');
@@ -159,8 +159,8 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     expect(updated.prompt.startsWith('Find how updatedInput')).toBe(true); // original prompt preserved as prefix
   });
 
-  it('updatedInput preserves ALL original tool_input fields (fR re-validates)', () => {
-    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
+  it('updatedInput preserves ALL original tool_input fields (fR re-validates)', (ctx) => {
+    const { stdout } = runHook(ctx, agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     const updated = JSON.parse(stdout).hookSpecificOutput.updatedInput;
     expect(updated.description).toBe('investigate the bundle');
     expect(updated.subagent_type).toBe('Explore');
@@ -168,27 +168,27 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     expect(updated.run_in_background).toBe(false);
   });
 
-  it('Task alias also triggers the hook (matcher Agent|Task)', () => {
-    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
+  it('Task alias also triggers the hook (matcher Agent|Task)', (ctx) => {
+    const { stdout } = runHook(ctx, agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     expect(JSON.parse(stdout).hookSpecificOutput.hookEventName).toBe('PreToolUse');
     const taskPayload = agentPayload();
     taskPayload.tool_name = 'Task';
-    const { stdout: stdoutTask } = runHook(taskPayload, {
+    const { stdout: stdoutTask } = runHook(ctx, taskPayload, {
       ZCODE_PROJECT_DIR: REPO_ROOT,
       CLAUDE_PROJECT_DIR: FIXTURE_ROOT,
     });
     expect(JSON.parse(stdoutTask).hookSpecificOutput.hookEventName).toBe('PreToolUse');
   });
 
-  it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', () => {
+  it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', (ctx) => {
     // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
     // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
     // discarded). This hook uses the valid `{hookSpecificOutput:{hookEventName, updatedInput}}`
     // shape (hookEventName INSIDE hookSpecificOutput is allowed by the discriminated union Uan;
     // top-level hookEventName is NOT). Regression guard: catches anyone flattening the wrapper
     // or leaking hookEventName to top level (a prior shape emitted it top-level and was silently
-    // rejected by ZCode). Precedent: inject-matching-rule.test.ts:99-132.
-    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
+    // rejected by ZCode). Precedent: inject-matching-rule.test.ts:108-141.
+    const { stdout } = runHook(ctx, agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     const json = JSON.parse(stdout);
     const allowedTopLevel = new Set([
       'additionalContext',
@@ -213,18 +213,18 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     expect(json.hookSpecificOutput.hookEventName).toBe('PreToolUse');
   });
 
-  it('non-Agent/Task tool: silent exit 0 even under zcode (defensive tool filter)', () => {
+  it('non-Agent/Task tool: silent exit 0 even under zcode (defensive tool filter)', (ctx) => {
     // Paired-negative discipline: the fixture and the payload are the POSITIVE case's, and the
     // single flipped variable is tool_name. The previous shape ({tool_name:'Bash',
     // tool_input:{command:'ls'}} with no CLAUDE_PROJECT_DIR) differed from the positive in three
     // ways at once — empty digest, no prompt field, foreign tool — and the empty digest alone
     // produced the asserted exit-0/empty-stdout, so deleting hook:40 left this test green.
     const env = { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT };
-    assertDigestReachable(env);
+    assertDigestReachable(ctx, env);
     for (const tool_name of ['Bash', 'Read', 'Write']) {
       const payload = agentPayload();
       payload.tool_name = tool_name;
-      const { status, stdout, stderr } = runHookStatus(payload, env);
+      const { status, stdout, stderr } = runHookStatus(ctx, payload, env);
       expect(status, `${tool_name}: hook must exit 0`).toBe(0);
       expect(
         stdout,
@@ -234,7 +234,7 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     }
   });
 
-  it('non-string prompt (number/null/missing/array tool_input): graceful exit 0, no updatedInput, no stderr noise', () => {
+  it('non-string prompt (number/null/missing/array tool_input): graceful exit 0, no updatedInput, no stderr noise', (ctx) => {
     // The Agent runtimeInputSchema requires prompt:string. A malformed dispatch (prompt:123,
     // prompt:null, missing prompt, array tool_input) must NOT crash jq (type error) nor emit
     // updatedInput (fR would revert anyway, but we guard to avoid stderr noise). Silent exit 0.
@@ -247,7 +247,7 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     // hook:72 mutant fails here: prompt:123 and the array case emit a jq error on stderr, while
     // prompt:null and the missing-prompt case emit updatedInput (jq's `null + "…"` is a string).
     const env = { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT };
-    assertDigestReachable(env);
+    assertDigestReachable(ctx, env);
     const cases: unknown[] = [
       { description: 'x', prompt: 123 },
       { description: 'x', prompt: null },
@@ -256,21 +256,17 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     ];
     for (const tool_input of cases) {
       const label = JSON.stringify(tool_input);
-      const { status, stdout, stderr } = runHookStatus({ tool_name: 'Agent', tool_input }, env);
+      const { status, stdout, stderr } = runHookStatus(ctx, { tool_name: 'Agent', tool_input }, env);
       expect(status, `${label}: graceful exit 0`).toBe(0);
       expect(stdout, `${label}: no updatedInput may be emitted on a non-string prompt`).toBe('');
       expect(stderr, `${label}: the guard exists to keep jq's type error off stderr`).toBe('');
     }
   });
 
-    it('SSOT: the digest appended === inject-session-bootstrap.sh plain output (no drift)', () => {
-    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
+    it('SSOT: the digest appended === inject-session-bootstrap.sh plain output (no drift)', (ctx) => {
+    const { stdout } = runHook(ctx, agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     const appended = JSON.parse(stdout).hookSpecificOutput.updatedInput.prompt as string;
-    const sourcePlain = execFileSync(
-      'bash',
-      ['-c', `env -u ZCODE_PROJECT_DIR bash "${SOURCE_DIGEST}"`],
-      { encoding: 'utf8' },
-    ).trim();
+    const sourcePlain = sourceDigest(ctx);
     // The digest is appended after the original prompt + a separator; verify it's verbatim.
     expect(appended).toContain(sourcePlain);
   });

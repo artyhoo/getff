@@ -28,7 +28,8 @@
  * override path that avoids stdin complexity and is already documented in the script.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync, execSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -127,10 +128,12 @@ function addCommit(
 }
 
 function run(
+  ctx: Skippable,
   dir: string,
   baseRef: string,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [SCRIPT], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [SCRIPT], {
     encoding: 'utf8',
     cwd: dir,
     env: {
@@ -150,7 +153,7 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
   // Case 1 — Prior-art trailer
   // =========================================================================
 
-  it('Case 1 POSITIVE — commit WITH Prior-art: body → exit 0, ✅ Prior-art: present', () => {
+  it('Case 1 POSITIVE — commit WITH Prior-art: body → exit 0, ✅ Prior-art: present', (ctx) => {
     // Targets script line 69-75: grep -q "^Prior-art:" → ✅ path
     const { dir, baseSha } = makeSandbox();
     addCommit(
@@ -160,17 +163,17 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
       'feat: add foo',
       'Prior-art: prior-art-evaluations.md#1 — no matching upstream capability',
     );
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('✅');
     expect(r.stdout).toContain('Prior-art: present');
   });
 
-  it('Case 1 NEGATIVE — commit WITHOUT Prior-art: body → exit 1, ❌ trailer MISSING', () => {
+  it('Case 1 NEGATIVE — commit WITHOUT Prior-art: body → exit 1, ❌ trailer MISSING', (ctx) => {
     // Targets script line 69-72: grep fails → fail=1 + ❌ message
     const { dir, baseSha } = makeSandbox();
     addCommit(dir, 'foo.txt', 'hello\n', 'feat: add foo');
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain('❌');
     expect(r.stdout).toContain('§7 Prior-art: trailer MISSING');
@@ -180,7 +183,7 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
   // Case 2 — §1.7 trailer on a discipline file
   // =========================================================================
 
-  it('Case 2 POSITIVE — discipline-file commit WITH §1.7: AND Prior-art: → exit 0, ✅ §1.7: present', () => {
+  it('Case 2 POSITIVE — discipline-file commit WITH §1.7: AND Prior-art: → exit 0, ✅ §1.7: present', (ctx) => {
     // Targets script line 80-81: grep -qE "^§1\.7(:| Bootstrap:)" → ✅ §1.7: present
     // Discipline file pattern: ^\.claude/rules/[^/]+\.md$ (script line 84)
     const { dir, baseSha } = makeSandbox();
@@ -191,13 +194,13 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
       'feat(rules): add test rule',
       'Prior-art: prior-art-evaluations.md#1 — no upstream match\n\n§1.7: forward-check: this rule carries Class + Authoritative-for header.',
     );
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('✅');
     expect(r.stdout).toContain('§1.7: present');
   });
 
-  it('Case 2 NEGATIVE — discipline-file commit WITHOUT §1.7: (but WITH Prior-art:) → exit 1, ❌ §1.7 MISSING', () => {
+  it('Case 2 NEGATIVE — discipline-file commit WITHOUT §1.7: (but WITH Prior-art:) → exit 1, ❌ §1.7 MISSING', (ctx) => {
     // Targets script line 83-91: git diff-tree finds discipline file, fail=1 + ❌ message
     const { dir, baseSha } = makeSandbox();
     addCommit(
@@ -207,7 +210,7 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
       'feat(rules): add test rule',
       'Prior-art: prior-art-evaluations.md#1 — no upstream match',
     );
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain('❌');
     expect(r.stdout).toContain('§1.7 trailer MISSING');
@@ -217,7 +220,7 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
   // Case 3 — §1.7 allowlist bypass
   // =========================================================================
 
-  it('Case 3 POSITIVE — allowlisted subject + discipline file + NO §1.7: → exit 0 (bypass fires)', () => {
+  it('Case 3 POSITIVE — allowlisted subject + discipline file + NO §1.7: → exit 0 (bypass fires)', (ctx) => {
     // Targets script line 78-79: [[ "${subject}" =~ $S17_ALLOWLIST_RE ]] → skip §1.7 check
     // Allowlist pattern: ^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):
     const { dir, baseSha } = makeSandbox();
@@ -229,13 +232,13 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
       // NO §1.7 trailer — should be fine because subject is allowlisted
       'Prior-art: prior-art-evaluations.md#1 — no upstream match',
     );
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(0);
     // Must not contain a §1.7 MISSING error
     expect(r.stdout).not.toContain('§1.7 trailer MISSING');
   });
 
-  it('Case 3 NEGATIVE — non-allowlisted subject + discipline file + NO §1.7: → exit 1', () => {
+  it('Case 3 NEGATIVE — non-allowlisted subject + discipline file + NO §1.7: → exit 1', (ctx) => {
     // Paired negative: same setup but subject NOT in allowlist → §1.7 check fires
     const { dir, baseSha } = makeSandbox();
     addCommit(
@@ -245,7 +248,7 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
       'feat(rules): add non-allowlisted rule',
       'Prior-art: prior-art-evaluations.md#1 — no upstream match',
     );
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain('❌');
     expect(r.stdout).toContain('§1.7 trailer MISSING');
@@ -255,7 +258,7 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
   // Case 4 — Historical cutoff
   // =========================================================================
 
-  it('Case 4 POSITIVE — commit dated BEFORE 2026-05-12 WITHOUT Prior-art: → exit 0 (historical bypass)', () => {
+  it('Case 4 POSITIVE — commit dated BEFORE 2026-05-12 WITHOUT Prior-art: → exit 0 (historical bypass)', (ctx) => {
     // Targets script line 63-65: author_date < HISTORICAL_CUTOFF → continue (skip checks)
     const { dir, baseSha } = makeSandbox();
     addCommit(
@@ -267,13 +270,13 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
       '',
       { date: '2026-05-11T00:00:00 +0000' },
     );
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(0);
     // Should not have flagged the missing trailer
     expect(r.stdout).not.toContain('§7 Prior-art: trailer MISSING');
   });
 
-  it('Case 4 NEGATIVE — commit dated AFTER 2026-05-12 WITHOUT Prior-art: → exit 1 (not bypassed)', () => {
+  it('Case 4 NEGATIVE — commit dated AFTER 2026-05-12 WITHOUT Prior-art: → exit 1 (not bypassed)', (ctx) => {
     // Paired negative: same missing trailer but within the enforcement window
     const { dir, baseSha } = makeSandbox();
     addCommit(
@@ -285,7 +288,7 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
       '',
       { date: '2026-05-13T00:00:00 +0000' },
     );
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain('❌');
     expect(r.stdout).toContain('§7 Prior-art: trailer MISSING');
@@ -295,24 +298,24 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
   // Case 5 — No new commits
   // =========================================================================
 
-  it('Case 5 POSITIVE — PREPUSH_UPSTREAM_REF points to HEAD → no new commits → exit 0', () => {
+  it('Case 5 POSITIVE — PREPUSH_UPSTREAM_REF points to HEAD → no new commits → exit 0', (ctx) => {
     // Targets script line 55: [ -z "${COMMITS}" ] && echo "✅ fallback: no new commits." && exit 0
     const { dir } = makeSandbox();
     // Get HEAD after initial commit (baseSha == HEAD == no new commits beyond base)
     const headSha = execSync('git rev-parse HEAD', { cwd: dir }).toString().trim();
-    const r = run(dir, headSha);
+    const r = run(ctx, dir, headSha);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('✅ fallback: no new commits');
   });
 
-  it('Case 5 NEGATIVE — PREPUSH_UPSTREAM_REF points to EARLIER commit → new commits exist → checked', () => {
+  it('Case 5 NEGATIVE — PREPUSH_UPSTREAM_REF points to EARLIER commit → new commits exist → checked', (ctx) => {
     // Paired negative: when there IS a new commit beyond base, it gets checked.
     // A commit missing Prior-art: will fail, confirming the "no new commits" path
     // is the only reason Case 5 POSITIVE passes, not a bug.
     const { dir, baseSha } = makeSandbox();
     addCommit(dir, 'x.txt', 'x\n', 'feat: x', '');
     // baseSha is before the new commit → new commit IS checked → missing Prior-art: fails
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain('§7 Prior-art: trailer MISSING');
   });
@@ -326,22 +329,22 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
   // consumer's first `git push` on the reduced (tsx-unresolvable) fallback path.
   // Guard targets the `[ ! -f "${_top}/${SSOT_REGISTER}" ]` block added for #985.
 
-  it('Case 6 POSITIVE — CONSUMER layout (no SSOT register) + trailer-less commit → exit 0 (guard skips)', () => {
+  it('Case 6 POSITIVE — CONSUMER layout (no SSOT register) + trailer-less commit → exit 0 (guard skips)', (ctx) => {
     const { dir, baseSha } = makeSandbox({ consumer: true });
     // An ordinary consumer commit: NO Prior-art:, NO §1.7 — would fail on the framework layout.
     addCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: consumer feature');
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('REDUCED, consumer');
     expect(r.stdout).not.toContain('§7 Prior-art: trailer MISSING');
   });
 
-  it('Case 6 NEGATIVE — FRAMEWORK layout (SSOT register present) + same trailer-less commit → exit 1 (checks fire)', () => {
+  it('Case 6 NEGATIVE — FRAMEWORK layout (SSOT register present) + same trailer-less commit → exit 1 (checks fire)', (ctx) => {
     // Paired-negative: identical commit, register PRESENT → the guard does NOT skip,
     // proving it gates on the register's presence and is not dead always-skip code.
     const { dir, baseSha } = makeSandbox(); // framework layout (register planted)
     addCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: consumer feature');
-    const r = run(dir, baseSha);
+    const r = run(ctx, dir, baseSha);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain('§7 Prior-art: trailer MISSING');
     expect(r.stdout).not.toContain('REDUCED, consumer');

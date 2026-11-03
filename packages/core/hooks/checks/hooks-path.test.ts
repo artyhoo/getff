@@ -31,6 +31,17 @@ import { DELEGATE_MARKER, ensureOwnHooks } from './hooks-path.ts';
 
 const OWN = '#!/bin/sh\necho own\n';
 
+/**
+ * Canonical comparison form, matching the SUT's own canonicalization: on Windows git
+ * prints hooks dirs forward-slashed and 8.3-expanded while node's JS realpath keeps the
+ * short segments, so raw toEqual/toBe comparisons see two spellings of one directory.
+ * On POSIX this is the identity for already-resolved paths.
+ */
+const canon = (p: string): string => realpathSync.native(p);
+/** git's absolute-path output normalized the same way as the node-side expectation. */
+const gitCanon = (cwd: string, ...args: string[]): string =>
+  canon(git(cwd, ...args));
+
 let tmp: string;
 let primary: string;
 let wt: string;
@@ -96,7 +107,7 @@ describe('ensureOwnHooks', () => {
     setup({ 'pre-commit': delegating, 'pre-push': delegating });
     expect(ensureOwnHooks(wt)).toEqual({
       status: 'delegating',
-      dir: join(primary, '.husky'),
+      dir: canon(join(primary, '.husky')),
     });
     expect(worktreeValue()).toBe('');
   });
@@ -111,23 +122,23 @@ describe('ensureOwnHooks', () => {
     setup({ 'pre-commit': '#!/bin/sh\necho stale\n', 'pre-push': OWN });
     expect(ensureOwnHooks(wt)).toEqual({
       status: 'healed',
-      dir: join(primary, '.husky'),
+      dir: canon(join(primary, '.husky')),
       stale: ['pre-commit'],
     });
     expect(worktreeValue()).toBe('.husky');
     expect(
-      git(wt, 'rev-parse', '--path-format=absolute', '--git-path', 'hooks'),
-    ).toBe(join(wt, '.husky'));
+      gitCanon(wt, 'rev-parse', '--path-format=absolute', '--git-path', 'hooks'),
+    ).toBe(canon(join(wt, '.husky')));
     // Scoped to this worktree: the primary's own resolution is untouched.
     expect(
-      git(
+      gitCanon(
         primary,
         'rev-parse',
         '--path-format=absolute',
         '--git-path',
         'hooks',
       ),
-    ).toBe(join(primary, '.husky'));
+    ).toBe(canon(join(primary, '.husky')));
   });
 
   it('(missing) counts a hook the foreign dir lacks as stale — git would run nothing', () => {
@@ -146,8 +157,8 @@ describe('ensureOwnHooks', () => {
     const r = ensureOwnHooks(wt);
     expect(r).toMatchObject({ status: 'failed', stale: ['pre-commit'] });
     expect(
-      git(wt, 'rev-parse', '--path-format=absolute', '--git-path', 'hooks'),
-    ).toBe(join(primary, '.husky'));
+      gitCanon(wt, 'rev-parse', '--path-format=absolute', '--git-path', 'hooks'),
+    ).toBe(canon(join(primary, '.husky')));
   });
 
   it('(marker only) a foreign hook carrying the marker comment but no hand-off is stale', () => {

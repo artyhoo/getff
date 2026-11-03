@@ -43,6 +43,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -215,11 +216,13 @@ exit 0
 }
 
 function runHelper(
+  ctx: Skippable,
   sandboxRoot: string,
   fakeGh: string,
   extraEnv: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -232,7 +235,7 @@ function runHelper(
 }
 
 describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract', { timeout: SLOW_SHELL_MS }, () => {
-  it('Case 1 — C2 POSITIVE: jaccard POTENTIAL_DUPE match → status=DONE done_pr=<num> basis=jaccard', () => {
+  it('Case 1 — C2 POSITIVE: jaccard POTENTIAL_DUPE match → status=DONE done_pr=<num> basis=jaccard', (ctx) => {
     // Targets priority-score.sh completion Layer C2 block:
     //   _dup_detect_all_output=$(MO_DUP_DETECT_BIN ... --all)
     //   grep "^POTENTIAL_DUPE: ${name} " → extract merged #<num>
@@ -246,7 +249,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
       'jaccard-hit-umbrella': { prNum: 500, score: 45 },
     });
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
     // jaccard-hit-umbrella matched via C2 → DONE with jaccard basis
     expect(r.stdout).toMatch(/jaccard-hit-umbrella .* status=DONE done_pr=500/);
@@ -257,7 +260,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(missLine).not.toMatch(/status=DONE/);
   });
 
-  it('Case 2 — C2 NEGATIVE: zero jaccard overlap → still candidate (no DONE tag)', () => {
+  it('Case 2 — C2 NEGATIVE: zero jaccard overlap → still candidate (no DONE tag)', (ctx) => {
     // Targets the negative path in C2: _dup_detect_all_output has only "OK: ..." lines,
     // no POTENTIAL_DUPE for the umbrella → done_pr stays empty, C3 also skipped (no done.md).
     const sandbox = makeSandbox();
@@ -266,7 +269,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     // C2: no POTENTIAL_DUPE lines at all (dup-detect returns only OK)
     const fakeDup = makeFakeDupDetect(sandbox, {});
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
     const line = r.stdout.split('\n').find((l) => l.startsWith('no-match-umbrella '));
     expect(line).toBeDefined();
@@ -276,7 +279,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(line).toMatch(/kickoff=exists/);
   });
 
-  it('Case 3 — C3 POSITIVE: valid done.md → status=DONE done_pr=<num> basis=done-md', () => {
+  it('Case 3 — C3 POSITIVE: valid done.md → status=DONE done_pr=<num> basis=done-md', (ctx) => {
     // Targets priority-score.sh completion Layer C3 block:
     //   [[ -f "${dir}done.md" ]] → grep "Final PR: #<num>" → done_basis="done-md"
     // Both C1 and C2 intentionally miss so only C3 fires.
@@ -286,7 +289,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     const fakeGh = makeFakeGhEmpty(sandbox);
     const fakeDup = makeFakeDupDetect(sandbox, {});
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
     // done-md-umbrella has done.md → DONE via Layer C3
     expect(r.stdout).toMatch(/done-md-umbrella .* status=DONE done_pr=777/);
@@ -297,7 +300,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(activeLine).not.toMatch(/status=DONE/);
   });
 
-  it('Case 4 — C3 NEGATIVE: no done.md → still candidate (no DONE tag)', () => {
+  it('Case 4 — C3 NEGATIVE: no done.md → still candidate (no DONE tag)', (ctx) => {
     // Paired-negative for Case 3: same umbrella WITHOUT done.md should stay a candidate.
     // Neither C1, C2, nor C3 fires → umbrella surfaced as an open candidate.
     const sandbox = makeSandbox();
@@ -306,7 +309,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     const fakeGh = makeFakeGhEmpty(sandbox);
     const fakeDup = makeFakeDupDetect(sandbox, {});
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
     const line = r.stdout.split('\n').find((l) => l.startsWith('no-done-md-umbrella '));
     expect(line).toBeDefined();
@@ -315,7 +318,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(line).not.toMatch(/basis=/);
   });
 
-  it('Case 3b — C3 n/a: done.md with "Final PR: n/a" → status=DONE done_pr=n/a basis=done-md', () => {
+  it('Case 3b — C3 n/a: done.md with "Final PR: n/a" → status=DONE done_pr=n/a basis=done-md', (ctx) => {
     // Regression for the 2026-06-16 closure-sweep fix. A stale/superseded closure carries
     // "- Final PR: n/a" (no numeric PR). done.md existence ALONE proves closure, so C3 MUST
     // still tag DONE. Pre-fix bug: such n/a closures (e.g. the 2026-06-05 sweep) stayed
@@ -332,7 +335,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     const fakeGh = makeFakeGhEmpty(sandbox);
     const fakeDup = makeFakeDupDetect(sandbox, {});
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
     // na-done-umbrella has done.md (n/a PR) → still DONE via Layer C3
     expect(r.stdout).toMatch(/na-done-umbrella .* status=DONE done_pr=n\/a basis=done-md/);
@@ -341,7 +344,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(activeLine).not.toMatch(/status=DONE/);
   });
 
-  it('Case 5 — COMBINED: C1 fail + C2 hit → DONE; C1 fail + C2 fail + C3 hit → DONE', () => {
+  it('Case 5 — COMBINED: C1 fail + C2 hit → DONE; C1 fail + C2 fail + C3 hit → DONE', (ctx) => {
     // Verifies first-match-wins ordering: when C1 misses but C2 or C3 matches, DONE is emitted.
     // Also verifies that C3 still fires when both C1 and C2 miss.
     const sandbox = makeSandbox();
@@ -354,7 +357,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
       'c2-only-umbrella': { prNum: 600, score: 50 },
     });
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     expect(r.status).toBe(0);
     // c2-only-umbrella: C1 miss, C2 hit → DONE via jaccard
     expect(r.stdout).toMatch(/c2-only-umbrella .* status=DONE done_pr=600/);
@@ -368,7 +371,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     expect(allMissLine).not.toMatch(/status=DONE/);
   });
 
-  it('Case 6 — ALL LAYERS FAIL: no branch match, no jaccard, no done.md → still candidate (pure negative space)', () => {
+  it('Case 6 — ALL LAYERS FAIL: no branch match, no jaccard, no done.md → still candidate (pure negative space)', (ctx) => {
     // Paired-negative for the entire classifier: when all three layers fail,
     // the umbrella MUST NOT be marked DONE. Verifies the negative space contract
     // per principle 15 paired-negative discipline.
@@ -378,7 +381,7 @@ describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract',
     const fakeGh = makeFakeGhEmpty(sandbox); // C1: no merged PRs
     const fakeDup = makeFakeDupDetect(sandbox, {}); // C2: no POTENTIAL_DUPE
 
-    const r = runHelper(sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
+    const r = runHelper(ctx, sandbox, fakeGh, { MO_DUP_DETECT_BIN: fakeDup });
     // C3: no done.md (none written)
     expect(r.status).toBe(0);
     const line = r.stdout.split('\n').find((l) => l.startsWith('genuinely-open-umbrella '));

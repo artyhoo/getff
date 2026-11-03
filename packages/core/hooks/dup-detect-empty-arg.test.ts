@@ -27,6 +27,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync, execFileSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -93,11 +94,13 @@ function setupRepo(sandboxRoot: string, umbrellaNames: string[]): string {
 }
 
 function runHelper(
+  ctx: Skippable,
   sandboxRoot: string,
   fakeGh: string,
   args: string[],
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER, ...args], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER, ...args], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -110,15 +113,15 @@ function runHelper(
 }
 
 describe('dup-detect.sh — empty arg = --all (paired-negative contract)', { timeout: SLOW_SHELL_MS }, () => {
-  it('EMPTY-ARG-EQUALS-ALL: `dup-detect.sh ""` returns identical output to `dup-detect.sh --all`', () => {
+  it('EMPTY-ARG-EQUALS-ALL: `dup-detect.sh ""` returns identical output to `dup-detect.sh --all`', (ctx) => {
     // Targets dup-detect.sh:70 — `if [[ -z "${ARG}" || "${ARG}" == "--all" ]]`
     // (P4-b collapse: empty arg falls through to the --all branch silently,
     // emitting one line per umbrella). Old behavior emitted Usage: + exit 1.
     const sandbox = makeSandbox();
     const fakeGh = setupRepo(sandbox, ['alpha-umbrella', 'beta-umbrella']);
 
-    const empty = runHelper(sandbox, fakeGh, ['']);
-    const explicit = runHelper(sandbox, fakeGh, ['--all']);
+    const empty = runHelper(ctx, sandbox, fakeGh, ['']);
+    const explicit = runHelper(ctx, sandbox, fakeGh, ['--all']);
 
     expect(empty.status).toBe(0);
     expect(explicit.status).toBe(0);
@@ -131,26 +134,26 @@ describe('dup-detect.sh — empty arg = --all (paired-negative contract)', { tim
     expect(empty.stderr).not.toMatch(/Usage:/);
   });
 
-  it('EXPLICIT-ALL: `dup-detect.sh --all` still iterates all umbrellas (regression)', () => {
+  it('EXPLICIT-ALL: `dup-detect.sh --all` still iterates all umbrellas (regression)', (ctx) => {
     // Targets dup-detect.sh:73 — `for d in "${PROMPTS_DIR}"/*/; do check_umbrella ...`
     // The --all branch must continue to work after the empty-arg collapse.
     const sandbox = makeSandbox();
     const fakeGh = setupRepo(sandbox, ['one-umbrella', 'two-umbrella', 'three-umbrella']);
 
-    const r = runHelper(sandbox, fakeGh, ['--all']);
+    const r = runHelper(ctx, sandbox, fakeGh, ['--all']);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/OK: one-umbrella/);
     expect(r.stdout).toMatch(/OK: two-umbrella/);
     expect(r.stdout).toMatch(/OK: three-umbrella/);
   });
 
-  it('VALID-UMBRELLA-NAME: `dup-detect.sh <name>` checks one umbrella only (named-path branch preserved)', () => {
+  it('VALID-UMBRELLA-NAME: `dup-detect.sh <name>` checks one umbrella only (named-path branch preserved)', (ctx) => {
     // Targets dup-detect.sh:76 — `else check_umbrella "${ARG}"; fi`. The named
     // path must NOT collapse into --all when a real umbrella name is given.
     const sandbox = makeSandbox();
     const fakeGh = setupRepo(sandbox, ['solo-umbrella', 'other-umbrella']);
 
-    const r = runHelper(sandbox, fakeGh, ['solo-umbrella']);
+    const r = runHelper(ctx, sandbox, fakeGh, ['solo-umbrella']);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/OK: solo-umbrella/);
     // The OTHER umbrella must NOT appear — confirms named-path was taken,
@@ -158,20 +161,20 @@ describe('dup-detect.sh — empty arg = --all (paired-negative contract)', { tim
     expect(r.stdout).not.toMatch(/other-umbrella/);
   });
 
-  it('MISSING-UMBRELLA: `dup-detect.sh <nonexistent>` preserves original MISSING error path (not the old Usage:+exit 1)', () => {
+  it('MISSING-UMBRELLA: `dup-detect.sh <nonexistent>` preserves original MISSING error path (not the old Usage:+exit 1)', (ctx) => {
     // Targets dup-detect.sh:39 — `if [[ ! -f "${kickoff}" ]]; then echo "MISSING: ..."`.
     // Confirms malformed-but-non-empty arg still hits the existing per-umbrella
     // MISSING path. The empty-arg → --all collapse must not change this branch.
     const sandbox = makeSandbox();
     const fakeGh = setupRepo(sandbox, ['real-umbrella']);
 
-    const r = runHelper(sandbox, fakeGh, ['nonexistent-umbrella']);
+    const r = runHelper(ctx, sandbox, fakeGh, ['nonexistent-umbrella']);
     expect(r.status).toBe(1);
     expect(r.stdout).toMatch(/MISSING: nonexistent-umbrella no kickoff\.md found/);
     expect(r.stdout).not.toMatch(/Usage:/);
   });
 
-  it('NO-PROMPTS-DIR: empty arg with absent .claude/orchestrator-prompts/ emits `(no orchestrator-prompts dir)` and exits 0', () => {
+  it('NO-PROMPTS-DIR: empty arg with absent .claude/orchestrator-prompts/ emits `(no orchestrator-prompts dir)` and exits 0', (ctx) => {
     // Targets dup-detect.sh:72 — `if [[ ! -d "${PROMPTS_DIR}" ]]; then echo "..."; exit 0`.
     // Empty arg must reach the --all branch and gracefully handle missing dir,
     // not crash and not emit the old Usage: error.
@@ -181,7 +184,7 @@ describe('dup-detect.sh — empty arg = --all (paired-negative contract)', { tim
     writeFileSync(fakeGh, '#!/usr/bin/env bash\necho "[]"\nexit 0\n', 'utf8');
     chmodSync(fakeGh, 0o755);
 
-    const r = runHelper(sandbox, fakeGh, ['']);
+    const r = runHelper(ctx, sandbox, fakeGh, ['']);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/\(no orchestrator-prompts dir\)/);
     expect(r.stdout).not.toMatch(/Usage:/);

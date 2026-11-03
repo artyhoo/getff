@@ -1,15 +1,30 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const BIN = fileURLToPath(new URL('./pr-body-fidelity-bin.ts', import.meta.url));
+
+/**
+ * tsx runs as `node <tsx>/dist/cli.mjs`: no `.bin` shim (a symlink CreateProcess cannot
+ * execute on win32, #1799) and no `npx` (unresolvable from an arbitrary cwd; flaky nested).
+ * Same two-root probe as the sibling *-bin tests.
+ */
+function resolveTsx(): string {
+  for (const rel of ['../../node_modules/tsx/dist/cli.mjs', '../../../../node_modules/tsx/dist/cli.mjs']) {
+    const p = fileURLToPath(new URL(rel, import.meta.url));
+    if (existsSync(p)) return p;
+  }
+  return '';
+}
+const TSX = resolveTsx();
 const HEAD = 'a1b2c3d4e5f6a7b8c9d0a1b2c3d4e5f6a7b8c9d0';
 const GO_BODY = `## Fidelity verdict\nFIDELITY: GO\nBasis: k.md\nRound: 1\nAudited-SHA: ${HEAD}\nEvidence: src/a.ts:1\n`;
 
 /** Run the bin with an env set; returns { code, stdout, stderr }. */
 function run(env: Record<string, string | undefined>) {
   try {
-    const stdout = execFileSync('npx', ['tsx', BIN], {
+    const stdout = execFileSync(process.execPath, [TSX, BIN], {
       env: { ...process.env, BASE_REF: undefined, PR_BODY: undefined, HEAD_SHA: undefined, ...env },
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],

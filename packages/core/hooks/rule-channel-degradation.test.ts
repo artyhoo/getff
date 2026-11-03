@@ -41,13 +41,15 @@ const REPO_ROOT = resolve(HERE, '../../..');
 const GEN = resolve(REPO_ROOT, 'scripts/render-rule-channels.mjs');
 // GEN imports a .ts module (rule-channel-glob.ts) → must run under tsx, not plain node
 // (node <22.6 => ERR_UNKNOWN_FILE_EXTENSION on CI). tsx is a packages/core devDep: CI installs
-// it at packages/core/node_modules/.bin (via `npm ci --prefix packages/core`); a hoisted local
-// checkout has it at root. Resolve packages/core first, then root. (npx tsx was flaky nested.)
-const TSX_CORE = resolve(REPO_ROOT, 'packages/core/node_modules/.bin/tsx');
-const TSX = existsSync(TSX_CORE) ? TSX_CORE : resolve(REPO_ROOT, 'node_modules/.bin/tsx');
+// it under packages/core/node_modules (via `npm ci --prefix packages/core`); a hoisted local
+// checkout has it at root. Resolve packages/core first, then root. Spawned as
+// `node <tsx>/dist/cli.mjs` — the .bin shim is a symlink CreateProcess cannot execute on
+// win32 (#1799). (npx tsx was flaky nested.)
+const TSX_CORE = resolve(REPO_ROOT, 'packages/core/node_modules/tsx/dist/cli.mjs');
+const TSX = existsSync(TSX_CORE) ? TSX_CORE : resolve(REPO_ROOT, 'node_modules/tsx/dist/cli.mjs');
 
 function run(root: string, ...args: string[]): { status: number; out: string } {
-  const r = spawnSync(TSX, [GEN, ...args, '--root', root], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [TSX, GEN, ...args, '--root', root], { encoding: 'utf8' });
   return { status: r.status ?? -1, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 }
 

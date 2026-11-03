@@ -25,7 +25,7 @@
  * T3 compliance: each assertion cites helper line/region targeted.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -62,36 +62,38 @@ function writeDelta(sandbox: string, seenIds: string[]): string {
 }
 
 function runHelper(
+  ctx: Skippable,
   deltaPath: string,
   currentIds: string[],
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER, deltaPath, ...currentIds], { encoding: 'utf8' });
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER, deltaPath, ...currentIds], { encoding: 'utf8' });
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
 describe('delta-diff.sh — master-backlog-delta read-side set-diff (paired-negative)', () => {
-  it('EMPTY-SEEN: missing delta file → every current id emits as NEW (line ~53 `if [ -f ... ]` false branch)', () => {
+  it('EMPTY-SEEN: missing delta file → every current id emits as NEW (line ~53 `if [ -f ... ]` false branch)', (ctx) => {
     const sandbox = makeSandbox();
-    const r = runHelper(join(sandbox, 'absent.json'), ['alpha', 'beta']);
+    const r = runHelper(ctx, join(sandbox, 'absent.json'), ['alpha', 'beta']);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('NEW-SINCE-LAST: alpha');
     expect(r.stdout).toContain('NEW-SINCE-LAST: beta');
     expect(r.stdout).not.toContain('RESOLVED-SINCE-LAST:');
   });
 
-  it('IDENTICAL: seen == current → silent (line ~65 comm -23 + comm -13 both empty)', () => {
+  it('IDENTICAL: seen == current → silent (line ~65 comm -23 + comm -13 both empty)', (ctx) => {
     const sandbox = makeSandbox();
     const delta = writeDelta(sandbox, ['alpha', 'beta', 'gamma']);
-    const r = runHelper(delta, ['alpha', 'beta', 'gamma']);
+    const r = runHelper(ctx, delta, ['alpha', 'beta', 'gamma']);
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe('');
   });
 
-  it('MIXED-DIFF: 1 retained + 1 dropped + 1 new → exactly 1 NEW + 1 RESOLVED with correct id-to-label mapping (line ~65-67)', () => {
+  it('MIXED-DIFF: 1 retained + 1 dropped + 1 new → exactly 1 NEW + 1 RESOLVED with correct id-to-label mapping (line ~65-67)', (ctx) => {
     const sandbox = makeSandbox();
     const delta = writeDelta(sandbox, ['alpha', 'beta', 'gamma']);
     // Current: alpha retained, beta retained, gamma dropped, delta new.
-    const r = runHelper(delta, ['alpha', 'beta', 'delta']);
+    const r = runHelper(ctx, delta, ['alpha', 'beta', 'delta']);
     expect(r.status).toBe(0);
 
     const newLines = r.stdout.split('\n').filter((l) => l.startsWith('NEW-SINCE-LAST:'));
@@ -107,10 +109,10 @@ describe('delta-diff.sh — master-backlog-delta read-side set-diff (paired-nega
     expect(r.stdout).not.toContain('beta');
   });
 
-  it('ALL-RESOLVED: empty current + populated seen → all RESOLVED, no NEW (line ~67 comm -13 only)', () => {
+  it('ALL-RESOLVED: empty current + populated seen → all RESOLVED, no NEW (line ~67 comm -13 only)', (ctx) => {
     const sandbox = makeSandbox();
     const delta = writeDelta(sandbox, ['x', 'y', 'z']);
-    const r = runHelper(delta, []);
+    const r = runHelper(ctx, delta, []);
     expect(r.status).toBe(0);
 
     const newLines = r.stdout.split('\n').filter((l) => l.startsWith('NEW-SINCE-LAST:'));
@@ -124,10 +126,10 @@ describe('delta-diff.sh — master-backlog-delta read-side set-diff (paired-nega
     ]);
   });
 
-  it('SPECIAL-CHARS: ids with §, /, : (real namespace shapes per priority-score.sh) round-trip correctly', () => {
+  it('SPECIAL-CHARS: ids with §, /, : (real namespace shapes per priority-score.sh) round-trip correctly', (ctx) => {
     const sandbox = makeSandbox();
     const delta = writeDelta(sandbox, ['openq-§13-42', 'todo-packages/core/foo.ts:60']);
-    const r = runHelper(delta, ['openq-§13-42', 'residual-2026-05-25-design-§future']);
+    const r = runHelper(ctx, delta, ['openq-§13-42', 'residual-2026-05-25-design-§future']);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('NEW-SINCE-LAST: residual-2026-05-25-design-§future');
     expect(r.stdout).toContain('RESOLVED-SINCE-LAST: todo-packages/core/foo.ts:60');
@@ -135,18 +137,19 @@ describe('delta-diff.sh — master-backlog-delta read-side set-diff (paired-nega
     expect(r.stdout).not.toContain('RESOLVED-SINCE-LAST: openq-§13-42');
   });
 
-  it('CORRUPT-JSON: invalid JSON in delta → exit 1 + stderr (line ~55-57 `jq empty` fail branch)', () => {
+  it('CORRUPT-JSON: invalid JSON in delta → exit 1 + stderr (line ~55-57 `jq empty` fail branch)', (ctx) => {
     const sandbox = makeSandbox();
     const path = join(sandbox, 'd.json');
     writeFileSync(path, '{ not valid json', 'utf8');
-    const r = runHelper(path, ['x']);
+    const r = runHelper(ctx, path, ['x']);
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/delta corrupt — invalid JSON/);
     expect(r.stdout.trim()).toBe('');
   });
 
-  it('BOUNDARY: zero args → exit 2 + usage diagnostic (line ~45-48 arg-count check)', () => {
-    const r = spawnSync('bash', [HELPER], { encoding: 'utf8' });
+  it('BOUNDARY: zero args → exit 2 + usage diagnostic (line ~45-48 arg-count check)', (ctx) => {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [HELPER], { encoding: 'utf8' });
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/usage:/);
   });

@@ -70,7 +70,11 @@ async function buildConsumer(stack: Stack, tmpBase: string): Promise<void> {
   const result = spawnSync('bash', [INSTALL_SH, stack], {
     cwd: tmpBase,
     encoding: 'utf8',
-    timeout: 60_000,
+    // Loaded-host budget: `install.sh ts-server` measures 51.56s RC=0 on an idle
+    // aarch64 macOS host (2026-10-28), so 60s had only ~8s headroom and tipped into
+    // ETIMEDOUT (status null -> suite-level throw) under full-sweep concurrency.
+    // 4x the measured floor, same class as f8b3b9ff64f (pty watchdog 15s -> 60s).
+    timeout: 240_000,
   });
   if (result.status !== 0) {
     throw new Error(
@@ -85,7 +89,9 @@ beforeAll(async () => {
     consumerDirs[stack] = tmpBase;
     await buildConsumer(stack, tmpBase);
   }
-}, 90_000);
+  // 2 serialized installs at the 240s per-stack spawnSync cap, plus slack — the old
+  // 90s could not even hold the two ~52s idle installs this audit measures (2026-10-28).
+}, 600_000);
 
 afterAll(async () => {
   for (const dir of Object.values(consumerDirs)) {

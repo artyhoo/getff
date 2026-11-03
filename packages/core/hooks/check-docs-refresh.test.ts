@@ -3,7 +3,7 @@
  * contract (getff-ai-site S1 BUILD). NOT pre-push.test.ts (R13: the seam is the script, not
  * the hook section; the hook section only resolves the range and delegates).
  *
- * Reference pattern: packages/core/hooks/check-doc-authority.test.ts:8,133
+ * Reference pattern: packages/core/hooks/check-doc-authority.test.ts:8,141
  * (vitest + spawnSync + mkdtempSync sandbox + delta-based tree-guard).
  *
  * The D26 refresh gate (docs/superpowers/specs/2026-09-13-getff-ai-site-design.md D26,
@@ -47,6 +47,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, failLoudSkipContext } from './spawn-bash-or-skip.ts';
 import {
   existsSync,
   mkdirSync,
@@ -97,7 +98,15 @@ const SANDBOX = realpathSync(
 );
 
 function git(args: string, cwd = SANDBOX): string {
-  const r = spawnSync('bash', ['-c', `git ${args}`], { cwd, encoding: 'utf8' });
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  // Sandbox setup runs in beforeAll (no vitest ctx reaches here) — so the module-scope
+  // doctrine applies: an unreachable Git Bash resolution fails LOUD, never silent.
+  const r = spawnBashOrSkip(
+    failLoudSkipContext('check-docs-refresh sandbox git setup'),
+    'bash',
+    ['-c', `git ${args}`],
+    { cwd, encoding: 'utf8' },
+  );
   if (r.status !== 0)
     throw new Error(
       `git ${args} failed (rc=${r.status}): ${(r.stderr || r.stdout).trim()}`,

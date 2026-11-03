@@ -15,7 +15,7 @@
  * tolerance are the failure modes the script is paid to handle.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -52,16 +52,14 @@ interface RunResult {
   status: number;
 }
 
-function runScript(root: string, ...flags: string[]): RunResult {
-  try {
-    const stdout = execFileSync('bash', [SCRIPT, '--root', root, ...flags], {
-      encoding: 'utf8',
-    });
-    return { stdout, status: 0 };
-  } catch (err) {
-    const e = err as { stdout?: string; stderr?: string; status?: number };
-    return { stdout: (e.stdout ?? '') + (e.stderr ?? ''), status: e.status ?? 1 };
-  }
+function runScript(ctx: Skippable, root: string, ...flags: string[]): RunResult {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  // The old execFileSync try/catch mapped throw-on-non-zero to {status: err.status ?? 1}
+  // with stdout+stderr concatenated; spawnSync's result object keeps the same shape.
+  const r = spawnBashOrSkip(ctx, 'bash', [SCRIPT, '--root', root, ...flags], {
+    encoding: 'utf8',
+  });
+  return { stdout: (r.stdout ?? '') + (r.stderr ?? ''), status: r.status ?? 1 };
 }
 
 describe('apply-doc-fixes.sh', () => {
@@ -82,8 +80,8 @@ describe('apply-doc-fixes.sh', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('applies all four mechanical fixes', () => {
-    const res = runScript(root);
+  it('applies all four mechanical fixes', (ctx) => {
+    const res = runScript(ctx, root);
     expect(res.status).toBe(0);
 
     const rule = readFileSync(rulePath, 'utf8');
@@ -104,38 +102,38 @@ describe('apply-doc-fixes.sh', () => {
     expect(readme).toContain('CI (discipline-self-check)');
   });
 
-  it('is idempotent — a second run changes nothing', () => {
-    runScript(root);
+  it('is idempotent — a second run changes nothing', (ctx) => {
+    runScript(ctx, root);
     const ruleAfter1 = readFileSync(rulePath, 'utf8');
     const readmeAfter1 = readFileSync(readmePath, 'utf8');
 
-    const res2 = runScript(root);
+    const res2 = runScript(ctx, root);
     expect(res2.status).toBe(0);
     expect(res2.stdout).toContain('already current');
     expect(readFileSync(rulePath, 'utf8')).toBe(ruleAfter1);
     expect(readFileSync(readmePath, 'utf8')).toBe(readmeAfter1);
   });
 
-  it('--check reports would-fix without writing', () => {
+  it('--check reports would-fix without writing', (ctx) => {
     const before = readFileSync(readmePath, 'utf8');
-    const res = runScript(root, '--check');
+    const res = runScript(ctx, root, '--check');
     expect(res.status).toBe(0);
     expect(res.stdout).toContain('would-fix');
     // no mutation happened
     expect(readFileSync(readmePath, 'utf8')).toBe(before);
   });
 
-  it('tolerates an absent target file (paired-negative)', () => {
+  it('tolerates an absent target file (paired-negative)', (ctx) => {
     rmSync(readmePath);
-    const res = runScript(root);
+    const res = runScript(ctx, root);
     expect(res.status).toBe(0);
     expect(res.stdout).toContain('skip');
     // the rule file still gets fixed
     expect(readFileSync(rulePath, 'utf8')).toContain('Activation confirmed');
   });
 
-  it('rejects an unknown argument (paired-negative)', () => {
-    const res = runScript(root, '--bogus');
+  it('rejects an unknown argument (paired-negative)', (ctx) => {
+    const res = runScript(ctx, root, '--bogus');
     expect(res.status).toBe(2);
   });
 });

@@ -51,9 +51,12 @@ mk_synthetic() {
 esc() { python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1" 2>/dev/null || node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$1"; }
 
 # Run the hook with given stdin JSON, env overrides; echo stdout.
+# -u CLAUDE_CODE_ENTRYPOINT: a sweep launched from an Agent-SDK session exports it as sdk-*,
+# and the hook's SDK guard then exits 0 before every arm (all six fired arms went rc=0 out=
+# empty under sdk-cli on 2026-10-28). CI never sets the var.
 run_hook() {
   local stdin_json="$1"; shift
-  env "$@" AIF_HOOK_LANG=en bash "$HOOK" <<<"$stdin_json" 2>/dev/null
+  env -u CLAUDE_CODE_ENTRYPOINT "$@" AIF_HOOK_LANG=en bash "$HOOK" <<<"$stdin_json" 2>/dev/null
 }
 
 REPEAT_Q="Should we proceed with step Y?"

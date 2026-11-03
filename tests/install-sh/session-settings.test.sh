@@ -81,7 +81,8 @@ for engine in jq node; do
   cmd=$(revert_of "$WORK/b.out")
   if [ -n "$cmd" ]; then
     ( cd "$d" && eval "$cmd" )
-    [ ! -e "$f" ] && ok "${tag}B the printed undo command («$cmd») removes it" || bad "${tag}B undo left the file: «$cmd»"
+    # ${cmd} braces: /bin/bash 3.2 parses `»` after $cmd as NAME bytes → `cmd…: unbound variable`.
+    [ ! -e "$f" ] && ok "${tag}B the printed undo command («${cmd}») removes it" || bad "${tag}B undo left the file: «${cmd}»"
   else bad "${tag}B no undo command printed"; fi
 
   echo "── ${tag}C: consent, the person's own file"
@@ -102,10 +103,10 @@ for engine in jq node; do
   echo "── ${tag}D: a second run"
   GETFF_SESSION_SETTINGS=1 run_apply "$d" "$P" > "$WORK/d.out" 2>&1
   cmp -s "$f" "$WORK/c.after" && ok "${tag}D a second run changes nothing" || bad "${tag}D the second run changed the file"
-  [ "$(revert_of "$WORK/d.out")" = "$cmd" ] && ok "${tag}D it prints the same undo command" || bad "${tag}D undo differs: «$(revert_of "$WORK/d.out")» vs «$cmd»"
+  [ "$(revert_of "$WORK/d.out")" = "$cmd" ] && ok "${tag}D it prints the same undo command" || bad "${tag}D undo differs: «$(revert_of "$WORK/d.out")» vs «${cmd}»"
   if [ -n "$cmd" ]; then
     ( cd "$d" && eval "$cmd" )
-    cmp -s "$f" "$WORK/c.before" && ok "${tag}C the undo command («$cmd») restores their file byte-for-byte" || bad "${tag}C undo did not restore the file"
+    cmp -s "$f" "$WORK/c.before" && ok "${tag}C the undo command («${cmd}») restores their file byte-for-byte" || bad "${tag}C undo did not restore the file"
   else bad "${tag}C no undo command printed"; fi
 
   echo "── ${tag}I: the team's settings.json sets a value getff also sets"
