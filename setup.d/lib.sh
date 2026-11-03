@@ -5034,6 +5034,9 @@ aif-review 42 fcf5933063730451f53ada7b865c4774d3808d6c7be9df6633b1fa73091f699a 3
 aif-rules-check 42 ef8609433e8fbd9ecad4fa332a78eda10c0f2bd6c43dc19ceb168550cebbf75f 38 1f3e7c3022c6f43a62517279a315471a5d171112cce145cdfb160635ec008008
 aif-rules-check 42 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791 38 b9a59089f5cc1ec4bb3d2ce0fd554d7fb694f047f0ca3fb5005f1a405b3e2e5b
 aif-rules-check 42 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448 38 f7c6deab98cb56e9c164bcdc76bf7c1551622bc8de391c97e94b6842feda2409
+aif-review 62 3106251f0e08b06a73313587198bf09b0c31af14ba7d52c08a9d8c193902c5d0 58 765d916798c21ea14443d8f976c8fd8d06cc61bfadd67e8ac95114333bf13a86
+aif-review 70 0a6fd2c24253e661a998318e241a379a6609b8f74dffb575715b413aac0dc24f 66 54a39c501bfb963dcc5a677ec2acc35945c1f186058d99590d2aea04ace98786
+aif-review 64 83f1dd00c313f3bb801d7e8a683e52f54881324c5fc6e5daee632adf0ed5a754 60 964a659d7a5db0bd98e8d541754fba60e2051fe989ea8c813874f665f63c0279
 '
 
 # install_skill_context <src> <dst>
@@ -5175,35 +5178,44 @@ _skill_context_revision_row() {
 
 # _skill_context_delivered_lines <src> <dst> — echo N and exit 0 IFF the first N lines of the
 # fence-less <dst> (CR ignored) are a whole template getff shipped: the current <src>, or any
-# registered revision of this skill. Exit 1 = not provable.
+# registered revision of this skill. When several revisions match — a template that grew by
+# appending makes an older revision a strict line-prefix of a newer one (aif-review 2026-11:
+# 42-line 478b1a62 prefixed the 62/64-line revisions, so the first-match split stranded their
+# tail lines as fake project rules) — the LONGEST provable prefix wins: every match is
+# hash-pinned to a registered shipped revision, so a longer match never absorbs consumer bytes.
+# Exit 1 = not provable.
 _skill_context_delivered_lines() {
-  local src="$1" dst="$2" lf probe total n _skill lines sha _bl _bh h
+  local src="$1" dst="$2" lf probe total n _skill lines sha _bl _bh h best=0
   lf=$(mktemp) || return 1
   probe=$(mktemp) || { rm -f "$lf"; return 1; }
   tr -d '\r' < "$dst" > "$lf"
   total=$(wc -l < "$lf" | tr -d ' ')
   n=$(wc -l < "$src" | tr -d ' ')
   if [ "$n" -gt 0 ] && [ "$n" -le "$total" ] && head -n "$n" "$lf" | cmp -s - "$src"; then
-    rm -f "$lf" "$probe"; echo "$n"; return 0
+    best=$n
   fi
   while read -r _skill lines sha _bl _bh; do
-    if [ -z "$sha" ] || [ "$lines" -gt "$total" ]; then continue; fi
+    if [ -z "$sha" ] || [ "$lines" -le "$best" ] || [ "$lines" -gt "$total" ]; then continue; fi
     head -n "$lines" "$lf" > "$probe"
     if h=$(_hash256 "$probe") && [ "$h" = "$sha" ]; then
-      rm -f "$lf" "$probe"; echo "$lines"; return 0
+      best=$lines
     fi
   done <<EOF
 $(_skill_context_revisions "$(basename "$(dirname "$dst")")")
 EOF
   rm -f "$lf" "$probe"
+  if [ "$best" -gt 0 ]; then echo "$best"; return 0; fi
   return 1
 }
 
 # _skill_context_stripped_block <dst> — echo "K L" and exit 0 IFF the fence-less <dst> holds a
 # getff block whose markers were removed: SKILL_CONTEXT_NOTE_LEAD at line K, then (after blank
-# lines) a registered body of this skill ending at line L. CR ignored.
+# lines) a registered body of this skill ending at line L. Longest registered body wins, for the
+# same reason as _skill_context_delivered_lines: an older revision's body is a line-prefix of a
+# newer one when the template grew by appending, and the first match would strand the tail. CR
+# ignored.
 _skill_context_stripped_block() {
-  local dst="$1" lf probe k start _skill _l _h bl bh h
+  local dst="$1" lf probe k start _skill _l _h bl bh h end=0 endbl=0
   lf=$(mktemp) || return 1
   probe=$(mktemp) || { rm -f "$lf"; return 1; }
   tr -d '\r' < "$dst" > "$lf"
@@ -5213,15 +5225,17 @@ _skill_context_stripped_block() {
   if [ -n "$start" ]; then
     while read -r _skill _l _h bl bh; do
       [ -n "$bh" ] || continue
+      [ "$bl" -le "$endbl" ] && continue
       sed -n "${start},$((start + bl - 1))p" "$lf" > "$probe"
       if h=$(_hash256 "$probe") && [ "$h" = "$bh" ]; then
-        rm -f "$lf" "$probe"; echo "$k $((start + bl - 1))"; return 0
+        end=$((start + bl - 1)); endbl=$bl
       fi
     done <<EOF
 $(_skill_context_revisions "$(basename "$(dirname "$dst")")")
 EOF
   fi
   rm -f "$lf" "$probe"
+  if [ "$end" -gt 0 ]; then echo "$k $end"; return 0; fi
   return 1
 }
 
