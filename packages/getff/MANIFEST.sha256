@@ -909,7 +909,7 @@ a7809a7c70c2a19a1356c4bdd4c4248ba75ddd9508d55d23d1e4dd4de1ce8816  packages/core/
 10e9e7cca695db64a9ba13a005b26141c88f603dd53b04f81adfed0127ae4dc9  packages/core/hooks/frontier.test.ts
 47a01076e875f2625dbe8e13dbcd2a6b0c5a5950e6059f6fbbb81239ad98c04b  packages/core/hooks/getff-work.test.ts
 5859fcb33520399a4155afe8cc188b338f342e5fbe722d5362e5a6c755addf36  packages/core/hooks/glossary-counters.test.ts
-438cb376e27daa60b1c636dec962339323a75999e25f3ff0ad4ec2691b7acb6b  packages/core/hooks/harness-config-drift.test.ts
+5e3581f38a44f0bfe25b9c123f01e7883d617bc9747a72a9fcc81eaef483c007  packages/core/hooks/harness-config-drift.test.ts
 dcb50466e6298faf6aad8f3ae674ac14228eb428adbdc901c7c2f2850c177f93  packages/core/hooks/hook-emit-prelude.test.ts
 3e91ed097df2cdcf37af069ffb3605ff4ad33559d3c55f59c599aa4d0dead86b  packages/core/hooks/host-verify.test.ts
 adc7cb66cc3ef2f0334c97ff825a2751d9aa8014bb75594ec4d84ff0d4a7c6eb  packages/core/hooks/husky-self-delegate.test.ts
@@ -929,7 +929,7 @@ facbb703c6ee12b817a397508639d10d56608674ecdd025b65a602a13865e473  packages/core/
 b068c9324da122e70e126239eb45632376288d995b3d2d7418c8ac7d3bc9931a  packages/core/hooks/parse-preset.test.ts
 c718331b1f183d8aa4f7731dbafbf2765ae0709c12b1f3493537d9f19ba18c0e  packages/core/hooks/pin-parity.test.ts
 f33a7b661b53c4812e8866332c286e80a94e5aadebfd62effe5a08024d66e301  packages/core/hooks/pre-push.bundle.mjs
-4616edd2b54b6f256c2f65115d078086be657aff54bd3ca813e50751040f60ec  packages/core/hooks/pre-push.consumer-layout.test.ts
+e51d95c35c007c3ec7dc6246dd9b601cc380587e9003ccc06fc3049b30960f8f  packages/core/hooks/pre-push.consumer-layout.test.ts
 d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
 29f7a509e23388250f7083bd6700b44dfd8fdf3a1a7e0f146f0e144c66f1d30b  packages/core/hooks/pre-push.fallback.test.ts
 38049d591106aa4748efed67e0fe6a0a087ff576281e0ef3c86babb16a7b1f96  packages/core/hooks/pre-push.heavy-runner.test.ts
@@ -948,8 +948,8 @@ f51ad22164d28896be4a6e79f1769fe833b81a6d6ea57c3c498ab427efc3da91  packages/core/
 e4b24acb8e0a8150c9d6cdaf82934c37fcb602b7ca7870dcd2dd4eb1c09d04cc  packages/core/hooks/session-start.test.ts
 cb381105091e78f3ed947c8a73f234d0a0fbacd8bf928e2f984dfce10c608c26  packages/core/hooks/skill-index-on-compact.test.ts
 2aa8d1a21969792768ee84fcaecb2aa7a6dae803ddb599dceeae70b3215697cf  packages/core/hooks/snapshot-for-seat.test.ts
-804973855e4f31417af8eeaed862874234bb0785b5e842ebb9e24126f26ef65d  packages/core/hooks/spawn-bash-or-skip.test.ts
-b7f1b03e49a750f28246bf723abe9af6065651fad7c9144ca7dda9b6492e2f95  packages/core/hooks/spawn-bash-or-skip.ts
+93fc955af2510ea02f807cfa9de6967fb59b9bc480700717ab2b7cdf040c5ed8  packages/core/hooks/spawn-bash-or-skip.test.ts
+7d78290929e62be77df571cfe1d53a7214c28e3d1ce652e1335a60541de20ea3  packages/core/hooks/spawn-bash-or-skip.ts
 cbf4be6f0d8b7aff4052e4e41996c26332d3ba9ab4e344ccc1fe325432f72974  packages/core/hooks/symlink-or-junction-or-skip.ts
 154069dd41cfdb9a0f7684d43473b91a4c3a69fe79053b56c4423db55db75b5d  packages/core/hooks/unpinned-tool-install.test.ts
 b77d34f87c04975a183fd4da1ebe6c0cd442f53e67bf35d02d852f3a2b5d1241  packages/core/hooks/update-cache.test.ts
