@@ -14,7 +14,7 @@
 #   env+ profile depth. The three scripts form a call chain:
 #     create-worktree.sh  →  worktree-node-modules.sh  →  link-coordination.sh
 #   so all three MUST ship together (a partial ship produces loud warnings
-#   from create-worktree.sh:127-129 when its callees are absent).
+#   from create-worktree.sh:133-135 when its callees are absent).
 #
 # Profile gate (env+ per kickoff §0 + §8a Park-6):
 #   - PROFILE=env      → install (env depth carries the workspace one-command).

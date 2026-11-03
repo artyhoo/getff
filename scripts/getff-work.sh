@@ -110,7 +110,7 @@ fi
 # install run here writes into the primary: npm reifies against the worktree's own
 # lock and PRUNES every package outside that closure from the primary's real
 # node_modules, emptying `node_modules/.bin` on the way. The sibling guard in
-# create-worktree.sh:108-111 already states this rule for packages/core; this is the
+# create-worktree.sh:114-117 already states this rule for packages/core; this is the
 # same rule at the root level, where the blast radius is the whole tree.
 #
 # Incident 2026-08-16: this is what reddened `staging` at fa8da9406c. The hooks
