@@ -83,7 +83,7 @@ const PAIRED_NEGATIVE_RE = /❌|Paired-negative contract|PAIRED-NEGATIVE/;
  * file with the ❌+✅ shape to pass the Stage 3C gate.
  *
  * Evidence (verified against real hook test files, T3):
- *   - .toBe(N) exit-code assertions: hooks/check-hook-marker.test.ts:185,194,203
+ *   - .toBe(N) exit-code assertions: hooks/check-hook-marker.test.ts:191,200,209
  *   - .toMatch( pattern checks:      hooks/end-of-turn-reminder.test.ts (many)
  *   - .toContain( string checks:     hooks/deps-hash-check.test.ts (many)
  *   - expect(r.status):              hooks/deps-hash-check.test.ts:353+
