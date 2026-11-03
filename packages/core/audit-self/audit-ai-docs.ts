@@ -504,7 +504,21 @@ function gitView(cwd: string): string[] | null {
   } catch {
     return null; // not inside a work tree — walk
   }
-  if (realpathSync(top) !== realpathSync(cwd)) return null;
+  // win32 dialect guard (run 41559999951, windows-hooks cell): git prints the toplevel
+  // forward-slashed (`C:/Users/…`) while realpathSync(cwd) yields backslashed — and the
+  // comparison can also split on drive-letter case. Any of those mismatches silently
+  // demoted the probe to the filesystem walk below, whose win32 `relative()` output
+  // (`.agents\hooks\…`) then matched NO DOWNSTREAM_DOCS entry and NO exemption regex —
+  // every enrolled file reported as a D5 finding. Normalizing separator + case on both
+  // sides is the identity on POSIX (realpath bytes compared byte-for-byte).
+  const sameRoot = (a: string, b: string): boolean => {
+    const ra = realpathSync(a);
+    const rb = realpathSync(b);
+    return process.platform === 'win32'
+      ? ra.replace(/\\/g, '/').toLowerCase() === rb.replace(/\\/g, '/').toLowerCase()
+      : ra === rb;
+  };
+  if (!sameRoot(top, cwd)) return null;
   // Inside a confirmed work-tree root a failure here is a real error, never a reason to
   // fall back to the walk this function exists to replace.
   const out = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
@@ -535,8 +549,14 @@ function walkFiles(cwd: string): string[] {
       try { st = statSync(full); } catch { continue; }
       if (st.isDirectory()) { walk(full); continue; }
       // Relative to cwd whatever its spelling (trailing slash, relative path): the
-      // exemption patterns are anchored at the repo root.
-      results.push(relative(cwd, full));
+      // exemption patterns are anchored at the repo root. POSIX separators always —
+      // win32 `relative()` emits backslash-separated rels (run 41559999951: every
+      // DOWNSTREAM_DOCS entry and exemption regex is forward-slashed, so a backslashed
+      // rel can never match and D5 false-fires on the whole tree). Identity on POSIX:
+      // a POSIX path contains no `\` separator, and we deliberately do NOT rewrite
+      // backslashes inside a POSIX filename.
+      const rel = relative(cwd, full);
+      results.push(process.platform === 'win32' ? rel.split('\\').join('/') : rel);
     }
   }
 
