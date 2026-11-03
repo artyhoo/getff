@@ -1192,15 +1192,23 @@ test('ROOT-S4-R3: changed live source bytes change the signature and break ledge
     // loadReviewedIntegration.)
     mkdirSync(join(tmp, 'docs/test-assurance-kernel/s2'), { recursive: true });
     writeFileSync(join(tmp, S2_REVIEWED_INTEGRATION_REL), readFileSync(join(REPO_ROOT, S2_REVIEWED_INTEGRATION_REL)));
-    // Root unit-38 F1: the composite reads the LIVE scope-extension ledger from the fixture
-    // checkout AND the committed live HEAD row (unit-38 F2) — pin BOTH to the FIXED
-    // unactivated cd3 baseline (disk bytes + the live-tree ledger row rewritten to the cd3
-    // object through a pass-through adapter) so the pending oracle stays meaningful before
-    // AND after the canonical activation: the only refusal remains the honest pending class,
-    // never an activation-dependent channel flip or a disk/committed divergence.
+    // Root unit-38 F1 + unit-49 repair: the composite reads the LIVE scope-extension ledger
+    // from the fixture checkout AND the committed live HEAD row (unit-38 F2). Since G445 the
+    // guard bytes genuinely differ from the admitted checkpoint, so a row-LESS cd3 form now
+    // hard-refuses (the correct production verdict for a changed governed path without a
+    // binding) and the pending oracle dies before its assertion. The fixture is therefore a
+    // COHERENT TESTONLY unactivated ledger: the unchanged cd3 baseline PLUS exactly the two
+    // optional guard rows, pins derived from the actual COMMITTED live guard blobs — the
+    // same fixture bytes on disk and served as the committed live-HEAD row through the
+    // bounded pass-through adapter. The five original rows keep their cd3 pins (genuinely
+    // unactivated semantics preserved — no activation rows, no rebind of the five baseline
+    // expectations), so the only refusal remains the honest finite pending class, never an
+    // activation-dependent channel flip, a disk/committed divergence or a hard nonrow
+    // mislabel of the two governed guard changes.
     mkdirSync(join(tmp, 'docs/test-assurance-kernel/s3'), { recursive: true });
-    writeFileSync(join(tmp, S3_LEDGER_REL), CD3_LEDGER_BYTES);
-    const condPending = validatePredecessors(accLedger, tmp, pinLiveLedgerRowToBaseline(realGitHistorical), { expectedInputs: condPredExpected, portableTransportRoot: REPO_ROOT });
+    const fixtureLedger = coherentUnactivatedLedgerBytes();
+    writeFileSync(join(tmp, S3_LEDGER_REL), fixtureLedger);
+    const condPending = validatePredecessors(accLedger, tmp, pinLiveLedgerRowToBytes(realGitHistorical, fixtureLedger, fixtureLedgerGitBlob(fixtureLedger)), { expectedInputs: condPredExpected, portableTransportRoot: REPO_ROOT });
     assert.ok(!condPending.ok, 'the conditional composite refuses while postimage proposals are unadmitted');
     assert.ok(condPending.problems.some((x) => x.includes('remain unadmitted (explicit admission-pending refusal, never a silent pass)')), condPending.problems.join('|'));
     assert.ok(condPending.problems.every((x) => !x.includes('stale/unrelated accepted evidence') && !x.includes('does not reconcile')), condPending.problems.join('|'));
@@ -1817,6 +1825,49 @@ const pinLiveLedgerRowToBaseline = (runner) => {
     const pinned = r.stdout.toString('utf8').split('\0').filter(Boolean).map((e) => {
       const m = /^(\d+) (blob|tree|commit) ([0-9a-f]{40})\t(.*)$/s.exec(e);
       return m && m[4] === S3_LEDGER_REL ? `${m[1]} ${m[2]} ${CD3_LEDGER_GITBLOB}\t${m[4]}` : e;
+    }).join('\0');
+    return { ...r, stdout: Buffer.from(`${pinned}\0`) };
+  };
+};
+// Root unit-49 (2026-11-03): the R3 fixture's coherent TESTONLY live ledger — the UNCHANGED
+// cd3 baseline bytes plus EXACTLY the two optional guard modifiedPaths rows (fixed order,
+// closed path+sha256 form, 64-hex pins derived at fixture-construction time from the ACTUAL
+// COMMITTED live guard blobs — fixed fixture inputs with content-derived hashes, never an
+// expected output taken from a production verdict). The cd3 baseline OBJECT keeps its exact
+// bytes WITHOUT the rows; only this fixture copy carries them, so the two genuinely known
+// guard changes bind as governed rows while the five original rows keep their unactivated
+// cd3 pins and the honest finite pending class stays the ONLY refusal (Root unit-49 brief:
+// repair the fixture, never the production refusal).
+const coherentUnactivatedLedgerBytes = () => {
+  const L = JSON.parse(CD3_LEDGER_BYTES.toString('utf8'));
+  L.modifiedPaths = [...L.modifiedPaths, ...LEDGER_BINDING_OPTIONAL_GUARD_PATHS.map((p) => {
+    const blob = realGit(['cat-file', 'blob', `HEAD:${p}`]);
+    if (blob.rc !== 0) throw new Error(`fixture construction: committed live guard blob unreadable at HEAD:${p}`);
+    return { path: p, sha256: sha(blob.stdout) };
+  })];
+  return Buffer.from(JSON.stringify(L));
+};
+// The synthetic blob id for fixture ledger bytes: the plain git blob hash computed locally
+// (`blob <len>\0` + bytes). Deterministic, and NO object is ever written into the shared
+// repository — the adapter below only SERVES these bytes for this one id.
+const fixtureLedgerGitBlob = (bytes) => createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+// A pass-through runner wrapper serving ONE fixture ledger blob consistently: the live-HEAD
+// ls-tree ledger row is rewritten to the fixture blob id AND `cat-file blob <that id>`
+// returns the exact fixture bytes, so the production disk/committed identity check holds —
+// the fixture disk ledger and the committed live-tree row are the SAME bytes/object identity.
+// Every unrelated call (including the real cd3 baseline reads by checkpoint head) passes
+// through untouched.
+const pinLiveLedgerRowToBytes = (runner, bytes, gitBlob) => {
+  const liveHead = runner(['rev-parse', 'HEAD']).stdout.toString().trim();
+  return (args) => {
+    if (args[0] === 'cat-file' && args[1] === 'blob' && args[2] === gitBlob) {
+      return { rc: 0, stdout: bytes, stderr: Buffer.from('') };
+    }
+    const r = runner(args);
+    if (args[0] !== 'ls-tree' || String(args[args.length - 1]) !== `${liveHead}^{tree}` || r.rc !== 0) return r;
+    const pinned = r.stdout.toString('utf8').split('\0').filter(Boolean).map((e) => {
+      const m = /^(\d+) (blob|tree|commit) ([0-9a-f]{40})\t(.*)$/s.exec(e);
+      return m && m[4] === S3_LEDGER_REL ? `${m[1]} ${m[2]} ${gitBlob}\t${m[4]}` : e;
     }).join('\0');
     return { ...r, stdout: Buffer.from(`${pinned}\0`) };
   };

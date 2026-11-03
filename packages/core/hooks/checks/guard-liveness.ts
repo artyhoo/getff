@@ -557,9 +557,12 @@ export function runTestQualityLiveness(files: string[], rootDir: string = REPO_R
  *  whitespace in a committed filename survives as its own distinct identity and
  *  can never collapse onto a known SOURCE spelling. runCheck preserves raw
  *  stdout, so no runner change is needed. */
-export function getChangedFilesVsBase(base: string): { files: string[]; error?: string } {
+export function getChangedFilesVsBase(base: string, rootDir: string = REPO_ROOT): { files: string[]; error?: string } {
+  // `rootDir` is the minimal filesystem seam (Root unit-47 remainder, same shape the
+  // classifier and liveness lanes already expose) so the REAL caller can run against an
+  // owned isolated Git fixture in tests; every production call keeps the REPO_ROOT default.
   const diff = runCheck('git', ['diff', '--name-only', '--diff-filter=ACMR', '-z', `${base}...HEAD`], {
-    cwd: REPO_ROOT,
+    cwd: rootDir,
   });
   if (diff.exitCode !== 0) {
     return { files: [], error: `git diff failed for base '${base}': ${diff.stderr.trim()}` };
@@ -572,10 +575,13 @@ export function getChangedFilesVsBase(base: string): { files: string[]; error?: 
  * Returns null when there is nothing to report (no test-bearing change, no violation);
  * a GuardLivenessFailure when the lint found violations or hit an infrastructure error.
  */
-export function runTestQualityGate(base: string): GuardLivenessFailure | null {
-  const { files, error: diffError } = getChangedFilesVsBase(base);
+export function runTestQualityGate(base: string, rootDir: string = REPO_ROOT): GuardLivenessFailure | null {
+  // `rootDir` threads the same minimal filesystem seam through caller → liveness so the
+  // REAL gate runs consistently against an owned fixture root; production callers keep
+  // the REPO_ROOT default (runGuardLivenessGate calls this with base only).
+  const { files, error: diffError } = getChangedFilesVsBase(base, rootDir);
   if (diffError) return { ruleId: TEST_QUALITY_FAILURE_RULE_ID, failures: [diffError] };
-  const result = runTestQualityLiveness(files);
+  const result = runTestQualityLiveness(files, rootDir);
   if (result.error) return { ruleId: TEST_QUALITY_FAILURE_RULE_ID, failures: [result.error] };
   if (result.violations.length === 0) return null;
   return { ruleId: TEST_QUALITY_FAILURE_RULE_ID, failures: result.violations };

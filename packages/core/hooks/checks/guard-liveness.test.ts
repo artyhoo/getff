@@ -26,6 +26,7 @@ import {
   runTestQualityLiveness,
   runTestQualityGate,
   getChangedFilesVsBase,
+  TEST_QUALITY_FAILURE_RULE_ID,
   isTestBearingPath,
   classifyFrozenSourceInput,
   FROZEN_SOURCE_SHA256,
@@ -837,15 +838,24 @@ describe('frozen intentional-fixture SOURCE role (unit 46/47)', () => {
     }
   });
 
-  // ── Real counterfactual sensitivity (unit 47 repair #5) ──────────────────────
+  // ── Real counterfactual sensitivity (unit 47 repair #5; unit-47 remainder hardening) ──
   // The unit-46 seed named two tests «classifier-disabled» / «over-rejecting»
   // while merely linting ordinary twins — claims the code never made good on.
   // These arms MUTATE a copy of the production module in an owned scratch lab
   // (never the canonical file), run the mutated copy as a REAL subprocess
   // through the exported production entry, require the RED, then prove the
-  // un-mutated (healed) copy goes GREEN in the same lab — with hashes for the
-  // original, mutated and canonical (never mutated) bytes at every step.
-  const runLabModule = (mutate: ((src: string) => string) | null) => {
+  // un-mutated (healed) copy goes GREEN in the same lab. Hash discipline
+  // (Root unit-47 remainder): the mutant is compared against the REBOUND
+  // baseline (the same copy after import/REPO_ROOT rebinding, BEFORE the
+  // mutation), the healed copy must hash EXACTLY that baseline, and the
+  // canonical file stays byte-identical throughout — the emitted
+  // MUTANT-HASHES lines record baseline/mutant/healed/canonical per arm.
+  interface LabRunSpec {
+    files?: string[];
+    rootDir?: string;
+    base?: string;
+  }
+  const runLabModule = (mutate: ((src: string) => string) | null, run: LabRunSpec = {}) => {
     const lab = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'glv-mut-'));
     try {
       const original = readFileSync(CANONICAL_GUARD, 'utf8');
@@ -861,14 +871,29 @@ describe('frozen intentional-fixture SOURCE role (unit 46/47)', () => {
         if (src.split(from).length !== 2) throw new Error(`lab rebind anchor not unique: ${from}`);
         src = src.replace(from, to);
       }
+      // The comparable baseline is the REBOUND copy (post-rebind, pre-mutation) —
+      // NOT the canonical pre-rebind hash: only rebound↔mutated differ by exactly
+      // the deliberate fault, so `mutated !== baseline` is a real single-fault proof.
+      const baselineHash = createHash('sha256').update(src).digest('hex');
       if (mutate) src = mutate(src);
       writeFileSync(join(lab, 'mutant.ts'), src);
       const mutatedHash = createHash('sha256').update(src).digest('hex');
+      const files = run.files ?? ALL_30;
+      const rootArg = run.rootDir ? `, ${JSON.stringify(run.rootDir)}` : '';
       writeFileSync(join(lab, 'runner.ts'), [
-        "import { runTestQualityLiveness } from './mutant.ts';",
-        `const files = ${JSON.stringify(ALL_30)};`,
-        "const r = runTestQualityLiveness(files);",
-        "console.log('MUTANT-RUN ' + JSON.stringify({ error: r.error ?? null, violations: r.violations.length, linted: r.files.length, sourceClassified: r.sourceClassified.length }));",
+        "import { runTestQualityLiveness, runTestQualityGate, getChangedFilesVsBase } from './mutant.ts';",
+        `const files = ${JSON.stringify(files)};`,
+        `const r = runTestQualityLiveness(files${rootArg});`,
+        "const perFile = files.map((f) => ({ f, violated: r.violations.some((v) => v.startsWith(f + ':')), source: r.sourceClassified.includes(f) }));",
+        "console.log('MUTANT-RUN ' + JSON.stringify({ error: r.error ?? null, violations: r.violations.length, linted: r.files.length, sourceClassified: r.sourceClassified.length, perFile }));",
+        ...(run.base
+          ? [`const g = runTestQualityGate(${JSON.stringify(run.base)}${rootArg});`,
+            "console.log('MUTANT-GATE ' + JSON.stringify({ isNull: g === null, failureCount: g === null ? 0 : g.failures.length, failures: g === null ? null : g.failures.slice(0, 12) }));",
+            "const lead = files.find((f) => f.startsWith(' ')) ?? '';",
+            "const canon = lead.trim();",
+            `const c = getChangedFilesVsBase(${JSON.stringify(run.base)}${rootArg});`,
+            "console.log('MUTANT-CALLER ' + JSON.stringify({ error: c.error ?? null, exactLeading: c.files.filter((f) => f === lead).length, canonicalCount: c.files.filter((f) => f === canon).length }));"]
+          : []),
         '',
       ].join('\n'));
       const tsxBin = join(REPO_ROOT, 'node_modules', '.bin', 'tsx');
@@ -877,7 +902,21 @@ describe('frozen intentional-fixture SOURCE role (unit 46/47)', () => {
         : execFileSync('npx', ['tsx', join(lab, 'runner.ts')], { cwd: REPO_ROOT, encoding: 'utf8' });
       const line = out.split('\n').find((l) => l.startsWith('MUTANT-RUN '));
       if (!line) throw new Error(`lab runner produced no MUTANT-RUN line: ${out.slice(0, 400)}`);
-      return { summary: JSON.parse(line.slice('MUTANT-RUN '.length)) as { error: string | null; violations: number; linted: number; sourceClassified: number }, mutatedHash };
+      const gateLine = out.split('\n').find((l) => l.startsWith('MUTANT-GATE '));
+      const callerLine = out.split('\n').find((l) => l.startsWith('MUTANT-CALLER '));
+      return {
+        summary: JSON.parse(line.slice('MUTANT-RUN '.length)) as {
+          error: string | null;
+          violations: number;
+          linted: number;
+          sourceClassified: number;
+          perFile: Array<{ f: string; violated: boolean; source: boolean }>;
+        },
+        gate: gateLine ? (JSON.parse(gateLine.slice('MUTANT-GATE '.length)) as { isNull: boolean; failureCount: number; failures: string[] | null }) : null,
+        caller: callerLine ? (JSON.parse(callerLine.slice('MUTANT-CALLER '.length)) as { error: string | null; exactLeading: number; canonicalCount: number }) : null,
+        baselineHash,
+        mutatedHash,
+      };
     } finally {
       rmSync(lab, { recursive: true, force: true });
     }
@@ -886,13 +925,18 @@ describe('frozen intentional-fixture SOURCE role (unit 46/47)', () => {
     if (src.split(from).length !== 2) throw new Error(`mutation anchor not unique: ${from}`);
     return src.replace(from, to);
   };
+  // One emitted line per arm — baseline/mutant/healed/canonical (Root unit-47
+  // remainder: the triplet is PUBLISHED in the normal test log, not just checked).
+  const emitHashTriplet = (label: string, mutant: { baselineHash: string; mutatedHash: string }, healed: { baselineHash: string; mutatedHash: string }, canonical: string) => {
+    console.log(`MUTANT-HASHES ${label} baseline=${mutant.baselineHash} mutant=${mutant.mutatedHash} healed=${healed.mutatedHash} canonical=${canonical}`);
+  };
 
   it('ACTUAL classifier-disabled RED, then healed GREEN — the frozen 17 read green ONLY because of the classification', { timeout: 240_000 }, () => {
     const originalHash = canonicalGuardHash();
     const disabled = runLabModule((src) => mutateOnce(src,
       '  if (!store) return { status: \'not-in-store\' };',
       '  return { status: \'not-in-store\' }; // mutant: classifier disabled'));
-    expect(disabled.mutatedHash).not.toBe(originalHash);
+    expect(disabled.mutatedHash).not.toBe(disabled.baselineHash); // single fault vs the REBOUND baseline
     // RED: with the role probe disabled, the diagnosed 17 lint and fail Q1.
     expect(disabled.summary.error).toBeNull();
     expect(disabled.summary.violations).toBeGreaterThanOrEqual(17);
@@ -904,6 +948,10 @@ describe('frozen intentional-fixture SOURCE role (unit 46/47)', () => {
     expect(healed.summary.violations).toBe(0);
     expect(healed.summary.sourceClassified).toBe(30);
     expect(healed.summary.linted).toBe(0);
+    // Healed copy is the SAME rebound baseline, byte-exactly (not merely «some green bytes»):
+    expect(healed.mutatedHash).toBe(disabled.baselineHash);
+    expect(healed.baselineHash).toBe(disabled.baselineHash);
+    emitHashTriplet('classifier-disabled', disabled, healed, originalHash);
     expect(canonicalGuardHash()).toBe(originalHash); // custody: canonical never mutated
   });
 
@@ -912,7 +960,7 @@ describe('frozen intentional-fixture SOURCE role (unit 46/47)', () => {
     const overReject = runLabModule((src) => mutateOnce(src,
       '  const expected = FROZEN_SOURCE_SHA256[relPath];',
       '  if (store) return { status: \'refused\', reason: \'mutant: over-rejecting healthy\' };\n  const expected = FROZEN_SOURCE_SHA256[relPath];'));
-    expect(overReject.mutatedHash).not.toBe(originalHash);
+    expect(overReject.mutatedHash).not.toBe(overReject.baselineHash); // single fault vs the REBOUND baseline
     // RED: an over-rejecting classifier refuses the good SOURCE inputs too, and
     // the production entry fails closed on the refusal instead of linting them.
     expect(overReject.summary.error).toContain('mutant: over-rejecting healthy');
@@ -922,6 +970,174 @@ describe('frozen intentional-fixture SOURCE role (unit 46/47)', () => {
     expect(healed.summary.error).toBeNull();
     expect(healed.summary.violations).toBe(0);
     expect(healed.summary.sourceClassified).toBe(30);
+    expect(healed.mutatedHash).toBe(overReject.baselineHash); // healed == the same rebound baseline
+    expect(healed.baselineHash).toBe(overReject.baselineHash);
+    emitHashTriplet('over-rejecting-healthy', overReject, healed, originalHash);
     expect(canonicalGuardHash()).toBe(originalHash); // custody: canonical never mutated
+  });
+
+  // ── ACTUAL overaccept-TARGET mutant (Root unit-47 remainder, required proof) ──
+  // The two arms above exercise ALL_30 SOURCE inputs only; the outside-store
+  // overaccept branch needs a REAL bad TARGET/live input. This arm runs the
+  // EXISTING badTARGET predicate («same bad bytes at a TARGET/live path still
+  // fail Q1») under a deliberately overaccepting classifier: a basename match
+  // anywhere is laundered onto the canonical SOURCE key. The intended TARGET
+  // rejection must DISAPPEAR under the mutant and RETURN after byte-exact
+  // restoration — an ordinary twin relabelled as a mutant would prove nothing.
+  it('ACTUAL overaccept-TARGET RED, then healed GREEN — the intended TARGET rejection dies under the fault and returns after restore', { timeout: 240_000 }, () => {
+    const originalHash = canonicalGuardHash();
+    const root = scratchStoreRoot();
+    try {
+      const targetRel = 'recovery-d011-population/bad.vacuous.test.ts';
+      const canonicalRel = 'scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts';
+      const goodRel = 'scripts/test-assurance/recovery-d011/fixtures/population/good.assertive.test.ts';
+      // The TARGET twin carries the SAME frozen bad bytes at a non-store path; the
+      // good control is a genuine known-30 SOURCE input in the same scratch tree.
+      mkdirSync(join(root, 'recovery-d011-population'), { recursive: true });
+      writeFileSync(join(root, targetRel), readFileSync(join(root, canonicalRel)));
+      const healthyRel = 'healthy-live.test.ts';
+      writeFileSync(join(root, healthyRel), `import { expect, it } from 'vitest';\nit('real', () => { expect(JSON.parse('2')).toBe(2); });\n`);
+      const files = [targetRel, goodRel, healthyRel];
+      const overaccept = runLabModule((src) => mutateOnce(src,
+        '  const store = FROZEN_SOURCE_STORES.find((s) => relPath === s || relPath.startsWith(`${s}/`));\n  if (!store) return { status: \'not-in-store\' };',
+        '  let store = FROZEN_SOURCE_STORES.find((s) => relPath === s || relPath.startsWith(`${s}/`));\n  if (!store) {\n    const laundering = Object.keys(FROZEN_SOURCE_SHA256).find((k) => k.endsWith(`/${relPath.slice(relPath.lastIndexOf(\'/\') + 1)}`));\n    if (laundering) { relPath = laundering; store = FROZEN_SOURCE_STORES.find((s) => relPath === s || relPath.startsWith(`${s}/`)); }\n  }\n  if (!store) return { status: \'not-in-store\' }; // mutant: overaccept TARGET by basename'),
+        { files, rootDir: root });
+      expect(overaccept.mutatedHash).not.toBe(overaccept.baselineHash); // single fault vs the REBOUND baseline
+      // RED: the existing badTARGET predicate INVERTS under the fault — the bad
+      // TARGET twin is granted SOURCE immunity instead of a Q1 rejection, while
+      // the genuine good SOURCE control keeps its (legitimate) classification.
+      const tgtMutant = overaccept.summary.perFile.find((p) => p.f === targetRel)!;
+      expect(tgtMutant.violated).toBe(false); // the intended TARGET rejection DISAPPEARED
+      expect(tgtMutant.source).toBe(true); // …and was replaced by immunity
+      expect(overaccept.summary.violations).toBe(0);
+      const goodMutant = overaccept.summary.perFile.find((p) => p.f === goodRel)!;
+      expect(goodMutant.source).toBe(true); // the good control stays admitted (legitimately)
+      // GREEN (byte-exact restoration): the TARGET rejection RETURNS, the good
+      // SOURCE control keeps its role, and the ordinary healthy control stays clean.
+      const healed = runLabModule(null, { files, rootDir: root });
+      const tgtHealed = healed.summary.perFile.find((p) => p.f === targetRel)!;
+      expect(tgtHealed.violated).toBe(true); // the intended TARGET rejection RETURNED
+      expect(tgtHealed.source).toBe(false);
+      expect(healed.summary.error).toBeNull(); // JSON lane: healthy healed run reports no hard error
+      expect(healed.summary.sourceClassified).toBe(1);
+      const healthyHealed = healed.summary.perFile.find((p) => p.f === healthyRel)!;
+      expect(healthyHealed.violated).toBe(false);
+      expect(healthyHealed.source).toBe(false);
+      expect(healed.mutatedHash).toBe(overaccept.baselineHash); // healed == the same rebound baseline
+      expect(healed.baselineHash).toBe(overaccept.baselineHash);
+      emitHashTriplet('overaccept-TARGET', overaccept, healed, originalHash);
+      expect(canonicalGuardHash()).toBe(originalHash); // custody: canonical never mutated
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  // ── Durable exact-name caller regression (Root unit-47 remainder, MAJOR) ─────
+  // An OWNED isolated Git fixture (test data in the existing normal lifecycle —
+  // mkdtemp + finally rmSync, plain native git, no hook suppression) commits
+  // discriminating test-bearing names; the REAL exported caller and Gate must
+  // receive the EXACT committed filenames. A `.trim()` after the NUL split
+  // would collapse the leading-space twin onto the canonical SOURCE spelling
+  // and silently grant it immunity — the trim-mutant arm inside THIS test
+  // proves it fails under exactly that regression and heals byte-exactly.
+  it('REAL Git caller + Gate over COMMITTED discriminating names — exact identity; a trim-after-NUL regression FAILS here and heals byte-exactly', { timeout: 240_000 }, () => {
+    const fx = mkdtempSync(join(REPO_ROOT, '.ai-factory', 'glv-git-'));
+    const gitFx = (args: string[]) => execFileSync('git', args, { cwd: fx, encoding: 'utf8' });
+    const originalHash = canonicalGuardHash();
+    try {
+      gitFx(['init', '-q']);
+      gitFx(['config', 'user.email', 'glv-fixture@example.invalid']);
+      gitFx(['config', 'user.name', 'glv fixture']);
+      writeFileSync(join(fx, 'README.md'), 'base\n');
+      gitFx(['add', '-A']);
+      gitFx(['commit', '-q', '-m', 'fixture base']);
+      const base = gitFx(['rev-parse', 'HEAD']).trim();
+      // The committed discriminating set (test data only — canonical bytes are
+      // READ from the real store, never written there):
+      const canonicalRel = 'scripts/test-assurance/recovery-d011/fixtures/population/bad.vacuous.test.ts';
+      const leadingSpaceRel = ` ${canonicalRel}`; // trims onto the canonical SOURCE spelling
+      const newlineTabRel = 'tests/new\nline\tand-tab.test.ts'; // NUL/C-quoting boundary
+      const quotedLookRel = '"quoted-look.test.ts'; // literal leading quote as its OWN first byte
+      const badBytes = readFileSync(join(REPO_ROOT, canonicalRel)); // exact frozen bad bytes (read-only)
+      for (const [name, bytes] of [
+        [canonicalRel, badBytes], // genuine SOURCE input, recognized SEPARATELY
+        [leadingSpaceRel, badBytes], // would trim-collapse onto the canonical name
+        [newlineTabRel, badBytes],
+        [quotedLookRel, badBytes],
+      ] as Array<[string, Buffer]>) {
+        const slash = name.lastIndexOf('/');
+        if (slash !== -1) mkdirSync(join(fx, name.slice(0, slash)), { recursive: true });
+        writeFileSync(join(fx, name), bytes);
+      }
+      gitFx(['add', '-A']);
+      gitFx(['commit', '-q', '-m', 'fixture discriminating names']);
+      // REAL production caller over the committed change (rootDir seam):
+      const { files, error } = getChangedFilesVsBase(base, fx);
+      expect(error).toBeUndefined();
+      for (const name of [canonicalRel, leadingSpaceRel, newlineTabRel, quotedLookRel]) {
+        expect(files, `exact committed name ${JSON.stringify(name)}`).toContain(name);
+      }
+      // No C-quoting wrapper / escape residue: the newline+tab name arrives raw…
+      const nl = files.find((f) => f.includes('new\nline\tand-tab.test.ts'))!;
+      expect(nl.startsWith('"')).toBe(false);
+      expect(nl.includes('\\n')).toBe(false);
+      expect(nl.includes('\\t')).toBe(false);
+      expect(nl.endsWith('.test.ts')).toBe(true);
+      // …and the quoted-looking name is the LITERAL name (a C-quoted wrapper of
+      // `quoted-look.test.ts` would carry a TRAILING quote too):
+      expect(files).toContain('"quoted-look.test.ts');
+      expect(files.some((f) => f === '"quoted-look.test.ts"')).toBe(false);
+      // The leading-space name keeps its leading space — its own distinct identity,
+      // delivered exactly once, never collapsed onto the canonical spelling:
+      expect(files.filter((f) => f === leadingSpaceRel).length).toBe(1);
+      expect(files.filter((f) => f === canonicalRel).length).toBe(1);
+      // Liveness over the SAME delivered names: the canonical SOURCE path is
+      // classified (immunity for the GENUINE frozen fixture only), every twin
+      // lints — no sourceClassified immunity through normalization.
+      const live = runTestQualityLiveness(files, fx);
+      expect(live.error).toBeUndefined();
+      expect(live.sourceClassified).toEqual([canonicalRel]);
+      expect(live.files.slice().sort()).toEqual([leadingSpaceRel, newlineTabRel, quotedLookRel].sort());
+      for (const v of live.violations) {
+        expect(v.startsWith(`${canonicalRel}:`)).toBe(false); // the SOURCE input never violates
+      }
+      expect(live.violations.some((v) => v.startsWith(`${leadingSpaceRel}:`))).toBe(true);
+      expect(live.violations.some((v) => v.startsWith(`${newlineTabRel}:`))).toBe(true);
+      expect(live.violations.some((v) => v.startsWith(`${quotedLookRel}:`))).toBe(true);
+      // REAL GATE over the same committed change: a Q1 failure naming the twins.
+      const gate = runTestQualityGate(base, fx);
+      expect(gate).not.toBeNull();
+      expect(gate!.ruleId).toBe(TEST_QUALITY_FAILURE_RULE_ID);
+      expect(gate!.failures.some((f) => f.startsWith(`${leadingSpaceRel}:`))).toBe(true);
+      expect(gate!.failures.some((f) => f.startsWith(`${newlineTabRel}:`))).toBe(true);
+      expect(gate!.failures.some((f) => f.startsWith(`${quotedLookRel}:`))).toBe(true);
+      expect(gate!.failures.some((f) => f.startsWith(`${canonicalRel}:`))).toBe(false);
+      // ── The durable regression proof (same fixture, same committed change) ──
+      // RED: the regression itself — `.trim()` after the NUL split. The CALLER
+      // collapses the committed leading-space twin onto the canonical SOURCE
+      // spelling, the gate then classifies it known-source, and its Q1 rejection
+      // vanishes — observed through BOTH the raw caller output and the real Gate.
+      const trimmer = runLabModule((src) => mutateOnce(src,
+        "return { files: diff.stdout.split('\\0').filter(Boolean) };",
+        "return { files: diff.stdout.split('\\0').map((f) => f.trim()).filter(Boolean) }; // mutant: trim after NUL"),
+        { files, rootDir: fx, base });
+      expect(trimmer.mutatedHash).not.toBe(trimmer.baselineHash); // single fault vs the REBOUND baseline
+      expect(trimmer.caller!.error).toBeNull();
+      expect(trimmer.caller!.exactLeading).toBe(0); // the exact committed spelling DISAPPEARED
+      expect(trimmer.caller!.canonicalCount).toBe(2); // …collapsed onto the canonical spelling
+      expect(trimmer.gate!.isNull).toBe(false); // the other twins still fail Q1 …
+      expect(trimmer.gate!.failures!.some((f) => f.startsWith(`${leadingSpaceRel}:`))).toBe(false); // …but the laundered twin's rejection VANISHED
+      // GREEN (byte-exact restoration): every committed name keeps its identity.
+      const healed = runLabModule(null, { files, rootDir: fx, base });
+      expect(healed.caller!.exactLeading).toBe(1); // the exact spelling is BACK, once
+      expect(healed.caller!.canonicalCount).toBe(1); // the canonical name alone
+      expect(healed.gate!.failures!.some((f) => f.startsWith(`${leadingSpaceRel}:`))).toBe(true); // Q1 rejection restored
+      expect(healed.mutatedHash).toBe(trimmer.baselineHash); // healed == the same rebound baseline
+      expect(healed.baselineHash).toBe(trimmer.baselineHash);
+      emitHashTriplet('trim-after-NUL', trimmer, healed, originalHash);
+      expect(canonicalGuardHash()).toBe(originalHash); // custody: canonical never mutated
+    } finally {
+      rmSync(fx, { recursive: true, force: true });
+    }
   });
 });
