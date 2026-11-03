@@ -425,15 +425,27 @@ if frozen_nest_ok; then
 else
   bad "(8b) frozen nested fixture broken or missing — re-pin tests/install-sh/fixtures/skill-context-nested"
 fi
+# C1 + native round-2 comment 2: the frozen pair is not merely a fallback — it is ALWAYS the
+# first (and therefore the specimen (8c)/(8d) run on), so the regression cases exercise the
+# same pinned pair on every checkout depth; git-history discovery only APPENDS extra pairs.
+# A partial-history checkout must never swap the specimen for whatever its truncated history
+# happens to surface first. Discovered pairs byte-identical to the frozen pair are skipped
+# (in a full checkout the frozen long revision IS a history blob).
 DISCOVERED=$(nested_body_pairs)
 N_NESTED=$(grep -c . <<<"$DISCOVERED" || true)
+FROZEN_L_SHA=$(hash256 "$NESTFIX_LONG")
+PAIRS="$NESTFIX_SHORT $NESTFIX_LONG"
 if [ "${N_NESTED:-0}" -gt 0 ]; then
-  ok "(8b) supplementary: $N_NESTED nested historical pair(s) discovered in git history"
-  PAIRS="$DISCOVERED"
+  ok "(8b) supplementary: $N_NESTED nested historical pair(s) discovered in git history (frozen pair stays first)"
 else
-  ok "(8b) no history pairs (depth-1/squashed checkout) — the frozen pair is the mandatory floor"
-  PAIRS="$NESTFIX_SHORT $NESTFIX_LONG"
+  ok "(8b) no history pairs (depth-1/squashed checkout) — the frozen pair is the specimen"
 fi
+while read -r sfile lfile; do
+  [ -n "$sfile" ] || continue
+  [ "$(hash256 "$lfile")" = "$FROZEN_L_SHA" ] && continue
+  PAIRS="$PAIRS
+$sfile $lfile"
+done <<<"$DISCOVERED"
 strip_fence_markers() {  # what /aif-evolve-era tooling left: the delivered body without markers
   grep -vF 'getff:begin section=getff-skill-context' "$1" | grep -vF 'getff:end section=getff-skill-context' > "$1.x" && mv "$1.x" "$1"
 }
@@ -627,10 +639,15 @@ EOF
   outside_fence_full "$d2" > "$NEST/c6post"
   trim_trail_blanks "$NEST/c6suffix" > "$NEST/c6suffix.t"
   trim_trail_blanks "$NEST/c6post" > "$NEST/c6post.t"
-  # replica-reject control: install the FIRST-match replica's own split, then compare
+  # replica-reject control (native round-2 comment 3): install the FIRST-match replica's own
+  # split, then compare. Both consumers carry the IDENTICAL pre-split bytes (same fixture +
+  # same EVOLVED-RAW2-KEEPME marker — different markers alone would make the byte comparison
+  # differ and the control pass vacuously), so the replica outcome can only differ from the
+  # repaired bytes by the stranded old lines, and the replica must split STRICTLY shorter.
   W3=$(consumer); PROJECT_ROOT="$W3"; d3="$W3/$SC_REL"
   mkdir -p "$(dirname "$d3")"; cp "$first_lfile" "$d3"
-  evolve_add "$d3" EVOLVED-RAW3-KEEPME
+  evolve_add "$d3" EVOLVED-RAW2-KEEPME
+  c6same=$(cmp -s "$d3" "$NEST/d2lf" && echo yes || echo no)
   repl2_n=$(_first_match_lines_replica "$SRC" "$d3")
   [ -n "$repl2_n" ] && { tail -n +"$((repl2_n + 1))" "$d3" | awk '/[^ \t\r]/ { p = 1 } p' > "$d3.x" && mv "$d3.x" "$d3"; }
   install_skill_context "$SRC" "$d3" >/dev/null 2>&1
@@ -639,10 +656,12 @@ EOF
   if [ "$EXP2" -gt 0 ] && [ "$fixed2_n" = "$EXP2" ] \
      && block_body "$d2" | cmp -s - "$CURBODY" \
      && cmp -s "$NEST/c6suffix.t" "$NEST/c6post.t" \
+     && [ "$c6same" = yes ] \
+     && [ -n "$repl2_n" ] && [ "$repl2_n" -lt "$EXP2" ] \
      && ! cmp -s "$NEST/c6replica.t" "$NEST/c6post.t"; then
-    ok "(8d) C6 repaired raw path: helper split == register-derived longest ($EXP2), in-fence body exact, outside-fence bytes == longest-prefix suffix, replica outcome rejected"
+    ok "(8d) C6 repaired raw path: helper split == register-derived longest ($EXP2), in-fence body exact, outside-fence bytes == longest-prefix suffix, replica split $repl2_n rejected on identical input"
   else
-    bad "(8d) C6 repaired raw path: exp=${EXP2:-none} fixed=${fixed2_n:-none}, in-fence=$(block_body "$d2" | cmp -s - "$CURBODY" && echo exact || echo DRIFTED), suffix-vs-post=$(cmp -s "$NEST/c6suffix.t" "$NEST/c6post.t" && echo exact || echo DIFFERS), replica=$(cmp -s "$NEST/c6replica.t" "$NEST/c6post.t" && echo UNDETECTED || echo rejected)"
+    bad "(8d) C6 repaired raw path: exp=${EXP2:-none} fixed=${fixed2_n:-none}, in-fence=$(block_body "$d2" | cmp -s - "$CURBODY" && echo exact || echo DRIFTED), suffix-vs-post=$(cmp -s "$NEST/c6suffix.t" "$NEST/c6post.t" && echo exact || echo DIFFERS), identical-input=$c6same, replica-split=${repl2_n:-none}, replica=$(cmp -s "$NEST/c6replica.t" "$NEST/c6post.t" && echo UNDETECTED || echo rejected)"
   fi
   # STRIPPED: the (8b) marker-less fixture. Fixed = longest body span; replica = short one.
   cp "$first_lfile" "$NEST/old.md"

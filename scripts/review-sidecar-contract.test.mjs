@@ -168,12 +168,24 @@ test('the measured floating-copy hazard, positively: an isolated populated npm e
   //       record) is never consulted even though a floating copy sits ready in the cache.
   const home = mkdtempSync(join(tmpdir(), 'rs-c4-'));
   const before = ocrDirs();
+  // Hermetic registry resolution (native round-2 comment 1): npx inherits the caller's
+  // registry configuration (~/.npmrc / npm_config_registry), and a configured mirror
+  // redirects the packument cache key away from the synthetic cache's registry.npmjs.org
+  // key — the positive arm then fails ENOTCACHED offline on any mirrored machine. Pin the
+  // registry to the one the synthetic cache is keyed by and neutralize the user config;
+  // BOTH env spellings so no npm case-precedence can resurrect the caller's value.
+  const hermeticNpm = {
+    npm_config_registry: 'https://registry.npmjs.org/',
+    NPM_CONFIG_REGISTRY: 'https://registry.npmjs.org/',
+    npm_config_userconfig: '/dev/null',
+    NPM_CONFIG_USERCONFIG: '/dev/null',
+  };
   try {
     // (a) positive control — cached code executes.
     const full = buildSyntheticNpxCache(join(home, 'full'));
     const old = spawnSync('npx', ['--no-install', 'tsx', '--version'],
       { cwd: full.proj, encoding: 'utf8', timeout: 120_000,
-        env: { ...process.env, npm_config_cache: full.cache,
+        env: { ...process.env, ...hermeticNpm, npm_config_cache: full.cache,
           npm_config_offline: 'true', npm_config_prefer_offline: 'true' } });
     assert.equal(old.status, 43,
       `the recording cached loader must execute and exit 43 (got ${old.status})\nstderr: ${old.stderr}\nstdout: ${old.stdout}`);
@@ -185,7 +197,7 @@ test('the measured floating-copy hazard, positively: an isolated populated npm e
     rmSync(join(bare.cache, '_npx'), { recursive: true, force: true });
     const noEntry = spawnSync('npx', ['--no-install', 'tsx', '--version'],
       { cwd: bare.proj, encoding: 'utf8', timeout: 120_000,
-        env: { ...process.env, npm_config_cache: bare.cache,
+        env: { ...process.env, ...hermeticNpm, npm_config_cache: bare.cache,
           npm_config_offline: 'true', npm_config_prefer_offline: 'true' } });
     assert.notEqual(noEntry.status, 0, 'an empty executable cache must not silently succeed');
     assert.ok(!((noEntry.stdout || '').includes('RECORDING-NPX-CACHE-LOADER-EXECUTED')),
@@ -199,7 +211,7 @@ test('the measured floating-copy hazard, positively: an isolated populated npm e
     writeFileSync(entry, readFileSync(resolve(root, 'packages/runtime-bridge/src/cli/ocrTrustedReview.ts')));
     const card = spawnSync('bash', ['-c', cardBadFlagPrefixOf(role)],
       { cwd: proj, encoding: 'utf8', timeout: 60_000,
-        env: { ...poison.env, npm_config_cache: full.cache,
+        env: { ...poison.env, ...hermeticNpm, npm_config_cache: full.cache,
           npm_config_offline: 'true', npm_config_prefer_offline: 'true' } });
     assert.equal(card.status, 1,
       `missing project-local loader must exit 1 (got ${card.status})\nstderr: ${card.stderr}`);
