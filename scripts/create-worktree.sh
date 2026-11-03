@@ -68,13 +68,19 @@ fi
 
 mkdir -p "$(dirname "$WORKTREE_DIR")"
 
-# `git worktree add` writes progress on stderr; route to /dev/null for clean
-# orchestration. Errors propagate via exit code.
-if ! git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" -b "$BRANCH" "$BASE_REF" >/dev/null 2>&1; then
+# `git worktree add` writes progress on stderr; route stdout to /dev/null for clean
+# orchestration. stderr is CAPTURED per attempt and printed only on final failure —
+# discarding it (the old `2>&1 >/dev/null` black hole) left the wrapper's ⚠ line as the
+# ONLY failure evidence, which is not enough to diagnose a platform-specific git
+# refusal (run 41559999951, windows-hooks cell: `git worktree add` failed on the
+# runner with the causal stderr never surfaced). Progress noise stays hidden on
+# success; errors propagate via exit code AND their own text.
+wt_err1=""
+if ! wt_err1="$(git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" -b "$BRANCH" "$BASE_REF" 2>&1 >/dev/null)"; then
   # Branch may pre-exist (re-dispatch of same name) — retry without -b.
-  if ! git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" "$BRANCH" >/dev/null 2>&1; then
-    printf '⚠ create-worktree: git worktree add failed (path=%s branch=%s base=%s)\n' \
-      "$WORKTREE_DIR" "$BRANCH" "$BASE_REF" >&2
+  if ! wt_err2="$(git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" "$BRANCH" 2>&1 >/dev/null)"; then
+    printf '⚠ create-worktree: git worktree add failed (path=%s branch=%s base=%s)\ngit stderr (attempt -b %s):\n%s\ngit stderr (attempt existing-branch):\n%s\n' \
+      "$WORKTREE_DIR" "$BRANCH" "$BASE_REF" "$BASE_REF" "$wt_err1" "$wt_err2" >&2
     exit 1
   fi
 fi
