@@ -1407,7 +1407,9 @@ do_refresh() {
       mkdir_safe "$PROJECT_ROOT/.husky"
       husky_note_consumer_hooks "$PKG_ROOT" "$PROJECT_ROOT"
       _g40_pc_consumer=0
+      # shellcheck disable=SC2031  # the "modification" is bridge-guided.sh's isolated ( . lib.sh ) top-level init seen in the merged -x flow; this lane's value comes from the caller-scope call above
       case " ${HUSKY_CONSUMER_HOOKS:-} " in *" pre-commit "*) _g40_pc_consumer=1 ;; esac
+      # shellcheck disable=SC2031  # same bridge-guided.sh subshell-init attribution as the case above — the iterated value is caller-scope
       for _ch in ${HUSKY_CONSUMER_HOOKS:-}; do
         case "$_ch" in
           pre-commit) _ch_what="the armed-record persistence (run-armed probe→fold)" ;;
@@ -1816,6 +1818,7 @@ do_refresh() {
     # probed or armed here. merge_canonical_scripts stays skipped (no package.json scripts are
     # placed on generic). `${arr[@]+…}` guards = bash-3.2-safe empty-array expansion under set -u.
     if [ -n "${_g40_drivable:-}" ]; then
+      # shellcheck disable=SC2031  # arrays are init'd caller-scope (lib.sh sourced top-level at install.sh:61) and scoped below; the flag is bridge-guided.sh's isolated lib.sh re-load
       _ru_pc=(${PROJECT_CHECKS[@]+"${PROJECT_CHECKS[@]}"}) _ru_phc=(${PROJECT_HOOK_CHECKS[@]+"${PROJECT_HOOK_CHECKS[@]}"})
       PROJECT_CHECKS=(lint) PROJECT_HOOK_CHECKS=()
       record_unrun_checks

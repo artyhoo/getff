@@ -4276,7 +4276,7 @@ gen_mut_not_armed_why() {
 # project_hook_checks — the record command of each PROJECT_HOOK_CHECKS script this project has.
 project_hook_checks() {
   local f
-  # ${A[@]+…} guard: install.sh:1820 assigns PROJECT_HOOK_CHECKS=() for stack «generic», so the
+  # ${A[@]+…} guard: install.sh:1823 assigns PROJECT_HOOK_CHECKS=() for stack «generic», so the
   # array can be empty — bash <4.4 aborts the bare expansion under set -u (B32-EMPTY).
   for f in ${PROJECT_HOOK_CHECKS[@]+"${PROJECT_HOOK_CHECKS[@]}"}; do [ -f "$PROJECT_ROOT/scripts/$f" ] && echo "bash scripts/$f"; done
   return 0
