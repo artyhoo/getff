@@ -200,7 +200,24 @@ export function removeSandbox(dir: string, rm: typeof rmSync = rmSync): void {
       maxRetries: CLEANUP_MAX_RETRIES,
       retryDelay: CLEANUP_RETRY_DELAY_MS,
     });
+    return;
   } catch (err) {
+    // Win32 second chance (run 41297279457, job 124820686892: EVERY consumer sandbox
+    // leaked EBUSY — one junction-bearing tree per arm, ~26 piled up in TEMP by hour 5
+    // when the runner disk filled and the job died mid-file). Node's rimraf walks the
+    // tree per-entry and its ~750ms retry budget cannot ride out a lingering Windows
+    // handle; `rmdir /s /q` is one native recursive delete with no per-entry lstat.
+    // It does NOT follow directory junctions — it removes the reparse point itself —
+    // so the real node_modules the sandbox junction points at is never touched.
+    // existsSync-gated so the injectable-rm contract tests (nonexistent paths) keep
+    // their exact warn-on-throw shape on every platform; POSIX never enters this arm.
+    if (process.platform === 'win32' && existsSync(dir)) {
+      spawnSync('cmd.exe', ['/d', '/s', '/c', `rmdir /s /q "${dir}"`], {
+        windowsHide: true,
+        timeout: 120_000,
+      });
+      if (!existsSync(dir)) return;
+    }
     const code = (err as NodeJS.ErrnoException).code ?? String(err);
     console.warn(
       `⚠ fixture cleanup could not remove ${dir} (${code}) — tolerated, not fatal: ` +
@@ -221,6 +238,28 @@ function rootPkg(dependencies: Record<string, string>): string {
     null,
     2,
   )}\n`;
+}
+
+/**
+ * The sandbox `.gitignore` — defuses the win32 disk/time bomb of run 41297279457
+ * (job 124820686892). The sandbox `node_modules` is a junction into the REAL
+ * ~42k-file node_modules and exists for RUNTIME tsx resolution of the spawned
+ * hook — never for git tracking. But git-for-windows traverses a directory
+ * junction as a real directory, so `git add -A` walked the entire tree and
+ * CRLF-converted every blob into the sandbox's own .git/objects: 181k CRLF
+ * warnings, arms 4→13 min each and slowing as leaked EBUSY sandboxes piled up,
+ * ~26 of 58 arms in 5h, then the runner disk filled and the job died mid-file
+ * with no vitest summary (33/97 files completed). POSIX records the same link
+ * as a one-line symlink blob and never paid this. Ignoring node_modules/ is
+ * also what every real consumer repo does — the fixture gets MORE realistic,
+ * and no assertion reads the tracked set (no ls-files/status-shape assertion
+ * exists in this file).
+ */
+const SANDBOX_GITIGNORE = 'node_modules/\n';
+
+/** Plant the sandbox `.gitignore` before the first `git add -A` (SANDBOX_GITIGNORE). */
+function ignoreNodeModulesForGit(dir: string): void {
+  writeFileSync(join(dir, '.gitignore'), SANDBOX_GITIGNORE);
 }
 
 /**
@@ -266,6 +305,9 @@ function makeConsumerSandbox(): { dir: string; baseSha: string; hook: string } {
   // its own `+  "name": "^ver"` diff line — the exact shape prior-art capability
   // detection keys on (isNewDepAdded, checks/prior-art.ts); the §7/§1.7 cases use it.
   writeFileSync(join(dir, 'package.json'), rootPkg({}));
+  // Before `git init`/`git add -A`: the node_modules junction above must stay OUT of
+  // the sandbox's git on win32 (git-for-windows traverses junctions as directories).
+  ignoreNodeModulesForGit(dir);
 
   // Stub the external tools (actionlint, zizmor, lychee) to exit 0 so the test is
   // hermetic. Post-S3 only lychee can run on a consumer (actionlint/zizmor are
@@ -1448,6 +1490,8 @@ describe(
         'dir',
       );
       writeFileSync(join(dir, 'package.json'), rootPkg({}));
+      // Same junction-out-of-git rule as makeConsumerSandbox (SANDBOX_GITIGNORE).
+      ignoreNodeModulesForGit(dir);
 
       // Consumer-appropriate external tools stubbed exit 0 (hermetic).
       const stubBin = join(dir, '.stub-bin');
