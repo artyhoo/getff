@@ -6,18 +6,20 @@
 // The win32 decision core is pure + injected (findBash/env params) so every branch —
 // bash resolve, sh-sibling resolve, no-Git-Bash skip, absolute-POSIX-binary skip,
 // bare-non-bash pass-through — is asserted HERE on linux, not inferred from the CI log.
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import {
+  encodeWinArgvBridge,
   failLoudSkipContext,
   findGitBashExe,
   findRealJqExe,
   findRealGitExe,
   gitBashCandidateDirs,
   isBashLikeCommand,
+  msysGlobTriggerArg,
   MSYS_ACCESS_VIOLATION_EXIT,
   planWin32BashSpawn,
   resolveShSibling,
@@ -25,6 +27,8 @@ import {
   spawnBashOrSkip,
   toMsysArg,
   fromMsysPath,
+  WIN_ARGV_BRIDGE_ENV,
+  WIN_ARGV_BRIDGE_SH,
   type Skippable,
 } from './spawn-bash-or-skip.ts';
 
@@ -76,6 +80,25 @@ describe.skipIf(WIN_POSIX_BASH_PIN)('POSIX byte-identical pass-through (the §0.
     const viaHelper = spawnBashOrSkip(noSkipCtx, 'bash', ['-c', 'echo buf']);
     expect(Buffer.isBuffer(viaHelper.stdout)).toBe(true);
     expect((viaHelper.stdout as Buffer).toString()).toBe((raw.stdout as Buffer).toString());
+  });
+
+  it('NEVER bridges on POSIX: glob-trigger argv reaches bash verbatim, no bridge env', () => {
+    // CL-D guard: the argv bridge is a win32-only detour. On POSIX the exact argv —
+    // bare `[]` included — must pass through to bash unchanged, and the bridge env
+    // var must never appear (a POSIX regression here would rewrite argv for every
+    // platform to accommodate one).
+    const args = [
+      '-c',
+      'printf \'%s\' "$1"; printf \'%s\' "${WIN_ARGV_BRIDGE_B64-UNSET}"',
+      'b',
+      '[]',
+      '[]',
+    ];
+    const raw = spawnSync('bash', args, { encoding: 'utf8' });
+    const viaHelper = spawnBashOrSkip(noSkipCtx, 'bash', args, { encoding: 'utf8' });
+    expect(viaHelper.status).toBe(raw.status);
+    expect(viaHelper.stdout).toBe('[]UNSET');
+    expect(viaHelper.stdout).toBe(raw.stdout);
   });
 });
 
@@ -324,5 +347,110 @@ describe('runBashArm (W-R2: no access-violation replay, first result wins)', () 
     expect(calls).toBe(1);
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('hi\n');
+  });
+});
+
+describe('msysGlobTriggerArg (CL-D argv-bridge predicate, pure)', () => {
+  it('flags the argv shapes that died 0xC0000005 on the runner (bare glob syntax)', () => {
+    // Runs 38988360013 / 41189657830: every crash spawn carried one of these bare
+    // elements — the exact corpus of the four delta-write negative arms.
+    for (const a of ['[]', 'a[b', 'x?y', 'pre*post', 'f()', '{a,b}', "it's"])
+      expect(msysGlobTriggerArg(a), a).toBe(true);
+  });
+  it('flags a leading tilde (globify dispatches on it even without other metachars)', () => {
+    expect(msysGlobTriggerArg('~root')).toBe(true);
+    expect(msysGlobTriggerArg('a~b')).toBe(false); // non-leading tilde never dispatches
+  });
+  it('passes args libuv already quotes (space/tab/double-quote) — the safe channel', () => {
+    // Runner-proven shapes: HAPPY/IDEMPOTENT args carry `"`, so libuv wraps the element
+    // and the quoted span skips globbing — these must NOT be re-routed through the bridge.
+    for (const a of ['["A","B"]', '{"not":"array"}', 'a b*c', 'a\tb', ''])
+      expect(msysGlobTriggerArg(a), JSON.stringify(a)).toBe(false);
+  });
+  it('passes metachar-free args verbatim (today command-line transport)', () => {
+    for (const a of ['u', 'not-json', '/d/a/getff/x.sh', 'test-umbrella', 'bootstrap'])
+      expect(msysGlobTriggerArg(a), a).toBe(false);
+  });
+});
+
+describe('win-argv-bridge.sh round-trip (real bash, byte-exact argv)', () => {
+  // The wrapper is plain POSIX sh, so its encode->env->decode->exec contract is
+  // testable HERE on macOS/linux with real bash; the win32 arm that routes spawns
+  // through it is exercised live in the windows-hooks CI cell (assertions unchanged).
+  let dir: string;
+  let shim: string;
+  let verifier: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'argv-bridge-'));
+    shim = join(dir, 'win-argv-bridge.sh');
+    verifier = join(dir, 'verifier.sh');
+    writeFileSync(shim, WIN_ARGV_BRIDGE_SH);
+    writeFileSync(verifier, '#!/bin/sh\nprintf \'%s\\0\' "$@"\n');
+    chmodSync(shim, 0o755);
+    chmodSync(verifier, 0o755);
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  /** Run the bridge with `args` and return the argv the target received, NUL-split.
+   *  argv[0] of the payload is the PROGRAM the wrapper execs — the verifier — so its
+   *  `"$@"` prints payload elements 1.. exactly as they arrive; argv[0] itself is
+   *  proven by the exec succeeding (status 0). */
+  function bridgeArgv(args: string[]): string[] {
+    const r = spawnSync('bash', [shim], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        [WIN_ARGV_BRIDGE_ENV]: encodeWinArgvBridge([verifier, ...args]),
+      },
+    });
+    expect(r.status, r.stderr).toBe(0);
+    return (r.stdout ?? '').split('\0').slice(0, -1);
+  }
+
+  it('carries the runner-crash corpus byte-exactly (bare [] included)', () => {
+    expect(bridgeArgv(['/d/a/helpers/x.sh', 'u', '[]', '[]'])).toEqual([
+      '/d/a/helpers/x.sh',
+      'u',
+      '[]',
+      '[]',
+    ]);
+  });
+
+  it('carries quotes, spaces, newlines, unicode and single quotes byte-exactly', () => {
+    const tricky = [
+      '/d/a/helpers/x.sh',
+      '["PR#100","PR#101"]',
+      "it's got a 'quote",
+      'line1\nline2',
+      'spaces  and\ttabs',
+      'привет-Ω-🎉',
+      '~looks-like-tilde',
+    ];
+    expect(bridgeArgv(tricky)).toEqual(tricky);
+  });
+
+  it('propagates the target exit code and stderr through exec (assertion semantics)', () => {
+    const failer = join(dir, 'failer.sh');
+    writeFileSync(
+      failer,
+      '#!/bin/sh\necho "delta file missing — run update-delta.sh first" >&2\nexit 1\n',
+    );
+    chmodSync(failer, 0o755);
+    const r = spawnSync('bash', [shim], {
+      encoding: 'utf8',
+      env: { ...process.env, [WIN_ARGV_BRIDGE_ENV]: encodeWinArgvBridge([failer]) },
+    });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('delta file missing');
+  });
+
+  it('fails LOUD when the payload env var is unset — never a silent empty exec', () => {
+    const env = { ...process.env };
+    delete env[WIN_ARGV_BRIDGE_ENV];
+    const r = spawnSync('bash', [shim], { encoding: 'utf8', env });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain(WIN_ARGV_BRIDGE_ENV);
   });
 });

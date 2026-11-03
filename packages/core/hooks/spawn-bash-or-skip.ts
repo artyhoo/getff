@@ -8,7 +8,11 @@
 // '/bin/bash', 'sh', …) resolves Git Bash's bash.exe — PATH first, then GitHub's own
 // documented `shell: bash` roots (docs.github.com workflow syntax: C:\Program Files\Git\bin,
 // C:\Program Files (x86)\Git\bin, %LOCALAPPDATA%\Programs\Git\bin; runners put only
-// Git\cmd on PATH, so the roots arm is load-bearing on CI) — and spawns THAT. A command no
+// Git\cmd on PATH, so the roots arm is load-bearing on CI) — and spawns THAT. A spawn
+// whose argv carries a bare glob-trigger element (CL-D: `[]` et al. die 0xC0000005 inside
+// msys-2.0.dll's native-parent argv globbing before any script line runs) moves its argv
+// off the Windows command line and through the environment instead (win-argv-bridge.sh
+// shim + encodeWinArgvBridge payload — see msysGlobTriggerArg). A command no
 // Git Bash can satisfy (absolute /bin/… // /usr/… binaries, MSYS-only tooling) SKIPS the
 // enclosing test with a named reason — a visible named skip, never a silent pass.
 // Resolution-vs-skip decisions log to stderr behind DEBUG_WIN_SPAWN=1 (test-side debug
@@ -225,6 +229,63 @@ export function findMsysCoreutil(
 let winShimDir: string | null = null;
 
 /**
+ * CL-D (#1799, runs 38988360013 / 41189657830): does this argv element reach Git
+ * Bash through the UNGLOBBED channel? An MSYS runtime re-parses the Windows
+ * command line of any child spawned from a NATIVE parent (node.exe) through
+ * build_argv -> globify (msys2-runtime winsup/cygwin/dcrt0.cc: `strpbrk(word,
+ * "?*[\"\'(){}")` plus a leading-`~` check), and glob() on a malformed pattern
+ * such as the bare `[]` these tests pass dies 0xC0000005 before any script line
+ * runs. libuv, however, only quotes an argv element that contains space, tab or
+ * a double quote (src/win/process.c quote_cmd_arg) — so an element with NONE of
+ * those and WITH a globify-trigger char travels bare into the crash path. Every
+ * one of the 18 observed 0xC0000005 spawns carried such an element (`u [] []`,
+ * `u not-json []`, `u [] {…}`); every clean spawn had none (`["A","B"]` carries
+ * quotes, so libuv quotes it and the quoted span skips globbing — runner-proven
+ * by the passing HAPPY/IDEMPOTENT arms of the same suites).
+ */
+export function msysGlobTriggerArg(arg: string): boolean {
+  if (arg === '') return false; // libuv emits `""` for empty args — quoted, safe
+  if (/[ \t"]/.test(arg)) return false; // libuv quotes the element — safe channel
+  return arg.startsWith('~') || /[*?[\](){}']/.test(arg);
+}
+
+/** Base64 payload for the win32 argv bridge: ONE shell array assignment
+ *  (`argv=( … )`) where every element uses the airtight single-quote idiom
+ *  (`'` -> `'\''`), so the wrapper's eval reconstructs byte-exact argv elements
+ *  for any string bash can hold (node rejects NUL bytes in args upstream). */
+export function encodeWinArgvBridge(args: readonly string[]): string {
+  const words = args.map((a) => `'${a.replace(/'/g, "'\\''")}'`);
+  return Buffer.from(`argv=( ${words.join(' ')} )\n`, 'utf8').toString('base64');
+}
+
+/** Environment variable carrying the base64 argv payload (win32 bash arm only). */
+export const WIN_ARGV_BRIDGE_ENV = 'WIN_ARGV_BRIDGE_B64';
+
+/** The win32 argv-bridge shim, written into the win-shims dir and exec'd INSTEAD
+ *  of the real target when the spawn carries a glob-trigger arg: it decodes
+ *  WIN_ARGV_BRIDGE_B64 into a positional array and execs argv[0] with the rest —
+ *  msys->msys exec passes argv directly (no Windows command line is re-parsed),
+ *  which is the whole point: the dangerous elements never touch globify. */
+export const WIN_ARGV_BRIDGE_SH = [
+  '#!/bin/sh',
+  '# win-argv-bridge.sh — win32 companion of spawn-bash-or-skip.ts (#1799).',
+  '# MSYS re-parses the Windows command line of children spawned from NATIVE',
+  '# parents through build_argv/globify (msys2-runtime dcrt0.cc); an UNQUOTED',
+  '# glob-syntax argument (bare `[]`) dies 0xC0000005 inside glob() before any',
+  '# script line runs. The environment channel carries no command-line parsing,',
+  '# and an msys->msys exec passes argv directly, so the parent ships the full',
+  '# argv base64-encoded in WIN_ARGV_BRIDGE_B64 (payload: one shell array',
+  '# assignment from encodeWinArgvBridge) and this shim execs the real target',
+  '# with byte-exact arguments. eval only ever sees encodeWinArgvBridge output —',
+  "# every element is wrapped in the airtight '..'\\''..' single-quote idiom, so",
+  '# no argument content can escape its element.',
+  'set -eu',
+  'payload="$(printf \'%s\' "${WIN_ARGV_BRIDGE_B64:?WIN_ARGV_BRIDGE_B64 unset}" | base64 -d)"',
+  'eval "${payload}"',
+  'exec "${argv[@]:?argv bridge payload produced no arguments}"',
+].join('\n');
+
+/**
  * One-process singleton directory holding the win32 sh-shims prepended to every
  * Git-Bash child's PATH (the win32 bash arm only; POSIX spawns never see it):
  *
@@ -239,18 +300,21 @@ let winShimDir: string | null = null;
  *   rewrites drive-letter-prefixed OUTPUT lines to MSYS form; every other
  *   subcommand execs the real git.exe untouched.
  *
- * Both call the absolute real binary so recursion cannot come back through the
- * shim; both preserve the child's exit code via command substitution.
+ * - `win-argv-bridge.sh` — ALWAYS written (it needs no real-binary resolution):
+ *   the CL-D argv bridge target for spawns carrying a glob-trigger arg.
+ *
+ * The jq/git shims call the absolute real binary so recursion cannot come back
+ * through the shim; all preserve the child's exit code. The dir is created even
+ * on jq/git-less machines now (the bridge may still be needed); PATH gains an
+ * entry holding only these three names, shadowing nothing.
  */
 function ensureWinShimDir(): string | null {
   if (winShimDir !== null) return winShimDir || null;
   const realJq = findRealJqExe();
   const realGit = findRealGitExe();
-  if (!realJq && !realGit) {
-    winShimDir = '';
-    return null;
-  }
   const dir = mkdtempSync(join(tmpdir(), 'win-shims-'));
+  writeFileSync(join(dir, 'win-argv-bridge.sh'), `${WIN_ARGV_BRIDGE_SH}\n`);
+  chmodSync(join(dir, 'win-argv-bridge.sh'), 0o755);
   if (realJq) {
     writeFileSync(
       join(dir, 'jq'),
@@ -291,13 +355,18 @@ function childPathWithWinShims(env: NodeJS.ProcessEnv | undefined): NodeJS.Proce
 }
 
 /** NTSTATUS 0xC0000005 (access violation) as an unsigned exit code — observed on the
- *  Windows CI inventory run 38988360013: 4/7 arms of delta-write-from-state.test.ts died
- *  with it while byte-identical arm shapes passed in update-delta.test.ts (durations
- *  85-441 ms). UNRESOLVED platform risk, deliberately NOT classified as a harmless
- *  pre-script init crash: an exit code and short durations do not establish that no
- *  script line ran, so the helper performs NO automatic replay (W-R2, affected review
- *  2026-10-21) — a caller seeing this status sees the FIRST invocation's real result,
- *  preserving the failure as evidence. Exported for the W-R2 regression control. */
+ *  Windows CI runs 38988360013 (Oct 17) and 41189657830 (Oct 31): the four negative
+ *  arms of delta-write-from-state.test.ts died with it (85-441 ms, zero output) while
+ *  byte-identical arm shapes passed in update-delta.test.ts. ROOT CAUSE FOUND (CL-D):
+ *  every crashing spawn carried a bare glob-trigger argv element (`[]`) that libuv
+ *  leaves unquoted on the Windows command line, so msys-2.0.dll's build_argv->globify
+ *  ran glob("[]") and died before any script line executed — see msysGlobTriggerArg;
+ *  those spawns now route through the argv bridge. The no-replay contract (W-R2,
+ *  affected review 2026-10-21) STAYS for any future crash shape: an exit code and
+ *  short durations do not establish that no script line ran, so the helper performs NO
+ *  automatic replay — a caller seeing this status sees the FIRST invocation's real
+ *  result, preserving the failure as evidence. Exported for the W-R2 regression
+ *  control. */
 export const MSYS_ACCESS_VIOLATION_EXIT = 3221225477;
 
 /** The win32 bash-arm spawn: MSYS-adapted argv, exactly ONE invocation, first result
@@ -352,11 +421,29 @@ export function spawnBashOrSkip(
   if (isBashLikeCommand(command)) {
     const opts: SpawnSyncOptions = { ...options };
     opts.env = childPathWithWinShims(options?.env);
+    let spawnArgs = args as string[];
+    // CL-D argv bridge (#1799): a spawn carrying a bare glob-trigger argv element
+    // moves the WHOLE argv off the Windows command line (env-carried base64 payload,
+    // decoded and exec'd by the win-argv-bridge.sh shim — msys->msys exec parses no
+    // command line, so globify never sees the elements). Spawns without such an
+    // element keep today's exact command-line transport (the runner-proven shapes),
+    // and POSIX never reaches this branch at all.
+    if (spawnArgs.some(msysGlobTriggerArg)) {
+      const shim = ensureWinShimDir();
+      if (shim) {
+        opts.env = {
+          ...opts.env,
+          [WIN_ARGV_BRIDGE_ENV]: encodeWinArgvBridge(spawnArgs.map(toMsysArg)),
+        };
+        spawnArgs = [join(shim, 'win-argv-bridge.sh')];
+        debugWinSpawn('win32 argv bridge: glob-trigger argv moved off the command line');
+      }
+    }
     // W-R2 (affected review 2026-10-21): ONE invocation; the first result — including a
     // 0xC0000005 access violation (see MSYS_ACCESS_VIOLATION_EXIT) — is returned as-is.
     // No replay: a respawn could duplicate non-idempotent script effects and hide the
     // first failure behind a passing second attempt.
-    return runBashArm(spawnSync, plan.file, args as string[], opts);
+    return runBashArm(spawnSync, plan.file, spawnArgs, opts);
   }
   return spawnSync(plan.file, args as string[], options);
 }
