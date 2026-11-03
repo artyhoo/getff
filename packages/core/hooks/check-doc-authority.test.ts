@@ -63,7 +63,7 @@ import {
   type Skippable,
 } from './symlink-or-junction-or-skip.ts';
 import { spawnBashOrSkip, toMsysArg } from './spawn-bash-or-skip.ts';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, delimiter } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
@@ -573,11 +573,23 @@ describe('check-doc-authority.sh — dependency-missing skip is announced, not s
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /** PATH with all tsx-containing directories removed — isolates tiers 1/2 from tier 3. */
+/**
+ * PATH minus every dir that can resolve `tsx` for THIS platform's shell. The original
+ * `split(':')` + bare-`tsx` probe was POSIX-only and failed open on win32 twice over
+ * (run 41559999951, windows-hooks cell): PATH splits on ';' there, so the whole string
+ * survived as one "dir", and the npm `.bin` shims are `tsx.CMD`/`tsx.exe` besides —
+ * tier 3 then found the real repo's tsx, the staged bin ran and reported
+ * `FAIL CLAUDE.md: file does not exist` (exit 2) instead of the expected _emit_skip.
+ * Git-Bash's `command -v tsx` matches the extensionless sh shim too, so all three
+ * spellings must be probed on win32.
+ */
 function pathWithoutTsx(): string {
+  const isWin = process.platform === 'win32';
+  const shims = isWin ? ['tsx', 'tsx.exe', 'tsx.cmd', 'tsx.ps1'] : ['tsx'];
   return (process.env.PATH || '')
-    .split(':')
-    .filter((dir) => !existsSync(join(dir, 'tsx')))
-    .join(':');
+    .split(delimiter)
+    .filter((dir) => dir !== '' && !shims.some((s) => existsSync(join(dir, s))))
+    .join(delimiter);
 }
 
 describe.skipIf(!JQ || !TSX)(
