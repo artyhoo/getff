@@ -2217,15 +2217,16 @@ function lineCitationsSection(ctx: SectionCtx): void {
   const changed = getChangedFiles(rb.base, 'ACMR', rb.head);
   if (changed.length === 0) return;
   const timeoutMs = lineCitationsTimeoutMs();
+  // The affected list travels on stdin, not argv: win32 CreateProcess caps the whole
+  // command line at 32767 chars, and serialising the changed set (thousands of paths vs
+  // an empty-tree base) as `--affected-by=` args killed the spawn itself with
+  // `ENAMETOOLONG` — mis-routed below as «stale citations» (run 41559999951,
+  // windows-hooks cell). Same set, same semantics: the checker merges
+  // --affected-from-stdin lines with any --affected-by flags.
   const r = runCheck(
     'node',
-    [
-      'scripts/check-line-citations.mjs',
-      '--check',
-      '--corpus',
-      ...changed.map((f) => `--affected-by=${f}`),
-    ],
-    { cwd: REPO_ROOT, timeoutMs },
+    ['scripts/check-line-citations.mjs', '--check', '--corpus', '--affected-from-stdin'],
+    { cwd: REPO_ROOT, timeoutMs, input: changed.join('\n') },
   );
   if (r.notFound) return; // no node — the other node-dependent sections already die loudly
   // Checked before exitCode: a timeout synthesises exit 124, and routing it to the

@@ -46,6 +46,7 @@
  *   --blank-only         ARM 2 alone — the pre-commit channel, no git reads at all
  *   --strict             additionally exit 1 when ANY citation could not be resolved
  *   --affected-by=<path> repeatable; run ARM 1 only for citations touching these paths
+ *   --affected-from-stdin the same set, one path per line on stdin (argv-limit bypass)
  *   --corpus             check the live-authority corpus (below) instead of named files
  *   --in-corpus          keep only the named files the corpus contains (pre-commit's scope)
  *   --show-skips         list unresolvable citations in code files too (counted by default)
@@ -1048,13 +1049,23 @@ export function run(argv) {
     .filter((a) => a.startsWith('--affected-by='))
     .map((a) => a.slice('--affected-by='.length))
     .filter(Boolean);
+  // `--affected-from-stdin`: the SAME affected set, one repo-relative path per line on
+  // stdin, mergeable with the flag form. Win32 CreateProcess caps the whole command
+  // line at 32767 chars — pre-push §9 against an empty-tree base serialises thousands
+  // of `--affected-by=` args and died as `spawnSync node ENAMETOOLONG` (run
+  // 41559999951, windows-hooks cell). stdin has no such cap. The caller must pipe the
+  // list (pre-push always does; a bare terminal invocation would block on read).
+  if (argv.includes('--affected-from-stdin')) {
+    const stdinText = readFileSync(0, 'utf8');
+    for (const line of stdinText.split('\n')) if (line !== '') affected.push(line);
+  }
   affectedBy = affected.length > 0 ? new Set(affected) : null;
   const named = argv.filter((a) => !a.startsWith('--'));
   if (!write && !check) {
     console.error(
       'usage: check-line-citations.mjs\n' +
         '  --check [--corpus] [--in-corpus] [--blank-only] [--strict] [--show-skips]\n' +
-        '          [--affected-by=<path>]... [<file>...]\n' +
+        '          [--affected-by=<path>]... [--affected-from-stdin] [<file>...]\n' +
         '  --write <file.md>...',
     );
     return 2;

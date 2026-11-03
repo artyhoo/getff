@@ -32,6 +32,11 @@ export interface RunCheckOptions {
   /** Wall-clock cap; the child is killed with SIGTERM past this. Default 120s. */
   timeoutMs?: number;
   env?: NodeJS.ProcessEnv;
+  /** Bytes piped to the child's stdin. Used to pass large inputs (e.g. the citation
+   *  checker's affected-file list) off the command line — win32 CreateProcess caps the
+   *  whole command line at 32767 chars, and a big changed-set serialised into argv
+   *  died as `spawnSync node ENAMETOOLONG` (run 41559999951, windows-hooks cell). */
+  input?: string;
 }
 
 export const DEFAULT_TIMEOUT_MS = 120_000;
@@ -169,6 +174,7 @@ export function runCheck(
     encoding: 'utf8',
     timeout: timeoutMs,
     maxBuffer: 32 * 1024 * 1024,
+    input: opts.input,
   });
 
   const errCode = (result.error as NodeJS.ErrnoException | undefined)?.code;

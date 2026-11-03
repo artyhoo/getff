@@ -21,7 +21,7 @@
 //
 // Path admission runs BEFORE any read on every kind: an absolute path or one whose
 // lexical normalisation escapes the repo root is refused UNSUPPORTED (same lexical
-// admission as scripts/check-line-citations.mjs:529). The default reader additionally
+// admission as scripts/check-line-citations.mjs:530). The default reader additionally
 // re-asserts containment after realpath (symlink escape → UNSUPPORTED). Diagnostics
 // carry the ref only, never host-file content.
 import { createHash } from 'node:crypto';
