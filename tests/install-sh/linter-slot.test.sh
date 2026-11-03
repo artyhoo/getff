@@ -29,6 +29,58 @@ TMPS=()
 cleanup() { [ "${#TMPS[@]}" -gt 0 ] && rm -rf "${TMPS[@]}"; }
 trap cleanup EXIT
 
+# The generic selection must reach 99-finalize's existing oxlint writer.
+# Registration preserves green-first placement: no new rule is enabled here.
+GS=$(mktemp -d); TMPS+=("$GS")
+GREF=$(mktemp -d); TMPS+=("$GREF")
+printf '{"name":"generic-oxlint","scripts":{"lint":"oxlint ."}}\n' > "$GS/package.json"
+printf '{"lockfileVersion":3}\n' > "$GS/package-lock.json"
+printf '{"rules":{"no-debugger":"warn"},"ignorePatterns":["keep-me"]}\n' > "$GS/.oxlintrc.json"
+cp "$GS/package.json" "$GREF/package.json"
+cp "$GS/package-lock.json" "$GREF/package-lock.json"
+(
+  PROJECT_ROOT="$GS"; PKG_ROOT="$REPO_ROOT"; STACK=generic
+  FORCE=""; DRY_RUN=""; SKIPPED=(); NOT_WIRED=()
+  unset LINTER_SLOT FORMATTER_SLOT
+  INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+  source "$REPO_ROOT/setup.d/40-configs.sh" || exit $?
+  printf '%s\n' "${LINTER_SLOT:-UNSET}" > "$GS/.selected-linter"
+  # Real finalizer entry condition; the writer is the real P4 helper.
+  if [ "${LINTER_SLOT:-}" = oxlint ]; then
+    oxlint_register_jsplugin "$GS/.oxlintrc.json" "$GS/eslint-rules-local/index.mjs"
+  fi
+) > "$GS/.layer-log" 2>&1; grc=$?
+[ "$grc" -eq 0 ] && ok "(generic) real config layer and downstream writer complete" \
+  || bad "(generic) layer/writer exit $grc: $(tail -3 "$GS/.layer-log")"
+[ "$(cat "$GS/.selected-linter" 2>/dev/null)" = oxlint ] \
+  && ok "(generic) shared oxlint selection reaches the finalizer" \
+  || bad "(generic) selected linter lost before the finalizer"
+node -e '
+  const c=require(process.argv[1]);
+  const p=c.jsPlugins?.filter(x=>x?.name==="rules-as-tests")||[];
+  process.exit(p.length===1&&p[0].specifier==="./eslint-rules-local/index.mjs"?0:1);
+' "$GS/.oxlintrc.json" \
+  && ok "(generic) existing writer registers the delivered oxlint plugin" \
+  || bad "(generic) real slot-gated registration skipped"
+node -e '
+  const c=require(process.argv[1]);
+  process.exit(JSON.stringify(c.rules)==="{\"no-debugger\":\"warn\"}"&&
+    JSON.stringify(c.ignorePatterns)==="[\"keep-me\"]"?0:1);
+' "$GS/.oxlintrc.json" \
+  && ok "(generic) own settings kept; no rule enabled before lint baseline" \
+  || bad "(generic) registration changed own settings or bypassed green-first placement"
+for gp in package.json package-lock.json; do
+  cmp -s "$GS/$gp" "$GREF/$gp" && ok "(generic) own $gp byte-identical" \
+    || bad "(generic) own $gp changed"
+done
+for gp in eslint.config.mjs node_modules .husky tsconfig.json; do
+  [ ! -e "$GS/$gp" ] && ok "(generic) no competing preset/toolchain $gp" \
+    || bad "(generic) competing preset/toolchain $gp created"
+done
+if [ "${1:-}" = --generic-slot-regression ]; then
+  echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]; exit $?
+fi
+
 proj() {  # $1 = package.json body
   local d; d=$(mktemp -d); TMPS+=("$d")
   ( cd "$d" && git init -q && git config user.email t@t && git config user.name t

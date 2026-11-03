@@ -22,6 +22,9 @@ _copy_rule() {  # $1 = source .ts path
   [ -f "$stem.d.ts" ] && copy_safe "$stem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$bn.d.ts"
 }
 
+LINTER_SLOT=$(project_linter "$PROJECT_ROOT")
+FORMATTER_SLOT=$(project_formatter "$PROJECT_ROOT")
+
 # P2 G1: stack «generic» gets the stack-free scripts only (the docs audit above and the CI-state
 # probe); every script below it and every config in this layer is ESLint/TypeScript/npm-bound.
 if [ "$STACK" = "generic" ]; then
@@ -32,6 +35,23 @@ if [ "$STACK" = "generic" ]; then
     copy_safe "$PKG_ROOT/packages/core/audit-self/prove-rules.mjs" "$PROJECT_ROOT/scripts/prove-rules.mjs"
     copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
     chmod_safe +x "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" 2>/dev/null || true
+    # F1a: the record runner — validate (CI), probe/fold (the generic pre-commit); the npm lane
+    # below delivers the same file to every preset stack.
+    # R11-KEEP (Root 0494f7b6, R6 delegate-keep parity): copy_safe returns 0 without writing
+    # for an existing consumer runner and refuses an external/custom link — an unconditional
+    # follow-up chmod then flips the kept file's mode (or follows the link into its target).
+    # chmod only after an ACTUAL admitted framework write: the destination was absent (or
+    # --force, which the link refusal still outranks) — same gate semantics as the F2 hook arm
+    # in 50-hooks.sh and the refresh arms in install.sh.
+    _g40_ra_fresh=0
+    { [ ! -e "$PROJECT_ROOT/scripts/run-armed.sh" ] || [ "$FORCE" = "--force" ]; } && _g40_ra_fresh=1
+    copy_safe "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
+    if [ "$_g40_ra_fresh" = "1" ] && [ "$DRY_RUN" != "--dry-run" ] \
+      && { [ ! -L "$PROJECT_ROOT/scripts/run-armed.sh" ] \
+           || _canonical_link_target "$PROJECT_ROOT/scripts/run-armed.sh" >/dev/null 2>&1; } \
+      && [ -f "$PROJECT_ROOT/scripts/run-armed.sh" ]; then
+      chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
+    fi
     # Core plugin set — the same files §5b' ships every stack (rule files THEN barrel, O9).
     # generate_eslint_barrel's #882 prune keeps exactly this core set for STACK=generic.
     mkdir_safe "$PROJECT_ROOT/eslint-rules-local"
@@ -44,6 +64,37 @@ if [ "$STACK" = "generic" ]; then
       _copy_rule "$f"
     done
     generate_eslint_barrel
+    # F1b: the getff-rules CI workflow — route B's blocking channel for the drivable subset.
+    # deliver_getff_workflow substitutes the default branch; a pre-existing getff-rules.yml is
+    # the consumer's (copy_safe skip-if-exists) and is never overwritten or substituted.
+    mkdir_safe "$PROJECT_ROOT/.github/workflows"
+    _g40_wf_absent=0
+    [ -e "$PROJECT_ROOT/.github/workflows/getff-rules.yml" ] || _g40_wf_absent=1
+    deliver_getff_workflow "$PKG_ROOT/packages/core/templates/shared/getff-rules-generic.yml" "$PROJECT_ROOT/.github/workflows/getff-rules.yml"
+    # GETFF-SUBST-NODE — the only install-time substitution. Generic installs place no .nvmrc
+    # (§6a below is npm-bound), so a foreign node-version-file reference would fail setup-node;
+    # a project's own .nvmrc wins when present, else pin the getff-known Node floor '20'.
+    # Applied only after a write THIS install actually admitted, never to a consumer-kept one.
+    # D1 (fidelity round 1): destination-absence is not the only admitted write — copy_safe's
+    # --force arm overwrites an existing regular destination too, and a forced re-install of an
+    # existing workflow left the freshly-written template's dangling node-version-file: '.nvmrc'
+    # in place (setup-node would stop before the admitted lint gate). The write condition is the
+    # F2 runner gate's shape above (absent, or --force); the link/dry-run/file terms are R6
+    # delegate-keep parity — an external/custom link is refused BEFORE force (copy_safe's first
+    # guard outranks its force arm) and --dry-run writes nothing, so neither is a write and
+    # neither may be postprocessed.
+    _g40_wf_write=0
+    { [ "$_g40_wf_absent" = "1" ] || [ "$FORCE" = "--force" ]; } && _g40_wf_write=1
+    if [ "$_g40_wf_write" = "1" ] && [ "$DRY_RUN" != "--dry-run" ] \
+       && { [ ! -L "$PROJECT_ROOT/.github/workflows/getff-rules.yml" ] \
+            || _canonical_link_target "$PROJECT_ROOT/.github/workflows/getff-rules.yml" >/dev/null 2>&1; } \
+       && [ -f "$PROJECT_ROOT/.github/workflows/getff-rules.yml" ] \
+       && [ ! -f "$PROJECT_ROOT/.nvmrc" ]; then
+      sed "s#node-version-file: '.nvmrc'.*#node-version: '20'#" \
+        "$PROJECT_ROOT/.github/workflows/getff-rules.yml" > "$PROJECT_ROOT/.github/workflows/.getff-rules.g40.tmp"
+      cat "$PROJECT_ROOT/.github/workflows/.getff-rules.g40.tmp" > "$PROJECT_ROOT/.github/workflows/getff-rules.yml"
+      rm -f "$PROJECT_ROOT/.github/workflows/.getff-rules.g40.tmp"
+    fi
   fi
   note_not_wired "lint, typecheck and test configs (ESLint, tsconfig, vitest, prettier, lint-staged, dependency-cruiser) — not placed: stack «generic» has no getff preset; your own tools are left as they are"
   return 0 2>/dev/null || true
