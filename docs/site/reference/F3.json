@@ -140,7 +140,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2385 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2386 (spawn-argument)",
           ".github/workflows/audit-self.yml:1540 (workflow-run:invocation-verb)"
         ]
       },
@@ -189,7 +189,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2418 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2419 (spawn-argument)",
           "install.sh:1258 (quoted-path-token)"
         ]
       },
@@ -209,7 +209,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2446 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2447 (spawn-argument)",
           ".github/workflows/audit-self.yml:3022 (workflow-run:invocation-verb)"
         ]
       },
@@ -590,8 +590,8 @@
           ".agents/hooks/adopt-orchestrator-prompts.sh:70 (quoted-path-token)",
           ".agents/hooks/worktree-setup.sh:164 (quoted-path-token)",
           ".agents/hooks/worktree-setup.sh:167 (quoted-path-token)",
-          "scripts/create-worktree.sh:127 (quoted-path-token, closure)",
-          "scripts/create-worktree.sh:130 (quoted-path-token, closure)",
+          "scripts/create-worktree.sh:133 (quoted-path-token, closure)",
+          "scripts/create-worktree.sh:136 (quoted-path-token, closure)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -690,7 +690,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:3036 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:3037 (spawn-argument)",
           ".husky/pre-commit:361 (quoted-path-token)"
         ]
       },
@@ -857,7 +857,7 @@
           "install.sh:1292 (for-in-list)",
           ".agents/hooks/worktree-setup.sh:73 (quoted-path-token)",
           ".agents/hooks/worktree-setup.sh:118 (quoted-path-token)",
-          "scripts/create-worktree.sh:87 (quoted-path-token, closure)",
+          "scripts/create-worktree.sh:93 (quoted-path-token, closure)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
