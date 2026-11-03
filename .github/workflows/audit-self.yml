@@ -351,6 +351,18 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             packages/core/package-lock.json
+      # TAK S3/S4 (principle 52 executed-conformance): its scratch scenarios symlink the
+      # REPO-ROOT node_modules verbatim into every scratch repo (52-subprocess-status-
+      # conformance.ts realNodeModules() — existsSync(REPO_ROOT/node_modules) is a hard
+      # infrastructure precondition, ConformanceError otherwise). This job historically
+      # installed packages/core only (the ESLint-stack-free topology), so on runners the
+      # spawn-lane arms (M14/Q4/Q5/K6/REAL-CALLER) failed with "node_modules not
+      # provisioned" while every local full-install checkout passed. Install the root
+      # lockfile FIRST so the standalone `npm ci --prefix packages/core` below still owns
+      # packages/core/node_modules for the --prefix test runs (same hybrid topology as a
+      # maintainer checkout; the npm cache above already keys on this lockfile).
+      - name: Install root deps (principle 52 scratch precondition)
+        run: npm ci --silent
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Run principles meta-tests

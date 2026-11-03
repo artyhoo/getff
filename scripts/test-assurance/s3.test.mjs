@@ -1918,6 +1918,15 @@ const transferFixture = () => {
   // with its real bytes — the committed-ledger binding reads the live tree row and its blob,
   // so every fixture arm serves the same object the production channel reads.
   treeRows.push({ path: S3_LEDGER_REL, mode: '100644', kind: 'blob', gitBlob: CD3_LEDGER_GITBLOB, content: CD3_LEDGER_BYTES });
+  // Root unit-53 dead-entry guard: the shared fixture models the COMPLETE successor surface of
+  // the real checkpoint — the F1 row (a reviewed carrier row carrying its frozen checkpoint
+  // identity on both legs) and the workflow checkpoint path join the base fixture so every
+  // arm exercises the same relation coverage the production checkpoint actually binds. The
+  // dedicated F1/workflow arms below mutate their surface per leg; plain fixtures stay clean
+  // with the original identity on both legs.
+  carrier.currentLineageOnlyScope.upstreamAdditions.push({ path: F1_REL, mode: '100644', kind: 'blob', gitBlob: F1_REVIEWED.gitBlob, sha256: F1_REVIEWED.sha256, bytes: F1_REVIEWED.bytes });
+  treeRows.push({ path: F1_REL, mode: '100644', kind: 'blob', gitBlob: F1_REVIEWED.gitBlob, content: CD3_F1_BYTES });
+  treeRows.push({ path: WF_REL, mode: '100644', kind: 'blob', gitBlob: WF_ORIGINAL.gitBlob, content: CD3_WF_BYTES });
   return { carrier, treeRows };
 };
 test('UPSTREAM-TRANSFER: the pinned Root-reviewed current-transfer checkpoint reconciles the complete 571-row set as 568 preserved bc8-origin blobs plus exactly three admitted assertion-preserving replacements', () => {
@@ -2326,12 +2335,11 @@ assert.equal(CD3_F1_BYTES.length, F1_REVIEWED.bytes);
 const LIVE_F1_BYTES = readFileSync(join(REPO_ROOT, F1_REL));
 assert.equal(sha(LIVE_F1_BYTES), F1_GENERATED.sha256, 'the committed live F1.md must be the exact Root-admitted generated postimage');
 assert.equal(LIVE_F1_BYTES.length, F1_GENERATED.bytes);
-const f1Fixture = () => {
-  const { carrier, treeRows } = transferFixture();
-  carrier.currentLineageOnlyScope.upstreamAdditions.push({ path: F1_REL, mode: '100644', kind: 'blob', gitBlob: F1_REVIEWED.gitBlob, sha256: F1_REVIEWED.sha256, bytes: F1_REVIEWED.bytes });
-  treeRows.push({ path: F1_REL, mode: '100644', kind: 'blob', gitBlob: F1_REVIEWED.gitBlob, content: CD3_F1_BYTES });
-  return { carrier, treeRows };
-};
+// Root unit-53: the F1 successor surface (carrier row + tree row at the frozen checkpoint
+// identity) is part of the BASE fixture now — the dead-entry guard demands every admitted
+// successor entry bind a live surface in every fixture, so the dedicated F1 arms mutate the
+// shared surface per leg instead of assembling it here.
+const f1Fixture = () => transferFixture();
 const f1Run = (treeRows, liveRows, carrier) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows }), carrier: { ok: true, data: carrier } });
 const f1Live = (rows, over) => rows.map((r) => (r.path === F1_REL ? { ...r, ...over } : { ...r }));
 test('CURRENT-ONLY F1 SUCCESSOR (unit 41): the unchanged reviewed baseline twin — original blob on both legs — admits', () => {
@@ -2392,6 +2400,115 @@ test('CURRENT-ONLY F1 SUCCESSOR (unit 41): a tampered checkpoint origin (neither
   const checkpointRows = f1Live(treeRows, { gitBlob: hex40('f'), content: CD3_F1_BYTES });
   const p = f1Run(checkpointRows, checkpointRows.map((r) => ({ ...r })), carrier);
   assert.ok(p.some((x) => x.includes(`current-only successor path ${F1_REL} carries ${hex40('f')} in the checkpoint tree`)), p.join('|'));
+});
+// Root unit-52/53 current-only WORKFLOW successor controls. The expected tuple below is the
+// frozen independent Root admission data, NEVER derived from the detector or from a fresh
+// generator run; both byte anchors (the frozen checkpoint original + the Root-admitted CI
+// repair postimage) are pinned by their full identities so any drift in either anchor
+// refuses. Unlike the F1 relation this path is NOT one of the 571 reviewed carrier rows —
+// it is a governed checkpoint path consumed by the checkpoint-mutation leg, so the fixture
+// carries it in the trees only, never as an upstreamAddition row.
+const WF_REL = '.github/workflows/audit-self.yml';
+const WF_ORIGINAL = { gitBlob: '8a55d97eb2b92cd4bcdc3e755b1d496e8889437a', sha256: '78946c570a616ced22fe12bd04ec33db58fa59e8389f559e8a36ba78fe584953', bytes: 201512 };
+const WF_ADMITTED = { gitBlob: 'e9a3b2d6a496498304ee6d1a7c0b32c0915027e0', sha256: 'd7222065173633f33897f87476bed2201172edef877bb5519db2300eb7414053', bytes: 202479 };
+const CD3_WF_BYTES = realGit(['cat-file', 'blob', `${CURRENT_TRANSFER_CHECKPOINT.head}:${WF_REL}`]).stdout;
+assert.equal(sha(CD3_WF_BYTES), WF_ORIGINAL.sha256);
+assert.equal(CD3_WF_BYTES.length, WF_ORIGINAL.bytes);
+const LIVE_WF_BYTES = readFileSync(join(REPO_ROOT, WF_REL));
+assert.equal(sha(LIVE_WF_BYTES), WF_ADMITTED.sha256, 'the live workflow must be the exact Root-admitted CI repair postimage');
+assert.equal(LIVE_WF_BYTES.length, WF_ADMITTED.bytes);
+// Root unit-53: the workflow successor surface (checkpoint tree row at the frozen original
+// identity) is part of the BASE fixture alongside the F1 row — the dead-entry guard demands
+// every admitted successor entry bind a live surface in every fixture, so the workflow arms
+// below mutate the shared surface per leg instead of assembling it here.
+const wfFixture = () => transferFixture();
+const wfRun = (treeRows, liveRows, carrier) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows }), carrier: { ok: true, data: carrier } });
+const wfLive = (rows, over) => rows.map((r) => (r.path === WF_REL ? { ...r, ...over } : { ...r }));
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): the exact Root-admitted CI repair postimage on the live leg admits (checkpoint keeps the frozen original)', () => {
+  const { carrier, treeRows } = wfFixture();
+  assert.deepEqual(wfRun(treeRows, wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES }), carrier), []);
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): the unchanged original on both legs admits — live-original compatibility', () => {
+  const { carrier, treeRows } = wfFixture();
+  assert.deepEqual(wfRun(treeRows, treeRows.map((r) => ({ ...r })), carrier), []);
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): the successor appearing in the checkpoint leg refuses — the frozen checkpoint identity never updates', () => {
+  const { carrier, treeRows } = wfFixture();
+  const checkpointRows = wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES });
+  const p = wfRun(checkpointRows, checkpointRows.map((r) => ({ ...r })), carrier);
+  assert.ok(p.some((x) => x.includes(`current-only successor path ${WF_REL} carries 100644/blob ${WF_ADMITTED.gitBlob} in the checkpoint tree`)), p.join('|'));
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): an unknown live replacement OID refuses — only the original or the one exact successor admit', () => {
+  const { carrier, treeRows } = wfFixture();
+  // hex40('d') — the ls-tree parser only admits 40-hex OIDs, so the unknown replacement is a
+  // well-formed but unadmitted hex OID, exactly the real forgery class this arm refuses.
+  const p = wfRun(treeRows, wfLive(treeRows, { gitBlob: hex40('d'), content: LIVE_WF_BYTES }), carrier);
+  assert.ok(p.some((x) => x.includes(`current-only successor path ${WF_REL} carries ${hex40('d')} in the live HEAD tree`)), p.join('|'));
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): a mode or kind swap on the live leg refuses', () => {
+  const { carrier, treeRows } = wfFixture();
+  const p = wfRun(treeRows, wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES, mode: '120000' }), carrier);
+  assert.ok(p.some((x) => x.includes(`current-only successor path ${WF_REL} live mode/kind mismatch`)), p.join('|'));
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): the workflow path missing from the live tree refuses — deletion is not an admitted successor', () => {
+  const { carrier, treeRows } = wfFixture();
+  const p = wfRun(treeRows, treeRows.filter((r) => r.path !== WF_REL).map((r) => ({ ...r })), carrier);
+  assert.ok(p.some((x) => x.includes(`original current path missing from the live HEAD tree: ${WF_REL}`)), p.join('|'));
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): an unreadable successor or original blob refuses', () => {
+  const { carrier, treeRows } = wfFixture();
+  const unreadableLive = wfRun(treeRows, wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: undefined }), carrier);
+  assert.ok(unreadableLive.some((x) => x.includes(`current-only successor path ${WF_REL} blob ${WF_ADMITTED.gitBlob} unreadable through the shared git runner`)), unreadableLive.join('|'));
+  // The original-OID unreadable variant plants the missing object in the shared checkpoint
+  // row itself (the fake runner resolves cat-file by gitBlob, tree rows first), so BOTH legs
+  // present the original OID while no object is servable for it.
+  const originalFixture = wfFixture();
+  const originalGone = originalFixture.treeRows.map((r) => (r.path === WF_REL ? { ...r, content: undefined } : { ...r }));
+  const p2 = wfRun(originalGone, originalGone.map((r) => ({ ...r })), originalFixture.carrier);
+  assert.ok(p2.some((x) => x.includes(`current-only successor path ${WF_REL} blob ${WF_ORIGINAL.gitBlob} unreadable through the shared git runner`)), p2.join('|'));
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): counterfeit bytes served under the successor OID refuse', () => {
+  const { carrier, treeRows } = wfFixture();
+  const p = wfRun(treeRows, wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: CD3_WF_BYTES }), carrier);
+  assert.ok(p.some((x) => x.includes(`current-only successor path ${WF_REL} serves counterfeit bytes under ${WF_ADMITTED.gitBlob}`)), p.join('|'));
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): counterfeit bytes served under the original OID refuse', () => {
+  const { carrier, treeRows } = wfFixture();
+  // The fake runner resolves cat-file by gitBlob (tree rows first), so the original-OID
+  // counterfeit is planted in the shared row itself: the original OID is presented on both
+  // legs while the bytes served are the admitted successor — a pass here would mean OID
+  // trust without content binding.
+  const forged = wfLive(treeRows, { content: LIVE_WF_BYTES });
+  const p = wfRun(forged, forged.map((r) => ({ ...r })), carrier);
+  assert.ok(p.some((x) => x.includes(`current-only successor path ${WF_REL} serves counterfeit bytes under ${WF_ORIGINAL.gitBlob}`)), p.join('|'));
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): the admitted successor OID presented under a different non-row path refuses — no wildcard, class or prefix', () => {
+  const { carrier, treeRows } = wfFixture();
+  // The successor OID presented under a DIFFERENT non-row checkpoint path's live entry must
+  // hit the generic unadmitted-mutation refusal — the exception is bound to exactly one
+  // path, never to an OID, a filename class or a prefix.
+  treeRows.push({ path: 'upstream/other-checkpoint-path.md', mode: '100644', kind: 'blob', gitBlob: hex40('b'), content: Buffer.from('plain original checkpoint bytes\n') });
+  const liveRows = treeRows.map((r) => (r.path === 'upstream/other-checkpoint-path.md' ? { ...r, gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES } : { ...r }));
+  const p = wfRun(treeRows, liveRows, carrier);
+  assert.ok(p.some((x) => x.includes('changed current source path without an admitted replacement or governed binding: upstream/other-checkpoint-path.md')), p.join('|'));
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): a successor entry binding neither a reviewed row nor a checkpoint path refuses — a dead admission entry never normalizes', async () => {
+  // A path in NEITHER the reviewed row set NOR the checkpoint tree would make the relation
+  // entry inert: it normalizes nothing and its presence carries no admission weight. The
+  // intact production relation stays clean on the healthy fixture, and the counterfactual
+  // is proven on an in-memory neutralized copy of the production module (same technique as
+  // the detector-disabled test below — no file on disk is modified).
+  const { carrier, treeRows } = wfFixture();
+  assert.deepEqual(wfRun(treeRows, wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES }), carrier), []);
+  const sourcePath = join(REPO_ROOT, 'scripts/test-assurance/s3.mjs');
+  const healthySource = readFileSync(sourcePath, 'utf8');
+  const DEAD_FROM = "    path: '.github/workflows/audit-self.yml',";
+  const DEAD_TO = "    path: 'upstream/dead-never-admitted-path.md',";
+  const occurrences = healthySource.split(DEAD_FROM).length - 1;
+  assert.equal(occurrences, 1, 'the workflow successor entry must appear exactly once in the production relation');
+  const deadModule = await import(`data:text/javascript;base64,${Buffer.from(healthySource.replace(DEAD_FROM, DEAD_TO), 'utf8').toString('base64')}`);
+  const p = deadModule.reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES }) }), carrier: { ok: true, data: carrier } });
+  assert.ok(p.some((x) => x.includes('current-only successor entry upstream/dead-never-admitted-path.md binds neither a reviewed row nor a checkpoint tree path')), p.join('|'));
 });
 test('UPSTREAM-TRANSFER: the actual lineage detector disabled counterfactual - intact refuses a bad isolated fixture, the narrowly disabled detector incorrectly allows it, restored bytes refuse again', async () => {
   // U33-K3-1 / Root unit-35 item 4: a failing git process is NOT a disabled mechanism (that

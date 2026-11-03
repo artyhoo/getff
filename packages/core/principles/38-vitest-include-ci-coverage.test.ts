@@ -792,7 +792,7 @@ describe('Principle 38 — execution context: a credit must come from an actual 
       ).toEqual([...renewal.expectedCurrent39].sort());
       expect(
         renewal.upstreamAdded9.map((r) => r.path).filter((p) =>
-          M02_FROZEN_SKILLS_POPULATION.includes(p),
+          (M02_FROZEN_SKILLS_POPULATION as readonly string[]).includes(p),
         ),
         'the reviewed 9 must be genuine upstream additions, not frozen-30 re-labels',
       ).toEqual([]);
