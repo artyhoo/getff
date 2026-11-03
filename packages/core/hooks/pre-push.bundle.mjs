@@ -131,7 +131,8 @@ function runCheck(cmd, args = [], opts = {}) {
     env: opts.env ?? process.env,
     encoding: "utf8",
     timeout: timeoutMs,
-    maxBuffer: 32 * 1024 * 1024
+    maxBuffer: 32 * 1024 * 1024,
+    input: opts.input
   });
   const errCode = result.error?.code;
   const timedOut = errCode === "ETIMEDOUT" || result.signal === "SIGTERM";
@@ -2462,13 +2463,8 @@ function lineCitationsSection(ctx) {
   const timeoutMs = lineCitationsTimeoutMs();
   const r = runCheck(
     "node",
-    [
-      "scripts/check-line-citations.mjs",
-      "--check",
-      "--corpus",
-      ...changed.map((f) => `--affected-by=${f}`)
-    ],
-    { cwd: REPO_ROOT, timeoutMs }
+    ["scripts/check-line-citations.mjs", "--check", "--corpus", "--affected-from-stdin"],
+    { cwd: REPO_ROOT, timeoutMs, input: changed.join("\n") }
   );
   if (r.notFound) return;
   if (r.timedOut) {
