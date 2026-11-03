@@ -154,6 +154,7 @@ export const REQUIRED_COMPANION_CONTROLS = [
   "CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): the successor appearing in the checkpoint leg refuses — the frozen checkpoint identity never updates",
   "CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): an unknown live replacement OID refuses — only the original or the one exact successor admit",
   "CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): a mode or kind swap on the live leg refuses",
+  "CURRENT-ONLY WORKFLOW SUCCESSOR (unit 54): unchanged mode with a wrong live kind refuses while the paired restored-kind control admits",
   "CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): the workflow path missing from the live tree refuses — deletion is not an admitted successor",
   "CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): an unreadable successor or original blob refuses",
   "CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): counterfeit bytes served under the successor OID refuse",
@@ -514,17 +515,23 @@ export const PENDING_CURRENT_SOURCE_PROPOSALS = [
 // Structural admission of the original baseline here is not a freshness waiver — the
 // s2-body-carriers step still demands the live generator output for final delivery.
 //
-// Root unit-52/53 admission (2026-11-03): the second exact current-only successor — the CI
-// workflow repair. The principles-meta-tests job installed packages/core only, while
-// principle 52's scratch scenarios hard-require a provisioned REPO-ROOT node_modules
-// (52-subprocess-status-conformance.ts realNodeModules()), so the Root-reviewed minimal fix
-// adds one root `npm ci --silent` step before the core install. The workflow path is a
-// governed CHECKPOINT path that is NOT one of the 571 reviewed carrier rows, so this entry
-// is consumed by the checkpoint-mutation leg of reconcileCurrentTransfer (not the row loop):
-// identical typed semantics — the checkpoint keeps the frozen original identity, the live
-// leg may carry the original OR exactly this Root-admitted postimage, content-bound through
-// the shared git runner. Any further workflow edit produces a live blob outside the two
-// admitted OIDs and refuses until Root admits a new successor tuple.
+// Root unit-52/53 admission + unit-54 line-preserving renewal (2026-11-03): the second exact
+// current-only successor — the CI workflow repair. The principles-meta-tests job installed
+// packages/core only, while principle 52's scratch scenarios hard-require a provisioned
+// REPO-ROOT node_modules (52-subprocess-status-conformance.ts realNodeModules()). The unit-53
+// admission (e9a3b2d6, a separate 12-line root-install step) is superseded per the Root
+// coordinator causal-freshness decision: the existing core-install run scalar now gains the
+// ordered root install (`npm ci --silent && npm ci --prefix packages/core --silent`) — the
+// SAME step, name, cwd, env, lockfiles and first-failure propagation — preserving the frozen
+// 8a55 physical line count (3109) and every unrelated line, so the 24 generated F3 workflow
+// citations and the s2-body-carriers freshness contract stay in place. e9a3/d722 remains in
+// history as the genuine unit-53 admission; the live leg now carries exactly this postimage.
+// The workflow path is a governed CHECKPOINT path that is NOT one of the 571 reviewed carrier
+// rows, so this entry is consumed by the checkpoint-mutation leg of reconcileCurrentTransfer
+// (not the row loop): identical typed semantics — the checkpoint keeps the frozen original
+// identity, the live leg may carry the original OR exactly this Root-admitted postimage,
+// content-bound through the shared git runner. Any further workflow edit produces a live
+// blob outside the two admitted OIDs and refuses until Root admits a new successor tuple.
 export const ADMITTED_CURRENT_ONLY_SUCCESSORS = [
   {
     path: 'docs/site/reference/F1.md',
@@ -534,7 +541,7 @@ export const ADMITTED_CURRENT_ONLY_SUCCESSORS = [
   {
     path: '.github/workflows/audit-self.yml',
     checkpoint: { mode: '100644', kind: 'blob', gitBlob: '8a55d97eb2b92cd4bcdc3e755b1d496e8889437a', sha256: '78946c570a616ced22fe12bd04ec33db58fa59e8389f559e8a36ba78fe584953', bytes: 201512 },
-    live: { mode: '100644', kind: 'blob', gitBlob: 'e9a3b2d6a496498304ee6d1a7c0b32c0915027e0', sha256: 'd7222065173633f33897f87476bed2201172edef877bb5519db2300eb7414053', bytes: 202479 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '34b7f59a542617b66ae854976579527b970e4f89', sha256: 'c173596d29dfa4cc88bc680b4e0ca2bcd81c99a0bfa5657588e144e15cd78ea8', bytes: 201531 },
   },
 ];
 // Root unit-37 §3 (Root-admitted EXISTING-LEDGER channel, 7c6b46e3 contract): the five

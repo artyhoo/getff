@@ -2410,7 +2410,7 @@ test('CURRENT-ONLY F1 SUCCESSOR (unit 41): a tampered checkpoint origin (neither
 // carries it in the trees only, never as an upstreamAddition row.
 const WF_REL = '.github/workflows/audit-self.yml';
 const WF_ORIGINAL = { gitBlob: '8a55d97eb2b92cd4bcdc3e755b1d496e8889437a', sha256: '78946c570a616ced22fe12bd04ec33db58fa59e8389f559e8a36ba78fe584953', bytes: 201512 };
-const WF_ADMITTED = { gitBlob: 'e9a3b2d6a496498304ee6d1a7c0b32c0915027e0', sha256: 'd7222065173633f33897f87476bed2201172edef877bb5519db2300eb7414053', bytes: 202479 };
+const WF_ADMITTED = { gitBlob: '34b7f59a542617b66ae854976579527b970e4f89', sha256: 'c173596d29dfa4cc88bc680b4e0ca2bcd81c99a0bfa5657588e144e15cd78ea8', bytes: 201531 };
 const CD3_WF_BYTES = realGit(['cat-file', 'blob', `${CURRENT_TRANSFER_CHECKPOINT.head}:${WF_REL}`]).stdout;
 assert.equal(sha(CD3_WF_BYTES), WF_ORIGINAL.sha256);
 assert.equal(CD3_WF_BYTES.length, WF_ORIGINAL.bytes);
@@ -2449,6 +2449,17 @@ test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): a mode or kind swap on the live
   const { carrier, treeRows } = wfFixture();
   const p = wfRun(treeRows, wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES, mode: '120000' }), carrier);
   assert.ok(p.some((x) => x.includes(`current-only successor path ${WF_REL} live mode/kind mismatch`)), p.join('|'));
+});
+test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 54): unchanged mode with a wrong live kind refuses while the paired restored-kind control admits', () => {
+  const { carrier, treeRows } = wfFixture();
+  // kind-only variant: the mode-swap arm above changes mode alone; this exercises the other
+  // dimension of the same typed contract — mode stays 100644 while kind becomes 'tree', so
+  // the refusal must fire on the kind alone (a gitlink/subtree swap under a regular mode).
+  const p = wfRun(treeRows, wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES, kind: 'tree' }), carrier);
+  assert.ok(p.some((x) => x.includes(`current-only successor path ${WF_REL} live mode/kind mismatch (checkpoint 100644/blob -> live 100644/tree`)), p.join('|'));
+  // paired healthy control: the identical fixture shape with the kind restored to blob admits.
+  const healthy = wfRun(treeRows, wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES }), carrier);
+  assert.deepEqual(healthy, []);
 });
 test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): the workflow path missing from the live tree refuses — deletion is not an admitted successor', () => {
   const { carrier, treeRows } = wfFixture();
