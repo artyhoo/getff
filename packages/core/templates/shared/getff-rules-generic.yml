@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies (own package manager — literal detect_pm ladder below)
         run: |
           set -e
-          # ownPM selection — the detect_pm ladder verbatim (lib.sh:2448-2462, sha 3ce99cf9…).
+          # ownPM selection — the detect_pm ladder verbatim (lib.sh:2460-2474, sha 3ce99cf9…).
           # Workflow cwd is GITHUB_WORKSPACE = repo root = the $PROJECT_ROOT detect_pm reads.
           if [ -f pnpm-lock.yaml ] || [ -f pnpm-workspace.yaml ]; then PM=pnpm
           elif [ -f yarn.lock ] || [ -f .yarnrc.yml ]; then PM=yarn
