@@ -9,12 +9,12 @@
     {
       "path": "scripts/test-assurance/s3.mjs",
       "class": "s3-source",
-      "sha256": "08266c922e56bc7517261da141dce3791494dbe7a4bb1ed4fb7e9cfd8c39d6cf"
+      "sha256": "baf55390637db196c0747f5cea6da2bf162d2c26ab6c8faae152b4c6208a2502"
     },
     {
       "path": "scripts/test-assurance/s3.test.mjs",
       "class": "s3-source",
-      "sha256": "c93b6716dd7a21d4827a6bd49cf8a787b8ac26b08a4a0c25fa8579d70d59cebf"
+      "sha256": "75a7864c979c1799d3d6161234393b5e33b04fc92ad522ff2070074201cbfb20"
     },
     {
       "path": "docs/test-assurance-kernel/s3/scope-extension.json",
@@ -319,7 +319,7 @@
     },
     {
       "path": "packages/getff/MANIFEST.sha256",
-      "sha256": "dc5bb4c620a441e73f82bb03842e027d269a40a9fc983be969f93678e770c402"
+      "sha256": "2b4dbd71bdf88f6c1183a771ada1c4594f6d74270d6c42ea3a2dbdcaedb8fe92"
     },
     {
       "path": "packages/core/hooks/checks/guard-liveness.ts",
@@ -331,7 +331,7 @@
     },
     {
       "path": ".github/workflows/audit-self.yml",
-      "sha256": "2910de87d5946bfe0e54985736e5f92fbb32ecb7a964c99d357151b579631342"
+      "sha256": "cb535a67513ee331bfa4b796a49e4a3073bee53153bff31f31442756a33ba1de"
     },
     {
       "path": "tests/consumer-matrix/own-config-cell.sh",

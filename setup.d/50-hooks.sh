@@ -10,6 +10,42 @@
 # P2 G1: stack «generic» (no stack getff knows) gets the stack-free part only; this layer is
 # npm-bound, so it is skipped and named in the NOT wired summary.
 if [ "${STACK:-}" = "generic" ]; then
+  # F2: the drivable subset (own eslint/oxlint + own lint script) still gets the persistence
+  # pre-commit (probe→fold, never blocking) and the core.hooksPath activation — no dispatcher,
+  # no fallback, no bundle (route B: the bundle would read as a ts-server passport on --refresh).
+  _g50_linter=$(project_linter "$PROJECT_ROOT")
+  if { [ "${_g50_linter}" = "eslint" ] || [ "${_g50_linter}" = "oxlint" ]; } \
+     && [ -n "$(project_lint_command "$PROJECT_ROOT")" ]; then
+    mkdir_safe "$PROJECT_ROOT/.husky"
+    husky_note_consumer_hooks "$PKG_ROOT" "$PROJECT_ROOT"
+    for _ch in ${HUSKY_CONSUMER_HOOKS:-}; do
+      case "$_ch" in
+        pre-commit) _ch_what="the armed-record persistence (run-armed probe→fold)" ;;
+        *)          _ch_what="getff's rule checks (packages/core/hooks/pre-push.bundle.mjs)" ;;
+      esac
+      note_not_wired "framework $_ch shield — your own .husky/$_ch is kept and runs none of the framework checks ($_ch_what); getff does not change a git hook the project already has"
+    done
+    # R11-KEEP (Root 0494f7b6, R6 delegate-keep parity): copy_safe returns 0 without writing
+    # when the destination already exists (consumer hook kept) or is an external/custom
+    # compatibility link (refused) — and chmod FOLLOWS a link into the consumer's target
+    # outside the tree, activating a deliberately non-executable shared hook. chmod only after
+    # an ACTUAL admitted framework write: copy_safe writes only when the destination was
+    # absent (or --force, which the link refusal still outranks), so the pre-write existence
+    # is the write proof; return 0 / existence alone is not (the same gate semantics as the
+    # refresh hook/workflow arms in install.sh).
+    _g50_pc_fresh=0
+    { [ ! -e "$PROJECT_ROOT/.husky/pre-commit" ] || [ "$FORCE" = "--force" ]; } && _g50_pc_fresh=1
+    copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit-generic.sh" "$PROJECT_ROOT/.husky/pre-commit"
+    if [ "$_g50_pc_fresh" = "1" ] && [ "$DRY_RUN" != "--dry-run" ] \
+      && { [ ! -L "$PROJECT_ROOT/.husky/pre-commit" ] \
+           || _canonical_link_target "$PROJECT_ROOT/.husky/pre-commit" >/dev/null 2>&1; } \
+      && [ -f "$PROJECT_ROOT/.husky/pre-commit" ]; then
+      chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" 2>/dev/null || true
+    fi
+    activate_husky_hookspath
+    note_not_wired "framework pre-push shield — not installed: stack «generic» delivers no pre-push (CI is the blocking channel; the pre-commit only persists the armed record)"
+    return 0 2>/dev/null || true
+  fi
   note_not_wired "git hooks (husky pre-commit / pre-push) — not installed: stack «generic» has no npm toolchain for them to run"
   return 0 2>/dev/null || true
 fi

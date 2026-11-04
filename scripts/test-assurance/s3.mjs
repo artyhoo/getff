@@ -170,6 +170,15 @@ export const REQUIRED_COMPANION_CONTROLS = [
   "PORTABLE-REFERENCE: the admitted bundle artifact is byte-pinned and a truncated, corrupted or foreign artifact refuses before any transport",
   "PORTABLE-REFERENCE: hydration from published objects only builds a uniquely owned isolated store - six objects absent before, exact tuples after, real chain preserved, generation NOT ancestor of published staging",
   "PORTABLE-REFERENCE: a corrupted pack refuses natively and no shared git state is written (store custody stays private and retained)",
+  "CURRENT-ONLY B-DELTA (unit 70): the exact Root-admitted finite B-delta legs admit — the 27 changed checkpoint paths, the one frozen-571-row live leg and the workflow merge successor reconcile clean in the candidate-shaped twin",
+  "CURRENT-ONLY B-DELTA (unit 70): counterfeit bytes under an admitted B tuple OID refuse, and an unknown live replacement OID on a changed checkpoint path refuses",
+  "CURRENT-ONLY B-DELTA (unit 70): an exact admitted new upstream path admits while a 29th unknown new path, a mode swap and counterfeit bytes on a listed path refuse",
+  "CURRENT-ONLY B-DELTA (unit 70): the finite delta is ancestry-bound — a live HEAD that did not merge the exact reviewed B refuses even with every content tuple exact",
+  "CURRENT-ONLY B-DELTA (unit 70): an admitted new upstream path missing from the live tree is a dead admission entry and refuses",
+  "CURRENT-ONLY B-DELTA (unit 71): a listed new upstream path already present in the frozen checkpoint refuses — a current-upstream addition extends an ABSENT surface",
+  "CURRENT-ONLY B-DELTA (unit 71): a listed new upstream path whose pinned tuple is not the immutable B tree source leg refuses — wrong-B provenance never admits",
+
+  "CURRENT-ONLY SELECTED-LEG IDENTITY (unit 72): an unchanged original 100644 leg and the exact admitted successor 100755 leg both admit on a mode-changing successor — crossed mode/OID combinations refuse",
 ];
 
 const sha256buf = (buf) => createHash('sha256').update(buf).digest('hex');
@@ -546,9 +555,203 @@ export const ADMITTED_CURRENT_ONLY_SUCCESSORS = [
   {
     path: '.github/workflows/audit-self.yml',
     checkpoint: { mode: '100644', kind: 'blob', gitBlob: '8a55d97eb2b92cd4bcdc3e755b1d496e8889437a', sha256: '78946c570a616ced22fe12bd04ec33db58fa59e8389f559e8a36ba78fe584953', bytes: 201512 },
-    live: { mode: '100644', kind: 'blob', gitBlob: 'd6b869ac7dffb3f9620c7072dc73f03596a9b9d5', sha256: '2910de87d5946bfe0e54985736e5f92fbb32ecb7a964c99d357151b579631342', bytes: 201640 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '06bc118a5fb05c1db61e907b9aa65eca3365333d', sha256: 'cb535a67513ee331bfa4b796a49e4a3073bee53153bff31f31442756a33ba1de', bytes: 201640 },
+  },
+  {
+    path: 'docs/site/face-facts.json',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '12f9ad10c95ef59fb1d1d022ed6cb486f0f3bf46', sha256: 'fcd1b6114adaa8be43cbcb64ac95e5569cd5525e1abadd34cf0ac2c16e5b4973', bytes: 25113 },
+    live: { mode: '100644', kind: 'blob', gitBlob: 'f9cb02b94cd25b547e63b99296075c9aa9a0328b', sha256: 'a56285ebe1de9eed7d57307e10ba890f34b38c6a011f9ca71adb5f22ff0f0b66', bytes: 25113 },
+  },
+  {
+    path: 'docs/site/reference/B/rule-tests.md',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '2a1d90a6ccc2eef5f4f4bfb895cd494bf539ea28', sha256: 'b960027984cac52d0e115d1fe7d9bfc8f9a544e8c56bece5f122346312713ba5', bytes: 5950 },
+    live: { mode: '100644', kind: 'blob', gitBlob: 'b1e2beb42c79d2b06ab0ec7c8f30b60fac99f125', sha256: '0fcf69db73de6da35de4a41ad86dcc27ec18b0050abf2f86d241a8c11c311d97', bytes: 5950 },
+  },
+  {
+    path: 'docs/site/reference/E.json',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '741e0c17e2329dc06e5e636124fea096549551c1', sha256: '415c98b91225fa6831c1d1b8f390251dd1e41a2e530cbe267131ccfd7ba92ce7', bytes: 43895 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '65ae1c68f9cdbc58e859e9de5a2823428715822c', sha256: '11a4a0fddd71c0080736063ba41b266a98fc2ba6b238c138ebe0ab873c4bc56d', bytes: 45090 },
+  },
+  {
+    path: 'docs/site/reference/F1/egress-no-api-bypass.md',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: 'd92fed4f62a9160939ed579619865a9da1cb43da', sha256: 'e45e43cd8934b5bcbb5c6ccc1d7e3ffde212027dfc313c511f524ccd57f71523', bytes: 7701 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '53b2c51bf8c90e35728e76bfe7e1ed3ee1e72037', sha256: 'f217bd0361720e9c80ef4cdfafd54b4badab056da4bc77b692e45002ede91b2e', bytes: 7701 },
+  },
+  {
+    path: 'docs/site/reference/F3.json',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '6ee86453332b3007b0e9ed3f6ad3db7c6dc8b0ce', sha256: 'cc419aa967a64bc8ace77ef42de9bacf4f7a397761342b487c666ea053c4671d', bytes: 26250 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '2d6857cccad7436c8028b435e0ac5d036ec45ba0', sha256: '7803f6a339cd01adf3830b9955b2af87ca106b7b95e143d38d09895eb76d0d37', bytes: 26250 },
+  },
+  {
+    path: 'install.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: '03b2d9b2ab6207cc343059b158f6adef87bfb960', sha256: '75900e3cfa0908e21492481a68c3407dfaf4be9729de37a36fbec5282eed33a0', bytes: 114414 },
+    live: { mode: '100755', kind: 'blob', gitBlob: '291eaec2f49c38a372a71900a243f76b98c0985a', sha256: '3fecefe2617b531f0e35eef14a6eaf56d2508f946a696632127d0e0c75f11376', bytes: 127737 },
+  },
+  {
+    path: 'packages/core/audit-self/audit-ai-docs.test.ts',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: 'c5a2562a14e3d8b4d1cbd99f5de8190da92f06da', sha256: '3deba582283406268b15ba3992907de148da89bdb0c1733e17c7f415c358e581', bytes: 150120 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '923f8ec2c691c5aa5d7a99cb001c34903109e329', sha256: '296cb2035258b98e4f0f0a0758659ebd467ef966a40a1ff85d2c393b33a7c2d1', bytes: 150120 },
+  },
+  {
+    path: 'packages/core/audit-self/base-core-list.test.ts',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '3b797680c3b1a5748e278ccceeaa1f3145e07a0e', sha256: 'acb770e01def3cff69a4435e20f81d535198ff3dddac6f7a646ee9251d309057', bytes: 10147 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '932091ea641ced3bb789e5e6413bec973b12064c', sha256: '84438039da9fb463fce81479639feab859506796eb726882c931c43e5e5463eb', bytes: 10147 },
+  },
+  {
+    path: 'packages/core/principles/39-skill-fence-orch-home.test.ts',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: 'fd42c148fb882bbf3dc6f5185bc8a64da399b242', sha256: '46883d301f33ea89dffd19d2ad34139a3ee79baa99669c79f1d09338375905d3', bytes: 14290 },
+    live: { mode: '100644', kind: 'blob', gitBlob: 'f2a0ce323097ee5d7d5f25fb124ded4c030ba2c3', sha256: '2da93bb3d34e9e60a15919b17b8a37fd64464f201c61cf70ddf6cc9a8939d81f', bytes: 14290 },
+  },
+  {
+    path: 'packages/core/templates/templates.manifest.json',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: 'b583b0f3f8965585fb230c3632ccd98251e735ca', sha256: '0aa5a12f3a0546329b0b204823850d93127db0d0cc967868acb111aea34de14a', bytes: 7586 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '38dc80c004c2277f0a0a3e12ce951c283210f392', sha256: 'ec8b3cbf88c79fcf31835cef5bfc71b2ba00ce4d89d34f5315751c1cf800219b', bytes: 8080 },
+  },
+  {
+    path: 'scripts/build-getff-dist.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: 'e2d97acb55e869cc337f6c10104d01f3e1d1b1b4', sha256: '4a52b4f8b45c294ecb587276592a2cd4e595e2d99b7bc6e35860c160a5746279', bytes: 18867 },
+    live: { mode: '100755', kind: 'blob', gitBlob: '50582d330b478f45c936281f1762cf139f49616f', sha256: '9ce417ad682eecf1e3ffc2b431a954f44f390e9ceaac6d605967047fd9851285', bytes: 18867 },
+  },
+  {
+    path: 'scripts/run-local-ci-sweep.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: '28380a1018accbc77eed57b10c11f389e0f77b27', sha256: 'ebc7cdd9f40f81037c16ed20cf0c23ae92de2ad2c508a706ccb482f8f07e5a83', bytes: 91103 },
+    live: { mode: '100755', kind: 'blob', gitBlob: 'cc84995fe26a5417b1fcbc398e6d2aa6804abc5e', sha256: '68ba4d42330ea3ccd084ed1d43570ded2e6a4de32f82e3a38379f19e9f22d747', bytes: 91103 },
+  },
+  {
+    path: 'setup.d/40-configs.sh',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '84be9fdecebbcb76d42f7adfb7c6d01d3e5cd4cf', sha256: '6fbda6e4610d948c938ea24f3fbd31a1fa5623b148d1db90c44fefbae803e9fe', bytes: 53605 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '0e260a97ae37a647e225d639753923febdb3859c', sha256: 'f1c635252c516775983252bce6deb41659e59b46a01da731a0c6a2b757915fa0', bytes: 57474 },
+  },
+  {
+    path: 'setup.d/45-python.sh',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: 'a7a67bc5528297ed51aab31f2272916b672cd2a2', sha256: '9e4c6f1dbd149d35a5ab56096b971d98440dd9f1e542037626db5aaea29a3ac1', bytes: 118865 },
+    live: { mode: '100644', kind: 'blob', gitBlob: 'b17966ae19813146a86ca87a149832f1572554ce', sha256: '31bbd1b4302f3bb6cede21a36723d7edf1dc78ea1bc0367bd25eb6ae1ac31a4a', bytes: 118866 },
+  },
+  {
+    path: 'setup.d/50-hooks.sh',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '5373341bf46afafcf377aece604ae1168490e05f', sha256: '5aeee0793181d62bbd8e20e093ee8370cc20a0da1b14f0fd6c1161735006aded', bytes: 4763 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '84cd12adaacaa89c34cccf37fc8b41566a1d847d', sha256: '6f7cac83ba442347ee3d94287355632cc5a17d798dd399ebf45478e6a7ec34c1', bytes: 7325 },
+  },
+  {
+    path: 'setup.d/99-finalize.sh',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '546a29b2a43f03a40e71eab4209b2d136ba553e3', sha256: 'bbfe8390b0ee343076d18e1769691177712168c23802cc945d635d56d36355dc', bytes: 51855 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '08e0ddd64a49701773a034716749032c2c863b87', sha256: '213ea60d3675f6a13b9ce352037547507c47e5dfae5291bac01e8092a60c4b9e', bytes: 52776 },
+  },
+  {
+    path: 'setup.d/lib.sh',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: 'c6a75bc6b647c413b69fe214e640946f62003d2d', sha256: '2396dc3857ee9550da2f215fe697c5ba4b80a1ec3d499a2de4af80b99343da6c', bytes: 316604 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '5a6666a7c3a28da7e007504c8b187fee62abbd41', sha256: '2a0de8efa9d0fa876ff87fa316ab5fa2b9f5cd25d1108e995391473b0b42a25b', bytes: 317922 },
+  },
+  {
+    path: 'tests/install-sh/copy-safe-force-dir-payload.test.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: '76d9821087374bc05a7518e8bb934a805fd16de0', sha256: '4106233b144b8b76595d31682a0fc1337b4f5ea9e58035fa990c4713efc3aef1', bytes: 10876 },
+    live: { mode: '100755', kind: 'blob', gitBlob: 'b50c2dd29c93391794c31eb2181eee722ada9d37', sha256: 'a0dfa22ae799a4e9bb614bad900930abb51aebc8ddaa4f20f8b2671aa3333b24', bytes: 10879 },
+  },
+  {
+    path: 'tests/install-sh/eslint-barrel-preserve-consumer.test.sh',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '9405f0c1cd49881c009c0d69281673e529ee18c2', sha256: '79013879718cf15e026d07be7ecce40f997ac4d25b91e48e4afcba287f48b87c', bytes: 16918 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '82913b5bf1249a934982383725e75a00333966a1', sha256: '8d7494ede819934dc9c5be01f452750d05c4067d897625f0eda72326209d23fd', bytes: 16918 },
+  },
+  {
+    path: 'tests/install-sh/f15-prettierignore.test.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: '3913d852be68f330b84956a7fabf6a6fb0303a0a', sha256: 'f067fbde136cfb49ea7704f4c2f4e9e3a40b82d189939527d36a4c92d119433c', bytes: 28152 },
+    live: { mode: '100755', kind: 'blob', gitBlob: 'f8cf63e4339b8cc326031bd2ef2a58df1c566bf2', sha256: '662d4445d25c73d3e06dcad8d2db4206bf46c9e1111d1d6bd7f8fb83b208bd0f', bytes: 32425 },
+  },
+  {
+    path: 'tests/install-sh/generic-stack.test.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: 'e79ede48ac3c364273e210e1863f2c1b99f77a8a', sha256: '01ebaf3e131af3d2b4c11301aaa0baa366ae1bc7c70a17eff886bf0e681c6ec5', bytes: 12322 },
+    live: { mode: '100755', kind: 'blob', gitBlob: '7a68778b87515c30b92b1be336a5c8006ccda743', sha256: '3bb9681a20f408e1e1fe832c945bfdb9611a94266dca1d2e0f580a40e2f9b09f', bytes: 77301 },
+  },
+  {
+    path: 'tests/install-sh/gh-531-shipped-prettier.test.sh',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '079672bc35eec60f35c362c393158887eabf1a34', sha256: 'cf19bc323bd4445edb7ad5b9c9a57670a2af6906726c258fdb15b46d55a29aec', bytes: 40516 },
+    live: { mode: '100644', kind: 'blob', gitBlob: 'c39ee7951bf118cc036d7d821920c3508106c991', sha256: '916d1c55c73903b4a226f7900002c5728f4d1d513188f6342858e11bbc477ea8', bytes: 40516 },
+  },
+  {
+    path: 'tests/install-sh/linter-slot.test.sh',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: 'cfe122967541a862cb7dca109cff01d7cedb4ddf', sha256: '1da7f9c2f74a827ee53ca146c3fe69a03930d2b024dfc078cd61159d386e8afa', bytes: 13583 },
+    live: { mode: '100755', kind: 'blob', gitBlob: 'c655c391165d26a67b02f898106a9ebf53d62151', sha256: 'eb7e35e8cadd613469bc9ca3767d0057366532418fc0990dccfb84f99bc073bf', bytes: 16259 },
+  },
+  {
+    path: 'tests/install-sh/python-agent-surface-refresh.test.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: '118f437e28b98b0458411b84f0f504eedd97d032', sha256: 'c4da48ef25c8daa4043ad4b31a104aced47f706ae16576f23d2b28f06b1e2fc3', bytes: 17515 },
+    live: { mode: '100755', kind: 'blob', gitBlob: '92bde24fe5251a26a33fb43a2a9c14879fd09306', sha256: '23d3f80c621dafbfe409eeabbc904eb9678414e1c3fe019b95bab99d3d93cac9', bytes: 17515 },
+  },
+  {
+    path: 'tests/install-sh/python-delivery.test.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: '4d0b6fb11ee0d917f1118c49395be6fe97e0b2b8', sha256: '4f78c3086b32428e23041b26f90e1474edb917d0e9e1f67c480f5a294cbfc77a', bytes: 31488 },
+    live: { mode: '100755', kind: 'blob', gitBlob: 'e5688241faa8703f5eab44bfd923d49728286e5c', sha256: 'cb546a1fc1d458503e69f13e2664fe301d33ae54f5307b3b29dc0fe6303fb150', bytes: 31488 },
+  },
+  {
+    path: 'tests/install-sh/refresh-covers-full-delivery.test.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: '90ef820f1d600c64bc74a08bbc0e4e0e31573aec', sha256: '0e3289ce230dda567714eadfb15772829ca88eb933689e968a2e237cc84a9e44', bytes: 44197 },
+    live: { mode: '100755', kind: 'blob', gitBlob: 'bdecca1bf35491ba6b4f2209e210255a94c13534', sha256: 'cb995cf4b8290040f2eb2a2da220e63ba539de8cfbd18bcfef7ba43c02f54a45', bytes: 44197 },
+  },
+  {
+    path: 'tests/install-sh/refresh-reconciles-skill-rename.test.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: '4389ce9303ee4643f9e788290b6ff7027fb7fc4e', sha256: '3feb6fb767da26d006784162694bc12be5619c82313b099c2b3037a8ad80cc77', bytes: 7526 },
+    live: { mode: '100755', kind: 'blob', gitBlob: '85457555ce31cb5bc9ceefdb58cd2b9ecdfb3849', sha256: '95ca2bd29b3f64b2caf0886ba67a98992ecb64adad8e727e7784a2a068f182ef', bytes: 7526 },
+  },
+  {
+    path: 'tests/install-sh/workspace-stack-detect.test.sh',
+    checkpoint: { mode: '100755', kind: 'blob', gitBlob: 'd25279351e729eeb1151d6a4e4d11e391beeefbb', sha256: '595f9ea8e7f938928bfc3cae831db4e1e1e163564c1f31aa110ce20af31e00b1', bytes: 8261 },
+    live: { mode: '100755', kind: 'blob', gitBlob: '44ad957b5539344d742532055a93859dd309ebee', sha256: '01fb239741c823680c84bb2313cdc623842460adb03e747da82ffb20118eb366', bytes: 8261 },
   },
 ];
+// Root unit-70 (2026-11-04, prospective source under the existing 7c6/f007 authority): the
+// ordinary merge-forward of upstream staging B (b714f7c1) into the owned PR branch changes the
+// live current subject by a FINITE exact 58-path delta Root enumerated from the owned Git
+// objects: 28 brand-NEW upstream-origin paths, 27 changed existing checkpoint paths, ONE
+// frozen-571-row live leg (docs/site/reference/F1/egress-no-api-bypass.md) and the workflow
+// merge successor above (its live tuple renews the d6b869ac unit-53 admission to history; the
+// live leg now binds the reviewed merge postimage). The 27 changed paths and the one row
+// extend THIS relation with the same typed semantics — the checkpoint leg keeps the frozen
+// reviewed identity and never updates; the live leg may carry the frozen original OR exactly
+// the one Root-admitted B tuple; whichever OID a leg presents, the blob it serves must hash
+// to that leg's frozen identity. The 28 brand-new paths have NO checkpoint origin a successor
+// could extend, so they never ride this table — they carry their own finite exact table
+// below. Every identity is Root's immutable reviewed tuple, never derived from this detector
+// or a fresh diff; unknown paths, unknown content and any path outside this exact delta
+// still refuse.
+export const ADMITTED_CURRENT_B_BINDING = {
+  bHead: 'b714f7c1a6e40488e8f016665d7fffc0cd513a3d',
+  mergeBase: 'bc8e758d2863aabbaa1062492a142662bdaa11d8',
+};
+// The EXACT 28 new upstream-origin paths the reviewed B merge adds (post-bc8 staging content:
+// absent from H, from the frozen checkpoint, from the bc8 baseline and from the cf64 topic
+// tree). Finite and closed: a 29th new path is an unknown extra and refuses; a listed path
+// with any other mode/kind/OID, or any bytes that do not hash to the pinned identity, refuses.
+export const ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS = [
+  { path: '.claude/orchestrator-prompts/dsh-native-q0-qualification/input-manifest.json', mode: '100644', kind: 'blob', gitBlob: '17c8c03c6677f033bca7e2fde08f823e14568b02', sha256: '9f9e8ecc5f75385738da31f8eae6e75b3632a48017e8da2cc21e126c59a26d02', bytes: 8132 },
+  { path: '.claude/orchestrator-prompts/dsh-native-q0-qualification/kickoff.md', mode: '100644', kind: 'blob', gitBlob: '76ef33263bd659491d1f3ed052a5b77a580973ad', sha256: 'aba51bdd1bae57c4222a50b0ad9efb1c38fe6b36bc91f24693186ade34ed8eaf', bytes: 13712 },
+  { path: 'docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md', mode: '100644', kind: 'blob', gitBlob: 'c62bef0a4dc742d97a89a340790ec365df665202', sha256: '5b7acf5db05c9d1140e08cb25f09c9c2fa03b67ed7e4e92845dd94c5bec1aad4', bytes: 11348 },
+  { path: 'docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-prd.md', mode: '100644', kind: 'blob', gitBlob: '407ef0b39ff45abde34aba74a354b5a96fd3c1db', sha256: 'ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8', bytes: 8544 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/admission-receipt-r2.json', mode: '100644', kind: 'blob', gitBlob: 'e94e75b41cbd5ec879b911274824c5b4079e9072', sha256: 'c291d8b1ba739e2b7a9ad730fb1e6536f6d1d31cacee55d05a2e4a2e7bdcb3ce', bytes: 1480 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/admission-receipt.json', mode: '100644', kind: 'blob', gitBlob: '001f30396da18f996b506b7a2bcfe71589a8458f', sha256: '14c4cab461b39fd97968547d43e9edc295cffe4cc6a102ed717fe49e3e30081c', bytes: 1997 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/approval-receipt-r2.json', mode: '100644', kind: 'blob', gitBlob: '75bc73fbf4631e63821c5f342a669c5f93e36828', sha256: '506d94928515911ee156ad27c81acac974e8b804eec43bfe7c16277a2bf696ed', bytes: 753 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/approval-receipt.json', mode: '100644', kind: 'blob', gitBlob: 'bba4d788d52edd89bf8ff323668df9f3cd88fd5d', sha256: '334108b1a281d3048e528b8dab6930664b8ef75f17f7fdbd28b28111baedfec7', bytes: 741 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/authorized-q0-contract.txt', mode: '100644', kind: 'blob', gitBlob: 'a61c6463952cdb6b1349d876f3aab723bb9ac84b', sha256: 'a8a2f79e9768463dc1a34d52bf22b537891bcd401cdb34c6dde9e3f38c0e02b1', bytes: 15708 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval-r2.md', mode: '100644', kind: 'blob', gitBlob: '6b40fa3841bdb1ba3d47a83d1573473ef481f326', sha256: 'f1297216cba71ecfd8bfd9704af98f3b11a23bfbeb31c5538962b4ee758c7adb', bytes: 2459 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval.md', mode: '100644', kind: 'blob', gitBlob: '6c21c2029b446ddcb3b015ecfde132ea5bfd1fb5', sha256: 'ba2ab6e57a988f54650bc18730096683edd168d2b20a408e306e7809418c716e', bytes: 3445 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/intent-spec-r1.json', mode: '100644', kind: 'blob', gitBlob: 'f94bc0b7214f9656e7f604393bec9f748e4c5b1b', sha256: '3b0c76efaaebc60a530fa0666d332c23497a627a01432a06165b1a119cb1320e', bytes: 21258 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/intent-spec-r1.md', mode: '100644', kind: 'blob', gitBlob: 'a0e2fce0f554897d7960b847d86d77c40c031047', sha256: 'ded8a8b0fb5f3e40c55f63acc3342de492efb82e3d986f2fff78bb130078a477', bytes: 15188 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/intent-spec-r2.json', mode: '100644', kind: 'blob', gitBlob: 'b90e2672cfa319989426d9a8442a5854a8beb367', sha256: '8ac407db356de52552387a0affbf5e265b4cf8f733629601347b3d6e6c61c06a', bytes: 14549 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/intent-spec-r2.md', mode: '100644', kind: 'blob', gitBlob: '69b50058d9e3ced9db065084a6d37064c77cec01', sha256: '7e5c0d9530de96990939d4eb6d69ef5a07ba438383c5854e8195c137c1fcd05c', bytes: 16248 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/q0-openmaus-contract-r2.md', mode: '100644', kind: 'blob', gitBlob: '7e0c221183ed61784b1a7967f20808b357bd3ec9', sha256: '9292006b6fe12a58d791673bc97c151f90bbd6b0b943f42b7101c0b2dba1d83d', bytes: 12560 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/qualification-design-r1.md', mode: '100644', kind: 'blob', gitBlob: '2859a385bf8c8870fab32cf7f5023542c167e6f4', sha256: '1adc905b57e1d78dc2ed2c54b2cc3edd7b39fe361e3ad5d4afb8e88f683fb03b', bytes: 9664 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/scope-correction-r2.md', mode: '100644', kind: 'blob', gitBlob: '935f9510c97db6335ddd2eb05b37dd2acbee5d01', sha256: '3efaef8ed6288b324366f4e057131feebc7f5d13aa1c813d804d01790f055b3d', bytes: 2269 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-baseline.md', mode: '100644', kind: 'blob', gitBlob: 'a6da0ab6c98e9625a39d3bf6d45759753c5aa670', sha256: 'cbe189f1541b595e5d712a1dedb9aa599f2d50363e12d8b7c9192c0ec3599719', bytes: 5946 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-provenance.json', mode: '100644', kind: 'blob', gitBlob: 'ff4dae73f8c83c46c143a235479d423d80a6b40a', sha256: '8fe9673ba41ce3f70d714e6e60913d553ecbf3857ab26fec044ea2451a2bc10b', bytes: 2752 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement-r2.md', mode: '100644', kind: 'blob', gitBlob: 'a6fc1d738e34a7fd0957aab7802cec1b6d39d1dc', sha256: '9f4a7abd378e19587972987ce20d31e406c4f610500798242d1e95e282a172fa', bytes: 2725 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement-receipt-r2.json', mode: '100644', kind: 'blob', gitBlob: '82a703fc1038a70dead25783f38150b40675dee2', sha256: '329ae9fb8c2752993a14b61569bbe72b221ec5f4510ddd1e5b35700c845368a5', bytes: 1207 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement-receipt.json', mode: '100644', kind: 'blob', gitBlob: '120afe1b7c85dd4d5493d91ae6539c5246b2d36d', sha256: '2e3979910110817c4b006e9b097dab9014333a7dda1932602f056d18c3b689a0', bytes: 1276 },
+  { path: 'docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement.md', mode: '100644', kind: 'blob', gitBlob: '40c53e77b49e435e0783ca488b3e882f616fb51c', sha256: 'd24b353e34b555ebeee5ab0e572f747a5c6b19c81cb1a1d33758e0c740bb0e28', bytes: 3386 },
+  { path: 'docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da.md', mode: '100644', kind: 'blob', gitBlob: 'c4ab09d5fb826096e3b674045e1b6ddb4de3f557', sha256: 'bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da', bytes: 7140 },
+  { path: 'docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8.md', mode: '100644', kind: 'blob', gitBlob: '407ef0b39ff45abde34aba74a354b5a96fd3c1db', sha256: 'ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8', bytes: 8544 },
+  { path: 'packages/core/templates/shared/getff-rules-generic.yml', mode: '100644', kind: 'blob', gitBlob: 'b354823187408b5f7fb0b8daa712e2afa73c5e29', sha256: '3d463e3caad19e19e178e3e935d5f0c24831bc33b0ddcb0cb83a2ad05ac28ba1', bytes: 2918 },
+  { path: 'packages/core/templates/shared/husky-pre-commit-generic.sh', mode: '100755', kind: 'blob', gitBlob: 'a63aedfdcf7a7663ae900c2849ecc1a9ed2055de', sha256: '5a9724e78c96b2958b2048fffd0b00a1ef689a3c31b1e4b716f36f3760d6b517', bytes: 1215 },
+];
+
 // Root unit-37 §3 (Root-admitted EXISTING-LEDGER channel, 7c6b46e3 contract): the five
 // governed source rows map onto the EXISTING scope-extension.json v1 ledger — the two
 // existing s3-source addedPaths rows (s3.mjs, s3.test.mjs), the existing verify.mjs
@@ -1164,10 +1367,17 @@ export function reconcileCurrentTransfer({ repoRoot, git, carrier }) {
   // bc8-tree paths, and the rows themselves are the 571 upstream-origin paths whose current
   // blobs must stay exact).
   const stagingTree = readTree(checkpoint.parent, 'bc8 staging baseline');
+  // Root unit-71 provenance: the reviewed upstream B itself is a selected immutable source
+  // leg — its tree is resolved ONCE through the same shared runner so every new-path tuple
+  // below is judged against the actual B origin, never against an arbitrary live blob.
+  const bTree = readTree(ADMITTED_CURRENT_B_BINDING.bHead, 'reviewed upstream B');
+  if (!bTree) return [`git cannot resolve the reviewed upstream B tree ${ADMITTED_CURRENT_B_BINDING.bHead} (producer-off is a refusal, never a pass)`];
   const topicTree = readTree(ACCEPTED_TOPIC_HEAD, 'accepted topic tip');
   if (!stagingTree) return [`git cannot resolve the bc8 staging tree ${checkpoint.parent} (producer-off is a refusal, never a pass)`];
   if (!topicTree) return [`git cannot resolve the accepted topic tip ${ACCEPTED_TOPIC_HEAD} (producer-off is a refusal, never a pass)`];
   const admittedCarriers = new Set([S2_REVIEWED_INTEGRATION_REL, PORTABLE_REFERENCE_REL]);
+  // Root unit-70: the finite B-delta new-path table, judged under full typed identity below.
+  const bNewPaths = new Map(ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS.map((r) => [r.path, r]));
   // Root unit-37 §3: the five governed source rows bind through the EXISTING ledger channel
   // (live scope-extension.json vs the fixed-checkpoint cd3 baseline object, read through the
   // SAME shared git runner so a fresh checkout serves it from the owned store). The channel
@@ -1247,8 +1457,39 @@ export function reconcileCurrentTransfer({ repoRoot, git, carrier }) {
     // an unknown upstream extra or an arbitrary mutation while their binding is pending.
     if (governedSet.has(path)) continue;
     if (rowPaths.has(path) || admitted.has(path) || admittedCarriers.has(path) || stagingTree.map.has(path) || topicTree.map.has(path)) continue;
+    if (bNewPaths.has(path)) continue; // Root unit-70: the typed loop below re-judges the exact identity, never a blanket skip
     problems.push(`unknown upstream-origin current path without a reviewed row: ${path} (${entry.mode} ${entry.kind}) — extras refuse`);
   }
+  // Root unit-70: the finite B-delta new-path admission is ANCESTRY-BOUND and content-bound.
+  // The whole delta normalizes only in a live HEAD that actually merged the exact reviewed B
+  // (the reviewed merge base a real ancestor of B, and B a real ancestor of the live HEAD), so
+  // a foreign or replayed B' refuses, and a pre-merge HEAD honestly reports every missing
+  // surface instead of silently normalizing. Each of the 28 exact paths is then judged under
+  // full typed identity — a path, a wildcard, a class or an observed diff admits nothing.
+  expectAnc(ADMITTED_CURRENT_B_BINDING.mergeBase, ADMITTED_CURRENT_B_BINDING.bHead, `finite B-delta binding: the reviewed merge base ${ADMITTED_CURRENT_B_BINDING.mergeBase} must be an actual ancestor of the reviewed upstream B ${ADMITTED_CURRENT_B_BINDING.bHead}`);
+  expectAnc(ADMITTED_CURRENT_B_BINDING.bHead, liveHead, `finite B-delta binding: the reviewed upstream B ${ADMITTED_CURRENT_B_BINDING.bHead} must be an actual ancestor of the live HEAD ${liveHead} — the finite delta admits only a candidate that really merged B`);
+  for (const expected of ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS) {
+    if (checkpointTree.map.has(expected.path)) {
+      problems.push(`admitted B-delta new upstream path already present in the frozen checkpoint tree: ${expected.path} — a current-upstream addition extends an ABSENT surface, never an existing one`);
+      continue;
+    }
+    const bEntry = bTree.map.get(expected.path);
+    if (!bEntry || bEntry.mode !== expected.mode || bEntry.kind !== expected.kind || bEntry.oid !== expected.gitBlob) {
+      problems.push(`admitted B-delta new upstream path ${expected.path} does not carry the reviewed upstream B source leg ${expected.mode}/${expected.kind} ${expected.gitBlob} (the B tree says ${bEntry ? `${bEntry.mode}/${bEntry.kind} ${bEntry.oid}` : 'absent'}) — the live tuple must be the exact immutable B origin, never an arbitrary blob`);
+      continue;
+    }
+    const entry = liveTree.map.get(expected.path);
+    if (!entry) { problems.push(`admitted B-delta new upstream path missing from the live HEAD tree: ${expected.path} — a dead admission entry never normalizes`); continue; }
+    if (entry.mode !== expected.mode || entry.kind !== expected.kind || entry.oid !== expected.gitBlob) {
+      problems.push(`admitted B-delta new upstream path ${expected.path} carries ${entry.mode}/${entry.kind} ${entry.oid} in the live HEAD tree — only the exact reviewed ${expected.mode}/${expected.kind} ${expected.gitBlob} admits`);
+      continue;
+    }
+    const blob = git(['cat-file', 'blob', entry.oid]);
+    if (blob.rc !== 0) { problems.push(`admitted B-delta new upstream path ${expected.path} blob ${entry.oid} unreadable through the shared git runner (rc ${blob.rc})`); continue; }
+    const served = Buffer.isBuffer(blob.stdout) ? blob.stdout : Buffer.from(String(blob.stdout ?? ''), 'utf8');
+    if (sha256buf(served) !== expected.sha256 || served.length !== expected.bytes) problems.push(`admitted B-delta new upstream path ${expected.path} serves counterfeit bytes under ${entry.oid} (sha256 ${sha256buf(served).slice(0, 12)}, ${served.length}B; expected the frozen reviewed ${expected.sha256.slice(0, 12)}, ${expected.bytes}B)`);
+  }
+
   // Root unit-36 item C: the COMPLETE finite current subject, not only the 571 rows plus a
   // pathname-membership union. The admitted checkpoint (cd3) tree is compared with the live
   // HEAD tree path by path under exact mode+content identity: keeping a pathname is not
@@ -1295,13 +1536,21 @@ export function reconcileCurrentTransfer({ repoRoot, git, carrier }) {
         problems.push(`current-only successor path ${path} carries ${was.mode}/${was.kind} ${was.oid} in the checkpoint tree — the frozen Root-reviewed checkpoint identity ${nonRowSuccessor.checkpoint.mode}/${nonRowSuccessor.checkpoint.kind} ${nonRowSuccessor.checkpoint.gitBlob} never updates`);
         continue;
       }
-      if (live.mode !== nonRowSuccessor.live.mode || live.kind !== nonRowSuccessor.live.kind) {
-        problems.push(`current-only successor path ${path} live mode/kind mismatch (checkpoint ${nonRowSuccessor.checkpoint.mode}/${nonRowSuccessor.checkpoint.kind} -> live ${live.mode}/${live.kind}) — a symlink or permission swap refuses`);
+      // Root unit-72 R3 (6032): the PERMITTED IDENTITY LEG is selected FIRST by OID — the
+      // unchanged original OR the exact admitted successor — and only then is that leg's full
+      // mode/kind/OID/SHA/length/served-bytes identity bound. Binding the successor's live
+      // mode before the OID choice falsely rejected an unchanged original leg whenever the
+      // admitted successor changes mode (linter-slot 100644 -> 100755); a crossed
+      // mode/OID combination now refuses on the selected leg, never on the unchosen one.
+      const selectedLeg = live.oid === nonRowSuccessor.live.gitBlob
+        ? nonRowSuccessor.live
+        : (live.oid === nonRowSuccessor.checkpoint.gitBlob ? nonRowSuccessor.checkpoint : null);
+      if (!selectedLeg) {
+        problems.push(`current-only successor path ${path} carries ${live.oid} in the live HEAD tree — the live leg may carry only the frozen original ${nonRowSuccessor.checkpoint.gitBlob} or the exact Root-admitted successor ${nonRowSuccessor.live.gitBlob}`);
         continue;
       }
-      const permittedLive = [nonRowSuccessor.checkpoint.gitBlob, nonRowSuccessor.live.gitBlob];
-      if (!permittedLive.includes(live.oid)) {
-        problems.push(`current-only successor path ${path} carries ${live.oid} in the live HEAD tree — the live leg may carry only the frozen original ${nonRowSuccessor.checkpoint.gitBlob} or the exact Root-admitted successor ${nonRowSuccessor.live.gitBlob}`);
+      if (live.mode !== selectedLeg.mode || live.kind !== selectedLeg.kind) {
+        problems.push(`current-only successor path ${path} live mode/kind mismatch (checkpoint ${nonRowSuccessor.checkpoint.mode}/${nonRowSuccessor.checkpoint.kind} -> live ${live.mode}/${live.kind}; the selected ${selectedLeg === nonRowSuccessor.live ? 'successor' : 'original'} identity leg requires ${selectedLeg.mode}/${selectedLeg.kind}) — a symlink, permission swap or crossed mode/OID combination refuses`);
         continue;
       }
       const legIdentity = (oid, label) => {

@@ -112,8 +112,16 @@
     "description": "first-steps SSOT (schema getff.first-steps/v1) — the source the consumer first-steps doc renders from."
   },
   {
+    "path": "packages/core/templates/shared/getff-rules-generic.yml",
+    "description": "Generic-stack rule-check workflow (GitHub Actions) delivered as .github/workflows/getff-rules.yml into consumer repos."
+  },
+  {
     "path": "packages/core/templates/shared/gitignore",
     "description": "gitignore additions installed into consumer repos (node_modules, dist, …)."
+  },
+  {
+    "path": "packages/core/templates/shared/husky-pre-commit-generic.sh",
+    "description": "Generic-stack pre-commit hook (route B, non-blocking): --probe arms a green project check into the sidecar, --fold moves it into the tracked record; blocking lives in CI."
   },
   {
     "path": "packages/core/templates/shared/husky-pre-commit.sh",

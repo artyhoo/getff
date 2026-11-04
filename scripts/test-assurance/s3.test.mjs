@@ -25,6 +25,7 @@ import {
   LEDGER_BINDING_OPTIONAL_GUARD_PATHS,
   LEDGER_BINDING_OPTIONAL_SMOKE_PATHS,
   CURRENT_TRANSFER_CHECKPOINT, ADMITTED_CURRENT_REPLACEMENTS, PENDING_CURRENT_SOURCE_PROPOSALS,
+  ADMITTED_CURRENT_ONLY_SUCCESSORS, ADMITTED_CURRENT_B_BINDING, ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS,
   PORTABLE_REFERENCE_TUPLES, PORTABLE_REFERENCE_REL, PORTABLE_REFERENCE_BYTES,
   S2_REVIEWED_INTEGRATION_REL, S2_REVIEWED_INTEGRATION_SHA256,
   UPSTREAM_STAGING_HEAD, UPSTREAM_STAGING_TREE, ACCEPTED_TOPIC_HEAD, ACCEPTED_TOPIC_TREE,
@@ -1918,7 +1919,7 @@ const pinLiveLedgerRowToBytes = (runner, bytes, gitBlob) => {
     return { ...r, stdout: Buffer.from(`${pinned}\0`) };
   };
 };
-const fakeTransferGit = (treeRows, { treeOf = CURRENT_TRANSFER_CHECKPOINT.tree, parentLine = CURRENT_TRANSFER_CHECKPOINT.parent, ancOk = true, treeOk = true, liveRows = null, baselineRows = null, topicRows = null, ancHeadOk = null } = {}) => (args) => {
+const fakeTransferGit = (treeRows, { treeOf = CURRENT_TRANSFER_CHECKPOINT.tree, parentLine = CURRENT_TRANSFER_CHECKPOINT.parent, ancOk = true, treeOk = true, liveRows = null, baselineRows = null, topicRows = null, bTreeRows = null, ancHeadOk = null, ancBOk = true } = {}) => (args) => {
   if (args[0] === 'rev-parse') {
     if (String(args[1]).endsWith('^{tree}')) return { rc: treeOk ? 0 : 128, stdout: Buffer.from(treeOk ? treeOf : ''), stderr: Buffer.from(treeOk ? '' : 'fatal: bad object') };
     return { rc: 0, stdout: Buffer.from(hex40('a')), stderr: Buffer.from('') };
@@ -1926,7 +1927,8 @@ const fakeTransferGit = (treeRows, { treeOf = CURRENT_TRANSFER_CHECKPOINT.tree, 
   if (args[0] === 'log') return { rc: 0, stdout: Buffer.from(parentLine), stderr: Buffer.from('') };
   if (args[0] === 'merge-base') {
     const headArm = args[3] === hex40('a'); // the fake live-HEAD hex returned by rev-parse HEAD
-    const ok = headArm && ancHeadOk !== null ? ancHeadOk : ancOk;
+    const bArm = headArm && args[2] === ADMITTED_CURRENT_B_BINDING.bHead; // the unit-70 B-ancestor arm
+    const ok = headArm && ancHeadOk !== null ? ancHeadOk : (bArm ? ancBOk : ancOk);
     return { rc: ok ? 0 : 1, stdout: Buffer.from(''), stderr: Buffer.from('') };
   }
   if (args[0] === 'ls-tree') {
@@ -1935,12 +1937,16 @@ const fakeTransferGit = (treeRows, { treeOf = CURRENT_TRANSFER_CHECKPOINT.tree, 
     if (target === CURRENT_TRANSFER_CHECKPOINT.tree) rows = treeRows;
     else if (target === CURRENT_TRANSFER_CHECKPOINT.parent) rows = baselineRows ?? treeRows;
     else if (target === ACCEPTED_TOPIC_HEAD) rows = topicRows ?? treeRows;
-    else rows = liveRows ?? treeRows;
+    else if (target === ADMITTED_CURRENT_B_BINDING.bHead) rows = bTreeRows ?? B_NEW_LIVE_ROWS; // Root unit-71: the immutable B source leg serves the exact reviewed tuples by default, never a live mutation
+    else rows = liveRows ?? [...treeRows, ...B_NEW_LIVE_ROWS]; // unit-70 default live tree: the candidate shape carries the 28 exact new B paths
     return { rc: treeOk ? 0 : 128, stdout: Buffer.from(rows.map((r) => `${r.mode} ${r.kind} ${r.gitBlob}\t${r.path}`).join('\0')), stderr: Buffer.from(treeOk ? '' : 'fatal: bad object') };
   }
   if (args[0] === 'cat-file' && args[1] === 'blob') {
     if (args[2] === `${CURRENT_TRANSFER_CHECKPOINT.head}:${S3_LEDGER_REL}`) return { rc: 0, stdout: CD3_LEDGER_BYTES, stderr: Buffer.from('') };
-    const row = [...treeRows, ...(liveRows ?? [])].find((r) => r.gitBlob === args[2]);
+    // Root unit-72 R2: the object store must close over the DEFAULT-augmented live tree
+    // too (the 28 B_NEW_LIVE_ROWS blobs), with an explicit liveRows entry still winning the
+    // OID lookup first so forged-content arms keep their counterfeit detection.
+    const row = [...treeRows, ...(liveRows ?? []), ...B_NEW_LIVE_ROWS].find((r) => r.gitBlob === args[2]);
     if (!row?.content) return { rc: 128, stdout: Buffer.from(''), stderr: Buffer.from('fatal: bad object') };
     return { rc: 0, stdout: row.content, stderr: Buffer.from('') };
   }
@@ -1973,6 +1979,17 @@ const transferFixture = () => {
   carrier.currentLineageOnlyScope.upstreamAdditions.push({ path: F1_REL, mode: '100644', kind: 'blob', gitBlob: F1_REVIEWED.gitBlob, sha256: F1_REVIEWED.sha256, bytes: F1_REVIEWED.bytes });
   treeRows.push({ path: F1_REL, mode: '100644', kind: 'blob', gitBlob: F1_REVIEWED.gitBlob, content: CD3_F1_BYTES });
   treeRows.push({ path: WF_REL, mode: '100644', kind: 'blob', gitBlob: WF_ORIGINAL.gitBlob, content: CD3_WF_BYTES });
+  // Root unit-70: the base fixture grows the COMPLETE finite B-delta successor surface at the
+  // FROZEN checkpoint identities — the 27 changed checkpoint paths join the trees (original on
+  // both legs, the unchanged twin) and the one frozen-571-row live leg (F1/egress) also joins
+  // the carrier so the row loop exercises its successor branch. The 28 brand-new B paths are
+  // live-only surfaces served by fakeTransferGit's default candidate-shaped live tree.
+  for (const s of ADMITTED_CURRENT_ONLY_SUCCESSORS) {
+    if (s.path === F1_REL || s.path === WF_REL) continue;
+    const frozenBytes = B_SUCCESSOR_BYTES(s, 'checkpoint');
+    treeRows.push({ path: s.path, mode: s.checkpoint.mode, kind: s.checkpoint.kind, gitBlob: s.checkpoint.gitBlob, content: frozenBytes });
+    if (s.path === EGRESS_REL) carrier.currentLineageOnlyScope.upstreamAdditions.push({ path: s.path, mode: s.checkpoint.mode, kind: s.checkpoint.kind, gitBlob: s.checkpoint.gitBlob, sha256: s.checkpoint.sha256, bytes: s.checkpoint.bytes });
+  }
   return { carrier, treeRows };
 };
 test('UPSTREAM-TRANSFER: the pinned Root-reviewed current-transfer checkpoint reconciles the complete 571-row set as 568 preserved bc8-origin blobs plus exactly three admitted assertion-preserving replacements', () => {
@@ -2052,7 +2069,9 @@ test('UPSTREAM-TRANSFER: the finite LIVE leg — a live-only extra path, a live-
   assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: missingLive }), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('missing from the live HEAD tree')), 'a row missing from the live HEAD tree refuses');
   assert.ok(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { ancHeadOk: false }), carrier: { ok: true, data: badCarrier } }).some((x) => x.includes('must be an actual ancestor of the live HEAD')), 'a live HEAD that does not descend from the checkpoint and bc8 refuses');
   // The same live leg reconciles clean when the live tree equals the reviewed surface.
-  assert.deepEqual(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: treeRows.map((r) => ({ ...r })) }), carrier: { ok: true, data: badCarrier } }), [], 'the unchanged live leg reconciles clean');
+  // Root unit-72 R2: an old healthy explicit live override now carries the complete
+  // finite candidate shape (the 28 exact B new paths), not only the checkpoint rows.
+  assert.deepEqual(reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: [...treeRows.map((r) => ({ ...r })), ...B_NEW_LIVE_ROWS] }), carrier: { ok: true, data: badCarrier } }), [], 'the unchanged live leg reconciles clean');
 });
 test('UPSTREAM-TRANSFER (unit 36): the complete finite current subject — an unknown non-row byte or mode mutation refuses, a missing original path refuses, and a typed pending path reports the honest admission-pending class instead of passing or erroring', () => {
   // Root unit-36 item C: pathname membership alone is not content custody. The checkpoint
@@ -2515,19 +2534,34 @@ test('CURRENT-ONLY F1 SUCCESSOR (unit 41): a tampered checkpoint origin (neither
 // carries it in the trees only, never as an upstreamAddition row.
 const WF_REL = '.github/workflows/audit-self.yml';
 const WF_ORIGINAL = { gitBlob: '8a55d97eb2b92cd4bcdc3e755b1d496e8889437a', sha256: '78946c570a616ced22fe12bd04ec33db58fa59e8389f559e8a36ba78fe584953', bytes: 201512 };
-const WF_ADMITTED = { gitBlob: 'd6b869ac7dffb3f9620c7072dc73f03596a9b9d5', sha256: '2910de87d5946bfe0e54985736e5f92fbb32ecb7a964c99d357151b579631342', bytes: 201640 };
+const WF_ADMITTED = { gitBlob: '06bc118a5fb05c1db61e907b9aa65eca3365333d', sha256: 'cb535a67513ee331bfa4b796a49e4a3073bee53153bff31f31442756a33ba1de', bytes: 201640 };
 const CD3_WF_BYTES = realGit(['cat-file', 'blob', `${CURRENT_TRANSFER_CHECKPOINT.head}:${WF_REL}`]).stdout;
 assert.equal(sha(CD3_WF_BYTES), WF_ORIGINAL.sha256);
 assert.equal(CD3_WF_BYTES.length, WF_ORIGINAL.bytes);
 const LIVE_WF_BYTES = readFileSync(join(REPO_ROOT, WF_REL));
-assert.equal(sha(LIVE_WF_BYTES), WF_ADMITTED.sha256, 'the live workflow must be the exact Root-admitted CI repair postimage');
+assert.equal(sha(LIVE_WF_BYTES), WF_ADMITTED.sha256, 'the live workflow must be the exact Root-admitted unit-70 merge successor postimage');
 assert.equal(LIVE_WF_BYTES.length, WF_ADMITTED.bytes);
 // Root unit-53: the workflow successor surface (checkpoint tree row at the frozen original
 // identity) is part of the BASE fixture alongside the F1 row — the dead-entry guard demands
 // every admitted successor entry bind a live surface in every fixture, so the workflow arms
 // below mutate the shared surface per leg instead of assembling it here.
+// Root unit-70 finite B-delta fixtures. Every byte anchor below is the REAL owned Git object
+// (read through the real runner), pinned by its full identity so drift in any anchor refuses.
+const B_NEW_LIVE_ROWS = ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS.map((r) => {
+  const blob = realGit(['cat-file', 'blob', r.gitBlob]);
+  if (blob.rc !== 0) throw new Error(`unit-70 fixture anchor missing: ${r.path} ${r.gitBlob}`);
+  if (sha(blob.stdout) !== r.sha256 || blob.stdout.length !== r.bytes) throw new Error(`unit-70 fixture anchor drifted: ${r.path}`);
+  return { path: r.path, mode: r.mode, kind: r.kind, gitBlob: r.gitBlob, content: blob.stdout };
+});
+const B_SUCCESSOR_BYTES = (s, leg) => {
+  const blob = realGit(['cat-file', 'blob', s[leg].gitBlob]);
+  if (blob.rc !== 0) throw new Error(`unit-70 successor anchor missing: ${s.path}/${leg}`);
+  if (sha(blob.stdout) !== s[leg].sha256 || blob.stdout.length !== s[leg].bytes) throw new Error(`unit-70 successor anchor drifted: ${s.path}/${leg}`);
+  return blob.stdout;
+};
+const EGRESS_REL = 'docs/site/reference/F1/egress-no-api-bypass.md';
 const wfFixture = () => transferFixture();
-const wfRun = (treeRows, liveRows, carrier) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows }), carrier: { ok: true, data: carrier } });
+const wfRun = (treeRows, liveRows, carrier) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: [...liveRows, ...B_NEW_LIVE_ROWS] }), carrier: { ok: true, data: carrier } }); // Root unit-72 R2: healthy workflow arms carry the complete candidate (the 28 B paths); negative targets stay untouched
 const wfLive = (rows, over) => rows.map((r) => (r.path === WF_REL ? { ...r, ...over } : { ...r }));
 test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): the exact Root-admitted CI repair postimage on the live leg admits (checkpoint keeps the frozen original)', () => {
   const { carrier, treeRows } = wfFixture();
@@ -2625,6 +2659,106 @@ test('CURRENT-ONLY WORKFLOW SUCCESSOR (unit 53): a successor entry binding neith
   const deadModule = await import(`data:text/javascript;base64,${Buffer.from(healthySource.replace(DEAD_FROM, DEAD_TO), 'utf8').toString('base64')}`);
   const p = deadModule.reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: wfLive(treeRows, { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES }) }), carrier: { ok: true, data: carrier } });
   assert.ok(p.some((x) => x.includes('current-only successor entry upstream/dead-never-admitted-path.md binds neither a reviewed row nor a checkpoint tree path')), p.join('|'));
+});
+// Root unit-70 finite B-delta controls. The candidate-shaped twin: the base fixture plus the
+// exact admitted live legs (real bytes for every leg) — the whole finite delta reconciles
+// clean only through the exact typed tuples, never a blanket skip.
+const bDeltaCandidateLive = (rows) => rows.map((r) => {
+  const s = ADMITTED_CURRENT_ONLY_SUCCESSORS.find((x) => x.path === r.path);
+  if (!s || r.gitBlob === s.live.gitBlob) return r;
+  return { path: r.path, mode: s.live.mode, kind: s.live.kind, gitBlob: s.live.gitBlob, content: B_SUCCESSOR_BYTES(s, 'live') };
+});
+const bRun = (treeRows, liveRows, opts) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows, ...opts }), carrier: { ok: true, data: transferFixture().carrier } });
+test('CURRENT-ONLY B-DELTA (unit 70): the exact Root-admitted finite B-delta legs admit — the 27 changed checkpoint paths, the one frozen-571-row live leg and the workflow merge successor reconcile clean in the candidate-shaped twin', () => {
+  const { carrier, treeRows } = transferFixture();
+  const live = [...bDeltaCandidateLive(treeRows), ...B_NEW_LIVE_ROWS];
+  const p = reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: live }), carrier: { ok: true, data: carrier } });
+  assert.deepEqual(p, [], p.join('|'));
+});
+test('CURRENT-ONLY B-DELTA (unit 70): counterfeit bytes under an admitted B tuple OID refuse, and an unknown live replacement OID on a changed checkpoint path refuses', () => {
+  const { treeRows } = transferFixture();
+  const target = ADMITTED_CURRENT_ONLY_SUCCESSORS.find((s) => s.path !== F1_REL && s.path !== WF_REL);
+  const forged = bDeltaCandidateLive(treeRows).map((r) => (r.path === target.path ? { ...r, content: Buffer.concat([B_SUCCESSOR_BYTES(target, 'live').subarray(0, 10), Buffer.from('X'), B_SUCCESSOR_BYTES(target, 'live').subarray(11)]) } : r));
+  const p1 = bRun(treeRows, [...forged, ...B_NEW_LIVE_ROWS]);
+  assert.ok(p1.some((x) => x.includes(`serves counterfeit bytes under ${target.live.gitBlob}`)), p1.join('|'));
+  const unknown = bDeltaCandidateLive(treeRows).map((r) => (r.path === target.path ? { ...r, gitBlob: hex40('e') } : r));
+  const p2 = bRun(treeRows, [...unknown, ...B_NEW_LIVE_ROWS]);
+  assert.ok(p2.some((x) => x.includes(`current-only successor path ${target.path} carries ${hex40('e')} in the live HEAD tree`)), p2.join('|'));
+});
+test('CURRENT-ONLY B-DELTA (unit 70): an exact admitted new upstream path admits while a 29th unknown new path, a mode swap and counterfeit bytes on a listed path refuse', () => {
+  const { treeRows } = transferFixture();
+  const listed = ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS[0];
+  const rogue = { path: 'brand-new/unreviewed-path.md', mode: '100644', kind: 'blob', gitBlob: listed.gitBlob, content: B_NEW_LIVE_ROWS[0].content };
+  const p1 = bRun(treeRows, [...bDeltaCandidateLive(treeRows), ...B_NEW_LIVE_ROWS, rogue]);
+  assert.ok(p1.some((x) => x.includes(`unknown upstream-origin current path without a reviewed row: ${rogue.path}`)), p1.join('|'));
+  const swapped = B_NEW_LIVE_ROWS.map((r) => (r.path === listed.path ? { ...r, mode: '100755' } : r));
+  const p2 = bRun(treeRows, [...bDeltaCandidateLive(treeRows), ...swapped]);
+  assert.ok(p2.some((x) => x.includes(`admitted B-delta new upstream path ${listed.path} carries 100755/`)), p2.join('|'));
+  const forged = B_NEW_LIVE_ROWS.map((r) => (r.path === listed.path ? { ...r, content: Buffer.concat([r.content.subarray(0, 5), Buffer.from('Z'), r.content.subarray(6)]) } : r));
+  const p3 = bRun(treeRows, [...bDeltaCandidateLive(treeRows), ...forged]);
+  assert.ok(p3.some((x) => x.includes(`admitted B-delta new upstream path ${listed.path} serves counterfeit bytes under ${listed.gitBlob}`)), p3.join('|'));
+});
+test('CURRENT-ONLY B-DELTA (unit 70): the finite delta is ancestry-bound — a live HEAD that did not merge the exact reviewed B refuses even with every content tuple exact', () => {
+  const { treeRows } = transferFixture();
+  const p = bRun(treeRows, [...bDeltaCandidateLive(treeRows), ...B_NEW_LIVE_ROWS], { ancBOk: false });
+  assert.ok(p.some((x) => x.includes('must be an actual ancestor of the live HEAD')), p.join('|'));
+});
+test('CURRENT-ONLY B-DELTA (unit 70): an admitted new upstream path missing from the live tree is a dead admission entry and refuses', () => {
+  const { treeRows } = transferFixture();
+  const dropped = B_NEW_LIVE_ROWS.slice(1);
+  const p = bRun(treeRows, [...bDeltaCandidateLive(treeRows), ...dropped]);
+  assert.ok(p.some((x) => x.includes(`admitted B-delta new upstream path missing from the live HEAD tree: ${B_NEW_LIVE_ROWS[0].path}`)), p.join('|'));
+});
+// Root unit-71 paired controls: the two provenance dimensions the unit-70 loop did not judge —
+// checkpoint ABSENCE of every listed new path, and the immutable B source leg behind each
+// pinned tuple. Healthy twins stay deepEqual-clean; each refusal names the exact path.
+test('CURRENT-ONLY B-DELTA (unit 71): a listed new upstream path already present in the frozen checkpoint refuses — a current-upstream addition extends an ABSENT surface', () => {
+  const { treeRows } = transferFixture();
+  const listed = ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS[0];
+  const listedRow = B_NEW_LIVE_ROWS.find((r) => r.path === listed.path);
+  // paired healthy control: the untouched fixture with the exact delta stays clean.
+  assert.deepEqual(bRun(treeRows, [...bDeltaCandidateLive(treeRows), ...B_NEW_LIVE_ROWS]), []);
+  // the same tuple planted in the CHECKPOINT leg turns the addition into an extension of an
+  // existing surface — the exact fake-checkpoint forgery class this arm refuses.
+  const checkpointRows = [...treeRows.map((r) => ({ ...r })), { path: listed.path, mode: listed.mode, kind: listed.kind, gitBlob: listed.gitBlob, content: listedRow.content }];
+  const p = bRun(checkpointRows, [...bDeltaCandidateLive(checkpointRows), ...B_NEW_LIVE_ROWS]);
+  assert.ok(p.some((x) => x.includes(`admitted B-delta new upstream path already present in the frozen checkpoint tree: ${listed.path}`)), p.join('|'));
+});
+test('CURRENT-ONLY B-DELTA (unit 71): a listed new upstream path whose pinned tuple is not the immutable B tree source leg refuses — wrong-B provenance never admits', () => {
+  const { treeRows } = transferFixture();
+  const listed = ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS[0];
+  // paired healthy control: the default B channel serves the exact reviewed tuple and admits.
+  assert.deepEqual(bRun(treeRows, [...bDeltaCandidateLive(treeRows), ...B_NEW_LIVE_ROWS]), []);
+  // the B tree channel carries a well-formed but unreviewed OID for the listed path — the
+  // exact wrong-B forgery class: content-exact live tuple, forged provenance.
+  // Root unit-72 R4: hex40('q') is NOT a hex OID — readTree dropped the row, so the old arm
+  // exercised absence, not the claimed well-formed wrong-B comparison. 'f' x40 is a genuinely
+  // valid DISTINCT 40-hex OID: the parsed B entry exists and the OID comparison itself fires.
+  const wrongOid = hex40('f');
+  const wrongB = B_NEW_LIVE_ROWS.map((r) => (r.path === listed.path ? { ...r, gitBlob: wrongOid } : r));
+  const p = bRun(treeRows, [...bDeltaCandidateLive(treeRows), ...B_NEW_LIVE_ROWS], { bTreeRows: wrongB });
+  assert.ok(p.some((x) => x.includes(`admitted B-delta new upstream path ${listed.path} does not carry the reviewed upstream B source leg ${listed.mode}/${listed.kind} ${listed.gitBlob} (the B tree says 100644/blob ${wrongOid})`)), p.join('|'));
+});
+// Root unit-72 R3 paired selected-leg controls: the mode-changing successor
+// (tests/install-sh/linter-slot.test.sh, frozen 100644/cfe122-class vs live 100755/c655c-class)
+// now selects its identity leg by OID FIRST. Both exact legs admit; each crossed mode/OID
+// combination refuses on the selected leg; the checkpoint stays frozen throughout.
+test('CURRENT-ONLY SELECTED-LEG IDENTITY (unit 72): an unchanged original 100644 leg and the exact admitted successor 100755 leg both admit on a mode-changing successor — crossed mode/OID combinations refuse', () => {
+  const { treeRows } = transferFixture();
+  const s = ADMITTED_CURRENT_ONLY_SUCCESSORS.find((x) => x.path === 'tests/install-sh/linter-slot.test.sh');
+  assert.ok(s && s.checkpoint.mode !== s.live.mode, 'the paired control needs a genuine mode-changing successor entry');
+  const setLeg = (rows, leg) => rows.map((r) => (r.path === s.path ? { path: s.path, mode: leg.mode, kind: leg.kind, gitBlob: leg.gitBlob, content: B_SUCCESSOR_BYTES(s, leg === s.live ? 'live' : 'checkpoint') } : r));
+  const base = bDeltaCandidateLive(treeRows);
+  // healthy twin 1: the UNCHANGED ORIGINAL leg (100644 + original OID) admits.
+  assert.deepEqual(bRun(treeRows, [...setLeg(base, s.checkpoint), ...B_NEW_LIVE_ROWS]), [], 'the unchanged original leg admits');
+  // healthy twin 2: the EXACT ADMITTED SUCCESSOR leg (100755 + successor OID) admits.
+  assert.deepEqual(bRun(treeRows, [...setLeg(base, s.live), ...B_NEW_LIVE_ROWS]), [], 'the exact successor leg admits');
+  // crossed negative 1: successor OID under the ORIGINAL mode.
+  const cross1 = bRun(treeRows, [...base.map((r) => (r.path === s.path ? { ...r, mode: s.checkpoint.mode } : r)), ...B_NEW_LIVE_ROWS]);
+  assert.ok(cross1.some((x) => x.includes(`current-only successor path ${s.path} live mode/kind mismatch`) && x.includes(`the selected successor identity leg requires ${s.live.mode}/${s.live.kind}`)), cross1.join('|'));
+  // crossed negative 2: original OID under the SUCCESSOR mode.
+  const cross2 = bRun(treeRows, [...setLeg(base, s.checkpoint).map((r) => (r.path === s.path ? { ...r, mode: s.live.mode } : r)), ...B_NEW_LIVE_ROWS]);
+  assert.ok(cross2.some((x) => x.includes(`current-only successor path ${s.path} live mode/kind mismatch`) && x.includes(`the selected original identity leg requires ${s.checkpoint.mode}/${s.checkpoint.kind}`)), cross2.join('|'));
 });
 test('UPSTREAM-TRANSFER: the actual lineage detector disabled counterfactual - intact refuses a bad isolated fixture, the narrowly disabled detector incorrectly allows it, restored bytes refuse again', async () => {
   // U33-K3-1 / Root unit-35 item 4: a failing git process is NOT a disabled mechanism (that
