@@ -1752,11 +1752,11 @@ jobs:
           cd "$CONSUMER"
           mkdir -p src/tests
           if [ "$STACK" = "ts-server" ]; then
-            SEED=src/tests/seed.unit.ts
+            SEED=src/tests/seed.unit.ts; SUBJECT=../index
           else
-            SEED=src/seed.test.ts
+            SEED=src/seed.test.ts; SUBJECT=./index
           fi
-          printf "import { describe, expect, it } from 'vitest';\n\ndescribe('seed', () => {\n  it('passes', () => {\n    expect(1).toBe(1);\n  });\n});\n" > "$SEED"
+          printf "import { describe, expect, it } from 'vitest';\n\nimport { answer } from '%s';\n\ndescribe('seed', () => {\n  it('asserts the real subject answer', () => {\n    expect(answer).toBe(42);\n  });\n});\n" "$SUBJECT" > "$SEED"
       - name: "Consumer: git commit through the REAL shipped pre-commit (issues 1528+1529 replay)"
         if: matrix.fixture == 'empty-manifest'
         # No hand-added .gitignore here — the FC-2 seed is what keeps node_modules/ out of the

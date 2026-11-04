@@ -9,12 +9,12 @@
     {
       "path": "scripts/test-assurance/s3.mjs",
       "class": "s3-source",
-      "sha256": "a7280e1c6e28149e26285e4ad63e00a192e9c8e251548fb17be254fcbb23b045"
+      "sha256": "ac3cb8acf62b7bf5d5bf91b97ac013e66c8b4aa82da33d54b441a1da4dde787f"
     },
     {
       "path": "scripts/test-assurance/s3.test.mjs",
       "class": "s3-source",
-      "sha256": "96060fc687afef626dfb02f5104bb788ae3e729feeac2003b728c2ac5b23db83"
+      "sha256": "a8e117764f66a89e98abc6fc011e3d7cd836dc750995def19c08f09cac1bb974"
     },
     {
       "path": "docs/test-assurance-kernel/s3/scope-extension.json",
@@ -328,6 +328,14 @@
     {
       "path": "packages/core/hooks/checks/guard-liveness.test.ts",
       "sha256": "4efc1db21a72634c79efba56cef287aaad8c8c6ad5c59147c49ebaa019cf38fd"
+    },
+    {
+      "path": ".github/workflows/audit-self.yml",
+      "sha256": "2910de87d5946bfe0e54985736e5f92fbb32ecb7a964c99d357151b579631342"
+    },
+    {
+      "path": "tests/consumer-matrix/own-config-cell.sh",
+      "sha256": "99f5120c314f8dcf36a162b08dc8231bd2923598eaeb3a66a7a097842f64bf62"
     }
   ],
   "s4EvidenceIndex": {

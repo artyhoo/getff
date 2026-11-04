@@ -205,7 +205,7 @@ EXPECT_NOT="bash scripts/check-rule-globs.sh|npm run format:check|npm test"
 # recorded not-armed «no test files yet» — turns green; the probe arms it in the sidecar and the
 # install commit must carry it. From then on it is armed, not not-armed (FOLD_ARMS).
 FOLD_FIX_FILE="$SRC/answer.test.ts"; FOLD_ARMS="npm test"
-FOLD_FIX_BODY="import { expect, test } from 'vitest';\n\ntest('adds', () => {\n  expect(1 + 1).toBe(2);\n});\n"
+FOLD_FIX_BODY="import { expect, test } from 'vitest';\nimport { greet } from './greet.ts';\n\ntest('greet names the visitor', () => {\n  expect(greet('vite')).toBe('hello vite');\n});\n"
 cat > package.json <<'JSON'
 {
   "name": "vite-shape-consumer",

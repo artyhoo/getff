@@ -145,6 +145,32 @@ const okLedger = (over = {}) => ({
 test('F3 shape: a well-formed ledger validates clean', () => {
   assert.deepEqual(validateLedgerShape(okLedger()), []);
 });
+test('F3 unit-63 optional smoke rows: absent-or-exactly-BOTH, fixed appended order, never in baseline', () => {
+  const withRows = (rows) => { const L = okLedger(); L.modifiedPaths = [...L.modifiedPaths, ...rows]; return L; };
+  // Unit-64 repair (R63-M1): healthy pins must be GENUINELY valid 64-hex (hex64('c')/'d' are;
+  // the old hex64('s')/'t') values are not hex at all, so the healthy arm necessarily refused
+  // at the per-row HEX64 check and never reached its own positive assertions). The non-hex
+  // value is retained as the malformed negative below - the validator stays strict.
+  const smoke = [
+    { path: '.github/workflows/audit-self.yml', sha256: hex64('c') },
+    { path: 'tests/consumer-matrix/own-config-cell.sh', sha256: hex64('d') },
+  ];
+  const both = evaluateLedgerChannel({ liveLedger: withRows(smoke), baselineLedger: okLedger() });
+  assert.equal(both.ok, true, both.problems.join('|'));
+  assert.equal(both.smokeGoverned, true);
+  const malformed = evaluateLedgerChannel({ liveLedger: withRows([{ path: '.github/workflows/audit-self.yml', sha256: hex64('s') }, smoke[1]]), baselineLedger: okLedger() });
+  assert.ok(!malformed.ok && malformed.problems.some((x) => x.includes('sha256 must be exact 64-hex')), malformed.problems.join('|'));
+  const partial = evaluateLedgerChannel({ liveLedger: withRows(smoke.slice(0, 1)), baselineLedger: okLedger() });
+  assert.ok(!partial.ok && partial.problems.some((x) => x.includes('absent-or-exactly-BOTH')), partial.problems.join('|'));
+  const sw = evaluateLedgerChannel({ liveLedger: withRows([smoke[1], smoke[0]]), baselineLedger: okLedger() });
+  assert.ok(!sw.ok && sw.problems.some((x) => x.includes('fixed order')), sw.problems.join('|'));
+  const mid = okLedger(); mid.modifiedPaths = [...smoke, ...mid.modifiedPaths];
+  const md = evaluateLedgerChannel({ liveLedger: mid, baselineLedger: okLedger() });
+  assert.ok(!md.ok && md.problems.some((x) => x.includes('appended after every non-smoke')), md.problems.join('|'));
+  const base = okLedger(); base.modifiedPaths = [...base.modifiedPaths, smoke[0]];
+  const bs = evaluateLedgerChannel({ liveLedger: withRows(smoke), baselineLedger: base });
+  assert.ok(!bs.ok && bs.problems.some((x) => x.includes('baseline must not carry the optional smoke')), bs.problems.join('|'));
+});
 test('F3 unhashed arbitrary runtime path with selfIndexed=true is refused', () => {
   const bad = okLedger();
   bad.addedPaths.push({ path: 'runtime/injected.mjs', class: 's3-source', selfIndexed: true });
@@ -2254,6 +2280,65 @@ test('LEDGER-CHANNEL (unit 46): end-to-end through reconcileCurrentTransfer — 
   const p3 = reconcileCurrentTransfer({ repoRoot: tmp2, git: fakeTransferGit(rowsWithGuardCkpt, { liveRows: liveCommitted2 }), carrier: { ok: true, data: badCarrier } });
   assert.ok(p3.some((x) => x.includes('does not match the actual live bytes')), p3.join('|'));
 });
+test('LEDGER-CHANNEL (unit 64): the ACTIVE smoke pair is ADDITIVE — both rows binding live bytes govern the changed helper while the typed workflow successor gate stays fully load-bearing end-to-end', () => {
+  const { carrier, treeRows } = transferFixture();
+  const HELP_REL = 'tests/consumer-matrix/own-config-cell.sh';
+  // Synthetic helper legs (the smoke pair exists to govern exactly this changed-helper shape);
+  // the workflow row rides the shared fixture at its frozen original checkpoint identity.
+  const HELP_CKPT = { path: HELP_REL, mode: '100755', kind: 'blob', gitBlob: hex40('8'), content: Buffer.from('# own-config-cell checkpoint original\n') };
+  const HELP_LIVE = { path: HELP_REL, mode: '100755', kind: 'blob', gitBlob: hex40('9'), content: Buffer.from('# own-config-cell repaired FOLD greet\n') };
+  const ckptRows = [...treeRows, HELP_CKPT];
+  const activatedBase = JSON.parse(activatedLedgerFixture(governedContentMap(treeRows)).toString('utf8'));
+  const smokeLedger = (wfPin, helpPin = sha(HELP_LIVE.content)) => Buffer.from(JSON.stringify({
+    ...activatedBase,
+    modifiedPaths: [...activatedBase.modifiedPaths, { path: WF_REL, sha256: wfPin }, { path: HELP_REL, sha256: helpPin }],
+  }));
+  // Default live leg = the exact Root-admitted workflow successor; each adversarial arm overrides one input.
+  const runSmoke = (tag, ledgerBytes, { ckpt = ckptRows, wfOver = { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES }, helpRow = HELP_LIVE } = {}) => {
+    const tmp = mkdtempSync(join(tmpdir(), `tak-ledger-smoke-${tag}-`));
+    mkdirSync(join(tmp, 'docs/test-assurance-kernel/s3'), { recursive: true });
+    writeFileSync(join(tmp, S3_LEDGER_REL), ledgerBytes);
+    const liveRows = [...ckpt.filter((r) => r.path !== WF_REL && r.path !== HELP_REL), { ...ckpt.find((r) => r.path === WF_REL), ...wfOver }, helpRow]
+      .map((r) => (r.path === S3_LEDGER_REL ? { ...r, gitBlob: hex40('7'), content: ledgerBytes } : r));
+    return reconcileCurrentTransfer({ repoRoot: tmp, git: fakeTransferGit(ckpt, { liveRows }), carrier: { ok: true, data: structuredClone(carrier) } });
+  };
+  const healthyLedger = smokeLedger(sha(LIVE_WF_BYTES));
+  // (1) HEALTHY active pair: both rows bind the actual live bytes - the changed helper
+  //     discharges through the bounded pin and the typed workflow leg admits the exact
+  //     successor; no problem names either smoke path.
+  const p1 = runSmoke('ok', healthyLedger);
+  assert.ok(p1.every((x) => !x.includes(WF_REL) && !x.includes(HELP_REL)), p1.join('|'));
+  // (2) The successor OID appearing in the CHECKPOINT leg refuses even with the pair active -
+  //     the pin (still matching the live bytes) cannot launder the frozen checkpoint identity.
+  //     This arm is silent under the unit-63 governedSet skip (the typed leg never ran).
+  const forgedCkpt = ckptRows.map((r) => (r.path === WF_REL ? { ...r, gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES } : r));
+  const p2 = runSmoke('ckpt', healthyLedger, { ckpt: forgedCkpt });
+  assert.ok(p2.some((x) => x.includes(WF_REL) && x.includes('in the checkpoint tree — the frozen Root-reviewed checkpoint identity')), p2.join('|'));
+  // (3) An UNKNOWN live replacement OID refuses while the pin still matches the served bytes -
+  //     only the typed permitted-OID arm catches it. Silent under the unit-63 skip.
+  const p3 = runSmoke('oid', healthyLedger, { wfOver: { gitBlob: hex40('d'), content: LIVE_WF_BYTES } });
+  assert.ok(p3.some((x) => x.includes(WF_REL) && x.includes('in the live HEAD tree — the live leg may carry only the frozen original')), p3.join('|'));
+  // (4) COUNTERFEIT bytes under the admitted successor OID with the ledger pin REBOUND to the
+  //     counterfeit (the attacker authors the proposed pin too): the generic pin check passes
+  //     by construction; the typed served-bytes identity is the only refusal. Silent under 63.
+  const counterfeit = Buffer.from('name: counterfeit-workflow-bytes\n');
+  const p4 = runSmoke('fake', smokeLedger(sha(counterfeit)), { wfOver: { gitBlob: WF_ADMITTED.gitBlob, content: counterfeit } });
+  assert.ok(p4.some((x) => x.includes(WF_REL) && x.includes('serves counterfeit bytes under')), p4.join('|'));
+  // (5) A mode swap on the live workflow leg refuses (typed arm; the generic verdict fires too).
+  const p5 = runSmoke('mode', healthyLedger, { wfOver: { gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES, mode: '120000' } });
+  assert.ok(p5.some((x) => x.includes(WF_REL) && x.includes('mode/kind')), p5.join('|'));
+  // (6) The helper stays governed by its bounded pin: a mismatching helper pin refuses with
+  //     both rows present (guard-pair treatment - the helper has no typed successor entry).
+  const p6 = runSmoke('pin', smokeLedger(sha(LIVE_WF_BYTES), '9'.repeat(64)));
+  assert.ok(p6.some((x) => x.includes(HELP_REL) && x.includes('does not match the actual live bytes')), p6.join('|'));
+  // (7) WITHOUT the rows (disk ledger = valid fixed baseline): the changed helper bytes are a
+  //     HARD nonrow refusal and the workflow keeps its pre-pair typed admission - the pair
+  //     never softens the old contract.
+  const liveNoRows = [...ckptRows.filter((r) => r.path !== WF_REL && r.path !== HELP_REL), { path: WF_REL, mode: '100644', kind: 'blob', gitBlob: WF_ADMITTED.gitBlob, content: LIVE_WF_BYTES }, HELP_LIVE];
+  const p7 = reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(ckptRows, { liveRows: liveNoRows }), carrier: { ok: true, data: structuredClone(carrier) } });
+  assert.ok(p7.some((x) => x.includes('changed current source path without an admitted replacement or governed binding') && x.includes(HELP_REL)), p7.join('|'));
+  assert.ok(p7.every((x) => !x.includes(WF_REL)), p7.join('|'));
+});
 test('LEDGER-CHANNEL (unit 37): a tampered live ledger refuses end-to-end through reconcileCurrentTransfer — selfIndexed normalization is the only admission, never a blanket exception', () => {
   const { carrier, treeRows } = transferFixture();
   const badCarrier = structuredClone(carrier);
@@ -2410,7 +2495,7 @@ test('CURRENT-ONLY F1 SUCCESSOR (unit 41): a tampered checkpoint origin (neither
 // carries it in the trees only, never as an upstreamAddition row.
 const WF_REL = '.github/workflows/audit-self.yml';
 const WF_ORIGINAL = { gitBlob: '8a55d97eb2b92cd4bcdc3e755b1d496e8889437a', sha256: '78946c570a616ced22fe12bd04ec33db58fa59e8389f559e8a36ba78fe584953', bytes: 201512 };
-const WF_ADMITTED = { gitBlob: '34b7f59a542617b66ae854976579527b970e4f89', sha256: 'c173596d29dfa4cc88bc680b4e0ca2bcd81c99a0bfa5657588e144e15cd78ea8', bytes: 201531 };
+const WF_ADMITTED = { gitBlob: 'd6b869ac7dffb3f9620c7072dc73f03596a9b9d5', sha256: '2910de87d5946bfe0e54985736e5f92fbb32ecb7a964c99d357151b579631342', bytes: 201640 };
 const CD3_WF_BYTES = realGit(['cat-file', 'blob', `${CURRENT_TRANSFER_CHECKPOINT.head}:${WF_REL}`]).stdout;
 assert.equal(sha(CD3_WF_BYTES), WF_ORIGINAL.sha256);
 assert.equal(CD3_WF_BYTES.length, WF_ORIGINAL.bytes);

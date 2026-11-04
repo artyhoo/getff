@@ -541,7 +541,7 @@ export const ADMITTED_CURRENT_ONLY_SUCCESSORS = [
   {
     path: '.github/workflows/audit-self.yml',
     checkpoint: { mode: '100644', kind: 'blob', gitBlob: '8a55d97eb2b92cd4bcdc3e755b1d496e8889437a', sha256: '78946c570a616ced22fe12bd04ec33db58fa59e8389f559e8a36ba78fe584953', bytes: 201512 },
-    live: { mode: '100644', kind: 'blob', gitBlob: '34b7f59a542617b66ae854976579527b970e4f89', sha256: 'c173596d29dfa4cc88bc680b4e0ca2bcd81c99a0bfa5657588e144e15cd78ea8', bytes: 201531 },
+    live: { mode: '100644', kind: 'blob', gitBlob: 'd6b869ac7dffb3f9620c7072dc73f03596a9b9d5', sha256: '2910de87d5946bfe0e54985736e5f92fbb32ecb7a964c99d357151b579631342', bytes: 201640 },
   },
 ];
 // Root unit-37 §3 (Root-admitted EXISTING-LEDGER channel, 7c6b46e3 contract): the five
@@ -567,6 +567,15 @@ export const LEDGER_BINDING_OPTIONAL_GUARD_PATHS = [
   'packages/core/hooks/checks/guard-liveness.ts',
   'packages/core/hooks/checks/guard-liveness.test.ts',
 ];
+// Prospective unit-63/64 extension (authoring session, 2026-11-04; Root31d ruled only the
+// prospective binding structure): the EXACT TWO optional smoke rows - the two actual changed
+// existing smoke sources. Same absent-or-exactly-BOTH contract as the unit-46 guard pair; pin
+// VALUES live only in proposed v1 L data and bind only after a corresponding whole source+data
+// GO, never hardcoded here.
+export const LEDGER_BINDING_OPTIONAL_SMOKE_PATHS = [
+  '.github/workflows/audit-self.yml',
+  'tests/consumer-matrix/own-config-cell.sh',
+];
 
 // Evaluate the EXISTING-ledger binding channel state from two PARSED ledgers: the live
 // ledger and the fixed-checkpoint (cd3) baseline object. Normalization per the admitted
@@ -585,6 +594,8 @@ export function evaluateLedgerChannel({ liveLedger, baselineLedger }) {
   // Root unit-46 §B: the exact-2 optional guard rows normalize away ONLY in the valid
   // absent-or-exactly-BOTH shape; every other supply is an invalid ledger that refuses.
   const isOptionalGuard = (row) => LEDGER_BINDING_OPTIONAL_GUARD_PATHS.includes(row?.path);
+  // Prospective unit-63/64: the exact-2 optional smoke rows share the absent-or-exactly-BOTH shape.
+  const isOptionalSmoke = (row) => LEDGER_BINDING_OPTIONAL_SMOKE_PATHS.includes(row?.path);
   const addedCount = (ledger) => (ledger.addedPaths ?? []).filter(isAdded).length;
   const modifiedCount = (ledger) => (ledger.modifiedPaths ?? []).filter(isModified).length;
   if (addedCount(liveLedger) !== LEDGER_BINDING_ADDED_PATHS.length || addedCount(baselineLedger) !== LEDGER_BINDING_ADDED_PATHS.length) {
@@ -625,15 +636,42 @@ export function evaluateLedgerChannel({ liveLedger, baselineLedger }) {
     if (idx(first) === -1 || idx(second) === -1 || idx(first) >= idx(second)) {
       return { ok: false, activated: false, problems: ['optional guard modifiedPaths rows must be appended in the fixed order (guard-liveness.ts before guard-liveness.test.ts)'] };
     }
-    const lastNonGuard = Math.max(...liveLedger.modifiedPaths.map((r, i) => (isOptionalGuard(r) ? -1 : i)));
+    const lastNonGuard = Math.max(...liveLedger.modifiedPaths.map((r, i) => (isOptionalGuard(r) || isOptionalSmoke(r) ? -1 : i)));
     if (idx(first) < lastNonGuard || idx(second) < lastNonGuard) {
       return { ok: false, activated: false, problems: ['optional guard modifiedPaths rows must be appended after every original modifiedPaths row (fixed appended order)'] };
+    }
+  }
+  // Prospective unit-63/64 optional smoke rows: absent-or-exactly-BOTH, closed path+sha256,
+  // exact 64-hex, unique, appended after every non-smoke row (guard rows included) in fixed
+  // order, NEVER in the fixed-checkpoint baseline. Mirrors the unit-46 guard contract exactly.
+  const smokeRowsOf = (ledger) => (ledger.modifiedPaths ?? []).filter(isOptionalSmoke);
+  const baseSmoke = smokeRowsOf(baselineLedger);
+  if (baseSmoke.length) return { ok: false, activated: false, problems: ['the fixed-checkpoint baseline must not carry the optional smoke modifiedPaths rows'] };
+  const liveSmoke = smokeRowsOf(liveLedger);
+  for (const row of liveSmoke) {
+    const keys = Object.keys(row).sort();
+    if (keys.length !== 2 || keys[0] !== 'path' || keys[1] !== 'sha256') return { ok: false, activated: false, problems: [`optional smoke modifiedPaths row ${row.path} must carry only path+sha256 (got ${keys.join(',')})`] };
+    if (!HEX64.test(row.sha256 ?? '')) return { ok: false, activated: false, problems: [`optional smoke modifiedPaths row ${row.path} sha256 must be exact 64-hex`] };
+  }
+  if (liveSmoke.length !== new Set(liveSmoke.map((r) => r.path)).size) return { ok: false, activated: false, problems: ['duplicate optional smoke modifiedPaths rows refuse'] };
+  if (liveSmoke.length !== 0 && liveSmoke.length !== LEDGER_BINDING_OPTIONAL_SMOKE_PATHS.length) {
+    return { ok: false, activated: false, problems: [`optional smoke modifiedPaths rows are absent-or-exactly-BOTH (saw ${liveSmoke.length} of ${LEDGER_BINDING_OPTIONAL_SMOKE_PATHS.length}) - a partial supply never normalizes`] };
+  }
+  if (liveSmoke.length === LEDGER_BINDING_OPTIONAL_SMOKE_PATHS.length) {
+    const idx = (p) => liveLedger.modifiedPaths.map((r) => r?.path).lastIndexOf(p);
+    const [first, second] = LEDGER_BINDING_OPTIONAL_SMOKE_PATHS;
+    if (idx(first) === -1 || idx(second) === -1 || idx(first) >= idx(second)) {
+      return { ok: false, activated: false, problems: ['optional smoke modifiedPaths rows must be appended in the fixed order (audit-self.yml before own-config-cell.sh)'] };
+    }
+    const lastNonSmoke = Math.max(...liveLedger.modifiedPaths.map((r, i) => (isOptionalSmoke(r) ? -1 : i)));
+    if (idx(first) < lastNonSmoke || idx(second) < lastNonSmoke) {
+      return { ok: false, activated: false, problems: ['optional smoke modifiedPaths rows must be appended after every non-smoke modifiedPaths row (guard rows included)'] };
     }
   }
   const normalize = (ledger) => {
     const clone = structuredClone(ledger);
     for (const row of clone.addedPaths) if (isAdded(row)) row.sha256 = '*';
-    clone.modifiedPaths = clone.modifiedPaths.filter((row) => !isNewModified(row) && !isOptionalGuard(row)).map((row) => (isModified(row) ? { ...row, sha256: '*' } : row));
+    clone.modifiedPaths = clone.modifiedPaths.filter((row) => !isNewModified(row) && !isOptionalGuard(row) && !isOptionalSmoke(row)).map((row) => (isModified(row) ? { ...row, sha256: '*' } : row));
     return clone;
   };
   const equal = JSON.stringify(normalize(liveLedger)) === JSON.stringify(normalize(baselineLedger));
@@ -644,6 +682,8 @@ export function evaluateLedgerChannel({ liveLedger, baselineLedger }) {
     newRows: liveNew,
     guardRows: liveGuard,
     guardGoverned: liveGuard.length === LEDGER_BINDING_OPTIONAL_GUARD_PATHS.length,
+    smokeRows: liveSmoke,
+    smokeGoverned: liveSmoke.length === LEDGER_BINDING_OPTIONAL_SMOKE_PATHS.length,
     problems: [],
   };
 }
@@ -1160,6 +1200,15 @@ export function reconcileCurrentTransfer({ repoRoot, git, carrier }) {
   if (ledgerChannel.ok && ledgerChannel.guardGoverned) {
     for (const p of LEDGER_BINDING_OPTIONAL_GUARD_PATHS) governedSet.add(p);
   }
+  // Prospective unit-63/64: the two optional smoke paths join the governed-current set ONLY
+  // when the live ledger supplies BOTH valid rows (the channel refuses every partial or
+  // malformed supply). Without the rows the old contract holds untouched: changed smoke
+  // bytes stay HARD nonrow refusals, never fake PENDING. Membership is ADDITIVE pin
+  // governance only - a governed path that carries a current-only successor entry still
+  // runs the typed successor leg in the mutation loop below (unit-64 repair).
+  if (ledgerChannel.ok && ledgerChannel.smokeGoverned) {
+    for (const p of LEDGER_BINDING_OPTIONAL_SMOKE_PATHS) governedSet.add(p);
+  }
   const pinOf = (path) => {
     const live = ledgerChannel.liveLedger;
     if (!live) return null;
@@ -1209,7 +1258,14 @@ export function reconcileCurrentTransfer({ repoRoot, git, carrier }) {
     if (!liveTree.map.has(path)) problems.push(`original current path missing from the live HEAD tree: ${path} (${was.mode} ${was.kind} ${was.oid} at the admitted checkpoint) — deletions refuse`);
   }
   for (const [path, live] of liveTree.map) {
-    if (rowPaths.has(path) || admittedCarriers.has(path) || governedSet.has(path)) continue;
+    // Unit-64 repair of the unit-63 defect: a ledger-governed path that ALSO carries a
+    // current-only successor entry is NOT exempt from the typed successor leg below - the
+    // optional-row pin is ADDITIVE, never a substitute, so the frozen checkpoint identity,
+    // the permitted live OIDs, the served-bytes identity and the mode/kind of every typed
+    // successor stay load-bearing while the optional rows are active. Governed paths WITHOUT
+    // a successor entry (the guard pair, the helper of the smoke pair) keep discharging
+    // through the bounded pin exactly as before.
+    if (rowPaths.has(path) || admittedCarriers.has(path) || (governedSet.has(path) && !currentOnly.has(path))) continue;
     const was = checkpointTree.map.get(path);
     if (path === S3_LEDGER_REL) {
       // The ledger is the ONLY documented selfIndexed path: its changed bytes are admitted
