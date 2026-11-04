@@ -23,6 +23,7 @@ import {
   evaluateLedgerChannel, governedPathVerdicts, currentLedgerChannel,
   LEDGER_BINDING_ADDED_PATHS, LEDGER_BINDING_MODIFIED_PATHS, LEDGER_BINDING_NEW_MODIFIED_PATHS,
   LEDGER_BINDING_OPTIONAL_GUARD_PATHS,
+  LEDGER_BINDING_OPTIONAL_SMOKE_PATHS,
   CURRENT_TRANSFER_CHECKPOINT, ADMITTED_CURRENT_REPLACEMENTS, PENDING_CURRENT_SOURCE_PROPOSALS,
   PORTABLE_REFERENCE_TUPLES, PORTABLE_REFERENCE_REL, PORTABLE_REFERENCE_BYTES,
   S2_REVIEWED_INTEGRATION_REL, S2_REVIEWED_INTEGRATION_SHA256,
@@ -151,6 +152,11 @@ test('F3 unit-63 optional smoke rows: absent-or-exactly-BOTH, fixed appended ord
   // the old hex64('s')/'t') values are not hex at all, so the healthy arm necessarily refused
   // at the per-row HEX64 check and never reached its own positive assertions). The non-hex
   // value is retained as the malformed negative below - the validator stays strict.
+  // Unit-66 repair: the malformed arm refuses at the SHAPE validator's per-row HEX64 gate
+  // ('invalid modifiedPaths entry', s3.mjs:249) because validateLedgerShape runs FIRST inside
+  // evaluateLedgerChannel (s3.mjs:589) - the channel-level smoke message is unreachable for a
+  // non-hex pin, exactly like the unit-46 guard-pair negative (which asserts this same
+  // shape-level message on its own malformed row).
   const smoke = [
     { path: '.github/workflows/audit-self.yml', sha256: hex64('c') },
     { path: 'tests/consumer-matrix/own-config-cell.sh', sha256: hex64('d') },
@@ -159,7 +165,7 @@ test('F3 unit-63 optional smoke rows: absent-or-exactly-BOTH, fixed appended ord
   assert.equal(both.ok, true, both.problems.join('|'));
   assert.equal(both.smokeGoverned, true);
   const malformed = evaluateLedgerChannel({ liveLedger: withRows([{ path: '.github/workflows/audit-self.yml', sha256: hex64('s') }, smoke[1]]), baselineLedger: okLedger() });
-  assert.ok(!malformed.ok && malformed.problems.some((x) => x.includes('sha256 must be exact 64-hex')), malformed.problems.join('|'));
+  assert.ok(!malformed.ok && malformed.problems.some((x) => x.includes('invalid modifiedPaths entry') && x.includes('.github/workflows/audit-self.yml')), malformed.problems.join('|'));
   const partial = evaluateLedgerChannel({ liveLedger: withRows(smoke.slice(0, 1)), baselineLedger: okLedger() });
   assert.ok(!partial.ok && partial.problems.some((x) => x.includes('absent-or-exactly-BOTH')), partial.problems.join('|'));
   const sw = evaluateLedgerChannel({ liveLedger: withRows([smoke[1], smoke[0]]), baselineLedger: okLedger() });
@@ -1223,8 +1229,8 @@ test('ROOT-S4-R3: changed live source bytes change the signature and break ledge
     // guard bytes genuinely differ from the admitted checkpoint, so a row-LESS cd3 form now
     // hard-refuses (the correct production verdict for a changed governed path without a
     // binding) and the pending oracle dies before its assertion. The fixture is therefore a
-    // COHERENT TESTONLY unactivated ledger: the unchanged cd3 baseline PLUS exactly the two
-    // optional guard rows, pins derived from the actual COMMITTED live guard blobs — the
+    // COHERENT TESTONLY unactivated ledger: the unchanged cd3 baseline PLUS the optional guard
+    // rows AND the unit-66 smoke rows, pins derived from the actual COMMITTED live blobs — the
     // same fixture bytes on disk and served as the committed live-HEAD row through the
     // bounded pass-through adapter. The five original rows keep their cd3 pins (genuinely
     // unactivated semantics preserved — no activation rows, no rebind of the five baseline
@@ -1864,13 +1870,27 @@ const pinLiveLedgerRowToBaseline = (runner) => {
 // guard changes bind as governed rows while the five original rows keep their unactivated
 // cd3 pins and the honest finite pending class stays the ONLY refusal (Root unit-49 brief:
 // repair the fixture, never the production refusal).
+// Unit-66 repair: since the unit-64 narrowed mutation-loop skip, the changed helper
+// (tests/consumer-matrix/own-config-cell.sh) genuinely enters the typed leg and hard-refuses
+// without a governed binding - the SAME coherence gap unit-49 closed for the guard pair. The
+// fixture therefore also carries the two optional SMOKE rows (workflow + helper), pins
+// derived from the ACTUAL COMMITTED live blobs, so the typed workflow successor admission and
+// the smoke-row helper binding both hold and the honest pending class stays the ONLY refusal.
 const coherentUnactivatedLedgerBytes = () => {
   const L = JSON.parse(CD3_LEDGER_BYTES.toString('utf8'));
-  L.modifiedPaths = [...L.modifiedPaths, ...LEDGER_BINDING_OPTIONAL_GUARD_PATHS.map((p) => {
-    const blob = realGit(['cat-file', 'blob', `HEAD:${p}`]);
-    if (blob.rc !== 0) throw new Error(`fixture construction: committed live guard blob unreadable at HEAD:${p}`);
-    return { path: p, sha256: sha(blob.stdout) };
-  })];
+  L.modifiedPaths = [
+    ...L.modifiedPaths,
+    ...LEDGER_BINDING_OPTIONAL_GUARD_PATHS.map((p) => {
+      const blob = realGit(['cat-file', 'blob', `HEAD:${p}`]);
+      if (blob.rc !== 0) throw new Error(`fixture construction: committed live guard blob unreadable at HEAD:${p}`);
+      return { path: p, sha256: sha(blob.stdout) };
+    }),
+    ...LEDGER_BINDING_OPTIONAL_SMOKE_PATHS.map((p) => {
+      const blob = realGit(['cat-file', 'blob', `HEAD:${p}`]);
+      if (blob.rc !== 0) throw new Error(`fixture construction: committed live smoke blob unreadable at HEAD:${p}`);
+      return { path: p, sha256: sha(blob.stdout) };
+    }),
+  ];
   return Buffer.from(JSON.stringify(L));
 };
 // The synthetic blob id for fixture ledger bytes: the plain git blob hash computed locally

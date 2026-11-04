@@ -9,12 +9,12 @@
     {
       "path": "scripts/test-assurance/s3.mjs",
       "class": "s3-source",
-      "sha256": "ac3cb8acf62b7bf5d5bf91b97ac013e66c8b4aa82da33d54b441a1da4dde787f"
+      "sha256": "08266c922e56bc7517261da141dce3791494dbe7a4bb1ed4fb7e9cfd8c39d6cf"
     },
     {
       "path": "scripts/test-assurance/s3.test.mjs",
       "class": "s3-source",
-      "sha256": "a8e117764f66a89e98abc6fc011e3d7cd836dc750995def19c08f09cac1bb974"
+      "sha256": "c93b6716dd7a21d4827a6bd49cf8a787b8ac26b08a4a0c25fa8579d70d59cebf"
     },
     {
       "path": "docs/test-assurance-kernel/s3/scope-extension.json",
