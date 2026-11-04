@@ -99,6 +99,53 @@ that could not advance it past the hold would ship a route with no completion. C
 file (`cliEntry`/`backend`/`aifHttp` + `resultReview` already here). The helper it validates
 against ships inside the `intent` skill tree (factory delivery), not this copy.
 
+### OCR-reuse modules (getff-ocr-reuse C1a+C1b, 2026-10-29)
+
+| File                          | Reached from                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `src/ocrCoverage.ts`          | `src/cli/ocrTrustedReview.ts` → `../ocrCoverage.js`                                                       |
+| `src/cli/ocrTrustedReview.ts` | `.agents/roles/review-sidecar.md` connection card (C2) — invoked once via `npx tsx` on the installed copy |
+
+`src/ocrCoverage.ts` compares a parsed public OCR (`@alibaba-group/open-code-review`
+v1.13.3 manifest shapes) result against an independent caller expectation. It is vendored
+as a source candidate; C1b's `src/cli/ocrTrustedReview.ts` imports it as its final
+coverage gate.
+
+`src/cli/ocrTrustedReview.ts` is the admitted C1b producer slice: one native OCR review
+invocation bound to a current, complete declared input set (identity/range/materials/
+criteria minting/executable binding/inspection/T0-T1 staleness holds), extended in C2 with
+the explicit local-request profile (`--request-file` + `--request-sha256`; no AIF HTTP
+call, no invented task fields). The caller's
+authoritative output is the machine `--json` stdout + exit code; the verdict file under
+`<repo>/.ai-factory/ocr/<uuid>/trusted-review-verdict.json` is best-effort, not
+guaranteed. It is a `cliEntry`-family entrypoint (family H in `docs/site/reference/H.json`),
+byte-identical in source and vendor, exercised by `test/ocr-trusted-review.test.ts` against
+a stub native. The caller wiring that exists (C2): the shipped review-sidecar connection
+card invokes this copy ONCE per admitted local request and consumes the original findings;
+core/env installs receive this tree through `setup.d/portable-bindings.sh` when
+review-sidecar is present, with the native binary offered detect-first via
+`setup.d/companions.manifest` (no pin, official installer).
+
+Real-run record (operator repo, getff-ocr-reuse C2, 2026-11-01): run 1 HELD
+`invocation-nonzero` — the host had no native provider config, because the route
+qualification checked binary/auth/--version but never executed a review, so the tool's
+documented non-secret `ocr config set provider chatgpt` step had never run. Run 2 executed
+the native engine to `complete` over 5/28 paths (gpt-6.1-sol, 349k tokens) and the producer
+HELD `incomplete-coverage`: the native's DEFAULT item selection skips tests, Markdown
+docs, vendor twins, manifests and fingerprints (extension + default-path checks; upstream
+`internal/agent/selection.go`). The full-scope route is the existing `--rule-file` with
+`{"rules":[],"include":["**"]}` — a matching include is honored before the
+extension/default-path checks; a non-LLM `ocr review --preview` on the C2 range showed all
+28 required paths `will_review:true` (root receipts under
+`upstream-public-scope-preview/`). The connection card documents this as the normal route
+for mandatory-scope reviews. A real full-scope native result driven by the getff producer
+on the operator repo exists (run `867a3091…`: `compatible`, 28/28 required paths, 4
+findings, repairs landed — raw bytes preserved). Real productive Dot/OpenMaus callers and a
+real native result inside an installed consumer remain UNVERIFIED. Stub-green source compatibility
+is not a real OCR review. A `compatible` verdict attests bounded process/input/coverage
+compatibility with the pinned public contract; it is not semantic-duty acceptance and not
+a merge/integration grant.
+
 **Files NOT copied** (deliberate):
 
 - `src/AifFireBackend.ts`, `src/index.ts` — referenced only outside the dispatch closure.

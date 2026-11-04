@@ -18,6 +18,11 @@ superpowers	grep -q superpowers <<<"$(claude plugin list 2>/dev/null)"	claude pl
 runtime-bridge	curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"	(bridge)	external-service	*
 deepwiki	getff_deepwiki_machine_wide || case "$(_getff_mcp_entry "${PROJECT_ROOT:-.}/.mcp.json" deepwiki "$GETFF_MCP_DEEPWIKI_URL")" in ours|theirs) true ;; *) false ;; esac	claude mcp add --scope user --transport http deepwiki https://mcp.deepwiki.com/mcp	mcp	*
 ast-grep-cli	command -v ast-grep	npm install -g @ast-grep/cli	cli	*
+# getff-ocr-reuse C2: the trusted OCR review producer's native engine. Detect-first via its
+# public bin name `ocr`; official installer (npm global, no pin) on consent; kind=cli routes
+# through the same post-install wrapper loop as ast-grep-cli. Absent binary degrades to the
+# producer's executable-absent HOLD — never silently skipped review output.
+open-code-review	command -v ocr	npm install -g @alibaba-group/open-code-review	cli	*
 ast-grep	grep -q ast-grep <<<"$(claude plugin list 2>/dev/null)"	claude plugin marketplace add ast-grep/agent-skill && claude plugin install ast-grep@ast-grep-marketplace --scope user	cc-plugin	*
 # @profile: factory — the aif-handoff row ships only when --profile factory is selected
 # (or the legacy --with-aif-suite escape, which routes to factory per install.sh:395-401).

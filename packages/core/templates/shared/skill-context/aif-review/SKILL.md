@@ -40,3 +40,36 @@ Read the changed code as if you had never seen it and did **not** write it. The 
 ## Output augmentation
 
 In addition to AIF's standard review summary, include a section `### Test-Quality Review` listing each finding as: severity (`BLOCKER` correctness/data-integrity incl. tautological test on a critical path / `MAJOR` anti-pattern at scale / `MINOR` style), `file:line`, "what I saw", "why it's a problem", and a concrete one-line fix. One issue per finding; do not bundle. Report only — never modify code.
+
+## Trusted native OCR review connection card (getff-ocr-reuse C2)
+
+One bounded capability grant: when the caller hands the review an explicit local review request and asks for the trusted native OCR review of an exact committed candidate, the producer may be invoked ONCE. Everything else stays report-only.
+
+```bash
+# Producer entry selection — installed consumer entry first, authoring source second.
+ENTRY=".agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts"
+[ -f "$ENTRY" ] || ENTRY="packages/runtime-bridge/src/cli/ocrTrustedReview.ts"
+[ -f "$ENTRY" ] || { echo 'producer never executed: no ocrTrustedReview.ts at either deployment location' >&2; exit 1; }
+# Loader: THIS project's own consented tsx, by explicit bin path. `npx --no-install tsx`
+# was measured running a floating npm-exec-cache copy, and an ancestor node_modules bin,
+# when the project's own tsx was absent (npm 11.4.2, 2026-11-03) — the explicit path refuses both.
+LOADER="$PWD/node_modules/.bin/tsx"
+[ -x "$LOADER" ] || { echo "producer never executed: no project-local tsx loader at $LOADER (tsx arrives with the offered core devDependencies; npm-cache and ancestor loaders are refused)" >&2; exit 1; }
+echo "producer entry: $ENTRY; loader: project-local tsx ($LOADER)" >&2
+"$LOADER" "$ENTRY" \
+  --repo "$PWD" \
+  --request-file /ABS/request.json --request-sha256 <sha256-of-request-bytes> \
+  --base-ref <review-base-ref> \
+  --materials /ABS/materials-manifest.json \
+  --rule-file /ABS/full-scope-rule.json \
+  --ocr-bin /ABS/opencodereview --ocr-sha256 <pinned-native-sha256> --json
+```
+
+- The request file is `{kind:'getff.ocr-review-request/v1', id, title, description, plan, head}` (`plan` may be `null`); `head` must equal the candidate HEAD. Never invent AIF task fields — the local profile makes no AIF HTTP call at all.
+- The producer ships at exactly two deployment locations: the installed consumer entry `.agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts` (selected when present) and the authoring-framework source `packages/runtime-bridge/src/cli/ocrTrustedReview.ts`. Selection happens once, before the single invocation, and the selected path + loader go in the receipt. If the selected producer RUNS and exits non-zero, report that outcome — never re-run through the other location. If neither location exists, report producer-never-executed before any native/model use.
+- The loader is this project's OWN consented `tsx`, invoked by the explicit bin path `"$PWD/node_modules/.bin/tsx"`: `tsx` ships with the install's offered devDependencies (the authoring checkout keeps it at the root `node_modules`). The explicit path is load-bearing — `npx --no-install tsx` was measured executing a floating npm-exec-cache copy, and an ancestor `node_modules` bin, when the project's own `tsx` was absent (npm 11.4.2, 2026-11-03) — so npx-mediated and ancestor-resolving forms (`npx`, `node --import tsx/esm`) are refused. If the offered dev-deps were declined, obtain `tsx` deliberately at the project root before invoking.
+- Materials are the caller's review requirements, passed through as data. Do not add host-routing or run-OCR-again instructions to them, and do not swap them for summaries.
+- Full scope comes from the caller rule file: the native's default item selection skips tests, Markdown docs, vendor twins, manifests and fingerprints (extension + default-path checks; a matching `include` is honored BEFORE those checks — upstream `internal/agent/selection.go`). For a mandatory-scope review pass `--rule-file` with `{"rules":[],"include":["**"]}` (non-LLM `--preview` verified 28/28 `will_review:true` on the getff-ocr-reuse C2 range); re-preview whenever the range or inputs change, and keep any real caller exclusions.
+- Authoritative output is the `--json` stdout plus the process exit code. Exit 2 is a HOLD — report the hold reason verbatim; never present a HOLD, a non-execution, or a malformed run as a passed review. The verdict file under `.ai-factory/ocr/<uuid>/trusted-review-verdict.json` is best-effort, never proof by itself.
+- Exit 0 attests only a compatible invocation at its snapshot — it is not semantic approval. Consume the ORIGINAL findings: report them as returned, plus any omissions or errors. Do not run a second whole semantic review of the same diff on top of the native one, and do not re-render its evidence.
+- If the producer never executed (spawn error, missing binary), the first line of the report says exactly that — an absent run cannot look like an empty successful review.

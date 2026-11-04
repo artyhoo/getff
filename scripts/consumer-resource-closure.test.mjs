@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, readdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 const root = resolve(import.meta.dirname, '..');
+const { cardBadFlagPrefixOf, npxPoison } = await import('./lib/review-sidecar-card.mjs');
 // A real core setup measured 66.49 s on the maintainer Mac (2026-10-18).
 // Keep the full installer and all assertions; allow its companion detection to finish.
 const INSTALL_TIMEOUT_MS = 120_000;
@@ -30,6 +31,62 @@ test('one core install delivers both interfaces and mandatory read-only role res
     '.agents/tools/synthesizer/synthesis-plan.schema.json']) assert.ok(existsSync(join(dir, file)), file);
   assert.ok(!existsSync(join(dir, '.agents/procedures/docs-author/SKILL.md')), 'support data does not promote contributor workflow');
   assert.ok(!existsSync(join(dir, '.agents/tools/runtime-bridge/src/cli/park.ts')), 'factory capability stays gated');
+  // getff-ocr-reuse C2 core/env closure (root repair 2026-11-01, SSOT #317): a core
+  // consumer receives EXACTLY the measured import/dependency closure of the advertised
+  // ocrTrustedReview entry — cliEntry (arg parsing), aifHttp -> backend -> types
+  // (type-only), ocrCoverage (comparator), plus the vendor package.json (type:module
+  // ESM metadata + declared tsx peer). The exact-set assertion forbids collateral
+  // factory execution CLIs (park/harvest/dispatch/claim/...), the dispatch hook,
+  // bridge-health and the vendor README in one check.
+  const closure = ['package.json', 'src/backend.ts', 'src/cli/aifHttp.ts', 'src/cli/cliEntry.ts',
+    'src/cli/ocrTrustedReview.ts', 'src/ocrCoverage.ts', 'src/types.ts'].sort();
+  const deliveredTree = [];
+  const walk = rel => {
+    for (const ent of readdirSync(join(dir, '.agents/tools/runtime-bridge', rel), { withFileTypes: true })) {
+      const child = rel ? `${rel}/${ent.name}` : ent.name;
+      if (ent.isDirectory()) walk(child); else deliveredTree.push(child);
+    }
+  };
+  walk('');
+  assert.deepEqual(deliveredTree.sort(), closure, 'core profile must deliver exactly the measured OCR closure');
+  // F3 (c2-native-findings-closure-20261103): the ACTUAL shipped card — the one this
+  // install delivered — must run from the consumer's OWN cwd; the authoring checkout's
+  // module resolution may not stand in for it. The install above declined the offered
+  // devDependencies (empty stdin), so the consumer has no node_modules yet: first the
+  // card's loader guard must refuse (no npx cache / ancestor fallback — a recording
+  // fake-npx PATH proves no npx mediation), and only after tsx is deliberately provided
+  // at the project root may the delivered entry load through the card's own loader.
+  const deliveredCards = [
+    ['delivered role card', readFileSync(join(dir, '.claude/agents/review-sidecar.md'), 'utf8')],
+    ['delivered aif-review skill-context', readFileSync(join(dir, '.ai-factory/skill-context/aif-review/SKILL.md'), 'utf8')],
+  ];
+  const poison = npxPoison();
+  for (const [name, card] of deliveredCards) {
+    const missing = spawnSync('bash', ['-c', cardBadFlagPrefixOf(card)],
+      { cwd: dir, encoding: 'utf8', timeout: 30_000, env: poison.env });
+    assert.equal(missing.status, 1,
+      `${name}: missing project-local loader must exit 1 (got ${missing.status})\nstderr: ${missing.stderr}\nstdout: ${missing.stdout}`);
+    assert.match(missing.stderr, /^producer never executed: no project-local tsx loader at .*node_modules\/\.bin\/tsx /m,
+      `${name}: the loader guard must fire from the consumer's own cwd`);
+    assert.ok(!((missing.stderr + missing.stdout).includes('[runtime-bridge]')),
+      `${name}: the producer must not execute while the loader is absent`);
+  }
+  assert.ok(!poison.ran(), 'declined dev-deps must not push a delivered card into any npx-mediated loader');
+  // Deliberate local tsx (the offered core devDependencies, linked offline from this
+  // checkout — Node resolves the symlink's real target, no registry fetch): NOW the
+  // delivered entry must load through the card's own loader and reach the producer
+  // arg parser with the benign bad flag.
+  mkdirSync(join(dir, 'node_modules/.bin'), { recursive: true });
+  symlinkSync(join(root, 'node_modules/tsx'), join(dir, 'node_modules/tsx'), 'dir');
+  symlinkSync('../tsx/dist/cli.mjs', join(dir, 'node_modules/.bin/tsx'), 'file');
+  const bad = spawnSync('bash', ['-c', cardBadFlagPrefixOf(deliveredCards[0][1])],
+    { cwd: dir, encoding: 'utf8', timeout: 60_000, env: poison.env });
+  assert.equal(bad.status, 1,
+    `bad invocation of the delivered producer must exit 1 (got ${bad.status})\nstderr: ${bad.stderr}\nstdout: ${bad.stdout}`);
+  assert.match(bad.stderr, /producer entry: \.agents\/tools\/runtime-bridge\/src\/cli\/ocrTrustedReview\.ts; loader: project-local tsx \([^)]*node_modules\/\.bin\/tsx\)/,
+    'the receipt must name the installed consumer entry + the project-local loader');
+  assert.match(bad.stderr, /\[runtime-bridge\] ocrTrustedReview: Unknown option '--definitely-not-an-option'/);
+  assert.ok(!poison.ran(), 'the delivered card must run its own project-local loader, never npx');
   assert.equal(readFileSync(join(dir, '.codex/config.toml'), 'utf8'), userConfig);
   const checker = join(dir, 'scripts/docs-check.mjs');
   r = spawnSync('node', [checker, '--help'], { cwd: dir, encoding: 'utf8' });
