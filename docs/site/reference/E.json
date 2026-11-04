@@ -1178,6 +1178,26 @@
       "example": null
     },
     {
+      "name": "shared/getff-rules-generic.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Generic-stack rule-check workflow (GitHub Actions) delivered as .github/workflows/getff-rules.yml into consumer repos.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 115
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
       "name": "shared/gitignore",
       "kind": "template",
       "shipsTo": {
@@ -1192,7 +1212,7 @@
       "description": "gitignore additions installed into consumer repos (node_modules, dist, …).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 115
+        "line": 119
       },
       "installedTo": [
         {
@@ -1242,6 +1262,26 @@
       "example": null
     },
     {
+      "name": "shared/husky-pre-commit-generic.sh",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Generic-stack pre-commit hook (route B, non-blocking): --probe arms a green project check into the sidecar, --fold moves it into the tracked record; blocking lives in CI.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 123
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "sh"
+      },
+      "example": null
+    },
+    {
       "name": "shared/husky-pre-commit.sh",
       "kind": "template",
       "shipsTo": {
@@ -1256,7 +1296,7 @@
       "description": "Consumer pre-commit hook — fast checks only (target <5s); heavy checks live in pre-push and CI.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 119
+        "line": 127
       },
       "installedTo": [
         {
@@ -1320,7 +1360,7 @@
       "description": "Consumer pre-push hook — the TS-core dispatcher shipped by install.sh.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 123
+        "line": 131
       },
       "installedTo": [
         {
@@ -1387,7 +1427,7 @@
       "description": "Integration rules across microservices — API contracts, CDC, event schemas, mTLS, observability, resilience (paths-scoped frontmatter).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 127
+        "line": 135
       },
       "installedTo": [
         {
@@ -1481,7 +1521,7 @@
       "description": "Shipped skill-context override for aif-orchestrator-discipline — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 131
+        "line": 139
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -1501,7 +1541,7 @@
       "description": "Shipped skill-context override for aif-review — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 135
+        "line": 143
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -1521,7 +1561,7 @@
       "description": "Shipped skill-context override for aif-rules-check — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 139
+        "line": 147
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -1546,7 +1586,7 @@
       "description": "Task-tier routing SSOT installed at .ai-factory/tier-home.md — tier criteria, bridge-profile mechanic, marker value rule, degradation matrix.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 143
+        "line": 151
       },
       "installedTo": [
         {
@@ -1608,7 +1648,7 @@
       "description": "Base tsconfig template installed into consumer repos.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 147
+        "line": 155
       },
       "installedTo": [
         {
@@ -1650,7 +1690,7 @@
       "description": "React tsconfig template (Bundler resolution, react-jsx, DOM, noEmit) for Vite-style React projects; which stack gets it is the installer's routing.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 151
+        "line": 159
       },
       "installedTo": [
         {

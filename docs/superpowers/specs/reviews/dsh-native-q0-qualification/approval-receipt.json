@@ -1,0 +1,14 @@
+{
+  "featureId": "dsh-native-q0-qualification",
+  "decision": "approved",
+  "approvedSha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da",
+  "snapshotRef": {
+    "path": "docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da.md",
+    "sha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da"
+  },
+  "approvalRecordRef": {
+    "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval.md",
+    "sha256": "ba2ab6e57a988f54650bc18730096683edd168d2b20a408e306e7809418c716e"
+  },
+  "approver": "Codex under explicit operator-delegated exact product-brief approval authority for already-authorized Q0"
+}

@@ -84,6 +84,66 @@ PIG="$TG/.prettierignore"
   && ok "F15 greenfield: no pre-existing file → .prettierignore copied WITH .ai-factory/RULES.md" \
   || bad "F15 greenfield: greenfield consumer did not receive a complete .prettierignore"
 
+# ── GH #2142 R9 (CODE-REPAIR): NON-GENERIC routes never attempt getff-rules.yml delivery, so a
+# ts-server consumer's OWN .github/workflows/getff-rules.yml must NOT land in the managed ignore
+# block. No delivery on this route → no SKIPPED entry → the old exists/not-SKIPPED admission read
+# the consumer's file as freshly-shipped and silently dropped it from the formatting check. The
+# other workflow candidates (ci.yml, workflow-integrity.yml) ARE delivered on ts-server and stay
+# covered — proving the repair gates the one candidate, not the whole block.
+TR9=$(mktemp -d)
+printf '{ "name":"r9ts","version":"0.0.0" }\n' > "$TR9/package.json"
+printf 'dist/\n' > "$TR9/.prettierignore"
+mkdir -p "$TR9/.github/workflows"
+# deliberately NOT prettier-conformant (deep indent + padded colons — flagged under ANY config,
+# the gh-531 arm-6 dirt-shape): if the file is ever ignored, the planted violation goes unreported
+printf '%s\n' 'name: consumer-own' 'on:' '  push:' '      branches: [ main ]' 'jobs:' '  build:' '      runs-on:   ubuntu-latest' '      steps:' '          - uses:   actions/checkout@v4' \
+  > "$TR9/.github/workflows/getff-rules.yml"
+cp "$TR9/.github/workflows/getff-rules.yml" "$TR9/.r9-wf-orig"
+r9_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
+r9_mode "$TR9/.github/workflows/getff-rules.yml" > "$TR9/.r9-wf-mode"
+( cd "$TR9" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >/dev/null 2>&1; r9rc_install=$?
+[ "$r9rc_install" -eq 0 ] \
+  && ok "R9 ts-server: brownfield install with a consumer-owned getff-rules.yml exits 0" \
+  || bad "R9 ts-server: install exited $r9rc_install"
+r9_inblock() {
+  awk '/^# >>> rules-as-tests-aif shipped-configs \(managed\) >>>$/{f=1;next}
+    /^# <<< rules-as-tests-aif shipped-configs \(managed\) <<<$/{f=0;next}
+    f && $0==".github/workflows/getff-rules.yml"{n++} END{print n+0}' "$1"
+}
+[ "$(r9_inblock "$TR9/.prettierignore")" = "0" ] \
+  && ok "R9 ts-server: consumer-owned wf NOT in the managed block (delivery never attempted)" \
+  || bad "R9 ts-server: consumer-owned wf IGNORED on a route that never delivered it (GH #2142 R9)"
+grep -qx '.github/workflows/ci.yml' "$TR9/.prettierignore" \
+  && ok "R9 ts-server: delivered ci.yml still covered (the gate is per-candidate, not the block)" \
+  || bad "R9 ts-server: delivered ci.yml lost from the managed block — repair over-blocks"
+grep -qx '.github/workflows/workflow-integrity.yml' "$TR9/.prettierignore" \
+  && ok "R9 ts-server: delivered workflow-integrity.yml still covered" \
+  || bad "R9 ts-server: delivered workflow-integrity.yml lost from the managed block"
+cmp -s "$TR9/.r9-wf-orig" "$TR9/.github/workflows/getff-rules.yml" \
+  && ok "R9 ts-server: consumer wf bytes untouched" \
+  || bad "R9 ts-server: consumer wf bytes rewritten"
+[ "$(r9_mode "$TR9/.github/workflows/getff-rules.yml")" = "$(cat "$TR9/.r9-wf-mode")" ] \
+  && ok "R9 ts-server: consumer wf mode unchanged ($(cat "$TR9/.r9-wf-mode"))" \
+  || bad "R9 ts-server: consumer wf mode changed"
+[ ! -L "$TR9/.github/workflows/getff-rules.yml" ] \
+  && ok "R9 ts-server: consumer wf is not a link" || bad "R9 ts-server: consumer wf became a link"
+grep -qx 'dist/' "$TR9/.prettierignore" \
+  && ok "R9 ts-server: consumer 'dist/' line survives" \
+  || bad "R9 ts-server: consumer 'dist/' line lost"
+# EXECUTED (gh-531 arm-6 method): the framework's own .prettierrc is delivered here, the tree is
+# clean apart from the planted workflow — so `prettier --check .` failing WITH a getff-rules.yml
+# citation is the consumer's original formatting check still working; under the defect the file
+# was ignored and the SAME check silently passed.
+if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
+  ( cd "$TR9" && npx --yes prettier@3.8.3 --check . ) > "$TR9/.r9-check.log" 2>&1; r9prc=$?
+  r9cited=$(grep -c 'getff-rules\.yml' "$TR9/.r9-check.log")
+  [ "$r9prc" -ne 0 ] && [ "$r9cited" -ge 1 ] \
+    && ok "R9 ts-server executed: planted wf violation CAUGHT (prettier rc=$r9prc, citations=$r9cited)" \
+    || bad "R9 ts-server executed: violation not caught (rc=$r9prc, citations=$r9cited) — formatting coverage silently weakened"
+else
+  echo "  · R9 executed prettier arm skipped (npx prettier@3.8.3 unreachable)"
+fi
+
 # ── #807 multi-stack: per-workspace configs the multi-stack branch ships must be in .prettierignore ──
 # The #793/#796 multi-stack branch writes per-workspace eslint.config.mjs files; ignore_shipped_configs
 # only knew root basenames, so prettier --check . reflowed them and format:check went RED. The fix
