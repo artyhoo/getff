@@ -14,7 +14,7 @@
     {
       "path": "scripts/test-assurance/s3.test.mjs",
       "class": "s3-source",
-      "sha256": "5b1a9c7d51297828db9bc3deb2de29f9e785ebd2667fbfcff143e1d231e7551a"
+      "sha256": "7081eadc5d688b0f98c8d3068fbc30491034db4588f17958d5d4cbc14e231043"
     },
     {
       "path": "docs/test-assurance-kernel/s3/scope-extension.json",
