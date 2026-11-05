@@ -6,7 +6,7 @@
 // evidence is authored here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, rmSync, chmodSync, lstatSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, rmSync, chmodSync, lstatSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -388,7 +388,9 @@ const disk77 = ({ skip = null, drift = null, symlink = null, original = null } =
       cur = join(cur, seg);
       let st = null;
       try { st = lstatSync(cur); } catch {}
-      if (st && st.isSymbolicLink()) { rmSync(cur); st = null; }
+      // unlinkSync on a proven symlink never follows it — rmSync without
+      // options throws ERR_FS_EISDIR when a prior arm left a parent link to a dir.
+      if (st && st.isSymbolicLink()) { unlinkSync(cur); st = null; }
       if (!st) mkdirSync(cur, { recursive: true });
     }
     const file = join(tmp, row.path);
