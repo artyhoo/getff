@@ -155,8 +155,8 @@ test('F3 unit-63 optional smoke rows: absent-or-exactly-BOTH, fixed appended ord
   // at the per-row HEX64 check and never reached its own positive assertions). The non-hex
   // value is retained as the malformed negative below - the validator stays strict.
   // Unit-66 repair: the malformed arm refuses at the SHAPE validator's per-row HEX64 gate
-  // ('invalid modifiedPaths entry', s3.mjs:249) because validateLedgerShape runs FIRST inside
-  // evaluateLedgerChannel (s3.mjs:589) - the channel-level smoke message is unreachable for a
+  // ('invalid modifiedPaths entry', s3.mjs:285) because validateLedgerShape runs FIRST inside
+  // evaluateLedgerChannel (s3.mjs:1060) - the channel-level smoke message is unreachable for a
   // non-hex pin, exactly like the unit-46 guard-pair negative (which asserts this same
   // shape-level message on its own malformed row).
   const smoke = [

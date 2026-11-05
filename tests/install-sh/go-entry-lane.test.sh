@@ -440,7 +440,7 @@ printf '{"name":"m","version":"0.0.0"}\n' > "$NG/package.json"
 printf 'module demo\n\ngo 1.22\n' > "$NG/go.mod"
 out=$( cd "$NG" && bash "$INSTALL" < /dev/null 2>&1 )
 RC_P50_133=$?
-# npm-lane contract (install.sh:814): package.json present, no toolchain offer, EOF at the
+# npm-lane contract (install.sh:865): package.json present, no toolchain offer, EOF at the
 # stack menu → 'Invalid choice' exit 1. The arm's real subject is the ZERO-offers assertion
 # below; the rc binds to the documented menu-EOF abort, so an unrelated 1 cannot pass either.
 if [ "$RC_P50_133" -eq 1 ] && grep -qF 'Invalid choice' <<<"$out"; then
