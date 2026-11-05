@@ -63,7 +63,7 @@ import { fileURLToPath } from 'node:url';
 // S3/S4 acceptance layer (stage module): routing + the additive post-S2 inventory consumption.
 // An absent scope-extension ledger keeps this import behaviorally inert for S1/S2 (see
 // stepS2Inventory).
-import { buildStageSteps as s3BuildStageSteps, loadScopeExtension, loadReviewedIntegration, reconcileUpstreamLineage, reconcileCurrentTransfer, loadPortableReference, portableCommitResolves, portableReferenceStore, sharedHistoricalReader, storeFallbackGit, CURRENT_TRANSFER_CHECKPOINT, S2_REVIEWED_INTEGRATION_REL, PORTABLE_REFERENCE_REL } from './s3.mjs';
+import { buildStageSteps as s3BuildStageSteps, loadScopeExtension, loadReviewedIntegration, reconcileUpstreamLineage, reconcileCurrentTransfer, loadPortableReference, portableCommitResolves, portableReferenceStore, sharedHistoricalReader, storeFallbackGit, CURRENT_TRANSFER_CHECKPOINT, ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS, selectCurrentProducerSubject, S2_REVIEWED_INTEGRATION_REL, PORTABLE_REFERENCE_REL } from './s3.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../..');
@@ -1156,11 +1156,32 @@ function stepS2Prereqs() {
   }
   const scope = join(REPO_ROOT, 'docs/test-assurance-kernel/s2/final-scope-ruling.json');
   if (!existsSync(scope) || sha256(readFileSync(scope)) !== S2.scopeSha) return red('independent S2 scope ruling missing or changed');
+  const changedSubjects = [];
   for (const binding of S2.subjects) {
     const file = repoPath(binding.path);
-    if (!file || !existsSync(file) || sha256(readFileSync(file)) !== binding.sha256) return red(`accepted subject changed: ${binding.path}; historical scoped evidence cannot follow a changed producer`);
+    if (!file || !existsSync(file)) return red(`accepted subject changed: ${binding.path}; historical scoped evidence cannot follow a changed producer`);
+    if (sha256(readFileSync(file)) !== binding.sha256) changedSubjects.push(binding.path);
   }
-  return pass('unchanged frozen inputs/records, independent scope authority and accepted subject bindings present; no historical report is called fresh');
+  if (changedSubjects.length === 0) return pass('unchanged frozen inputs/records, independent scope authority and accepted subject bindings present; no historical report is called fresh');
+  // Root unit-77 (bc107): the single admissible producer delta. The ONE S2 subject with an
+  // EXISTING typed current-only successor carrying the Root-qualified inline
+  // currentProducerBehavior row may select the exact current identity — and only through the
+  // FULL existing typed transfer plus the nine-path source closure agreeing with the typed
+  // tables AND byte-exact on the working tree. No proof file, loader, runtime acceptance
+  // flag or caller-supplied pass object exists on this path. Everything else — unknown
+  // hashes, broken B surface, second changed producer, missing/drifted/symlinked
+  // dependency, duplicate/escaping closure entry, counterfeit zero identity, tampered pin,
+  // wrong acceptance — keeps the frozen refusal; the zero-changed branch above keeps its
+  // exact legacy message.
+  const selection = selectCurrentProducerSubject({
+    repoRoot: REPO_ROOT,
+    git: storeFallbackGit(REPO_ROOT, (args) => run('git', args, { env: gitEnv() })),
+    carrier: loadReviewedIntegration(REPO_ROOT),
+    subjects: S2.subjects,
+    changedSubjects,
+  });
+  if (selection.status === 'admitted') return pass(selection.message);
+  return red(`accepted subject changed: ${changedSubjects.join(', ')}; historical scoped evidence cannot follow a changed producer (${selection.problems.slice(0, 5).join(' | ')})`);
 }
 
 function stepS2Inventory() {
@@ -1213,6 +1234,7 @@ function stepS2Inventory() {
     const integration = loadReviewedIntegration(REPO_ROOT);
     if (!integration.absent && !integration.ok) return red(`reviewed upstream integration carrier invalid: ${integration.problems.join(' | ')}`);
     let upstreamPaths = [];
+    let bNewPaths = [];
     if (integration.ok) {
       // Root unit-36 item A: these composite relations need the CURRENT newbranch graph
       // (cd3..HEAD, resolvable in the live checkout itself) AND the historical cf64 / bc8
@@ -1239,13 +1261,19 @@ function stepS2Inventory() {
         carrier: integration,
       });
       if (transferProblems.length) return red(`reviewed current-transfer checkpoint reconciliation failed: ${transferProblems.slice(0, 5).join(' | ')}${transferProblems.length > 5 ? ` (+${transferProblems.length - 5} more)` : ''}`);
+      // Root unit-74: with the typed current-transfer validation clean (the check above reds
+      // otherwise), the EXISTING finite B-delta table's exact new upstream paths join the
+      // expected population — the same single admission route as the module-side additive
+      // inventory. A failed or absent validation keeps them unregistered: no wildcard, no
+      // live-diff automatic approval, and the frozen 4172/571 populations stay untouched.
+      if (transferProblems.length === 0) bNewPaths = ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS.map((r) => r.path);
     }
     // The admitted portable reference-data bundle joins the expected scope the same way the
     // integration carrier does: byte-pinned (size+sha) or refused; absent => exact legacy
     // expectation. Reference data only — never s3-source/s3-evidence class.
     const portable = loadPortableReference(REPO_ROOT);
     if (!portable.absent && !portable.ok) return red(`portable historical reference carrier invalid: ${portable.problems.join(' | ')}`);
-    const expected = [...s2Scope, ...additive, ...upstreamPaths, ...(integration.ok ? [S2_REVIEWED_INTEGRATION_REL] : []), ...(portable.ok ? [PORTABLE_REFERENCE_REL] : [])].sort();
+    const expected = [...s2Scope, ...additive, ...upstreamPaths, ...bNewPaths, ...(integration.ok ? [S2_REVIEWED_INTEGRATION_REL] : []), ...(portable.ok ? [PORTABLE_REFERENCE_REL] : [])].sort();
     if (baseList.length !== 4171 || JSON.stringify([...paths].sort()) !== JSON.stringify(expected) || JSON.stringify([...actualPaths].sort()) !== JSON.stringify([...s2Scope].sort())) problems.push(`exact NUL Git/population path reconciliation failed (${s2Scope.length} accepted-scope paths + ${additive.length} ledger-declared post-S2 paths + ${upstreamPaths.length} reviewed upstream-lineage paths)`);
     if (sha256(JSON.stringify(population.entries.slice(0, 4133).map((r) => [r.id, r.path]))) !== S2.originalPopulation) problems.push('original 4133 POP identity/path pairs changed');
     for (const row of [...population.entries, ...obligations.obligations, ...dispositions.dispositions]) if (!S2.statuses.includes(row.status)) problems.push(`unknown status ${String(row.status)} at ${row.id}`);
@@ -1255,7 +1283,7 @@ function stepS2Inventory() {
     if (dispositions.dispositions.some((r) => r.blocking_for_s2done !== false || ['candidate-needs-review', 'demonstrated-gap'].includes(r.status))) problems.push('unresolved blocking candidate');
     if (!Array.isArray(seeds.seeds) || sha256(JSON.stringify(seeds.seeds.map((r) => [r.seed, r.title, r.owner_mechanism, r.current_status]))) !== S2.seedIdentity) problems.push('12 seed identity/history/current scoped-status contract failed');
     if (problems.length) return red(problems.join(' | '));
-    return pass(`exact ${expected.length} Git/POP paths (4172 accepted scope + ${additive.length} ledger-declared post-S2), 110 individually dispositioned candidates, 81 unique obligation IDs, 12 scoped seeds; ordinary structural inventory is not behavioral certification`);
+    return pass(`exact ${expected.length} Git/POP paths (4172 accepted scope + ${additive.length} ledger-declared post-S2 + ${bNewPaths.length} typed B-delta new upstream paths), 110 individually dispositioned candidates, 81 unique obligation IDs, 12 scoped seeds; ordinary structural inventory is not behavioral certification`);
   } catch (error) { return red(`invalid committed S2 inventory: ${error.message}`); }
   /* S2_INVENTORY_END */
 }

@@ -179,6 +179,33 @@ export const REQUIRED_COMPANION_CONTROLS = [
   "CURRENT-ONLY B-DELTA (unit 71): a listed new upstream path whose pinned tuple is not the immutable B tree source leg refuses — wrong-B provenance never admits",
 
   "CURRENT-ONLY SELECTED-LEG IDENTITY (unit 72): an unchanged original 100644 leg and the exact admitted successor 100755 leg both admit on a mode-changing successor — crossed mode/OID combinations refuse",
+  "INVENTORY-B-DELTA (unit 74): a clean typed current transfer admits the exact finite B-delta new upstream paths into the additive inventory",
+  "INVENTORY-B-DELTA (unit 74): a failed or absent typed current transfer keeps every B-delta path unregistered — no automatic live-diff approval",
+  "INVENTORY-B-DELTA (unit 74): even with a clean typed current transfer an unknown 29th new upstream path refuses",
+  "CURRENT-PRODUCER SELECTION (unit 78): the exact qualified inline row \u2014 clean full typed transfer, fixed nine-path closure with every dependency's actual committed live-HEAD tuple selected and byte-exact physical working files \u2014 selects the current variant with the distinct accepted message",
+  "CURRENT-PRODUCER SELECTION (unit 78): an unknown live hash on the subject (neither frozen original nor exact successor) refuses the current variant",
+  "CURRENT-PRODUCER SELECTION (unit 78): a failed typed current transfer (broken B surface) refuses the current variant",
+  "CURRENT-PRODUCER SELECTION (unit 78): a second changed producer outside the single typed subject refuses \u2014 all other frozen producers stay strict",
+  "CURRENT-PRODUCER SELECTION (unit 78): a closure dependency missing from the working tree refuses the current variant",
+  "CURRENT-PRODUCER SELECTION (unit 78): a drifted working dependency (bytes differ from the selected committed identity) refuses the current variant",
+  "CURRENT-PRODUCER SELECTION (unit 78): a leaf-symlinked working dependency refuses physically \u2014 no closure identity through a link",
+  "CURRENT-PRODUCER SELECTION (unit 78): a byte-matching parent-directory symlink escape refuses physically even when every file inside is byte-exact",
+  "CURRENT-PRODUCER SELECTION (unit 78): a committed ORIGINAL live-HEAD leg with successor-only working bytes refuses \u2014 the selected committed tuple must be the current one",
+  "CURRENT-PRODUCER SELECTION (unit 78): the paired crossing \u2014 committed current tuple with original-only working bytes \u2014 refuses on the physical working identity",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): the genuine inline member of the immutable row is defect-free against the independently fixed authority",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a typed row without the qualified currentProducerBehavior member keeps the frozen refusal",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong NONZERO Root qualification sha (shape-valid, value-wrong) is refused \u2014 exact known data admits, not any nonzero hex",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong NONZERO source-acceptance receipt is refused",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong NONZERO normal-witness hash is refused",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong population and result on a normal witness (PASS343 FAIL1 EXIT1) is refused",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong hosted run binding (run id, steps, conclusion) is refused",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong NONZERO staging-squash acceptance that does not extend the reviewed B binding is refused",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a counterfeit all-zero witness identity is refused \u2014 zero is never a hash",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): an omitted closure row (subset retaining the subject, dropping lib.sh) is refused and the omitted dependency's drifted working file is still caught by the fixed-nine selector walk",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): an extra closure row beyond the nine refuses \u2014 no tenth dependency rides the qualification",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a replaced closure tuple with a wrong nonzero gitBlob pin is refused",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a duplicate closure path is refused",
+  "CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a path-escaping closure entry is refused",
 ];
 
 const sha256buf = (buf) => createHash('sha256').update(buf).digest('hex');
@@ -326,7 +353,197 @@ export function verifyRegisteredFiles(repoRoot, ledger, problems, pendingBinding
   }
 }
 
-export function reconcileInventory({ repoRoot, basePaths, rulingPath, livePaths, ledger, integration, pendingBindings }) {
+// Root unit-78 (fa163a10 R77-1/R77-2/R77-3): the admission entrypoint takes NO caller table.
+// The authority is the frozen ADMITTED_CURRENT_ONLY_SUCCESSORS setup40 row bound field-for-field
+// to the INDEPENDENTLY FIXED constants below — the actual 742/957703/b706 facts written as a
+// SECOND literal, never derived from the row at runtime and never accepted from a caller. A
+// test seam may falsify the validator (currentProducerQualificationDefects over a mutated
+// structuredClone of the genuine member); it can never replace its authority: every
+// qualification/source/witness/population/hosted value must EQUAL the exact known data, not
+// merely be nonzero-hex/positive-integer-shaped. The selector walks the FIXED nine closure
+// paths — an omitted/replaced/extra/duplicate row in any behavior object cannot shrink it —
+// and binds every dependency's ACTUAL committed live-HEAD tuple (mode/kind/OID/served bytes)
+// through the shared git runner before the physical working file is trusted: a committed
+// ORIGINAL leg with successor-only working bytes refuses, and the EXISTING symlinkEscape
+// helper guards the parent directories on top of the leaf lstat identity. There is still NO
+// proof file, loader, schema/store, runtime Root-acceptance flag, timestamp or caller-supplied
+// pass object anywhere on this path. The original-versus-successor permitted semantics of
+// every OTHER row and branch of the full typed transfer stay unchanged.
+export const EXACT_QUALIFIED_CURRENT_PRODUCER = {
+  subject: {
+    path: 'setup.d/40-configs.sh',
+    checkpoint: { mode: '100644', kind: 'blob', gitBlob: '84be9fdecebbcb76d42f7adfb7c6d01d3e5cd4cf', sha256: '6fbda6e4610d948c938ea24f3fbd31a1fa5623b148d1db90c44fefbae803e9fe', bytes: 53605 },
+    live: { mode: '100644', kind: 'blob', gitBlob: '0e260a97ae37a647e225d639753923febdb3859c', sha256: 'f1c635252c516775983252bce6deb41659e59b46a01da731a0c6a2b757915fa0', bytes: 57474 },
+  },
+  qualification: {
+    rootRuling: { rel: 'ROOT-CURRENT-F1C-EXISTING-SOURCE-BEHAVIOR-PROOF-QUALIFIED.json', sha256: '742a2d88dfabae919f55d184c3d5b8390d768119490517051d2f9d56ea76861e', bytes: 3346 },
+    originalEvidencePacket: { rel: 'ONEBUTTON-SOURCE40-F1C-EXACT-PROOFS-AND-TAK-PUBLICATION-BOUNDARY.json', sha256: '957703b017d43239bcb53fdaaadde2ad5537d8da7b75dad44a4b663f82316d58', bytes: 17186 },
+  },
+  sourceAcceptance: {
+    onebuttonHead: '0855d375795d743b0d7fdbbf7d3884e68e68ff1c',
+    onebuttonTree: 'd486fb3c29f596831a811a07e5c718dff19fb074',
+    pr: 'artyhoo/getff#2142',
+    stagingSquash: 'b714f7c1a6e40488e8f016665d7fffc0cd513a3d',
+    source: { sha256: 'f5361e09f4a5ae109a135922486c189fc64388f6050020ce570af94d0aec48d2', bytes: 4971 },
+    code: { sha256: '473c2fd3a6603a2a2d812d284a0db95c4c857236f1e36f3b8626b5dbcb3a98e3', bytes: 2185 },
+    what6: { sha256: '3083efb695ee51dd016dffd324486300244edb83f534e56b60fa84d25f7ecf57', bytes: 3293 },
+  },
+  normalWitnesses: {
+    generic344: { rel: 'r12-1-genericstack-GREEN.log', sha256: 'f88c2f7e547ebb89f183a8950d3f7fdf38bca774cb4280354678d424a39092ed', bytes: 21462, result: 'PASS344 FAIL0 EXIT0' },
+    genericBinding: { rel: 'ACTUAL-716-COMMITTED-REPAIR-PEER-HANDOFF.json', sha256: '85078b9e8b4819d537f74946bd105d7efd58fed09b2d4e31f61c8d2b40f24954', bytes: 16039 },
+    genericD1Original312: { rel: '03b-final-battery-generic-stack.log', sha256: 'ca7f275e053d3a53f8f1be3cac101d237e07eef42463c012efa937ad283daa15', bytes: 19008 },
+    originalSource10Binding: { rel: 'ACTUAL-C535-AFFECTED-SOURCE-ACCEPTANCE-HANDOFF.json', sha256: 'ac80705543139b2cbd2a4b8adb803b45a162f4ca0469552a30131cdc885488ff', bytes: 12611 },
+    linter35: { rel: '04-final-linter-slot.log', sha256: '3058227093acb0f4e95084e21cb94d27e8885cd4e10eea4398d1a379cbb60bef', bytes: 5972, result: 'PASS35 FAIL0 EXIT0' },
+    finalHosted: { runId: 41587408035, conclusion: 'success', genericWorkflowStep: 948, linterWorkflowStep: 962, whole: { sha256: '5322c0d836a1bfebd75f34d01299516e2535a2270d66608b7b070fe8c8c63807', bytes: 6122 }, savedChecks: { sha256: '63bdc4933cb664054f6c8fcd473c05a7250eca35f59d381f2e5eeaad1f82d1a3', bytes: 9352 } },
+  },
+  sourceClosure: {
+    paths: [
+      { path: 'install.sh', mode: '100755', kind: 'blob', gitBlob: '291eaec2f49c38a372a71900a243f76b98c0985a', sha256: '3fecefe2617b531f0e35eef14a6eaf56d2508f946a696632127d0e0c75f11376', bytes: 127737 },
+      { path: 'setup.d/lib.sh', mode: '100644', kind: 'blob', gitBlob: '5a6666a7c3a28da7e007504c8b187fee62abbd41', sha256: '2a0de8efa9d0fa876ff87fa316ab5fa2b9f5cd25d1108e995391473b0b42a25b', bytes: 317922 },
+      { path: 'setup.d/40-configs.sh', mode: '100644', kind: 'blob', gitBlob: '0e260a97ae37a647e225d639753923febdb3859c', sha256: 'f1c635252c516775983252bce6deb41659e59b46a01da731a0c6a2b757915fa0', bytes: 57474 },
+      { path: 'setup.d/50-hooks.sh', mode: '100644', kind: 'blob', gitBlob: '84cd12adaacaa89c34cccf37fc8b41566a1d847d', sha256: '6f7cac83ba442347ee3d94287355632cc5a17d798dd399ebf45478e6a7ec34c1', bytes: 7325 },
+      { path: 'setup.d/99-finalize.sh', mode: '100644', kind: 'blob', gitBlob: '08e0ddd64a49701773a034716749032c2c863b87', sha256: '213ea60d3675f6a13b9ce352037547507c47e5dfae5291bac01e8092a60c4b9e', bytes: 52776 },
+      { path: 'packages/core/templates/shared/husky-pre-commit-generic.sh', mode: '100755', kind: 'blob', gitBlob: 'a63aedfdcf7a7663ae900c2849ecc1a9ed2055de', sha256: '5a9724e78c96b2958b2048fffd0b00a1ef689a3c31b1e4b716f36f3760d6b517', bytes: 1215 },
+      { path: 'packages/core/templates/shared/getff-rules-generic.yml', mode: '100644', kind: 'blob', gitBlob: 'b354823187408b5f7fb0b8daa712e2afa73c5e29', sha256: '3d463e3caad19e19e178e3e935d5f0c24831bc33b0ddcb0cb83a2ad05ac28ba1', bytes: 2918 },
+      { path: 'tests/install-sh/generic-stack.test.sh', mode: '100755', kind: 'blob', gitBlob: '7a68778b87515c30b92b1be336a5c8006ccda743', sha256: '3bb9681a20f408e1e1fe832c945bfdb9611a94266dca1d2e0f580a40e2f9b09f', bytes: 77301 },
+      { path: 'tests/install-sh/linter-slot.test.sh', mode: '100755', kind: 'blob', gitBlob: 'c655c391165d26a67b02f898106a9ebf53d62151', sha256: 'eb7e35e8cadd613469bc9ca3767d0057366532418fc0990dccfb84f99bc073bf', bytes: 16259 },
+    ],
+    libShOnlyDifference: { onebutton: '7440f6fc16824279eafc1ee2975c29a04e54b09ceeed8c21344d4e0bc1a67aaf', tak: '2a0de8efa9d0fa876ff87fa316ab5fa2b9f5cd25d1108e995391473b0b42a25b', diff: { sha256: '051bd8e9bf13af4856d01c6a577da7a70f88c7b06a9aca68426520b7af0b08d9', bytes: 720 }, meaning: 'only the f2-hook-activation.test.sh citation 34->36 inside a JavaScript comment; runtime statement bytes unchanged — no general comment normalization' },
+  },
+};
+
+// The finite-fact validator (Root fa163a10 R77-1). The shape prechecks keep the counterfeit
+// zero and malformed-identity refusals; then EVERY finite fact must equal the independently
+// fixed qualified value. Wrong NONZERO data is exactly as dead as zero data — exact known
+// data admits, never valid-shaped replacement data.
+export function currentProducerQualificationDefects(behavior) {
+  if (!behavior || typeof behavior !== 'object') return ['typed current-producer row setup.d/40-configs.sh carries no qualified currentProducerBehavior member — the finite qualification lives only on the immutable reviewed row, never in caller data'];
+  const problems = [];
+  const hex40 = (v) => typeof v === 'string' && /^[0-9a-f]{40}$/.test(v) && !/^0+$/.test(v);
+  const hex64nz = (v) => typeof v === 'string' && HEX64.test(v ?? '') && !/^0+$/.test(v);
+  const sized = (v) => v && typeof v === 'object' && Number.isInteger(v.bytes) && v.bytes > 0;
+  const q = behavior.qualification ?? {};
+  for (const [k, row] of [['rootRuling', q.rootRuling], ['originalEvidencePacket', q.originalEvidencePacket]]) if (!sized(row) || !hex64nz(row.sha256)) problems.push(`qualification ${k} must carry a nonzero sha256 and positive byte size — a counterfeit zero identity is never a receipt`);
+  const acc = behavior.sourceAcceptance ?? {};
+  if (!hex40(acc.onebuttonHead) || !hex40(acc.onebuttonTree)) problems.push('source acceptance onebutton head/tree identities missing or zero');
+  if (!hex40(acc.stagingSquash)) problems.push('source acceptance staging squash missing or zero');
+  else if (acc.stagingSquash !== ADMITTED_CURRENT_B_BINDING.bHead) problems.push(`row staging squash ${acc.stagingSquash} does not extend the reviewed upstream B binding ${ADMITTED_CURRENT_B_BINDING.bHead} — a wrong acceptance never selects the current variant`);
+  for (const [k, row] of [['source', acc.source], ['code', acc.code], ['what6', acc.what6]]) if (!sized(row) || !hex64nz(row.sha256)) problems.push(`source acceptance ${k} receipt must carry a nonzero sha256 and positive byte size`);
+  const w = behavior.normalWitnesses ?? {};
+  for (const k of ['generic344', 'genericBinding', 'genericD1Original312', 'originalSource10Binding', 'linter35']) if (!sized(w[k]) || !hex64nz(w[k]?.sha256)) problems.push(`normal witness ${k} receipt missing, zero-byte or counterfeit-zero — genuine empty stderr has its real sha256, all-zero hex is never its hash`);
+  const fh = w.finalHosted ?? {};
+  if (!Number.isInteger(fh.runId) || fh.runId <= 0 || fh.conclusion !== 'success' || !Number.isInteger(fh.genericWorkflowStep) || !Number.isInteger(fh.linterWorkflowStep) || !sized(fh.whole) || !hex64nz(fh.whole?.sha256) || !sized(fh.savedChecks) || !hex64nz(fh.savedChecks?.sha256)) problems.push('final hosted normal witness (run/workflow steps/whole-run receipts) incomplete');
+  // ---- exact known data (fa163a10 R77-1): equal values, not valid shapes --------------------
+  const exact = EXACT_QUALIFIED_CURRENT_PRODUCER;
+  const show = (v) => (typeof v === 'string' ? `"${v.length > 44 ? v.slice(0, 44) + '…' : v}"` : String(v));
+  const eqScalar = (label, got, want) => { if ((got ?? null) !== (want ?? null)) problems.push(`${label} is not the independently fixed qualified value (got ${show(got ?? null)}, want ${show(want ?? null)}) — exact known data admits, never valid-shaped replacement data`); };
+  const eqReceipt = (label, got, want, keys) => { for (const k of keys) eqScalar(`${label}.${k}`, got?.[k], want?.[k]); };
+  eqReceipt('qualification.rootRuling', q.rootRuling, exact.qualification.rootRuling, ['rel', 'sha256', 'bytes']);
+  eqReceipt('qualification.originalEvidencePacket', q.originalEvidencePacket, exact.qualification.originalEvidencePacket, ['rel', 'sha256', 'bytes']);
+  eqScalar('sourceAcceptance.onebuttonHead', acc.onebuttonHead, exact.sourceAcceptance.onebuttonHead);
+  eqScalar('sourceAcceptance.onebuttonTree', acc.onebuttonTree, exact.sourceAcceptance.onebuttonTree);
+  eqScalar('sourceAcceptance.pr', acc.pr, exact.sourceAcceptance.pr);
+  eqScalar('sourceAcceptance.stagingSquash', acc.stagingSquash, exact.sourceAcceptance.stagingSquash);
+  eqReceipt('sourceAcceptance.source', acc.source, exact.sourceAcceptance.source, ['sha256', 'bytes']);
+  eqReceipt('sourceAcceptance.code', acc.code, exact.sourceAcceptance.code, ['sha256', 'bytes']);
+  eqReceipt('sourceAcceptance.what6', acc.what6, exact.sourceAcceptance.what6, ['sha256', 'bytes']);
+  for (const k of ['generic344', 'genericBinding', 'genericD1Original312', 'originalSource10Binding', 'linter35']) eqReceipt(`normalWitnesses.${k}`, w[k], exact.normalWitnesses[k], ['rel', 'sha256', 'bytes', 'result']);
+  eqScalar('normalWitnesses.finalHosted.runId', fh.runId, exact.normalWitnesses.finalHosted.runId);
+  eqScalar('normalWitnesses.finalHosted.conclusion', fh.conclusion, exact.normalWitnesses.finalHosted.conclusion);
+  eqScalar('normalWitnesses.finalHosted.genericWorkflowStep', fh.genericWorkflowStep, exact.normalWitnesses.finalHosted.genericWorkflowStep);
+  eqScalar('normalWitnesses.finalHosted.linterWorkflowStep', fh.linterWorkflowStep, exact.normalWitnesses.finalHosted.linterWorkflowStep);
+  eqReceipt('normalWitnesses.finalHosted.whole', fh.whole, exact.normalWitnesses.finalHosted.whole, ['sha256', 'bytes']);
+  eqReceipt('normalWitnesses.finalHosted.savedChecks', fh.savedChecks, exact.normalWitnesses.finalHosted.savedChecks, ['sha256', 'bytes']);
+  // ---- EXACT nine-path closure (fa163a10 R77-2): set equality in BOTH directions -------------
+  const gotPaths = Array.isArray(behavior.sourceClosure?.paths) ? behavior.sourceClosure.paths : [];
+  for (const row of gotPaths) if (!row || typeof row.path !== 'string' || row.path === '' || isAbsolute(row.path) || row.path.split('/').includes('..')) problems.push(`closure path escapes the repository-relative surface: ${JSON.stringify(row && row.path)}`);
+  const seen = new Set();
+  for (const row of gotPaths) { if (seen.has(row?.path)) problems.push(`duplicate closure path in the typed row: ${row?.path}`); seen.add(row?.path); }
+  const exactPaths = exact.sourceClosure.paths;
+  for (const want of exactPaths) if (!seen.has(want.path)) problems.push(`the qualified source closure must pin exactly the nine qualified dependencies — ${want.path} is omitted (a subset retaining the subject never shrinks the closure)`);
+  for (const p of seen) if (!exactPaths.some((r) => r.path === p)) problems.push(`closure path ${p} is not one of the nine qualified dependencies — an extra or replaced row never rides the qualification`);
+  const exactByPath = new Map(exactPaths.map((r) => [r.path, r]));
+  for (const row of gotPaths) {
+    const want = exactByPath.get(row?.path);
+    if (!want) continue;
+    for (const k of ['mode', 'kind', 'gitBlob', 'sha256', 'bytes']) eqScalar(`closure tuple ${row.path}.${k}`, row[k], want[k]);
+  }
+  const lsd = behavior.sourceClosure?.libShOnlyDifference;
+  const lsdExact = exact.sourceClosure.libShOnlyDifference;
+  eqScalar('sourceClosure.libShOnlyDifference.onebutton', lsd?.onebutton, lsdExact.onebutton);
+  eqScalar('sourceClosure.libShOnlyDifference.tak', lsd?.tak, lsdExact.tak);
+  eqScalar('sourceClosure.libShOnlyDifference.diff.sha256', lsd?.diff?.sha256, lsdExact.diff.sha256);
+  eqScalar('sourceClosure.libShOnlyDifference.diff.bytes', lsd?.diff?.bytes, lsdExact.diff.bytes);
+  eqScalar('sourceClosure.libShOnlyDifference.meaning', lsd?.meaning, lsdExact.meaning);
+  return problems;
+}
+
+// Root fa163a10 R77-1/R77-2/R77-3 — the ONE admission entrypoint. No successors-table
+// parameter exists: the row is found ONLY in the frozen reviewed table and must equal the
+// independently fixed qualified subject leg-for-leg. The walk below runs over the FIXED nine
+// paths and never reads caller data for admission.
+export function selectCurrentProducerSubject({ repoRoot, git, carrier, subjects, changedSubjects }) {
+  if (!Array.isArray(changedSubjects) || changedSubjects.length === 0) return { status: 'refused', problems: ['current-producer selection requires the changed subject list'], message: '' };
+  const typed = ADMITTED_CURRENT_ONLY_SUCCESSORS.filter((s) => changedSubjects.includes(s.path));
+  if (changedSubjects.length !== 1 || typed.length !== 1 || typed[0].path !== EXACT_QUALIFIED_CURRENT_PRODUCER.subject.path) return { status: 'refused', problems: [`changed producers outside the single typed current-producer subject refuse (all other frozen producers stay strict): ${changedSubjects.join(', ')}`], message: '' };
+  const successor = typed[0];
+  const frozen = (subjects ?? []).find((b) => b.path === successor.path);
+  if (!frozen || frozen.sha256 !== successor.checkpoint.sha256) return { status: 'refused', problems: [`typed current-producer subject ${successor.path} does not extend the frozen S2 pin (frozen ${frozen && frozen.sha256 ? frozen.sha256.slice(0, 12) : 'absent'} vs checkpoint leg ${successor.checkpoint.sha256.slice(0, 12)})`], message: '' };
+  const exactSub = EXACT_QUALIFIED_CURRENT_PRODUCER.subject;
+  for (const leg of ['checkpoint', 'live']) {
+    const a = successor[leg];
+    const b = exactSub[leg];
+    if (a.mode !== b.mode || a.kind !== b.kind || a.gitBlob !== b.gitBlob || a.sha256 !== b.sha256 || a.bytes !== b.bytes) return { status: 'refused', problems: [`typed current-producer row ${successor.path} ${leg} leg (${a.gitBlob.slice(0, 12)}/${a.sha256.slice(0, 12)}/${a.bytes}B/${a.mode}) is not the independently fixed qualified subject ${leg} leg (${b.gitBlob.slice(0, 12)}/${b.sha256.slice(0, 12)}/${b.bytes}B/${b.mode}) — row drift never selects the current variant`], message: '' };
+  }
+  let liveBytes = null;
+  try { liveBytes = readFileSync(join(repoRoot, successor.path)); } catch { return { status: 'refused', problems: [`current-producer subject unreadable: ${successor.path}`], message: '' }; }
+  if (sha256buf(liveBytes) !== successor.live.sha256 || liveBytes.length !== successor.live.bytes) return { status: 'refused', problems: [`current-producer subject ${successor.path} serves sha256 ${sha256buf(liveBytes).slice(0, 12)}/${liveBytes.length}B — only the exact Root-admitted successor ${successor.live.sha256.slice(0, 12)}/${successor.live.bytes}B selects the current variant`], message: '' };
+  if (!carrier?.ok) return { status: 'refused', problems: ['current-producer selection requires the valid reviewed integration carrier'], message: '' };
+  const transferProblems = reconcileCurrentTransfer({ repoRoot, git, carrier });
+  if (transferProblems.length) return { status: 'refused', problems: ['clean typed current transfer required (real checkpoint/B ancestry and tuples): ', ...transferProblems.slice(0, 3)], message: '' };
+  const defects = currentProducerQualificationDefects(successor.currentProducerBehavior);
+  if (defects.length) return { status: 'refused', problems: ['the inline currentProducerBehavior member must equal the independently fixed 742/b706 qualification exactly: ', ...defects.slice(0, 5)], message: '' };
+  // R77-3: the ACTUAL committed live-HEAD tuple of every fixed closure dependency, selected
+  // through the existing shared git runner — never assumed from the owning table's .live leg
+  // (the full typed transfer deliberately permits the ORIGINAL leg on the other rows/branches).
+  const liveHeadRev = git(['rev-parse', 'HEAD']);
+  if (liveHeadRev.rc !== 0) return { status: 'refused', problems: ['git cannot resolve the live HEAD for the committed selected-tuple binding (producer-off is a refusal, never a pass)'], message: '' };
+  const liveHead = liveHeadRev.stdout.toString().trim();
+  const liveTreeRows = git(['ls-tree', '-r', '-z', `${liveHead}^{tree}`]);
+  if (liveTreeRows.rc !== 0) return { status: 'refused', problems: ['git cannot list the actual live HEAD tree for the committed selected-tuple binding'], message: '' };
+  const liveMap = new Map();
+  for (const entry of liveTreeRows.stdout.toString('utf8').split('\0').filter(Boolean)) {
+    const meta = /^(\d+) (blob|tree|commit) ([0-9a-f]{40})\t(.*)$/s.exec(entry);
+    if (meta) liveMap.set(meta[4], { mode: meta[1], kind: meta[2], oid: meta[3] });
+  }
+  const problems = [];
+  for (const row of EXACT_QUALIFIED_CURRENT_PRODUCER.sourceClosure.paths) {
+    const owner = ADMITTED_CURRENT_ONLY_SUCCESSORS.find((s) => s.path === row.path)?.live ?? ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS.find((r) => r.path === row.path);
+    if (!owner || owner.gitBlob !== row.gitBlob || owner.sha256 !== row.sha256 || owner.bytes !== row.bytes || owner.mode !== row.mode) { problems.push(`closure pin for ${row.path} disagrees with the owning typed table — the fixed nine and the typed tables must agree`); continue; }
+    const entry = liveMap.get(row.path);
+    if (!entry) { problems.push(`closure dependency ${row.path} missing from the actual committed live HEAD tree`); continue; }
+    if (entry.oid !== row.gitBlob || entry.mode !== row.mode || entry.kind !== row.kind) { problems.push(`committed live HEAD tuple for ${row.path} selected ${entry.oid.slice(0, 12)}/${entry.mode}/${entry.kind}, not the exact current tuple ${row.gitBlob.slice(0, 12)}/${row.mode}/${row.kind} — an original-leg commit never proves the current producer variant`); continue; }
+    const blob = git(['cat-file', 'blob', entry.oid]);
+    if (blob.rc !== 0) { problems.push(`selected committed object ${row.gitBlob.slice(0, 12)} for ${row.path} unreadable through the shared git runner (rc ${blob.rc})`); continue; }
+    const served = Buffer.isBuffer(blob.stdout) ? blob.stdout : Buffer.from(String(blob.stdout ?? ''), 'utf8');
+    if (sha256buf(served) !== row.sha256 || served.length !== row.bytes) { problems.push(`selected committed object for ${row.path} serves sha256 ${sha256buf(served).slice(0, 12)}/${served.length}B — the reviewed row pins ${row.sha256.slice(0, 12)}/${row.bytes}B (a forged selected object refuses)`); continue; }
+    if (symlinkEscape(repoRoot, row.path)) { problems.push(`parent-directory symlink escape refused at ${row.path}`); continue; }
+    let diskBytes = null;
+    const file = join(repoRoot, row.path);
+    try {
+      const st = lstatSync(file);
+      if (st.isSymbolicLink()) { problems.push(`closure dependency ${row.path} is a symlink — no qualified identity through a link`); continue; }
+      const diskMode = st.mode & 0o111 ? '100755' : '100644';
+      if (diskMode !== row.mode) { problems.push(`closure dependency ${row.path} mode ${diskMode} disagrees with the pinned ${row.mode}`); continue; }
+      diskBytes = readFileSync(file);
+    } catch { problems.push(`closure dependency missing from the working tree: ${row.path}`); continue; }
+    if (sha256buf(diskBytes) !== row.sha256 || diskBytes.length !== row.bytes) problems.push(`closure dependency ${row.path} serves sha256 ${sha256buf(diskBytes).slice(0, 12)}/${diskBytes.length}B on the working tree, the reviewed row pins ${row.sha256.slice(0, 12)}/${row.bytes}B — the committed qualified identity and the working file must be the same bytes`);
+  }
+  if (problems.length) return { status: 'refused', problems, message: '' };
+  return { status: 'admitted', problems: [], message: `current accepted-variant producer selected: ${successor.path} = exact current ${successor.live.sha256.slice(0, 12)} (typed successor of the frozen ${successor.checkpoint.sha256.slice(0, 12)}) through the clean typed current transfer with the Root-qualified inline currentProducerBehavior row — the exact fixed nine-path source closure agreed with the typed tables, every dependency's actual committed live-HEAD tuple selected and its physical working bytes byte-exact; the other frozen producers stay strict and no historical report is called fresh` };
+}
+
+export function reconcileInventory({ repoRoot, basePaths, rulingPath, livePaths, ledger, integration, pendingBindings, currentTransferProblems }) {
   const problems = [...validateLedgerShape(ledger)];
   const base = new Set([...basePaths, rulingPath]);
   const admitted = new Set(admittedPaths(ledger));
@@ -337,7 +554,16 @@ export function reconcileInventory({ repoRoot, basePaths, rulingPath, livePaths,
   // is untouched (legacy no-integration behavior preserved byte-for-byte).
   const rowPaths = integration?.ok ? (integration.data.currentLineageOnlyScope.upstreamAdditions ?? []).map((r) => r.path) : [];
   const carriers = integration?.ok ? [S2_REVIEWED_INTEGRATION_REL, PORTABLE_REFERENCE_REL] : [];
-  const expected = new Set([...base, ...admitted, ...rowPaths, ...carriers]);
+  // Root unit-74: the finite current-B delta's new upstream paths join the expected set ONLY
+  // through the EXISTING typed current-transfer validation: the caller passes that validation's
+  // problems array, and an EMPTY array means the exact 28 identities (real B ancestry,
+  // mode/kind/OID, served bytes) already reconciled clean. A failed, absent or non-array
+  // validation keeps every B-delta path unregistered — no wildcard, no live-diff automatic
+  // approval, and the frozen 4172 base / 571 upstream lineage surfaces stay untouched.
+  const bNewPaths = integration?.ok && Array.isArray(currentTransferProblems) && currentTransferProblems.length === 0
+    ? ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS.map((r) => r.path)
+    : [];
+  const expected = new Set([...base, ...admitted, ...rowPaths, ...carriers, ...bNewPaths]);
   for (const p of livePaths) if (!expected.has(p)) problems.push(`unregistered live path refused: ${p}`);
   for (const p of expected) if (!livePaths.includes(p)) {
     const boundedFuture = (ledger.declaredPendingEvidence ?? []).some((r) => r.path === p)
@@ -621,6 +847,48 @@ export const ADMITTED_CURRENT_ONLY_SUCCESSORS = [
     path: 'setup.d/40-configs.sh',
     checkpoint: { mode: '100644', kind: 'blob', gitBlob: '84be9fdecebbcb76d42f7adfb7c6d01d3e5cd4cf', sha256: '6fbda6e4610d948c938ea24f3fbd31a1fa5623b148d1db90c44fefbae803e9fe', bytes: 53605 },
     live: { mode: '100644', kind: 'blob', gitBlob: '0e260a97ae37a647e225d639753923febdb3859c', sha256: 'f1c635252c516775983252bce6deb41659e59b46a01da731a0c6a2b757915fa0', bytes: 57474 },
+    // Root unit-77 (bc107/b706): the ONLY producer-behavior qualification home. Inline literal
+    // data on THIS immutable reviewed row — never a runtime proof file, loader, store, Root
+    // flag, acceptance timestamp or caller-supplied pass object. Admission is exactly: this
+    // row + the real current graph through the full typed transfer + the nine working files
+    // being byte-identical to the pinned committed identities.
+    currentProducerBehavior: {
+      qualification: {
+        rootRuling: { rel: 'ROOT-CURRENT-F1C-EXISTING-SOURCE-BEHAVIOR-PROOF-QUALIFIED.json', sha256: '742a2d88dfabae919f55d184c3d5b8390d768119490517051d2f9d56ea76861e', bytes: 3346 },
+        originalEvidencePacket: { rel: 'ONEBUTTON-SOURCE40-F1C-EXACT-PROOFS-AND-TAK-PUBLICATION-BOUNDARY.json', sha256: '957703b017d43239bcb53fdaaadde2ad5537d8da7b75dad44a4b663f82316d58', bytes: 17186 },
+      },
+      sourceAcceptance: {
+        onebuttonHead: '0855d375795d743b0d7fdbbf7d3884e68e68ff1c',
+        onebuttonTree: 'd486fb3c29f596831a811a07e5c718dff19fb074',
+        pr: 'artyhoo/getff#2142',
+        stagingSquash: 'b714f7c1a6e40488e8f016665d7fffc0cd513a3d',
+        source: { sha256: 'f5361e09f4a5ae109a135922486c189fc64388f6050020ce570af94d0aec48d2', bytes: 4971 },
+        code: { sha256: '473c2fd3a6603a2a2d812d284a0db95c4c857236f1e36f3b8626b5dbcb3a98e3', bytes: 2185 },
+        what6: { sha256: '3083efb695ee51dd016dffd324486300244edb83f534e56b60fa84d25f7ecf57', bytes: 3293 },
+      },
+      normalWitnesses: {
+        generic344: { rel: 'r12-1-genericstack-GREEN.log', sha256: 'f88c2f7e547ebb89f183a8950d3f7fdf38bca774cb4280354678d424a39092ed', bytes: 21462, result: 'PASS344 FAIL0 EXIT0' },
+        genericBinding: { rel: 'ACTUAL-716-COMMITTED-REPAIR-PEER-HANDOFF.json', sha256: '85078b9e8b4819d537f74946bd105d7efd58fed09b2d4e31f61c8d2b40f24954', bytes: 16039 },
+        genericD1Original312: { rel: '03b-final-battery-generic-stack.log', sha256: 'ca7f275e053d3a53f8f1be3cac101d237e07eef42463c012efa937ad283daa15', bytes: 19008 },
+        originalSource10Binding: { rel: 'ACTUAL-C535-AFFECTED-SOURCE-ACCEPTANCE-HANDOFF.json', sha256: 'ac80705543139b2cbd2a4b8adb803b45a162f4ca0469552a30131cdc885488ff', bytes: 12611 },
+        linter35: { rel: '04-final-linter-slot.log', sha256: '3058227093acb0f4e95084e21cb94d27e8885cd4e10eea4398d1a379cbb60bef', bytes: 5972, result: 'PASS35 FAIL0 EXIT0' },
+        finalHosted: { runId: 41587408035, conclusion: 'success', genericWorkflowStep: 948, linterWorkflowStep: 962, whole: { sha256: '5322c0d836a1bfebd75f34d01299516e2535a2270d66608b7b070fe8c8c63807', bytes: 6122 }, savedChecks: { sha256: '63bdc4933cb664054f6c8fcd473c05a7250eca35f59d381f2e5eeaad1f82d1a3', bytes: 9352 } },
+      },
+      sourceClosure: {
+        paths: [
+          { path: 'install.sh', mode: '100755', kind: 'blob', gitBlob: '291eaec2f49c38a372a71900a243f76b98c0985a', sha256: '3fecefe2617b531f0e35eef14a6eaf56d2508f946a696632127d0e0c75f11376', bytes: 127737 },
+          { path: 'setup.d/lib.sh', mode: '100644', kind: 'blob', gitBlob: '5a6666a7c3a28da7e007504c8b187fee62abbd41', sha256: '2a0de8efa9d0fa876ff87fa316ab5fa2b9f5cd25d1108e995391473b0b42a25b', bytes: 317922 },
+          { path: 'setup.d/40-configs.sh', mode: '100644', kind: 'blob', gitBlob: '0e260a97ae37a647e225d639753923febdb3859c', sha256: 'f1c635252c516775983252bce6deb41659e59b46a01da731a0c6a2b757915fa0', bytes: 57474 },
+          { path: 'setup.d/50-hooks.sh', mode: '100644', kind: 'blob', gitBlob: '84cd12adaacaa89c34cccf37fc8b41566a1d847d', sha256: '6f7cac83ba442347ee3d94287355632cc5a17d798dd399ebf45478e6a7ec34c1', bytes: 7325 },
+          { path: 'setup.d/99-finalize.sh', mode: '100644', kind: 'blob', gitBlob: '08e0ddd64a49701773a034716749032c2c863b87', sha256: '213ea60d3675f6a13b9ce352037547507c47e5dfae5291bac01e8092a60c4b9e', bytes: 52776 },
+          { path: 'packages/core/templates/shared/husky-pre-commit-generic.sh', mode: '100755', kind: 'blob', gitBlob: 'a63aedfdcf7a7663ae900c2849ecc1a9ed2055de', sha256: '5a9724e78c96b2958b2048fffd0b00a1ef689a3c31b1e4b716f36f3760d6b517', bytes: 1215 },
+          { path: 'packages/core/templates/shared/getff-rules-generic.yml', mode: '100644', kind: 'blob', gitBlob: 'b354823187408b5f7fb0b8daa712e2afa73c5e29', sha256: '3d463e3caad19e19e178e3e935d5f0c24831bc33b0ddcb0cb83a2ad05ac28ba1', bytes: 2918 },
+          { path: 'tests/install-sh/generic-stack.test.sh', mode: '100755', kind: 'blob', gitBlob: '7a68778b87515c30b92b1be336a5c8006ccda743', sha256: '3bb9681a20f408e1e1fe832c945bfdb9611a94266dca1d2e0f580a40e2f9b09f', bytes: 77301 },
+          { path: 'tests/install-sh/linter-slot.test.sh', mode: '100755', kind: 'blob', gitBlob: 'c655c391165d26a67b02f898106a9ebf53d62151', sha256: 'eb7e35e8cadd613469bc9ca3767d0057366532418fc0990dccfb84f99bc073bf', bytes: 16259 },
+        ],
+        libShOnlyDifference: { onebutton: '7440f6fc16824279eafc1ee2975c29a04e54b09ceeed8c21344d4e0bc1a67aaf', tak: '2a0de8efa9d0fa876ff87fa316ab5fa2b9f5cd25d1108e995391473b0b42a25b', diff: { sha256: '051bd8e9bf13af4856d01c6a577da7a70f88c7b06a9aca68426520b7af0b08d9', bytes: 720 }, meaning: 'only the f2-hook-activation.test.sh citation 34->36 inside a JavaScript comment; runtime statement bytes unchanged — no general comment normalization' },
+      },
+    },
   },
   {
     path: 'setup.d/45-python.sh',
@@ -2598,10 +2866,15 @@ export function buildStageSteps(stage, ctx) {
         if (!basePaths || !livePaths) return infra('git ls-tree failed for anchored base or live HEAD');
         const integration = loadReviewedIntegration(repoRoot);
         const channel = currentLedgerChannel({ repoRoot, git });
-        const problems = reconcileInventory({ repoRoot, basePaths, rulingPath: S2_RULING_PATH, livePaths, ledger: loaded.ledger, integration, pendingBindings: { channel, paths: new Set([...LEDGER_BINDING_ADDED_PATHS, ...LEDGER_BINDING_MODIFIED_PATHS, ...LEDGER_BINDING_NEW_MODIFIED_PATHS]) } });
+        // Root unit-74: the EXISTING typed current transfer is the only admission route for the
+        // finite B-delta new upstream paths — its problems red the step outright (mirroring the
+        // verify.mjs s2-inventory consumer) and only a CLEAN validation feeds the inventory.
+        const transferProblems = integration.ok ? reconcileCurrentTransfer({ repoRoot, git, carrier: integration }) : null;
+        if (transferProblems && transferProblems.length) return red(`reviewed current-transfer checkpoint reconciliation failed: ${transferProblems.slice(0, 5).join(' | ')}${transferProblems.length > 5 ? ` (+${transferProblems.length - 5} more)` : ''}`);
+        const problems = reconcileInventory({ repoRoot, basePaths, rulingPath: S2_RULING_PATH, livePaths, ledger: loaded.ledger, integration, pendingBindings: { channel, paths: new Set([...LEDGER_BINDING_ADDED_PATHS, ...LEDGER_BINDING_MODIFIED_PATHS, ...LEDGER_BINDING_NEW_MODIFIED_PATHS]) }, currentTransferProblems: transferProblems ?? undefined });
         if (!channel.ok) problems.push(...channel.problems.map((x) => `existing-ledger binding channel invalid: ${x}`));
         if (problems.length) return red(`additive inventory reconciliation refused: ${problems.slice(0, 6).join(' | ')}${problems.length > 6 ? ` (+${problems.length - 6} more)` : ''}`);
-        return pass(`live scope = historical committed scope + exactly ${admittedPaths(loaded.ledger).length} declared post-S2 paths (s3 added/pending + typed s4 index)${integration.ok ? ` + the finite admitted current surface (${rowPathCount(integration)} reviewed upstream-origin rows + 2 data carriers, integration mode)` : ''}, every landed one sha-pinned (selfIndexed ledger excepted by contract); structural registration is not behavioral certification`);
+        return pass(`live scope = historical committed scope + exactly ${admittedPaths(loaded.ledger).length} declared post-S2 paths (s3 added/pending + typed s4 index)${integration.ok ? ` + the finite admitted current surface (${rowPathCount(integration)} reviewed upstream-origin rows + 2 data carriers + ${ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS.length} typed B-delta new upstream paths through the clean current transfer, integration mode)` : ''}, every landed one sha-pinned (selfIndexed ledger excepted by contract); structural registration is not behavioral certification`);
       }],
       ['s3-policy-units', () => {
         const file = join(repoRoot, S3_POLICY_REL);

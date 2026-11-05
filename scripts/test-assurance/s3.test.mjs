@@ -6,7 +6,7 @@
 // evidence is authored here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, rmSync, chmodSync, lstatSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -26,6 +26,7 @@ import {
   LEDGER_BINDING_OPTIONAL_SMOKE_PATHS,
   CURRENT_TRANSFER_CHECKPOINT, ADMITTED_CURRENT_REPLACEMENTS, PENDING_CURRENT_SOURCE_PROPOSALS,
   ADMITTED_CURRENT_ONLY_SUCCESSORS, ADMITTED_CURRENT_B_BINDING, ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS,
+  selectCurrentProducerSubject, currentProducerQualificationDefects, EXACT_QUALIFIED_CURRENT_PRODUCER,
   PORTABLE_REFERENCE_TUPLES, PORTABLE_REFERENCE_REL, PORTABLE_REFERENCE_BYTES,
   S2_REVIEWED_INTEGRATION_REL, S2_REVIEWED_INTEGRATION_SHA256,
   UPSTREAM_STAGING_HEAD, UPSTREAM_STAGING_TREE, ACCEPTED_TOPIC_HEAD, ACCEPTED_TOPIC_TREE,
@@ -321,6 +322,262 @@ test('ROOT-S4-R7: a symlinked s4 file escape is refused physically', () => {
     const p = reconcileInventory({ repoRoot: tmp, basePaths: ['a'], rulingPath: 'r', ledger, livePaths: [...ledger.addedPaths.map((r) => r.path), 'a', 'r', 'scripts/test-assurance/verify.mjs', s4Entry.path] });
     assert.ok(p.some((x) => x.includes('symlink-parent escape refused') || x.includes('not a regular file')), p.join('|'));
   } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+
+// ---------- ROOT unit-74: finite current-B new upstream paths in the additive inventory ----------
+const B_NEW_PATHS = ADMITTED_CURRENT_B_NEW_UPSTREAM_PATHS.map((r) => r.path);
+const okCurrentTransferIntegration = () => ({ ok: true, data: { currentLineageOnlyScope: { upstreamAdditions: [] } } });
+test('INVENTORY-B-DELTA (unit 74): a clean typed current transfer admits the exact finite B-delta new upstream paths into the additive inventory', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 's3-b28a-'));
+  try {
+    const ledger = r7Ledger();
+    r7Fixture(tmp, ledger);
+    const withS4 = [...ledger.addedPaths.map((r) => r.path), 'a', 'r', 'scripts/test-assurance/verify.mjs', s4Entry.path];
+    const livePaths = [...withS4, S2_REVIEWED_INTEGRATION_REL, PORTABLE_REFERENCE_REL, ...B_NEW_PATHS];
+    const p = reconcileInventory({ repoRoot: tmp, basePaths: ['a', 'scripts/test-assurance/verify.mjs'], rulingPath: 'r', livePaths, ledger, integration: okCurrentTransferIntegration(), currentTransferProblems: [] });
+    assert.deepEqual(p, [], p.join('|'));
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+test('INVENTORY-B-DELTA (unit 74): a failed or absent typed current transfer keeps every B-delta path unregistered — no automatic live-diff approval', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 's3-b28b-'));
+  try {
+    const ledger = r7Ledger();
+    r7Fixture(tmp, ledger);
+    const withS4 = [...ledger.addedPaths.map((r) => r.path), 'a', 'r', 'scripts/test-assurance/verify.mjs', s4Entry.path];
+    const base = { repoRoot: tmp, basePaths: ['a', 'scripts/test-assurance/verify.mjs'], rulingPath: 'r', livePaths: [...withS4, S2_REVIEWED_INTEGRATION_REL, PORTABLE_REFERENCE_REL, ...B_NEW_PATHS], ledger, integration: okCurrentTransferIntegration() };
+    const failed = reconcileInventory({ ...base, currentTransferProblems: ['reviewed current-transfer checkpoint reconciliation failed: fixture refusal'] });
+    assert.ok(B_NEW_PATHS.every((path) => failed.some((x) => x.includes(`unregistered live path refused: ${path}`))), failed.join('|'));
+    const absent = reconcileInventory({ ...base });
+    assert.ok(B_NEW_PATHS.every((path) => absent.some((x) => x.includes(`unregistered live path refused: ${path}`))), absent.join('|'));
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+test('INVENTORY-B-DELTA (unit 74): even with a clean typed current transfer an unknown 29th new upstream path refuses', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 's3-b28c-'));
+  try {
+    const ledger = r7Ledger();
+    r7Fixture(tmp, ledger);
+    const withS4 = [...ledger.addedPaths.map((r) => r.path), 'a', 'r', 'scripts/test-assurance/verify.mjs', s4Entry.path];
+    const rogue = 'docs/superpowers/specs/2026-11-01-rogue-29th-path.md';
+    const p = reconcileInventory({ repoRoot: tmp, basePaths: ['a', 'scripts/test-assurance/verify.mjs'], rulingPath: 'r', livePaths: [...withS4, S2_REVIEWED_INTEGRATION_REL, PORTABLE_REFERENCE_REL, ...B_NEW_PATHS, rogue], ledger, integration: okCurrentTransferIntegration(), currentTransferProblems: [] });
+    assert.ok(p.some((x) => x.includes(`unregistered live path refused: ${rogue}`)), p.join('|'));
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+
+// ---------- ROOT unit-78: exact row authority, fixed nine-path closure, selected live tuple ----------
+// R77-1: the admission entrypoint takes NO table; the falsification seam is the exported
+// currentProducerQualificationDefects predicate over a mutated structuredClone of the row's
+// genuine member — it can only report defects against the INDEPENDENTLY FIXED authority and
+// can never select. R77-2: the selector walk covers the FIXED nine paths, so an
+// omitted/replaced/extra/duplicate row in a behavior object cannot shrink the closure, and the
+// seam proves each shape refuses. R77-3: the healthy fake live tree carries the ACTUAL nine
+// selected CURRENT tuples (the committed-vs-working binding has a real healthy baseline); the
+// paired original/current crossing controls and the byte-matching parent-symlink escape live
+// at the selector level. The healthy disk twin writes the nine REAL closure dependencies
+// (bytes and modes from the pinned committed OIDs) onto the fixture root and heals any
+// symlinked parent directory a previous arm left behind.
+const SETUP77 = ADMITTED_CURRENT_ONLY_SUCCESSORS.find((s) => s.path === 'setup.d/40-configs.sh');
+const CLOSURE77_ROWS = EXACT_QUALIFIED_CURRENT_PRODUCER.sourceClosure.paths;
+const CLOSURE77_BY_PATH = new Map(CLOSURE77_ROWS.map((r) => [r.path, r]));
+const FROZEN77 = [{ path: SETUP77.path, sha256: SETUP77.checkpoint.sha256 }];
+const behavior77 = () => structuredClone(SETUP77.currentProducerBehavior);
+const disk77 = ({ skip = null, drift = null, symlink = null, original = null } = {}) => {
+  const tmp = ensureBaselineLedgerRoot();
+  for (const row of CLOSURE77_ROWS) {
+    let cur = tmp;
+    for (const seg of row.path.split('/').slice(0, -1)) {
+      cur = join(cur, seg);
+      let st = null;
+      try { st = lstatSync(cur); } catch {}
+      if (st && st.isSymbolicLink()) { rmSync(cur); st = null; }
+      if (!st) mkdirSync(cur, { recursive: true });
+    }
+    const file = join(tmp, row.path);
+    if (row.path === skip) {
+      // Root TAK79: this root is memoized and shared across the whole suite, so a
+      // prior healthy disk77({}) may already hold this dependency byte-exactly — the
+      // selected missing path must be genuinely absent, never merely never-(re)written.
+      // rmSync removes a prior leaf or a prior leaf link itself, never through it.
+      try { rmSync(file); } catch {}
+      continue;
+    }
+    if (symlink && row.path === symlink) { try { rmSync(file); } catch {} symlinkSync('/etc/hosts', file); continue; }
+    const originalOid = original === row.path ? ADMITTED_CURRENT_ONLY_SUCCESSORS.find((s) => s.path === row.path)?.checkpoint?.gitBlob : null;
+    let bytes = realGit(['cat-file', 'blob', originalOid ?? row.gitBlob]).stdout;
+    if (drift && row.path === drift) bytes = Buffer.concat([bytes, Buffer.from('# drifted tail\n')]);
+    try { rmSync(file); } catch {}
+    writeFileSync(file, bytes);
+    chmodSync(file, row.mode === '100755' ? 0o755 : 0o644);
+  }
+  return tmp;
+};
+const live77 = () => [...transferFixture().treeRows.map((r) => {
+  const pin = CLOSURE77_BY_PATH.get(r.path);
+  return pin ? { path: pin.path, mode: pin.mode, kind: 'blob', gitBlob: pin.gitBlob, content: realGit(['cat-file', 'blob', pin.gitBlob]).stdout } : { ...r };
+}), ...B_NEW_LIVE_ROWS];
+const originalLeg77 = () => [...transferFixture().treeRows.map((r) => ({ ...r })), ...B_NEW_LIVE_ROWS];
+const run77 = (tmp, liveRows, { changed = [SETUP77.path] } = {}) => selectCurrentProducerSubject({
+  repoRoot: tmp,
+  git: fakeTransferGit(transferFixture().treeRows, { liveRows }),
+  carrier: { ok: true, data: transferFixture().carrier },
+  subjects: FROZEN77,
+  changedSubjects: changed,
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): the exact qualified inline row \u2014 clean full typed transfer, fixed nine-path closure with every dependency's actual committed live-HEAD tuple selected and byte-exact physical working files \u2014 selects the current variant with the distinct accepted message", () => {
+  const tmp = disk77({});
+  const v = run77(tmp, live77());
+  assert.strictEqual(v.status, 'admitted', `${v.problems.join('|')} :: ${v.message}`);
+  assert.ok(v.message.includes('current accepted-variant producer selected'), v.message);
+  assert.ok(v.message.includes(SETUP77.live.sha256.slice(0, 12)), v.message);
+  assert.ok(!v.message.includes('unchanged frozen inputs'), v.message);
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): an unknown live hash on the subject (neither frozen original nor exact successor) refuses the current variant", () => {
+  const tmp = disk77({ drift: SETUP77.path });
+  const v = run77(tmp, live77());
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('only the exact Root-admitted successor')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): a failed typed current transfer (broken B surface) refuses the current variant", () => {
+  const tmp = disk77({});
+  const rows = live77().filter((r) => r.path !== B_NEW_LIVE_ROWS[0].path);
+  const v = run77(tmp, rows);
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('clean typed current transfer required')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): a second changed producer outside the single typed subject refuses \u2014 all other frozen producers stay strict", () => {
+  const tmp = disk77({});
+  const v = run77(tmp, live77(), { changed: [SETUP77.path, 'setup.d/45-python.sh'] });
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('outside the single typed current-producer subject')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): a closure dependency missing from the working tree refuses the current variant", () => {
+  const tmp = disk77({ skip: 'install.sh' });
+  const v = run77(tmp, live77());
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('closure dependency missing from the working tree: install.sh')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): a drifted working dependency (bytes differ from the selected committed identity) refuses the current variant", () => {
+  const tmp = disk77({ drift: 'setup.d/lib.sh' });
+  const v = run77(tmp, live77());
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('setup.d/lib.sh serves sha256')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): a leaf-symlinked working dependency refuses physically \u2014 no closure identity through a link", () => {
+  const tmp = disk77({ symlink: 'setup.d/lib.sh' });
+  const v = run77(tmp, live77());
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('is a symlink')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): a byte-matching parent-directory symlink escape refuses physically even when every file inside is byte-exact", () => {
+  const tmp = disk77({});
+  const alt = mkdtempSync(join(tmpdir(), 's3-78-alt-'));
+  mkdirSync(join(alt, 'setup.d'), { recursive: true });
+  for (const p of ['setup.d/40-configs.sh', 'setup.d/lib.sh', 'setup.d/50-hooks.sh', 'setup.d/99-finalize.sh']) {
+    const pin = CLOSURE77_BY_PATH.get(p);
+    writeFileSync(join(alt, p), realGit(['cat-file', 'blob', pin.gitBlob]).stdout);
+  }
+  rmSync(join(tmp, 'setup.d'), { recursive: true, force: true });
+  symlinkSync(join(alt, 'setup.d'), join(tmp, 'setup.d'));
+  const v = run77(tmp, live77());
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('parent-directory symlink escape refused at setup.d/40-configs.sh')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): a committed ORIGINAL live-HEAD leg with successor-only working bytes refuses \u2014 the selected committed tuple must be the current one", () => {
+  const tmp = disk77({});
+  const v = run77(tmp, originalLeg77());
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('committed live HEAD tuple for setup.d/40-configs.sh selected') && x.includes('not the exact current tuple')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER SELECTION (unit 78): the paired crossing \u2014 committed current tuple with original-only working bytes \u2014 refuses on the physical working identity", () => {
+  const tmp = disk77({ original: 'setup.d/lib.sh' });
+  const v = run77(tmp, live77());
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('setup.d/lib.sh serves sha256')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): the genuine inline member of the immutable row is defect-free against the independently fixed authority", () => {
+  assert.deepEqual(currentProducerQualificationDefects(behavior77()), []);
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a typed row without the qualified currentProducerBehavior member keeps the frozen refusal", () => {
+  const defects = currentProducerQualificationDefects(undefined);
+  assert.ok(defects.some((x) => x.includes('no qualified currentProducerBehavior member')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong NONZERO Root qualification sha (shape-valid, value-wrong) is refused \u2014 exact known data admits, not any nonzero hex", () => {
+  const b = behavior77();
+  b.qualification.rootRuling.sha256 = '1'.repeat(64);
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('qualification.rootRuling.sha256 is not the independently fixed qualified value')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong NONZERO source-acceptance receipt is refused", () => {
+  const b = behavior77();
+  b.sourceAcceptance.source.sha256 = '2'.repeat(64);
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('sourceAcceptance.source.sha256 is not the independently fixed qualified value')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong NONZERO normal-witness hash is refused", () => {
+  const b = behavior77();
+  b.normalWitnesses.linter35.sha256 = '3'.repeat(64);
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('normalWitnesses.linter35.sha256 is not the independently fixed qualified value')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong population and result on a normal witness (PASS343 FAIL1 EXIT1) is refused", () => {
+  const b = behavior77();
+  b.normalWitnesses.generic344.result = 'PASS343 FAIL1 EXIT1';
+  b.normalWitnesses.generic344.bytes = 21463;
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('normalWitnesses.generic344.result is not the independently fixed qualified value')), defects.join('|'));
+  assert.ok(defects.some((x) => x.includes('normalWitnesses.generic344.bytes is not the independently fixed qualified value')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong hosted run binding (run id, steps, conclusion) is refused", () => {
+  const b = behavior77();
+  b.normalWitnesses.finalHosted.runId = 41587408034;
+  b.normalWitnesses.finalHosted.conclusion = 'failure';
+  b.normalWitnesses.finalHosted.genericWorkflowStep = 949;
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('normalWitnesses.finalHosted.runId is not the independently fixed qualified value')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a wrong NONZERO staging-squash acceptance that does not extend the reviewed B binding is refused", () => {
+  const b = behavior77();
+  b.sourceAcceptance.stagingSquash = 'f'.repeat(40);
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('does not extend the reviewed upstream B binding')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a counterfeit all-zero witness identity is refused \u2014 zero is never a hash", () => {
+  const b = behavior77();
+  b.qualification.rootRuling.sha256 = '0'.repeat(64);
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('counterfeit zero identity is never a receipt')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): an omitted closure row (subset retaining the subject, dropping lib.sh) is refused and the omitted dependency's drifted working file is still caught by the fixed-nine selector walk", () => {
+  const b = behavior77();
+  b.sourceClosure.paths = b.sourceClosure.paths.filter((r) => r.path !== 'setup.d/lib.sh');
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('setup.d/lib.sh is omitted')), defects.join('|'));
+  const v = run77(disk77({ drift: 'setup.d/lib.sh' }), live77());
+  assert.strictEqual(v.status, 'refused', v.message);
+  assert.ok(v.problems.some((x) => x.includes('setup.d/lib.sh serves sha256')), v.problems.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): an extra closure row beyond the nine refuses \u2014 no tenth dependency rides the qualification", () => {
+  const b = behavior77();
+  b.sourceClosure.paths.push({ ...CLOSURE77_ROWS[5], path: 'packages/core/templates/shared/rogue-tenth.yml' });
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('is not one of the nine qualified dependencies')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a replaced closure tuple with a wrong nonzero gitBlob pin is refused", () => {
+  const b = behavior77();
+  b.sourceClosure.paths = b.sourceClosure.paths.map((r) => (r.path === 'setup.d/50-hooks.sh' ? { ...r, gitBlob: 'e'.repeat(40) } : r));
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('closure tuple setup.d/50-hooks.sh.gitBlob is not the independently fixed qualified value')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a duplicate closure path is refused", () => {
+  const b = behavior77();
+  b.sourceClosure.paths.push({ ...b.sourceClosure.paths[0] });
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('duplicate closure path in the typed row: install.sh')), defects.join('|'));
+});
+test("CURRENT-PRODUCER QUALIFICATION DEFECTS (unit 78): a path-escaping closure entry is refused", () => {
+  const b = behavior77();
+  b.sourceClosure.paths[0].path = '../escape.sh';
+  const defects = currentProducerQualificationDefects(b);
+  assert.ok(defects.some((x) => x.includes('closure path escapes the repository-relative surface')), defects.join('|'));
 });
 
 // ---------- F2 / ROOT-S3-R1: performance record consumer ----------
@@ -2085,7 +2342,7 @@ test('UPSTREAM-TRANSFER (unit 36): the complete finite current subject — an un
   const ordinary = { path: 'docs/test-assurance-kernel/s3/ordinary-current-file.md', mode: '100644', kind: 'blob', gitBlob: hex40('1') };
   const pendingPath = PENDING_CURRENT_SOURCE_PROPOSALS[4];
   const withExtra = [...treeRows.map((r) => ({ ...r })), { ...ordinary }, { path: pendingPath, mode: '100644', kind: 'blob', gitBlob: hex40('2') }];
-  const run = (liveRows) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(withExtra, { liveRows }), carrier: { ok: true, data: badCarrier } });
+  const run = (liveRows) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(withExtra, { liveRows: [...liveRows, ...B_NEW_LIVE_ROWS] }), carrier: { ok: true, data: badCarrier } }); // Root unit-74: every explicit live leg carries the complete candidate surface (the 28 B paths, disjoint from every negative target below)
   // Clean baseline: the whole finite surface identical in checkpoint and live trees.
   assert.deepEqual(run(withExtra.map((r) => ({ ...r }))), []);
   const mutated = withExtra.map((r) => (r.path === ordinary.path ? { ...r, gitBlob: hex40('3') } : r));
@@ -2412,7 +2669,7 @@ test('LEDGER-CHANNEL (unit 38): the committed live HEAD ledger object is bound �
   const { carrier, treeRows } = transferFixture();
   const badCarrier = structuredClone(carrier);
   const swapLedger = (rows, over) => rows.map((r) => (r.path === S3_LEDGER_REL ? { ...r, ...over } : r));
-  const run = (liveRows, repoRoot = ensureBaselineLedgerRoot()) => reconcileCurrentTransfer({ repoRoot, git: fakeTransferGit(treeRows, { liveRows }), carrier: { ok: true, data: badCarrier } });
+  const run = (liveRows, repoRoot = ensureBaselineLedgerRoot()) => reconcileCurrentTransfer({ repoRoot, git: fakeTransferGit(treeRows, { liveRows: [...liveRows, ...B_NEW_LIVE_ROWS] }), carrier: { ok: true, data: badCarrier } }); // Root unit-74: healthy committed-ledger twins carry the complete candidate live surface; the F2 falsifier arms mutate only the ledger row
   // Root unit-38 F2 falsifiers, made permanent negatives: the DISK ledger stays the valid
   // fixed baseline in every arm — only the COMMITTED side changes — so a valid on-disk
   // ledger can no longer mask the committed object.
@@ -2464,7 +2721,7 @@ assert.equal(LIVE_F1_BYTES.length, F1_GENERATED.bytes);
 // successor entry bind a live surface in every fixture, so the dedicated F1 arms mutate the
 // shared surface per leg instead of assembling it here.
 const f1Fixture = () => transferFixture();
-const f1Run = (treeRows, liveRows, carrier) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows }), carrier: { ok: true, data: carrier } });
+const f1Run = (treeRows, liveRows, carrier) => reconcileCurrentTransfer({ repoRoot: ensureBaselineLedgerRoot(), git: fakeTransferGit(treeRows, { liveRows: [...liveRows, ...B_NEW_LIVE_ROWS] }), carrier: { ok: true, data: carrier } }); // Root unit-74 R2-pattern: every F1 live leg carries the 28 B paths (disjoint from F1_REL and every mutated negative target)
 const f1Live = (rows, over) => rows.map((r) => (r.path === F1_REL ? { ...r, ...over } : { ...r }));
 test('CURRENT-ONLY F1 SUCCESSOR (unit 41): the unchanged reviewed baseline twin — original blob on both legs — admits', () => {
   const { carrier, treeRows } = f1Fixture();
