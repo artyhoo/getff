@@ -39,7 +39,7 @@ import assert from 'node:assert/strict';
 import { spawnSync, spawn } from 'node:child_process';
 import {
   mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync,
-  rmSync, realpathSync, symlinkSync,
+  rmSync, realpathSync, symlinkSync, unlinkSync, cpSync,
 } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -64,7 +64,7 @@ import { productionResumeHold, reservedVerbHold, reconcile, initBinding } from '
 import {
   initialRecord, applyControlTransition, validateRecord, proposeResumeTransition,
   recordDigest, grantDigestOf, addHold, sha256Hex, ADMITTING_STATES, TERMINAL_STATES,
-  DELIVERY_HISTORY_MAX, seenMaskEmptyHex,
+  DELIVERY_HISTORY_MAX, seenMaskEmptyHex, seenMaskAddHex,
 } from './autonomy-binding/record.mjs';
 import {
   readRecord, writeRecordAtomic, ensureStageOwnership, resolveRecordTarget,
@@ -4005,6 +4005,130 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
 });
 
 // ===========================================================================
+// PR 2141 composed-transition and authority-home regressions.
+describe('A1 composed repair', () => {
+  for (const kind of ['pause', 'cancel']) for (const gate of ['ungranted', 'authority', 'granted']) {
+    ltest(`${kind} survives a composed ${gate} action refusal`, async (t) => {
+      const fx = makeFixture(t);
+      assert.equal((await initBinding({ ...initBindingInput(fx), actions: ['work'] })).ok, true);
+      if (gate === 'authority') fx.bumpSelector(2);
+      const out = await reconcile(reconcileInput(fx, { control: { kind }, requestAction: gate === 'ungranted' ? 'review' : 'work' }));
+      const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+      assert.equal(out.ok, false);
+      assert.equal(record.controlState, `${kind}-pending`);
+      assert.equal(record.pendingIntent, null);
+    });
+  }
+
+  for (const context of ['candidate', 'custody', 'both']) {
+    ltest(`a composed ${context} update binds a new intent to the accepted context`, async (t) => {
+      const fx = makeFixture(t);
+      assert.equal((await initBinding({ ...initBindingInput(fx), taskId: null, worker: null })).ok, true);
+      const update = { requestAction: 'work' };
+      if (context !== 'custody') update.candidate = { revision: 2 };
+      if (context !== 'candidate') update.transferCustody = { toSession: 'successor' };
+      const out = await reconcile(reconcileInput(fx, update));
+      assert.equal(out.ok, true, JSON.stringify(out));
+      const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+      assert.equal(record.pendingIntent.bound.candidateRevision, record.candidate.revision);
+      assert.equal(record.pendingIntent.bound.custodyGeneration, record.custodyGeneration);
+    });
+  }
+
+  ltest('a refused successor preserves its local cessation acknowledgement without planning an intent', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding({ ...initBindingInput(fx), taskId: null })).ok, true);
+    const out = await reconcile(reconcileInput(fx, {
+      repoRoot: undefined,
+      requestAction: 'work',
+      transferCustody: { toSession: 'successor', acknowledgeCessation: true },
+    }));
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(out.ok, false);
+    assert.equal(record.worker.sessionId, 'w-1');
+    assert.ok(record.worker.cessationAckedAt);
+    assert.equal(record.custodyGeneration, 1);
+    assert.equal(record.pendingIntent, null);
+  });
+
+  ltest('repeated refused delivery replacements preserve all retained history', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding(initBindingInput(fx))).ok, true);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    const receipt = (name, revision) => ({ receipt: name, candidateRevision: revision, destination: 'pr:staging', at: iso(), actionId: null });
+    record.candidate.revision = 30;
+    record.delivery = receipt('current', 29);
+    record.deliveryHistory = Array.from({ length: DELIVERY_HISTORY_MAX }, (_, i) => receipt(`history-${i}`, i));
+    record.deliverySeen = { bits: seenMaskAddHex(seenMaskEmptyHex(), 'evicted') };
+    const prior = record.recordRevision;
+    record.recordRevision += 1;
+    assert.equal(writeRecordAtomic(fx.recordPath, record, { lockedTarget: fx.recordPath, expectedRevision: prior }).ok, true);
+    for (let i = 0; i < 3; i += 1) assert.equal((await reconcile(reconcileInput(fx, { deliveryReceipt: 'evicted' }))).code, 'delivery_identity_unestablishable');
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.deepEqual(after.delivery, record.delivery);
+    assert.deepEqual(after.deliveryHistory, record.deliveryHistory);
+  });
+
+  for (const override of [false, true]) ltest(`initialization pins the physical home after alias retarget, override=${override}`, async (t) => {
+    const fx = makeFixture(t);
+    const alias = join(fx.base, 'alias');
+    const stale = join(fx.base, 'stale');
+    symlinkSync(fx.home, alias, 'dir');
+    assert.equal((await initBinding({ ...initBindingInput(fx), featureHome: alias })).ok, true);
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).authority.featureHome, realpathSync(fx.home));
+    cpSync(fx.home, stale, { recursive: true });
+    fx.bumpSelector(2);
+    unlinkSync(alias);
+    symlinkSync(stale, alias, 'dir');
+    const out = await reconcile(reconcileInput(fx, { featureHome: override ? alias : undefined, requestAction: 'work' }));
+    assert.equal(out.ok, false);
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).pendingIntent, null);
+  });
+
+  ltest('legacy lexical authority alias holds instead of silently repinning to its current target', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding(initBindingInput(fx))).ok, true);
+    const alias = join(fx.base, 'legacy-alias');
+    const stale = join(fx.base, 'stale');
+    cpSync(fx.home, stale, { recursive: true });
+    symlinkSync(stale, alias, 'dir');
+    fx.bumpSelector(2);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    record.authority.featureHome = alias;
+    const prior = record.recordRevision;
+    record.recordRevision += 1;
+    assert.equal(writeRecordAtomic(fx.recordPath, record, { lockedTarget: fx.recordPath, expectedRevision: prior }).ok, true);
+    const out = await reconcile(reconcileInput(fx, { featureHome: undefined, requestAction: 'work' }));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(out.ok, false);
+    assert.equal(out.code, 'authority_hold_open');
+    assert.equal(after.authority.featureHome, alias);
+    assert.equal(after.pendingIntent, null);
+    assert.ok(after.holds.some((h) => h.code === 'authority_home_mismatch' && h.clearedAt === null));
+  });
+
+  ltest('CLI status emits a complete piped JSON envelope for a full hold history', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding(initBindingInput(fx))).ok, true);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    const prior = record.recordRevision;
+    record.holds = Array.from({ length: 200 }, (_, i) => ({
+      code: 'authority_changed',
+      reason: `change ${i}: ${'x'.repeat(600)}`,
+      recoveryAction: 'confirm the selected authority',
+      recordedAt: iso(),
+      clearedAt: iso(),
+    }));
+    record.recordRevision += 1;
+    assert.equal(writeRecordAtomic(fx.recordPath, record, { lockedTarget: fx.recordPath, expectedRevision: prior }).ok, true);
+    const result = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(Buffer.byteLength(result.stdout) > 100000, 'fixture must exercise a large piped response');
+    assert.ok(result.json, 'stdout must contain one complete JSON envelope');
+    assert.deepEqual(result.json.record.holds, record.holds);
+  });
+});
+
 // Row 13 aftermath — MUST be the LAST top-level test declaration: it asserts zero
 // outbound TCP connections and zero HTTP requests across the ENTIRE claimed run
 // (every arm above), and only then closes the recorder. (Correction R3, 2026-10-27:

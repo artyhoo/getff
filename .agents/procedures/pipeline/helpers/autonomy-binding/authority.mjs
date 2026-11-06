@@ -13,6 +13,7 @@
  * No caching, no fallback to the record's stored snapshot: a selector that cannot be
  * live-validated is `authority_unavailable`, and the caller holds.
  */
+import { realpathSync } from 'node:fs';
 import {
   repoIdentityOf,
   requireSelectorFeature,
@@ -32,7 +33,15 @@ export function readCurrentAuthority({ repoRoot, featureId, featureHome, roots, 
   if (!identity.ok) {
     return { ok: false, code: 'repo_identity_unresolvable', reason: identity.reason };
   }
-  const selected = requireSelectorFeature(featureHome, identity.identity, featureId);
+  // Resolve once before reading so an alias retarget cannot select a different
+  // home between the selector read and the durable pin.
+  let selectedHome;
+  try {
+    selectedHome = realpathSync(featureHome);
+  } catch (error) {
+    return { ok: false, code: 'authority_home_unresolvable', reason: `cannot resolve the selected authority home: ${error.message}` };
+  }
+  const selected = requireSelectorFeature(selectedHome, identity.identity, featureId);
   if (!selected.ok) {
     return selected;
   }
@@ -47,6 +56,7 @@ export function readCurrentAuthority({ repoRoot, featureId, featureHome, roots, 
     ok: true,
     authority: {
       repoIdentity: identity.identity,
+      featureHome: selectedHome,
       selectorRevision: entry.revision,
       prdSha256: prd.currentPrd.approvedSha256,
       prdRef: prd.currentPrd.snapshotRef,

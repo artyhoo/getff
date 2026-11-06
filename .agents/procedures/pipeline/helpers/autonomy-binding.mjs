@@ -10,8 +10,8 @@
  * (reservedVerbHold, engine.mjs:180) — never a simulated live success.
  *
  * Output contract: one JSON envelope on stdout, exit code 0 (ok) / 2 (structured
- * hold, reject or unsupported) / 1 (internal error) — the helper-CLI convention of
- * current-decisions.mjs:883-885 (`emit(result, code)` → stdout write + process.exit).
+ * hold, reject or unsupported) / 1 (internal error). Return after emitting so Node
+ * can drain the complete envelope to a pipe before the process exits.
  * Deviation from the sibling entry-guard convention (overview.mjs:1023): usage and
  * internal errors ALSO go through the JSON envelope (exit 1/2 + structured code/reason),
  * never plain-text stderr — a machine-consumed helper keeps one output channel.
@@ -252,15 +252,15 @@ function waitForFile(path) {
 async function main() {
   const args = process.argv.slice(2);
   const emit = (result, code) => {
+    process.exitCode = code;
     process.stdout.write(`${JSON.stringify(result)}\n`);
-    process.exit(code);
   };
   const opts = {};
   let verb;
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (VERBS.has(arg)) {
-      if (verb !== undefined) emit({ ok: false, code: 'invalid_request', reason: `two verbs given: ${verb} and ${arg}` }, 2);
+      if (verb !== undefined) return emit({ ok: false, code: 'invalid_request', reason: `two verbs given: ${verb} and ${arg}` }, 2);
       verb = arg;
     } else if (arg.startsWith('--')) {
       const key = arg.slice(2);
@@ -276,25 +276,25 @@ async function main() {
       }
       // Unknown flags are rejected structurally, never silently stored: a typo'd flag
       // (`--recod`) that fell through would change nothing and report success.
-      if (!VALUE_FLAGS.has(key)) emit({ ok: false, code: 'invalid_request', reason: `unknown flag ${arg}\n${USAGE}` }, 2);
+      if (!VALUE_FLAGS.has(key)) return emit({ ok: false, code: 'invalid_request', reason: `unknown flag ${arg}\n${USAGE}` }, 2);
       const value = args[i + 1];
       // A value is missing when it is absent, empty, or itself another flag — the old
       // `VALUE_FLAGS.has(value)` check only caught unprefixed verb/flag names, so
       // `--record --now` silently bound `--now` as the record path.
       if (value === undefined || value === '' || value.startsWith('--')) {
-        emit({ ok: false, code: 'invalid_request', reason: `flag ${arg} needs a value\n${USAGE}` }, 2);
+        return emit({ ok: false, code: 'invalid_request', reason: `flag ${arg} needs a value\n${USAGE}` }, 2);
       }
       opts[key] = value;
       i += 1;
     } else {
-      emit({ ok: false, code: 'invalid_request', reason: `unexpected argument ${arg}\n${USAGE}` }, 2);
+      return emit({ ok: false, code: 'invalid_request', reason: `unexpected argument ${arg}\n${USAGE}` }, 2);
     }
   }
-  if (verb === undefined) emit({ ok: false, code: 'invalid_request', reason: USAGE }, 2);
+  if (verb === undefined) return emit({ ok: false, code: 'invalid_request', reason: USAGE }, 2);
 
   // Stage-B live operations are reserved BEFORE any record interaction: they never read,
   // create or mutate a binding record (the hold names the owning stage instead).
-  if (verb === 'worker' || verb === 'review') emit(reservedVerbHold(verb), 2);
+  if (verb === 'worker' || verb === 'review') return emit(reservedVerbHold(verb), 2);
   // Production resume is unconditionally held in stage A — before any record interaction,
   // and regardless of --grant (the flag is accepted syntactically and named in the hold
   // reason; it can never clear the hold).
@@ -303,10 +303,10 @@ async function main() {
     if (opts.grant !== undefined) {
       hold.reason = `${hold.reason} A --grant document was supplied (${opts.grant}) and does not clear this hold.`;
     }
-    emit(hold, 2);
+    return emit(hold, 2);
   }
 
-  if (opts.record === undefined) emit({ ok: false, code: 'invalid_request', reason: `--record <path> is required for ${verb}\n${USAGE}` }, 2);
+  if (opts.record === undefined) return emit({ ok: false, code: 'invalid_request', reason: `--record <path> is required for ${verb}\n${USAGE}` }, 2);
   if (opts['test-hold-before-bind'] !== undefined) waitForFile(opts['test-hold-before-bind']);
 
   try {
@@ -315,7 +315,7 @@ async function main() {
       // and by the usage text — name it here too, so the CLI boundary rejects with the
       // complete flag list instead of deferring to the engine's per-field message.
       if (opts['repo-root'] === undefined || opts.feature === undefined || opts.stage === undefined || opts['stage-artifact-root'] === undefined || opts['feature-home'] === undefined) {
-        emit({ ok: false, code: 'invalid_request', reason: `init requires --repo-root, --feature, --stage, --stage-artifact-root, --feature-home\n${USAGE}` }, 2);
+        return emit({ ok: false, code: 'invalid_request', reason: `init requires --repo-root, --feature, --stage, --stage-artifact-root, --feature-home\n${USAGE}` }, 2);
       }
       const initInput = {
         repoRoot: resolve(opts['repo-root']),
@@ -352,29 +352,27 @@ async function main() {
       // the CLI boundary, before any record interaction.
       for (const [key, field] of [['lock-retry-budget-ms', 'retryBudgetMs'], ['lock-retry-delay-ms', 'retryDelayMs']]) {
         const timed = applyTimingFlag(initInput, opts, key, field);
-        if (!timed.ok) emit(timed, 2);
+        if (!timed.ok) return emit(timed, 2);
       }
       const result = await initBinding(initInput);
-      emit(result, result.ok ? 0 : 2);
-      return;
+      return emit(result, result.ok ? 0 : 2);
     }
 
     if (verb === 'status') {
       const result = status(resolve(opts.record));
-      emit(result, result.ok ? 0 : 2);
-      return;
+      return emit(result, result.ok ? 0 : 2);
     }
 
     // reconcile | pause | cancel share one in-lock engine path (pause/cancel are control
     // kinds on the same reconcile input, so a pause arriving with an observation in the
     // same invocation is serialized as ONE composed transition).
     const built = buildReconcileInput(opts, verb);
-    if (!built.ok) emit(built, 2);
+    if (!built.ok) return emit(built, 2);
     const result = await reconcile(built.input);
-    emit(result, result.ok ? 0 : 2);
+    return emit(result, result.ok ? 0 : 2);
   } catch (err) {
     // Internal error: never a fabricated envelope — print the failure verbatim and exit 1.
-    emit({ ok: false, code: 'internal_error', reason: err && err.message ? err.message : String(err) }, 1);
+    return emit({ ok: false, code: 'internal_error', reason: err && err.message ? err.message : String(err) }, 1);
   }
 }
 
