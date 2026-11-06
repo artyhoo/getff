@@ -17,12 +17,12 @@
  * never plain-text stderr — a machine-consumed helper keeps one output channel.
  *
  * Engine entry points: initBinding engine.mjs:214, reconcile engine.mjs:461,
- * status engine.mjs:1408 (lock-free durable-state read).
+ * status engine.mjs:1432 (lock-free durable-state read).
  *
  * Test seams (test-only; never exercised by production callers):
  *   --test-crash-after prewrite|intent|commit  — real self-SIGKILL at the named
  *       durable-write window (the killSelf sites: engine.mjs:728, 731 in
- *       rejectAfterPersist and engine.mjs:1387, 1390 in the main persist; the seam
+ *       rejectAfterPersist and engine.mjs:1411, 1414 in the main persist; the seam
  *       itself engine.mjs:204).
  *   --test-hold-before-bind <waitfile>         — poll until <waitfile> exists BEFORE
  *       acquiring the bind lock, so a test can stage a competing acquirer inside the

@@ -965,6 +965,71 @@ export async function reconcile(input) {
       }
     }
 
+    // A composed action also needs a valid candidate before a successor is installed.
+    const candidateEligibility = () => {
+      if (input.candidate === undefined) return null;
+      const candidate = input.candidate;
+      if (!Number.isSafeInteger(candidate.revision) || candidate.revision < 0) return reject('invalid_request', 'candidate.revision must be a safe integer >= 0');
+      if (candidate.revision < next.candidate.revision) {
+        return reject('candidate_regression', `candidate revision ${candidate.revision} is below the recorded ${next.candidate.revision} — stale candidates are rejected, not ingested`);
+      }
+      if (candidate.revision !== next.candidate.revision && TERMINAL_STATES.includes(next.controlState)) {
+        return reject('candidate_terminal_conflict', `binding is ${next.controlState} — the delivered candidate ${next.candidate.revision} keeps its receipt/completion association; candidate advancement requires an active binding`);
+      }
+      return null;
+    };
+
+    // One admission check is shared by the successor and intent boundaries.
+    const actionEligibility = () => {
+      if (input.requestAction === undefined) return null;
+      const action = input.requestAction;
+      if (!ROUTES.includes(action)) return reject('invalid_request', `request-action must be one of ${ROUTES.join('|')}`);
+      // Admission is a live-authority decision: a reconcile that cannot re-read the
+      // current authority (no --repo-root, or an unresolvable feature home) must NOT
+      // plan work against the snapshot cached at init — that would be a fail-open
+      // bypass of the stale-evidence gate below. Fail closed with a named prerequisite.
+      if (!input.repoRoot) {
+        return reject('invalid_request', `request-action ${action} requires --repo-root so the live authority can be re-read before admission — the authority snapshot cached at init is never admission authority`);
+      }
+      if (!featureHome) {
+        return reject('invalid_request', `request-action ${action} requires a resolvable feature home (--feature-home) so the live authority can be re-read before admission`);
+      }
+      // Admission gate (design L137: pause/cancel stops new admission): only an `active`
+      // record admits a new action. Late FACTS (observations, receipts, intent
+      // resolutions, custody acks) stay accepted below — a paused or cancelled binding
+      // refuses new WORK, it does not refuse its own recovery and reporting paths. The
+      // request is rejected, never queued: a pause that silently queued actions would
+      // admit them wholesale on resume, which is exactly what the pause is for.
+      if (!ADMITTING_STATES.includes(next.controlState)) {
+        return reject('admission_blocked', `control state ${next.controlState} does not admit new actions — lift the pause/cancel through its own boundary before requesting ${action}`);
+      }
+      // An authority hold must gate admission, or it is a warning nobody reads
+      // (attention-is-not-a-mechanism): planning work against unconfirmed or unreadable
+      // current authority is exactly the stale-evidence admission PA2 forbids. One pass
+      // cannot both transition the hold (open it, or clear it on a stable read) and
+      // admit work: the hold state must settle through its own durable write, and the
+      // admitting reconcile must read that settled record — so a clear-and-admit in a
+      // single pass can never disguise an unconfirmed authority as a confirmed one.
+      const authorityHold = openAuthorityHold(next);
+      if (authorityHold !== null || authorityHoldTouched) {
+        const detail = authorityHold
+          ? `authority hold ${authorityHold.code} is open`
+          : 'an authority hold was opened or cleared in this same pass';
+        return reject('authority_hold_open', `${detail} — confirm the current authority, run reconcile once on a stable read so the hold state settles, and only then request ${action} on a subsequent reconcile`);
+      }
+      if (!next.grants.actions.includes(action)) {
+        return reject('action_not_granted', `action ${action} is not in this binding's granted actions [${next.grants.actions.join(', ')}] — the grant list is fixed at init and no flag overrides it`);
+      }
+      // OWNER-CQ04 (compat repair): ANY recorded intent blocks a new action. A legacy
+      // `resolved` claim does not establish its external outcome (its resolution has no
+      // stage-A writer since fidelity-r2 F-1), so it gates admission exactly like a live
+      // unresolved one.
+      if (next.pendingIntent !== null) {
+        return reject('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — resolve it before planning another action`);
+      }
+      return null;
+    };
+
     // (7) Custody transfer — legal only past cessation (acknowledged) or with explicit ack.
     if (input.transferCustody !== undefined) {
       const transfer = input.transferCustody;
@@ -1088,6 +1153,12 @@ export async function reconcile(input) {
           : 'an authority hold was opened or cleared in this same pass';
         return rejectAfterPersist('authority_hold_open', `${detail} — custody advance reads the settled hold state like admission and completion do: cessation facts recorded earlier in this pass are persisted, but no successor worker is installed and custody does not advance; confirm the current authority, run reconcile once on a stable read so the hold settles, then transfer custody on a subsequent reconcile`);
       }
+      const actionRefusal = actionEligibility();
+      if (actionRefusal !== null) return rejectAfterPersist(actionRefusal.code, actionRefusal.reason);
+      if (input.requestAction !== undefined) {
+        const candidateRefusal = candidateEligibility();
+        if (candidateRefusal !== null) return rejectAfterPersist(candidateRefusal.code, candidateRefusal.reason);
+      }
       next.custodyGeneration += 1;
       next.worker = { sessionId: transfer.toSession, pid: null, startedAt: now, host: null, cessationAckedAt: null };
       mutated = true;
@@ -1097,24 +1168,19 @@ export async function reconcile(input) {
     // (8) Candidate update — forward-only; stale candidates are rejected, never ingested.
     if (input.candidate !== undefined) {
       const candidate = input.candidate;
-      if (!Number.isSafeInteger(candidate.revision) || candidate.revision < 0) return rejectAfterPersist('invalid_request', 'candidate.revision must be a safe integer >= 0');
-      if (candidate.revision < next.candidate.revision) {
-        return rejectAfterPersist('candidate_regression', `candidate revision ${candidate.revision} is below the recorded ${next.candidate.revision} — stale candidates are rejected, not ingested`);
-      }
+      const candidateRefusal = candidateEligibility();
+      if (candidateRefusal !== null) return rejectAfterPersist(candidateRefusal.code, candidateRefusal.reason);
       if (candidate.revision !== next.candidate.revision) {
         // R4-01: the completed binding keeps the candidate/receipt/completion
         // association it was actually delivered under. A later ordinary candidate
         // update must not advance the primary current candidate over a finished
         // run (controlState complete/cancelled) — even when it arrives composed
-        // with other legitimate facts, because the terminal gate sits inside the
-        // advance branch (before mutation), not after a late rejection. Delivery
+        // with other legitimate facts, because the terminal gate checks an advance
+        // before mutation, not after a late rejection. Delivery
         // still belongs to the completed candidate; same-candidate resubmits stay
         // idempotent no-ops (skipped above), active bindings advance unchanged,
         // historical observations remain intake-able, and no terminal control
         // state is reopened or resumed here.
-        if (TERMINAL_STATES.includes(next.controlState)) {
-          return rejectAfterPersist('candidate_terminal_conflict', `binding is ${next.controlState} — the delivered candidate ${next.candidate.revision} keeps its receipt/completion association; candidate advancement requires an active binding`);
-        }
         next.candidate = { revision: candidate.revision, sha256: candidate.sha256 ?? null, ref: candidate.ref ?? null, at: now };
         mutated = true;
         effects.push(`candidate-updated:${candidate.revision}`);
@@ -1123,51 +1189,9 @@ export async function reconcile(input) {
 
     // Intent-before-effect: bind only after composed custody/candidate updates settle.
     if (input.requestAction !== undefined) {
+      const refusal = actionEligibility();
+      if (refusal !== null) return rejectAfterPersist(refusal.code, refusal.reason);
       const action = input.requestAction;
-      if (!ROUTES.includes(action)) return rejectAfterPersist('invalid_request', `request-action must be one of ${ROUTES.join('|')}`);
-      // Admission is a live-authority decision: a reconcile that cannot re-read the
-      // current authority (no --repo-root, or an unresolvable feature home) must NOT
-      // plan work against the snapshot cached at init — that would be a fail-open
-      // bypass of the stale-evidence gate below. Fail closed with a named prerequisite.
-      if (!input.repoRoot) {
-        return rejectAfterPersist('invalid_request', `request-action ${action} requires --repo-root so the live authority can be re-read before admission — the authority snapshot cached at init is never admission authority`);
-      }
-      if (!featureHome) {
-        return rejectAfterPersist('invalid_request', `request-action ${action} requires a resolvable feature home (--feature-home) so the live authority can be re-read before admission`);
-      }
-      // Admission gate (design L137: pause/cancel stops new admission): only an `active`
-      // record admits a new action. Late FACTS (observations, receipts, intent
-      // resolutions, custody acks) stay accepted below — a paused or cancelled binding
-      // refuses new WORK, it does not refuse its own recovery and reporting paths. The
-      // request is rejected, never queued: a pause that silently queued actions would
-      // admit them wholesale on resume, which is exactly what the pause is for.
-      if (!ADMITTING_STATES.includes(next.controlState)) {
-        return rejectAfterPersist('admission_blocked', `control state ${next.controlState} does not admit new actions — lift the pause/cancel through its own boundary before requesting ${action}`);
-      }
-      // An authority hold must gate admission, or it is a warning nobody reads
-      // (attention-is-not-a-mechanism): planning work against unconfirmed or unreadable
-      // current authority is exactly the stale-evidence admission PA2 forbids. One pass
-      // cannot both transition the hold (open it, or clear it on a stable read) and
-      // admit work: the hold state must settle through its own durable write, and the
-      // admitting reconcile must read that settled record — so a clear-and-admit in a
-      // single pass can never disguise an unconfirmed authority as a confirmed one.
-      const authorityHold = openAuthorityHold(next);
-      if (authorityHold !== null || authorityHoldTouched) {
-        const detail = authorityHold
-          ? `authority hold ${authorityHold.code} is open`
-          : 'an authority hold was opened or cleared in this same pass';
-        return rejectAfterPersist('authority_hold_open', `${detail} — confirm the current authority, run reconcile once on a stable read so the hold state settles, and only then request ${action} on a subsequent reconcile`);
-      }
-      if (!next.grants.actions.includes(action)) {
-        return rejectAfterPersist('action_not_granted', `action ${action} is not in this binding's granted actions [${next.grants.actions.join(', ')}] — the grant list is fixed at init and no flag overrides it`);
-      }
-      // OWNER-CQ04 (compat repair): ANY recorded intent blocks a new action. A legacy
-      // `resolved` claim does not establish its external outcome (its resolution has no
-      // stage-A writer since fidelity-r2 F-1), so it gates admission exactly like a live
-      // unresolved one.
-      if (next.pendingIntent !== null) {
-        return rejectAfterPersist('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — resolve it before planning another action`);
-      }
       const actionId = `act-${sha256Hex(canonicalJson({ action, at: now, fromRevision: next.recordRevision, candidate: next.candidate.revision, custody: next.custodyGeneration })).slice(0, 16)}`;
       next.pendingIntent = {
         actionId,

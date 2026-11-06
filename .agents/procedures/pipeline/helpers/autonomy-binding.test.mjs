@@ -2632,7 +2632,7 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     // even with the delivery receipt current. The gate is deliberately ONE-PASS: this
     // first stable read settles the open holds (a durable write — the rejection is
     // rejectAfterPersist) and rejects the completion in that same pass, so admission
-    // waits for the NEXT reconcile on the settled record (engine.mjs:1147-1159). The
+    // waits for the NEXT reconcile on the settled record (engine.mjs:1006-1018). The
     // authority-stable effect therefore fires on THIS pass, not on any later one.
     const early = runCli(recArgs(fx, ['--mark-complete']));
     assert.equal(JSON.parse(early.stdout).code, 'authority_hold_open', 'completion waits for authority settlement');
@@ -4253,6 +4253,70 @@ describe('A1 composed repair', () => {
     const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
     assert.equal(after.authority.featureHome, realpathSync(fx.home));
     assert.equal(after.pendingIntent.action, 'work');
+  });
+
+  for (const [label, action, code] of [['ungranted', 'review', 'action_not_granted'], ['invalid', 'not-an-action', 'invalid_request']]) {
+    for (const acknowledgedWorker of [false, true]) {
+      ltest(`A1 final CQ: ${label} action refuses successor with ${acknowledgedWorker ? 'local acknowledgement' : 'no worker'}`, async (t) => {
+        const fx = makeFixture(t);
+        const init = { ...initBindingInput(fx), taskId: null, actions: ['work'] };
+        if (!acknowledgedWorker) init.worker = null;
+        assert.equal((await initBinding(init)).ok, true);
+        const before = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+        const out = await reconcile(reconcileInput(fx, { requestAction: action, transferCustody: { toSession: 'successor', acknowledgeCessation: true } }));
+        const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+        assert.equal(out.ok, false);
+        assert.equal(out.code, code);
+        assert.equal(after.custodyGeneration, before.custodyGeneration);
+        assert.equal(after.pendingIntent, null);
+        if (acknowledgedWorker) {
+          assert.equal(after.worker.sessionId, before.worker.sessionId);
+          assert.ok(after.worker.cessationAckedAt, 'local cessation acknowledgement survives refusal');
+        } else {
+          assert.equal(after.worker, null);
+        }
+      });
+    }
+  }
+
+  for (const [label, revision, code] of [['stale', 1, 'candidate_regression'], ['invalid', -1, 'invalid_request']]) {
+    ltest(`A1 final CQ: ${label} composed candidate refuses successor after local acknowledgement`, async (t) => {
+      const fx = makeFixture(t);
+      assert.equal((await initBinding({ ...initBindingInput(fx), taskId: null, actions: ['work'], candidateRevision: 2 })).ok, true);
+      const before = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+      const out = await reconcile(reconcileInput(fx, { requestAction: 'work', candidate: { revision }, transferCustody: { toSession: 'successor', acknowledgeCessation: true } }));
+      const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+      assert.equal(out.ok, false);
+      assert.equal(out.code, code);
+      assert.equal(after.worker.sessionId, before.worker.sessionId);
+      assert.ok(after.worker.cessationAckedAt);
+      assert.equal(after.custodyGeneration, before.custodyGeneration);
+      assert.equal(after.candidate.revision, before.candidate.revision);
+      assert.equal(after.pendingIntent, null);
+    });
+  }
+
+  ltest('A1 final CQ: granted composed action binds the accepted successor and candidate', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding({ ...initBindingInput(fx), taskId: null, actions: ['work'] })).ok, true);
+    const out = await reconcile(reconcileInput(fx, { requestAction: 'work', candidate: { revision: 2 }, transferCustody: { toSession: 'successor', acknowledgeCessation: true } }));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(out.ok, true, JSON.stringify(out));
+    assert.equal(after.worker.sessionId, 'successor');
+    assert.equal(after.custodyGeneration, 2);
+    assert.equal(after.pendingIntent.bound.custodyGeneration, 2);
+    assert.equal(after.pendingIntent.bound.candidateRevision, 2);
+  });
+
+  ltest('A1 final CQ: acknowledged transfer without a requested action remains admissible', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding({ ...initBindingInput(fx), taskId: null, actions: ['work'] })).ok, true);
+    const out = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'successor', acknowledgeCessation: true } }));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(out.ok, true, JSON.stringify(out));
+    assert.equal(after.worker.sessionId, 'successor');
+    assert.equal(after.custodyGeneration, 2);
+    assert.equal(after.pendingIntent, null);
   });
 });
 
