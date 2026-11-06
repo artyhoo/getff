@@ -111,7 +111,7 @@
     "tsx": "^4.22.4"
   },
   "overrides": {
-    "qs": "^6.15.2"
+    "qs": "^6.17.0"
   },
   "author": "Artem Safronov <122199423+artyhoo@users.noreply.github.com>"
 }
