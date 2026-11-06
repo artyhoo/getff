@@ -2632,7 +2632,7 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     // even with the delivery receipt current. The gate is deliberately ONE-PASS: this
     // first stable read settles the open holds (a durable write — the rejection is
     // rejectAfterPersist) and rejects the completion in that same pass, so admission
-    // waits for the NEXT reconcile on the settled record (engine.mjs:1137-1149). The
+    // waits for the NEXT reconcile on the settled record (engine.mjs:1147-1159). The
     // authority-stable effect therefore fires on THIS pass, not on any later one.
     const early = runCli(recArgs(fx, ['--mark-complete']));
     assert.equal(JSON.parse(early.stdout).code, 'authority_hold_open', 'completion waits for authority settlement');
@@ -4095,6 +4095,7 @@ describe('A1 composed repair', () => {
     fx.bumpSelector(2);
     const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
     record.authority.featureHome = alias;
+    delete record.authority.featureHomeSelection;
     const prior = record.recordRevision;
     record.recordRevision += 1;
     assert.equal(writeRecordAtomic(fx.recordPath, record, { lockedTarget: fx.recordPath, expectedRevision: prior }).ok, true);
@@ -4126,6 +4127,132 @@ describe('A1 composed repair', () => {
     assert.ok(Buffer.byteLength(result.stdout) > 100000, 'fixture must exercise a large piped response');
     assert.ok(result.json, 'stdout must contain one complete JSON envelope');
     assert.deepEqual(result.json.record.holds, record.holds);
+  });
+
+  ltest('A1 CQ round1: unresolved intent refuses a composed successor without changing custody', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding({ ...initBindingInput(fx), taskId: null, worker: null })).ok, true);
+    assert.equal((await reconcile(reconcileInput(fx, { requestAction: 'work' }))).ok, true);
+    const before = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    const out = await reconcile(reconcileInput(fx, { requestAction: 'work', transferCustody: { toSession: 'successor' } }));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(out.ok, false);
+    assert.equal(out.code, 'intent_outstanding');
+    assert.equal(after.custodyGeneration, before.custodyGeneration);
+    assert.deepEqual(after.worker, before.worker);
+    assert.deepEqual(after.pendingIntent, before.pendingIntent);
+    assert.ok(after.holds.some((h) => h.code === 'uncertain_owner' && h.clearedAt === null));
+  });
+
+  ltest('A1 CQ round1: unresolved intent preserves the already acknowledged old worker', async (t) => {
+    const fx = makeFixture(t);
+    const init = initBindingInput(fx);
+    init.taskId = null;
+    init.worker.cessationAckedAt = iso();
+    assert.equal((await initBinding(init)).ok, true);
+    assert.equal((await reconcile(reconcileInput(fx, { requestAction: 'work' }))).ok, true);
+    const before = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    const out = await reconcile(reconcileInput(fx, { requestAction: 'work', transferCustody: { toSession: 'successor', acknowledgeCessation: true } }));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(out.ok, false);
+    assert.equal(out.code, 'intent_outstanding');
+    assert.deepEqual(after.worker, before.worker);
+    assert.ok(after.worker.cessationAckedAt);
+    assert.equal(after.custodyGeneration, before.custodyGeneration);
+    assert.deepEqual(after.pendingIntent, before.pendingIntent);
+  });
+
+  ltest('A1 CQ round1: an unresolved intent also blocks successor admission without a new action', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding({ ...initBindingInput(fx), taskId: null, worker: null })).ok, true);
+    assert.equal((await reconcile(reconcileInput(fx, { requestAction: 'work' }))).ok, true);
+    const before = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    const out = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'successor' } }));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(out.ok, false);
+    assert.equal(out.code, 'intent_outstanding');
+    assert.equal(after.custodyGeneration, before.custodyGeneration);
+    assert.deepEqual(after.worker, before.worker);
+    assert.deepEqual(after.pendingIntent, before.pendingIntent);
+  });
+
+  ltest('A1 CQ round1: legal taskless acknowledged transfer still admits a bound intent', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding({ ...initBindingInput(fx), taskId: null })).ok, true);
+    const out = await reconcile(reconcileInput(fx, { requestAction: 'work', transferCustody: { toSession: 'successor', acknowledgeCessation: true } }));
+    assert.equal(out.ok, true, JSON.stringify(out));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(after.worker.sessionId, 'successor');
+    assert.equal(after.custodyGeneration, 2);
+    assert.equal(after.pendingIntent.bound.custodyGeneration, 2);
+  });
+
+  ltest('A1 CQ round1: replaced legacy alias directory cannot establish selected authority', async (t) => {
+    const fx = makeFixture(t);
+    const alias = join(fx.base, 'old-alias');
+    symlinkSync(fx.home, alias, 'dir');
+    assert.equal((await initBinding({ ...initBindingInput(fx), featureHome: alias })).ok, true);
+    unlinkSync(alias);
+    cpSync(fx.home, alias, { recursive: true });
+    fx.bumpSelector(2);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    delete record.authority.featureHomeSelection;
+    record.authority.featureHome = alias;
+    const prior = record.recordRevision;
+    record.recordRevision += 1;
+    assert.equal(writeRecordAtomic(fx.recordPath, record, { lockedTarget: fx.recordPath, expectedRevision: prior }).ok, true);
+    const out = await reconcile(reconcileInput(fx, { featureHome: undefined, requestAction: 'work' }));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(out.ok, false);
+    assert.equal(out.code, 'authority_hold_open');
+    assert.equal(after.authority.featureHome, alias);
+    assert.equal(after.authority.selectorRevision, 1);
+    assert.equal(after.pendingIntent, null);
+    assert.ok(after.holds.some((h) => h.code === 'authority_home_mismatch' && h.clearedAt === null));
+  });
+
+  ltest('A1 CQ round1: path-only legacy physical-looking home remains a prerequisite hold', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal((await initBinding(initBindingInput(fx))).ok, true);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    delete record.authority.featureHomeSelection;
+    const prior = record.recordRevision;
+    record.recordRevision += 1;
+    assert.equal(writeRecordAtomic(fx.recordPath, record, { lockedTarget: fx.recordPath, expectedRevision: prior }).ok, true);
+    const out = await reconcile(reconcileInput(fx, { requestAction: 'work' }));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(out.ok, false);
+    assert.equal(out.code, 'authority_hold_open');
+    assert.equal(after.pendingIntent, null);
+    assert.equal(after.authority.featureHome, record.authority.featureHome);
+  });
+
+  test('A1 CQ round1: malformed authority home selection provenance is rejected', () => {
+    const result = initialRecord(initRecordFields(), { now: iso() });
+    assert.equal(result.ok, true);
+    result.value.authority.featureHomeSelection = { version: 2, physicalPath: '/wrong' };
+    assert.equal(validateRecord(result.value).ok, false);
+  });
+
+  test('A1 CQ round1: pure record construction does not certify a caller-supplied home', () => {
+    const result = initialRecord({ ...initRecordFields(), featureHome: '/claimed-home', featureHomeSelection: { version: 1, physicalPath: '/claimed-home' } }, { now: iso() });
+    assert.equal(result.ok, true);
+    assert.equal(result.value.authority.featureHomeSelection, undefined);
+  });
+
+  ltest('A1 CQ round1: new physical selection survives authority refresh and canonical alias', async (t) => {
+    const fx = makeFixture(t);
+    const alias = join(fx.base, 'stable-alias');
+    symlinkSync(fx.home, alias, 'dir');
+    assert.equal((await initBinding({ ...initBindingInput(fx), featureHome: alias })).ok, true);
+    fx.bumpSelector(2);
+    assert.equal((await reconcile(reconcileInput(fx, { featureHome: alias }))).ok, true);
+    assert.equal((await reconcile(reconcileInput(fx, { featureHome: alias }))).ok, true);
+    const out = await reconcile(reconcileInput(fx, { featureHome: alias, requestAction: 'work' }));
+    assert.equal(out.ok, true, JSON.stringify(out));
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(after.authority.featureHome, realpathSync(fx.home));
+    assert.equal(after.pendingIntent.action, 'work');
   });
 });
 

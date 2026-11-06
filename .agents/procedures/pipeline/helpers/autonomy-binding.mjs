@@ -16,19 +16,19 @@
  * internal errors ALSO go through the JSON envelope (exit 1/2 + structured code/reason),
  * never plain-text stderr — a machine-consumed helper keeps one output channel.
  *
- * Engine entry points: initBinding engine.mjs:214, reconcile engine.mjs:458,
- * status engine.mjs:1398 (lock-free durable-state read).
+ * Engine entry points: initBinding engine.mjs:214, reconcile engine.mjs:461,
+ * status engine.mjs:1408 (lock-free durable-state read).
  *
  * Test seams (test-only; never exercised by production callers):
  *   --test-crash-after prewrite|intent|commit  — real self-SIGKILL at the named
- *       durable-write window (the killSelf sites: engine.mjs:724, 727 in
- *       rejectAfterPersist and engine.mjs:1377, 1380 in the main persist; the seam
+ *       durable-write window (the killSelf sites: engine.mjs:728, 731 in
+ *       rejectAfterPersist and engine.mjs:1387, 1390 in the main persist; the seam
  *       itself engine.mjs:204).
  *   --test-hold-before-bind <waitfile>         — poll until <waitfile> exists BEFORE
  *       acquiring the bind lock, so a test can stage a competing acquirer inside the
  *       contention window.
  *   --test-hold-lock-ms <n>                    — hold the acquired lock for n ms
- *       before releasing (engine.mjs:483).
+ *       before releasing (engine.mjs:486).
  */
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';

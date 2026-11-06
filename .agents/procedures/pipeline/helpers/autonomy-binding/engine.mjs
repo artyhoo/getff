@@ -267,6 +267,9 @@ export async function initBinding(input) {
       actor: input.actor ?? 'operator:cli',
     }, { now });
     if (!init.ok) return init;
+    // Only this live-selected, validated initialization path establishes provenance.
+    // A path-only legacy record cannot be certified later from today's filesystem.
+    init.value.authority.featureHomeSelection = { version: 1, physicalPath: authority.authority.featureHome };
     const written = writeRecordAtomic(canonicalPath, init.value, { lockedTarget: preLockTarget, expectedRevision: 0 });
     if (!written.ok) return written;
     return envelope(init.value, { action: 'init', mutated: true, route: 'work', routeReason: 'binding established; admission is a stage-B operation' });
@@ -554,7 +557,8 @@ export async function reconcile(input) {
     const physicalHome = recordedHome === null ? null : canonicalRecordPath(recordedHome);
     // A legacy record may have stored an alias rather than the physical home.
     // Its present target cannot establish where that alias pointed at init.
-    if (recordedHome === null || physicalHome === null || physicalHome !== resolve(recordedHome)) {
+    if (base.authority.featureHomeSelection === undefined
+      || recordedHome === null || physicalHome === null || physicalHome !== resolve(recordedHome)) {
       const held = addHold(next, {
         code: AUTHORITY_HOME_HOLD_CODE,
         reason: `the recorded authority home ${recordedHome ?? '(missing)'} is not an established physical home; resolving a legacy alias now cannot prove its original target`,
@@ -622,7 +626,7 @@ export async function reconcile(input) {
           authorityHoldTouched = true;
           effects.push('authority-identity-mismatch');
         } else if (authoritySignature(live.authority) !== authoritySignature(base.authority)) {
-          next.authority = { ...live.authority, featureHome: base.authority.featureHome };
+          next.authority = { ...live.authority, featureHome: base.authority.featureHome, featureHomeSelection: base.authority.featureHomeSelection };
           const held = addHold(next, {
             code: AUTHORITY_CHANGED_HOLD_CODE,
             reason: `current authority moved since the last reconcile (selectorRevision/PRD/spec signature changed from ${authoritySignature(base.authority)} to ${authoritySignature(live.authority)})`,
@@ -1050,6 +1054,12 @@ export async function reconcile(input) {
       // durable bytes are untouched.
       if (!ADMITTING_STATES.includes(next.controlState)) {
         return rejectAfterPersist('custody_transfer_blocked', `control state ${next.controlState} does not admit a successor worker — the previous worker's cessation acknowledgement is persisted as a fact, but custody cannot advance onto a non-admitting binding; lift the pause through its own boundary before transferring custody`);
+      }
+      // A persisted intent represents an unconfirmed external effect even when a
+      // local worker has stopped. Preserve any earlier acknowledgement, but do not
+      // install a successor until the intent's outcome is independently established.
+      if (next.pendingIntent !== null) {
+        return rejectAfterPersist('intent_outstanding', `intent ${next.pendingIntent.actionId} has an unconfirmed outcome — custody cannot advance until the referenced subsystem establishes it`);
       }
       // R3-03: installing a successor worker and advancing custody is a CONSEQUENTIAL
       // admission and carries the same live-authority premise the action door (4) and both

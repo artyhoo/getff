@@ -37,6 +37,7 @@
  * control state untouched (engine responsibility; this module simply exposes the table).
  */
 import { createHash } from 'node:crypto';
+import { isAbsolute } from 'node:path';
 import { canonicalJson } from '../../../intent/helpers/check-result-review.mjs';
 
 export const SCHEMA_VERSION = 1;
@@ -313,6 +314,17 @@ export function validateRecord(value) {
   }
   if (value.authority.featureHome !== null && !isNonEmptyString(value.authority.featureHome)) {
     return reject('record_invalid', 'authority.featureHome must be a non-empty string or null');
+  }
+  // Older records do not have selection provenance; the engine holds them rather
+  // than treating a path's current resolution as evidence of its original target.
+  if (value.authority.featureHomeSelection !== undefined) {
+    const selection = value.authority.featureHomeSelection;
+    if (!isPlainObject(selection) || selection.version !== 1
+      || !isNonEmptyString(selection.physicalPath) || !isAbsolute(selection.physicalPath)
+      || selection.physicalPath !== value.authority.featureHome
+      || Object.keys(selection).some((key) => !['version', 'physicalPath'].includes(key))) {
+      return reject('record_invalid', 'authority.featureHomeSelection must identify the recorded absolute physical home with version 1');
+    }
   }
 
   if (!isPlainObject(value.routine) || (value.routine.routineId !== null && !isNonEmptyString(value.routine.routineId))) {
