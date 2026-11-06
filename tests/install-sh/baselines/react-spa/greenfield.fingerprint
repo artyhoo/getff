@@ -65,8 +65,8 @@ c9417baaba5e22158a9808ccd21dec2d60c007cc51ed4d395ba778bb22f7d59c  .agents/proced
 12683e909a0f5438c991653ed3f4b07672b25c500a2d7c2a29dcfbb6d736a50d  .agents/procedures/pipeline/evals/files/scenario-3-dnpark-state.md
 7cb07ee88ad67a8a625d25348147a5a813801ab7027bb69c30f38d8088d3e3d1  .agents/procedures/pipeline/evals/runtime-audit.test.py
 2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf  .agents/procedures/pipeline/helpers/assign-skill.sh
-189e177e68f9dedfe1b8dd284f34e1a959ef83755aa5e55a88dad9bb0d077e9e  .agents/procedures/pipeline/helpers/autonomy-binding.mjs
-d0b6d96538016cb1c9c01ad254048d921ba6fb2e4c0f0bfeab2d767072a23200  .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs
+a755e7a933813a9ca5736c1a59f3f9764e5ea47464c189a66f36141801e35514  .agents/procedures/pipeline/helpers/autonomy-binding.mjs
+2fa31e7857b5bdd47d0bb82070cb23813f34ae8b8956cd2fa27515b1c5280311  .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs
 e3d080760f23041a45ace2d57b875a0a65c82400cc560b9994b1c31e94a08471  .agents/procedures/pipeline/helpers/autonomy-binding/authority.mjs
 e61e64ad20c0f9c4e589a26019a4dfd12116447a55a37d7f61429cf4e0cef9d0  .agents/procedures/pipeline/helpers/autonomy-binding/engine.mjs
 367cf1c5baddaa7231e6aa95bc21e445691a8f17e81c01ff3c4095238a09b85a  .agents/procedures/pipeline/helpers/autonomy-binding/lock.mjs
@@ -225,7 +225,7 @@ db1dccc6bf666c28652862d477049ac159fffabb8f8a030f1d1b9a1d8be3f2c0  .ai-factory/AI
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-aeb107253de9fe478fa39b931a412cbe83e6c6642b984c102782ffb22e668b4c  .ai-factory/refresh-baseline.json
+b71edaedee237a74a0b944f58dde1d368086c3727ce6aff7d486780be61bcdc6  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -312,8 +312,8 @@ c9417baaba5e22158a9808ccd21dec2d60c007cc51ed4d395ba778bb22f7d59c  .claude/skills
 12683e909a0f5438c991653ed3f4b07672b25c500a2d7c2a29dcfbb6d736a50d  .claude/skills/pipeline/evals/files/scenario-3-dnpark-state.md
 7cb07ee88ad67a8a625d25348147a5a813801ab7027bb69c30f38d8088d3e3d1  .claude/skills/pipeline/evals/runtime-audit.test.py
 2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf  .claude/skills/pipeline/helpers/assign-skill.sh
-189e177e68f9dedfe1b8dd284f34e1a959ef83755aa5e55a88dad9bb0d077e9e  .claude/skills/pipeline/helpers/autonomy-binding.mjs
-d0b6d96538016cb1c9c01ad254048d921ba6fb2e4c0f0bfeab2d767072a23200  .claude/skills/pipeline/helpers/autonomy-binding.test.mjs
+a755e7a933813a9ca5736c1a59f3f9764e5ea47464c189a66f36141801e35514  .claude/skills/pipeline/helpers/autonomy-binding.mjs
+2fa31e7857b5bdd47d0bb82070cb23813f34ae8b8956cd2fa27515b1c5280311  .claude/skills/pipeline/helpers/autonomy-binding.test.mjs
 e3d080760f23041a45ace2d57b875a0a65c82400cc560b9994b1c31e94a08471  .claude/skills/pipeline/helpers/autonomy-binding/authority.mjs
 e61e64ad20c0f9c4e589a26019a4dfd12116447a55a37d7f61429cf4e0cef9d0  .claude/skills/pipeline/helpers/autonomy-binding/engine.mjs
 367cf1c5baddaa7231e6aa95bc21e445691a8f17e81c01ff3c4095238a09b85a  .claude/skills/pipeline/helpers/autonomy-binding/lock.mjs
@@ -464,8 +464,8 @@ c9417baaba5e22158a9808ccd21dec2d60c007cc51ed4d395ba778bb22f7d59c  .zcode/skills/
 12683e909a0f5438c991653ed3f4b07672b25c500a2d7c2a29dcfbb6d736a50d  .zcode/skills/pipeline/evals/files/scenario-3-dnpark-state.md
 7cb07ee88ad67a8a625d25348147a5a813801ab7027bb69c30f38d8088d3e3d1  .zcode/skills/pipeline/evals/runtime-audit.test.py
 2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf  .zcode/skills/pipeline/helpers/assign-skill.sh
-189e177e68f9dedfe1b8dd284f34e1a959ef83755aa5e55a88dad9bb0d077e9e  .zcode/skills/pipeline/helpers/autonomy-binding.mjs
-d0b6d96538016cb1c9c01ad254048d921ba6fb2e4c0f0bfeab2d767072a23200  .zcode/skills/pipeline/helpers/autonomy-binding.test.mjs
+a755e7a933813a9ca5736c1a59f3f9764e5ea47464c189a66f36141801e35514  .zcode/skills/pipeline/helpers/autonomy-binding.mjs
+2fa31e7857b5bdd47d0bb82070cb23813f34ae8b8956cd2fa27515b1c5280311  .zcode/skills/pipeline/helpers/autonomy-binding.test.mjs
 e3d080760f23041a45ace2d57b875a0a65c82400cc560b9994b1c31e94a08471  .zcode/skills/pipeline/helpers/autonomy-binding/authority.mjs
 e61e64ad20c0f9c4e589a26019a4dfd12116447a55a37d7f61429cf4e0cef9d0  .zcode/skills/pipeline/helpers/autonomy-binding/engine.mjs
 367cf1c5baddaa7231e6aa95bc21e445691a8f17e81c01ff3c4095238a09b85a  .zcode/skills/pipeline/helpers/autonomy-binding/lock.mjs
