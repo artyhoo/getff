@@ -1,0 +1,4 @@
+// BAD: an exported async handler opens no trace span — H9 (require-otel-span) must flag this.
+export async function handleOrder(id: string): Promise<string> {
+  return id;
+}

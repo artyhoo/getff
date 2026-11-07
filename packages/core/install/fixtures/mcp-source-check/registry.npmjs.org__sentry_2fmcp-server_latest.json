@@ -1,0 +1,10 @@
+{
+  "name": "@sentry/mcp-server",
+  "version": "0.42.0",
+  "homepage": "https://github.com/getsentry/sentry-mcp",
+  "repository": {
+    "url": "git+ssh://git@github.com/getsentry/sentry-mcp.git",
+    "type": "git"
+  },
+  "mcpName": "io.github.getsentry/sentry-mcp"
+}

@@ -1,0 +1,66 @@
+diff --git a/.claude/orchestrator-prompts/deterministic-core/kickoff-d0.md b/.claude/orchestrator-prompts/deterministic-core/kickoff-d0.md
+index a76b4ef92ae..0105aed0d6c 100644
+--- a/.claude/orchestrator-prompts/deterministic-core/kickoff-d0.md
++++ b/.claude/orchestrator-prompts/deterministic-core/kickoff-d0.md
+@@ -4,6 +4,8 @@
+ > **Authoritative for:** the first bounded implementation slice and its acceptance.
+ > **NOT authoritative for:** product promises, architecture, TAK policy, installation consent or execution choreography. Read [umbrella](./kickoff.md) and the agreed design in full.
+ 
++Rigor label (L0): `research-grade` — consumer-shipped execution/completeness boundary; use the existing TAK contract for selected obligations rather than another assurance program.
++
+ ## §0 Task and inputs
+ 
+ Convert the existing `living-docs-auditor` mechanical run/report recipes into one family-owned command, with accurate target, findings, completeness, compact role invocation and consumer payload closure. Deliver a working vertical slice. A ledger/parser-only change is insufficient.
+@@ -19,6 +21,7 @@ TAK readiness: this base contains design/S0. Separately inspected `codex/tak-s1-
+ The implementation owner is `packages/core/audit-self/`. Write scope:
+ 
+ - Family entry/module and existing D1/D2 acquisition in that directory; preserve existing public callers or adapt them explicitly.
++- The Next/SPA shell wrappers only to forward the audit owner's bounded structured-drift mode to their nested base call; existing default invocation remains compatible.
+ - `scripts/build-runtime-bundles.mjs` and its focused tests for this entry; generated bundle only through that builder.
+ - `.agents/roles/living-docs-auditor.md`; generated native/plugin copies only through existing renderers.
+ - Existing installer layers/manifest/native-resource delivery necessary to carry this command; preserve `copy_safe`/refresh/override policy and node-free installation behavior.
+@@ -52,17 +55,19 @@ Target effects: reads only. No installation, network acquisition, repair, Git ch
+ | base | `scripts/audit-ai-docs.sh` | `packages/core/audit-self/audit-ai-docs.sh` | Main entry once; base probe applicability/completeness explicit. |
+ | react-next | `scripts/audit-ai-docs.react-next.sh` | `packages/preset-next-15-canonical/audit-self/` | Wrapper invokes base itself; do not run base twice. Missing base is incomplete even if wrapper exits zero. |
+ | react-spa | `scripts/audit-ai-docs.react-spa.sh` | `packages/preset-react-spa/audit-self/` | Same nested-base rule; preserve SPA IDs and WARN semantics. |
+-| react-native | `scripts/audit-ai-docs.react-native.sh` | `packages/preset-react-native/audit-self/` | Current runner does not chain base; do not invent a base run. Run admitted auxiliary checks separately. |
++| react-native | `scripts/audit-ai-docs.react-native.sh` | `packages/preset-react-native/audit-self/` | Not admitted for complete installed code-audit in D0: source-relative BASELINES/DOCS_HEADERS inspect preset-package paths absent from ordinary consumer layouts. Return explicit main-check incomplete and run admitted auxiliary checks; retain this profile gap for F3/F4. No base fallback. |
+ 
+ The `--profile` values are audit-runner families, not installer depth names. Resolve installed stack through its existing context at the role entry; ambiguous stack asks for a profile instead of mapping every React app to Next. Generic npm/cargo/go may use base only where delivered; Python currently has a main-script delivery gap. Record such gaps, do not claim a Python code audit ran.
+ 
+-Support the current shipped formats only. Identify compatible runner bytes from the four source artifacts as build-derived input data in the existing bundle build; include chained base identity where relevant. No manually maintained second hash ledger or runtime adapter registry. A header/path alone is not output compatibility. A custom/modified/unknown-version runner remains unsupported/incomplete; do not overwrite, heuristically interpret or silently execute it as the shipped format. Recognize and retain unsupported diagnostic information without a clean verdict. This compatibility check is not a sandbox or a security guarantee.
++Support the admitted shipped formats only: base, Next and SPA in D0. Identify compatible runner bytes from their source artifacts as build-derived input data in the existing bundle build; include chained base identity and the invoked R4 helper where applicable. No manually maintained second hash ledger or runtime adapter registry. A header/path alone is not output compatibility. A custom/modified/unknown-version runner remains unsupported/incomplete; do not overwrite, heuristically interpret or silently execute it as the shipped format. Recognize and retain unsupported diagnostic information without a clean verdict. This compatibility check is not a sandbox or a security guarantee. RN remains explicitly unsupported rather than copying preset templates into a consumer fixture to manufacture a clean case.
+ 
+ Parse the exact existing non-TTY PASS/FAIL/WARN and detail/summary grammar, with expected probe identities and terminal completion for each admitted runner. Account for nested base and preset summary scopes independently; do not use preset counters as totals for both. Unknown/missing/duplicate/contradictory required records, empty output, unsupported diagnostic structure or missing completion cannot prove success. Do not infer missing checks from summary arithmetic alone.
+ 
+ Preserve FAIL even with process exit 0; surface the exit/result contradiction as error. Exit 1 plus valid completed FAIL findings is a completed violation; unexplained nonzero exit is error/incomplete, never a test success. WARN about required missing tooling/acquisition means incomplete; documented absence of a non-applicable source surface may mean not-applicable; a completed soft warning remains nonblocking. List these exact existing cases in the profile contract before declaring them supported. Delegated lint/manual rules are not newly audited by this command.
+ 
+-Reuse structured D1/D2 from `audit-ai-docs.ts`, including the Markdown parser. Correct their acquisition boundary at the owner so absent optional inputs, unreadable directories/files and malformed JSON are distinct. Retain already found violations when another read fails. Validate AGENTS.md as required for declarations; absent optional config files are not findings. Existing `.ai-factory/` directories that cannot be enumerated are incomplete. Reuse the role's existing declared-rule-file existence obligation through structured Markdown extraction; do not retain the weaker awk/grep as a second normative checker. Preserve duplicate provenance without counting the same D1/D2 finding twice across main and auxiliary paths.
++Reuse structured D1/D2 from `audit-ai-docs.ts`, including the Markdown parser. For this command, they are the sole normative D1/D2 checks. Add a bounded `--structured-drift-external` option at the existing base-shell owner that omits exactly its legacy D1/D2 checks; the command supplies it and Next/SPA forward it to their single nested base call. Expected shell population excludes those two checks in this mode; the structured results fill their slots. Existing shell invocation without that option retains its behavior. Do not merely filter legacy FAIL lines after execution: that leaves their exit and weak predicates in authority. A legacy D1/D2 record unexpectedly emitted in external mode is a contract error. All remaining shell FAIL findings retain the exit/error rules above.
++
++Correct structured acquisition at the owner so absent optional inputs, unreadable directories/files and malformed JSON are distinct. Retain already found violations when another read fails. Validate AGENTS.md as required for declarations; absent optional config files are not findings. Existing `.ai-factory/` directories that cannot be enumerated are incomplete. Reuse the role's existing declared-rule-file existence obligation through structured Markdown extraction; do not retain the weaker awk/grep as a second normative checker. The native unsupported-main branch still runs structured auxiliaries. Tests must distinguish a real missing skill from a fenced/removed skill mention, including nested wrappers and the shell's effective exit.
+ 
+ Do not resolve uncertain probe semantics by guessing. Mark that check incomplete and keep the gap visible. No new semantic coverage or wholesale shell-to-TS port is part of D0. If an old probe's silent acquisition cannot be bounded externally, a narrowly scoped owner fix or explicit incomplete result is required before that check can be called complete.
+ 
+@@ -82,7 +87,7 @@ Extend existing `tests/living-docs-auditor/runtime.test.mjs` to exercise the act
+ 
+ | Case | Required observation |
+ | --- | --- |
+-| Controlled clean installed layout for each admitted profile | Correct root/runner/probe population, completed work, exit 0; real runner, not only a stub. |
++| Controlled clean installed layout for base/Next/SPA | Correct root/runner/probe population, completed work, exit 0; real runner, not only a stub. RN has an explicit incomplete control instead. |
+ | Missing declared skill/rule or actual probe violation | Intended identity/location/severity appears; unrelated stderr cannot satisfy the assertion. |
+ | Clean and debt-bearing JSON, negative/code-fence mentions | Structured parser discriminates; no regex substring false-positive substitute. |
+ | Malformed/unreadable JSON or unreadable directory plus known violation | Exit 2, completeness false, original violation retained. Test real read failure with appropriate permissions/controlled IO boundary; root-readable chmod alone is not evidence. |
+diff --git a/.claude/orchestrator-prompts/deterministic-core/kickoff.md b/.claude/orchestrator-prompts/deterministic-core/kickoff.md
+index 9cd410b2f0f..393666e699d 100644
+--- a/.claude/orchestrator-prompts/deterministic-core/kickoff.md
++++ b/.claude/orchestrator-prompts/deterministic-core/kickoff.md
+@@ -4,6 +4,8 @@
+ > **Authoritative for:** decomposition, stage boundaries and acceptance of feature `deterministic-core` under the agreed specification.
+ > **NOT authoritative for:** product intent, architecture requirements, execution choreography, runtime activation or permission to implement. Those remain with the PRD, agreed design, existing procedures and operator.
+ 
++Rigor label (L0): `research-grade` — reusable consumer-shipped mechanics and their independent assurance; reuse completed research and keep verification scoped to selected obligations.
++
+ ## §0 Authority and cold start
+ 
+ Read these inputs before planning a stage:

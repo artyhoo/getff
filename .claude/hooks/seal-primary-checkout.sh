@@ -1,0 +1,1 @@
+../../.agents/hooks/seal-primary-checkout.sh

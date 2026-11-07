@@ -1,0 +1,14 @@
+{
+  "featureId": "deterministic-core",
+  "decision": "approved",
+  "approvedSha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326",
+  "snapshotRef": {
+    "path": "/Users/art/.codex/worktrees/e220/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326.md",
+    "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+  },
+  "approvalRecordRef": {
+    "path": "/Users/art/.codex/worktrees/e220/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-approval.json",
+    "sha256": "7de1d887212aabbef1a2a7f05511157de94f99a18e780866ad7cd643d260e7b4"
+  },
+  "approver": "Codex under explicit operator-delegated product-brief approval"
+}

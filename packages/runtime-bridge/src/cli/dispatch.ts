@@ -57,6 +57,7 @@ import { buildKickoffSpec } from '../kickoff.js';
 import { checkDedup, recordDispatch } from '../idempotency.js';
 import { resolveBackend } from '../resolver.js';
 import { ManualBackend } from '../ManualBackend.js';
+import { enforceKickoffAdmission, enforceScope } from '../resultReview.js';
 import { BackendError, type BackendErrorCode } from '../backend.js';
 
 /** True when --force is passed: skip the dedup check and re-dispatch deliberately. */
@@ -65,7 +66,9 @@ export function dispatchUsesForce(argv: readonly string[]): boolean {
 }
 
 /** First non-flag argument (the kickoff path) — lets --force sit anywhere in argv. */
-export function resolveKickoffPath(argv: readonly string[]): string | undefined {
+export function resolveKickoffPath(
+  argv: readonly string[],
+): string | undefined {
   return argv.find((a) => !a.startsWith('--'));
 }
 
@@ -123,7 +126,10 @@ export function runPreflight(env: NodeJS.ProcessEnv = process.env): void {
   const cmd = env['RUNTIME_BRIDGE_PREFLIGHT'];
   if (!cmd) return;
   try {
-    const r = spawnSync('bash', ['-c', cmd], { encoding: 'utf8', timeout: 150_000 });
+    const r = spawnSync('bash', ['-c', cmd], {
+      encoding: 'utf8',
+      timeout: 150_000,
+    });
     if (r.stdout) process.stderr.write(r.stdout);
     if (r.stderr) process.stderr.write(r.stderr);
     if (r.status !== 0) {
@@ -132,7 +138,9 @@ export function runPreflight(env: NodeJS.ProcessEnv = process.env): void {
       );
     }
   } catch (err) {
-    process.stderr.write(`[runtime-bridge] preflight error: ${err} — proceeding with dispatch\n`);
+    process.stderr.write(
+      `[runtime-bridge] preflight error: ${err} — proceeding with dispatch\n`,
+    );
   }
 }
 
@@ -144,7 +152,9 @@ async function main(): Promise<void> {
   if (!kickoffPath) {
     // A6-2: a caller defect, not a dispatch outcome — never exit 0 (the hook does not
     // read this status; /dispatcher, /pipeline and operators do).
-    process.stderr.write('[runtime-bridge] dispatch.ts: no kickoff path provided\n');
+    process.stderr.write(
+      '[runtime-bridge] dispatch.ts: no kickoff path provided\n',
+    );
     process.exit(1);
   }
 
@@ -158,7 +168,9 @@ async function main(): Promise<void> {
   } catch (err) {
     // A6-2: an unreadable/mistyped kickoff path is fixable by the caller and must be
     // visible in $? — exit 0 made a missing file look like a completed dispatch.
-    process.stderr.write(`[runtime-bridge] Failed to read kickoff ${kickoffPath}: ${err}\n`);
+    process.stderr.write(
+      `[runtime-bridge] Failed to read kickoff ${kickoffPath}: ${err}\n`,
+    );
     process.exit(1);
   }
 
@@ -166,6 +178,32 @@ async function main(): Promise<void> {
     // bridge: skip marker — silent exit. (Manual-path opt-out only: the hook
     // layer never reaches here without a `bridge: auto` first line, kickoff §7.)
     process.exit(0);
+  }
+
+  // ── Step 1.5: Declared intent scope (intent-first-result) ─────────────────
+  // A kickoff may carry a fenced `intent-contract` block binding its product scope.
+  // Validate BEFORE the dedup gate so a seeded dedup entry can never report success
+  // for work the scope check refused, and regardless of --force: force re-dispatches
+  // deliberately, it never bypasses validation. Rejection is spec_invalid — the same
+  // abort-loudly class as a bad bridge-profile below (no fallback, no /tmp artefact).
+  try {
+    enforceKickoffAdmission(kickoff, 'dispatch');
+    enforceScope(kickoff.content, 'dispatch');
+  } catch (err) {
+    if (err instanceof BackendError) {
+      process.stderr.write(
+        `[runtime-bridge] ABORTED — the declared intent scope is invalid, so no task was ` +
+          `created and nothing was written to /tmp. Fix the kickoff (${kickoff.filePath}) ` +
+          `or the intent owner configuration and re-run.\n` +
+          `[runtime-bridge] dispatch (${err.code}): ${err.message}\n`,
+      );
+      outputContext(
+        `[runtime-bridge] ABORTED (${err.code}): ${err.message} — no aif task was created, ` +
+          `no /tmp artefact written. Fix the declared scope and re-dispatch.`,
+      );
+      process.exit(2);
+    }
+    throw err;
   }
 
   // ── Step 2: Idempotency check (skipped under --force) ─────────────────────
@@ -229,7 +267,9 @@ async function main(): Promise<void> {
       try {
         handle = await backend.dispatch(kickoff);
       } catch (manualErr) {
-        process.stderr.write(`[runtime-bridge] ManualBackend dispatch failed: ${manualErr}\n`);
+        process.stderr.write(
+          `[runtime-bridge] ManualBackend dispatch failed: ${manualErr}\n`,
+        );
         process.exit(0);
       }
     } else {
@@ -243,7 +283,9 @@ async function main(): Promise<void> {
       // is actually read, and exit non-zero for the direct callers (/dispatcher,
       // /pipeline, operators). The hook still never propagates this status, so
       // the "injection, never gate" contract is untouched.
-      process.stderr.write(`[runtime-bridge] Dispatch error (unexpected): ${err}\n`);
+      process.stderr.write(
+        `[runtime-bridge] Dispatch error (unexpected): ${err}\n`,
+      );
       outputContext(
         `[runtime-bridge] UNEXPECTED internal error — NO task was dispatched and nothing was ` +
           `written to /tmp: ${err instanceof Error ? err.message : String(err)}. ` +
@@ -262,7 +304,8 @@ async function main(): Promise<void> {
   }
 
   // Human-facing UI (the board), NOT the :3009 REST API (which returns raw JSON).
-  const webBase = process.env['RUNTIME_BRIDGE_AIF_WEB_URL'] ?? 'http://localhost:5180';
+  const webBase =
+    process.env['RUNTIME_BRIDGE_AIF_WEB_URL'] ?? 'http://localhost:5180';
   const projectId = process.env['RUNTIME_BRIDGE_AIF_PROJECT_ID'];
   const uiUrl = projectId ? `${webBase}/projects/${projectId}` : webBase;
   const msg =
@@ -292,7 +335,10 @@ async function main(): Promise<void> {
  * the kickoff as an implementation spec — a meta-plan yields no code. Deterministic,
  * conservative (path marker OR ≥2 orchestration section markers).
  */
-function isOrchestrationKickoff(kickoff: { umbrellaName: string; content: string }): boolean {
+function isOrchestrationKickoff(kickoff: {
+  umbrellaName: string;
+  content: string;
+}): boolean {
   if (kickoff.umbrellaName.endsWith('-meta-launch')) return true;
   const markers = [
     /^#+\s*§?\d*\.?\s*Launch-table/im,

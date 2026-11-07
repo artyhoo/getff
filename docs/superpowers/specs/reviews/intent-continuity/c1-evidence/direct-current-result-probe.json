@@ -1,0 +1,20 @@
+[
+  {
+    "case": "current-negative",
+    "exit": 2,
+    "stdout": "{\"ok\":false,\"code\":\"review_not_matching\",\"reason\":\"review outcome needs-evidence does not authorize continuation\"}",
+    "stderr": ""
+  },
+  {
+    "case": "changed-revision",
+    "exit": 2,
+    "stdout": "{\"ok\":false,\"code\":\"stale_review\",\"reason\":\"review observedRevision ecafc4c7dd1d8028f22f6d03a5bdbc8d1749e7610a375585bdfdeba047bab0d2 is behind the current binding 0000000000000000000000000000000000000000000000000000000000000000\"}",
+    "stderr": ""
+  },
+  {
+    "case": "scoped-repair",
+    "exit": 0,
+    "stdout": "{\"ok\":true}",
+    "stderr": ""
+  }
+]

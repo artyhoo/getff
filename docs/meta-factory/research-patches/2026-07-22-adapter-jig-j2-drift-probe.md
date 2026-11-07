@@ -4,7 +4,7 @@
 **Date:** 2026-07-22
 **Umbrella:** `worktree-adapter-jig-j2` (base `staging`)
 **Binding design:** [`docs/superpowers/specs/2026-07-22-adapter-jig-design.md`](../../superpowers/specs/2026-07-22-adapter-jig-design.md) §6 (fork DN-J1) + §9 J2 ("the retrofit-run DOUBLES as the lane-glue drift probe").
-**Decisions SSOT:** [`j2.decisions.md`](../../../.claude/orchestrator-prompts/adapter-jig-meta-launch/j2.decisions.md) #1 (verdict recorded during the run; this patch is its measured backstop).
+**Decisions SSOT:** the run's `j2.decisions.md` #1 (consumed and deleted 2026-10-05; the surviving decision record is the spec's «Recorded resolution» at `2026-07-22-adapter-jig-design.md:296` + the umbrella record `adapter-jig-meta-launch/done.md`; this patch is the verdict's measured backstop).
 
 ## Problem
 
@@ -55,7 +55,7 @@ delivered filenames → `FILE`), then compare. Data captured at HEAD (662 LOC py
 This does **not** clear the 2B-standardize 85%-byte-identical bar (there: `zcode-parity-doctrine.md`
 §3, ~85% twins; here: two 7-line primitives). Extracting a cell library would be
 `#integration-overhead-overestimate`. **Verdict: per-lane glue + the 22-arm conformance suite as
-designed** — matching the spec §6 recorded default and j2.decisions.md #1. (This line-level measure is
+designed** — matching the spec §6 recorded default and j2.decisions.md #1 (consumed; quoted estimate preserved in the previous sentence). (This line-level measure is
 more pessimistic than the decision-log's cell-level "~51% shared" estimate; both metrics reach the
 identical verdict — neither clears 85% — so the resolution is robust to metric choice.)
 
@@ -81,8 +81,8 @@ measurement (numbers, not vibes) so the fork is paid once.
   research-patch inherits the folder README's authority, so no per-file header is required.
 - **Backward-check (sibling sweep — class = recorded architecture forks resolved by measurement):**
   the DN-J1 verdict (per-lane glue) is consistent with, not a contradiction of, the spec §6 recorded
-  default and [`j2.decisions.md`](../../../.claude/orchestrator-prompts/adapter-jig-meta-launch/j2.decisions.md)
-  #1; it supersedes nothing. The sibling fork DN-J2 (dry-stamp rehearsal) was already superseded by
+  default and the j2.decisions.md #1 verdict (consumed — surviving record: spec «Recorded resolution»
+  :296); it supersedes nothing. The sibling fork DN-J2 (dry-stamp rehearsal) was already superseded by
   the J3 demand trigger (spec §9), not by this patch. No other fork surface is silently normalized.
 - **Self-application (T15):** the jig exists to catch template-shaped twin drift by *measuring*, not
   assuming; this patch applies that same discipline to the jig's own build-vs-standardize decision —

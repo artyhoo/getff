@@ -42,7 +42,7 @@ OUT=$(globs "$T"); RC=$?
 [ "$RC" = "0" ] \
   && ok "marker holds (declarative repo, no boundary) → check:globs PASSES instead of the red alarm" \
   || bad "marker-holds case exited $RC (expected 0). out: $(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
-printf '%s' "$OUT" | grep -qiE 'R2 .*N/A.*precondition holds' \
+grep -qiE 'R2 .*N/A.*precondition holds' <<<"$OUT" \
   && ok "marker-holds prints the 'R2 N/A — precondition holds' note" \
   || bad "no 'precondition holds' note (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
 
@@ -53,7 +53,7 @@ OUT=$(globs "$T"); RC=$?
 [ "$RC" = "1" ] \
   && ok "NEG: marker present but a parse boundary now exists → check:globs FAILS (stale-marker alarm)" \
   || bad "NEG: stale marker did not fail the gate (rc=$RC) — N/A would be a permanent off-switch"
-printf '%s' "$OUT" | grep -qiE 'marked N/A.*but a parse boundary now exists' \
+grep -qiE 'marked N/A.*but a parse boundary now exists' <<<"$OUT" \
   && ok "NEG: stale-marker FAIL names the broken precondition" \
   || bad "NEG: no stale-marker message (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
 
@@ -68,7 +68,7 @@ OUT=$(globs "$T"); RC=$?
 enforced() { ( cd "$1" && ESLINT_CONFIG="$1/eslint.config.mjs" bash scripts/check-rule-enforced.sh ) 2>&1; }
 T=$(mkproj); write_marker "$T"
 OUT=$(enforced "$T"); RC=$?
-{ [ "$RC" = "0" ] && printf '%s' "$OUT" | grep -qiE 'N/A.*precondition holds'; } \
+{ [ "$RC" = "0" ] && grep -qiE 'N/A.*precondition holds' <<<"$OUT"; } \
   && ok "check:enforced honors the marker (holds → PASS) — two gates, one marker" \
   || bad "check:enforced diverged from check:globs on a holding marker (rc=$RC: $(printf '%s' "$OUT" | tr '\n' '|'))"
 # NEG: same marker, boundary now exists → check:enforced also stale-FAILs.
@@ -77,5 +77,56 @@ OUT=$(enforced "$T"); RC=$?
 [ "$RC" = "1" ] \
   && ok "NEG: check:enforced also stale-FAILs when the precondition breaks (consistent with check:globs)" \
   || bad "NEG: check:enforced stayed green on a broken precondition (rc=$RC) — gates diverged"
+
+# ── no-boundary-yet (P2 K2): no framework, no zod, no boundary → the marker holds in both gates ──
+nby() { local d; d=$(mkproj); printf '{"name":"x","version":"0.0.0"}\n' > "$d/package.json"; printf '%s' "$d"; }
+write_marker_yet() { # $1 dir — the block 60-ci writes for no-boundary-yet
+  cat >> "$1/.ai-factory/tool-decisions.md" <<'MARK'
+
+<!-- aif:r2-na:begin -->
+### R2 (no-unsafe-zod-parse) — N/A until an HTTP boundary appears (auto-recorded by install.sh)
+**Verdict:** N/A — no HTTP boundary yet.
+<!-- aif:r2-na:end -->
+MARK
+}
+T=$(nby); write_marker_yet "$T"
+OUT=$(globs "$T"); RC=$?
+{ [ "$RC" = "0" ] && grep -qiE 'R2 .*N/A.*precondition holds' <<<"$OUT"; } \
+  && ok "no-boundary-yet: the marker holds → check:globs PASSES" \
+  || bad "no-boundary-yet: check:globs rc=$RC (out: $(printf '%s' "$OUT" | tail -3 | tr '\n' '|'))"
+OUT=$(enforced "$T"); RC=$?
+{ [ "$RC" = "0" ] && grep -qiE 'N/A.*precondition holds' <<<"$OUT"; } \
+  && ok "no-boundary-yet: check:enforced honours the same marker" \
+  || bad "no-boundary-yet: check:enforced rc=$RC (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
+# The first boundary file ends the waiver with no human step: the gate judges R2's globs as usual —
+# green here (the default globs cover routes/), and it says the N/A no longer applies.
+mkdir -p "$T/src/routes"; echo 'export const r = 1;' > "$T/src/routes/users.ts"
+OUT=$(globs "$T"); RC=$?
+{ [ "$RC" = "0" ] && grep -q 'no longer holds' <<<"$OUT" && grep -q 'R2 no-unsafe-zod-parse (RULE_GLOBS.boundary): matches' <<<"$OUT"; } \
+  && ok "no-boundary-yet + a routes/ file → the N/A stops applying, R2's globs are checked as usual (green: covered)" \
+  || bad "no-boundary-yet + boundary: rc=$RC (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
+OUT=$(AIF_ESLINT_CMD=true enforced "$T"); RC=$?
+{ [ "$RC" = "0" ] && ! grep -q 'stale R2 N/A marker' <<<"$OUT"; } \
+  && ok "no-boundary-yet + a boundary → check:enforced falls through to its usual check (no stale-marker FAIL)" \
+  || bad "no-boundary-yet + boundary: check:enforced rc=$RC (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
+# NEG: a boundary the default globs do not cover → today's red «matches ZERO», not a false green.
+T=$(nby); write_marker_yet "$T"
+mkdir -p "$T/src/api"; echo 'export const h=(b)=>schema.parse(b);' > "$T/src/api/x.ts"
+OUT=$(globs "$T"); RC=$?
+{ [ "$RC" = "1" ] && grep -q 'matches ZERO source files' <<<"$OUT"; } \
+  && ok "NEG: no-boundary-yet + an uncovered parse boundary → check:globs FAILS as for any uncovered boundary" \
+  || bad "NEG: uncovered boundary after no-boundary-yet: rc=$RC (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
+# NEG: zod added (still no boundary) → ambiguous → today's red: the default globs match nothing.
+T=$(nby); write_marker_yet "$T"; printf '{"name":"x","version":"0.0.0","dependencies":{"zod":"^3.23.0"}}\n' > "$T/package.json"
+{ globs "$T" >/dev/null; [ $? = 1 ]; } \
+  && ok "NEG: no-boundary-yet + zod declared later → check:globs FAILS (ambiguous is red)" \
+  || bad "NEG: zod appeared and check:globs stayed green"
+# NEG (load-bearing): the DECLARATIVE marker keeps its stale-marker alarm — only the no-boundary-yet
+# wording ends quietly.
+T=$(mkproj); write_marker "$T"; mkdir -p "$T/src/routes"; echo 'export const r = 1;' > "$T/src/routes/users.ts"
+OUT=$(globs "$T"); RC=$?
+{ [ "$RC" = "1" ] && grep -qiE 'marked N/A.*parse boundary now exists' <<<"$OUT"; } \
+  && ok "NEG: a declarative N/A + a boundary → still the stale-marker FAIL" \
+  || bad "NEG: declarative marker went quiet on a boundary (rc=$RC)"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

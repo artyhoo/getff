@@ -31,9 +31,9 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const PRELUDE = resolve(REPO_ROOT, '.claude/hooks/lib/hook-emit.sh');
+const PRELUDE = resolve(REPO_ROOT, '.agents/hooks/lib/hook-emit.sh');
 const PLUGIN_PRELUDE = resolve(REPO_ROOT, 'plugin/hooks/lib/hook-emit.sh');
-const HOOKS_DIR = resolve(REPO_ROOT, '.claude/hooks');
+const HOOKS_DIR = resolve(REPO_ROOT, '.agents/hooks');
 
 /**
  * Gates that CANNOT source the prelude, with the reason. Both are copied to a consumer

@@ -74,4 +74,34 @@ else
 fi
 chmod 644 "$T/src.md"; rm -rf "$T"
 
+# (D) Backup failure refuses both root AGENTS and skill-context replacements.
+# A regular file blocks the conflicts directory without relying on uid/permissions.
+for kind in agents skill; do
+  T=$(mktemp -d); PROJECT_ROOT="$T"; SKIPPED=()
+  mkdir -p "$T/.ai-factory"; printf 'blocked\n' > "$T/.ai-factory/refresh-conflicts"
+  if [ "$kind" = agents ]; then
+    src="$REPO_ROOT/packages/core/templates/shared/AGENTS.md.template"
+    install_agents_md "$src" "$T/AGENTS.md" >/dev/null 2>&1
+    dst="$T/AGENTS.md"
+  else
+    src="$REPO_ROOT/packages/core/templates/shared/skill-context/aif-review/SKILL.md"
+    dst="$T/aif-review/SKILL.md"
+    install_skill_context "$src" "$dst" >/dev/null 2>&1
+  fi
+  printf '\nCONSUMER-EDIT\n' > "$T/edit"
+  awk '/<!-- getff:end / { print "CONSUMER-EDIT" } { print }' "$dst" > "$T/new"
+  mv "$T/new" "$dst"; cp "$dst" "$T/before"
+  if [ "$kind" = agents ]; then
+    install_agents_md "$src" "$dst" > "$T/out" 2>&1
+  else
+    install_skill_context "$src" "$dst" > "$T/out" 2>&1
+  fi
+  cmp -s "$T/before" "$dst" && ok "D/$kind: backup failure keeps active bytes" || bad "D/$kind: backup failure destroys active bytes"
+  grep -q 'REFUSING' "$T/out" && ok "D/$kind: refusal fact line" || bad "D/$kind: no refusal fact line"
+  has_skipped "$dst" && ok "D/$kind: recorded in SKIPPED" || bad "D/$kind: missing SKIPPED"
+  [ ! -e "$dst.getff.tmp" ] && ok "D/$kind: temporary splice removed" || bad "D/$kind: stale temporary splice"
+  grep -q 'replaced)' "$T/out" && bad "D/$kind: false success" || ok "D/$kind: no false success"
+  rm -rf "$T"
+done
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

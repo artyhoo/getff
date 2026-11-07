@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "featureId": "intent-continuity",
+  "resultId": "c1-result-continuity",
+  "mode": "produce",
+  "brief": {
+    "path": "docs/superpowers/specs/snapshots/intent-continuity/f1a42d1c375b9f4b96dc662da714ed9abf54885fa93716b847d65d0cd7a7ee2a.md",
+    "sha256": "f1a42d1c375b9f4b96dc662da714ed9abf54885fa93716b847d65d0cd7a7ee2a"
+  },
+  "shared": [
+    {
+      "path": "docs/superpowers/specs/snapshots/intent-continuity/design-31000fc2b2bd0fc2c98f7315ec011660be9767a7e5be9cbfdc306fa334bbd078.md",
+      "sha256": "31000fc2b2bd0fc2c98f7315ec011660be9767a7e5be9cbfdc306fa334bbd078"
+    }
+  ],
+  "essentialPromiseIds": [
+    "IC-P6"
+  ]
+}

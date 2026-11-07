@@ -8,7 +8,8 @@
 > (1) umbrella-closure `done.md` convention, (2) promote staging→main mechanics,
 > (3) `git update-ref` worktree-desync hazard, (4) meta-orchestrator self-review obligation —
 > plus (5) §4, the `disable-model-invocation` invocation-channel contract (added 2026-09-08);
-> §4's canonical line is the SSOT every carrier `SKILL.md` copies verbatim.
+> §4's canonical line is the SSOT every carrier `SKILL.md` copies verbatim — and (6) §5, the
+> capture-a-runner-only-value route (added 2026-10-01; kickoff STOP-lines cite it).
 >
 > **NOT authoritative for:** project goal — see
 > [README.md#why-this-exists](../../README.md#why-this-exists). AI-tooling conventions,
@@ -99,6 +100,10 @@ Before any `/meta-orchestrator` session hands off a meta-kickoff to an orchestra
 _Falsifier:_ wrong if the live reference ever states that a `disable-model-invocation` skill's body must not be read or hand-executed, or if the operator declares a specific skill operator-execution-only — in which case that prohibition belongs in that skill's own §0, stated as an operator rule, never inferred from the flag.
 
 **Why this is written down.** The (c) half was missing everywhere and was misread twice, both times costing autonomy: 2026-05-24 (`D3-MAJOR`, the flag described as a depth/recursion guard) and 2026-09-08, when a handoff memory told the next session that `/harvest` was «агенту недоступен» and that reproducing the procedure by hand would be «нарушение, а не смекалка». That session stopped and waited for the operator on work it could have finished. Prose alone had already failed once, so the canonical line above is byte-gated at three channels (`npm run check:skill-drift` → `.husky/pre-push` → `packages/core/principles/14-skill-drift-detection.test.ts`); what stays prose is the _reasoning_ in this section, which no gate can carry.
+
+## §5 Capturing a runner-only value
+
+To get a value only the CI runner produces (a pinned tool's real stdout, a version string, an env-dependent path), run [`scripts/ci-capture.sh`](../../scripts/ci-capture.sh) `<test-file> <label> <snippet>`: it pushes a throwaway `chore/ci-capture-*` branch with a `===XCAP <label>===`-wrapped print in a test file a job already runs, returns the lines between the markers, and deletes the branch. Never edit a workflow for this and never escalate it as a scope waiver — `audit-self.yml` already runs on `push` to `chore/**`. Choose the test file by the job that runs it, and check that the tool's install step precedes it in the same job; expect the capture to falsify an assumption, not only fill a blank (precedent: capture run `31132752600` exposed the object-vs-array stdout defect fixed in PR #1240).
 
 ## See also
 

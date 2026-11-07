@@ -1,0 +1,12 @@
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index c536be64bd5..0cbdd1054e7 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -1,6 +1,6 @@
+ # Contributing to rules-as-tests-aif
+ 
+-> **Authoritative for:** contributor workflow — local setup (hooks installation), what pre-commit / pre-push hooks check, capability-commit definition + Prior-art trailer convention, bypass policy.
++> **Authoritative for:** contributor workflow — local setup (hooks installation), what pre-commit / pre-push hooks check, capability-commit definition + Prior-art trailer convention, bypass policy, everyday merge loop.
+ > **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). AI-tooling conventions (read-first, Artifact Ownership Contract) — see [CLAUDE.md](CLAUDE.md).
+ 
+ ## Local setup

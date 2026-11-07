@@ -1,5 +1,3 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-const createRule = ESLintUtils.RuleCreator(() => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.react-next.md#r12--server-vs-client-components`);
 const FORBIDDEN_EXACT = new Set(['fs', 'node:fs', 'node:crypto', 'node:path']);
 function isServerOnlyImport(spec) {
     if (FORBIDDEN_EXACT.has(spec))
@@ -13,19 +11,26 @@ function isServerOnlyImport(spec) {
 function isExempt(line) {
     return line.includes('// audit:exempt');
 }
-function fileHasUseClient(lines) {
-    for (let i = 0; i < Math.min(3, lines.length); i++) {
-        const line = lines[i] ?? '';
-        if (/^\s*['"]use client['"]\s*;?\s*$/.test(line))
+// A directive prologue is the leading run of string-literal expression statements; comments
+// and whitespace are trivia and never enter the AST, so a directive after a license-header
+// comment block is honored here (SWEEP-4 §4.2) while one following real code is not.
+function directivePrologueHasUseClient(body) {
+    for (const stmt of body) {
+        if (stmt.type !== 'ExpressionStatement')
+            return false;
+        const expr = stmt.expression;
+        if (expr.type !== 'Literal' || typeof expr.value !== 'string')
+            return false;
+        if (expr.value === 'use client')
             return true;
     }
     return false;
 }
-export const noServerImportsInClient = createRule({
-    name: 'no-server-imports-in-client',
+export const noServerImportsInClient = {
     meta: {
         type: 'problem',
         docs: {
+            url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.react-next.md#r12--server-vs-client-components`,
             description: "Forbid imports of server-only modules (infrastructure, config/env, fs, node:fs/crypto/path) in files marked 'use client' (R12).",
         },
         messages: {
@@ -37,7 +42,7 @@ export const noServerImportsInClient = createRule({
     create(context) {
         const sourceCode = context.sourceCode;
         const lines = sourceCode.lines;
-        const isClientFile = fileHasUseClient(lines);
+        const isClientFile = directivePrologueHasUseClient(sourceCode.ast.body);
         if (!isClientFile)
             return {};
         return {
@@ -56,4 +61,4 @@ export const noServerImportsInClient = createRule({
             },
         };
     },
-});
+};

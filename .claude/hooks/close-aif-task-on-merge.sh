@@ -1,0 +1,1 @@
+../../.agents/hooks/close-aif-task-on-merge.sh

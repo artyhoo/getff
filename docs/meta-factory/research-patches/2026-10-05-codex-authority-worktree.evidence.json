@@ -1,0 +1,65 @@
+{
+  "scope": "Current checkout bounded native authority gate and independently reviewed worktree ready-command integration; no whole-workflow parity claim.",
+  "root": "/Users/art/.codex/worktrees/0479/rules-as-tests-aif",
+  "updated": "2026-10-05T09:51:19+03:00",
+  "fullWorkflowParity": false,
+  "authorityHeader": {
+    "threadId": "01a10acc-0433-7f11-996a-c17376439e9c",
+    "receipt": {
+      "id": "post-tool-use:7:/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json:exec-5b28efd5-81f0-4013-8533-bda3fb756f66",
+      "eventName": "postToolUse",
+      "handlerType": "command",
+      "executionMode": "sync",
+      "scope": "turn",
+      "sourcePath": "/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json",
+      "source": "plugin",
+      "displayOrder": 7,
+      "status": "blocked",
+      "statusMessage": null,
+      "startedAt": 1791182520,
+      "completedAt": 1791182520,
+      "durationMs": 302,
+      "entries": [
+        {
+          "kind": "feedback",
+          "text": "FAIL  .claude/rules/codex-native-authority-probe.md: missing \"> **Authoritative for:**\" header \u2014 see .claude/rules/doc-authority-hierarchy.md \u00a73"
+        }
+      ]
+    },
+    "assistantReceivedFeedback": true,
+    "turnCompleted": true,
+    "probeRemoved": true,
+    "rawTrace": "/Users/art/.codex/visualizations/2026/10/05/01a10ac0-a2a5-7380-aeef-dda62700d222/codex-parity-evidence/native-authority.jsonl",
+    "limits": "Successful apply_patch to one selected rule path. Failed writes, cancellation and other effect channels remain open."
+  },
+  "worktreeReadyCommand": {
+    "patchSha256": "eedca9290766f7f0f936cbb82c3d41a8dfa43bb0e9ed8be65572abf206e8d077",
+    "review": "GO",
+    "reviewReport": "/Users/art/.codex/visualizations/2026/10/05/01a10ac0-a2a5-7380-aeef-dda62700d222/codex-parity-evidence/getff-work-cold-review.md",
+    "integrated": true,
+    "manifest": {
+      "preimageSha256": {
+        "scripts/getff-work.sh": "86dacb69569030bb28b65ef8ef6322644676fceaf590ce3df65824e9aa23d49f",
+        "packages/core/hooks/getff-work.test.ts": "2b01ff1b28a86b6f77c2ddc28779409aa9a6d06233c6742292e8c7323bbe1d80"
+      },
+      "postimageSha256": {
+        "scripts/getff-work.sh": "6e93bd43540cd691c6513e2692b779bf3f7b2ee36b9e956ef3a33c8b3cd97fcb",
+        "packages/core/hooks/getff-work.test.ts": "d7d45f932b3b15ff08525ea68ffcdbf4203e51b559da4f8ae2af92c9fc332e74"
+      },
+      "realCheckoutPreimagesUnchanged": {
+        "scripts/getff-work.sh": true,
+        "packages/core/hooks/getff-work.test.ts": true
+      }
+    },
+    "verification": {
+      "command": "node_modules/.bin/vitest run packages/core/hooks/getff-work.test.ts -t CODEX-READY-TEMP",
+      "exitCode": 0,
+      "passed": 2,
+      "skipped": 10,
+      "durationSeconds": 3.05,
+      "bashSyntaxExitCode": 0,
+      "indexPreserved": true
+    },
+    "limits": "Temp-consumer ready-command selection and shell argument parsing. Contributor source distribution, destination native discovery and session launch remain open."
+  }
+}

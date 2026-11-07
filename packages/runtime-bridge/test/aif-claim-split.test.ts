@@ -10,7 +10,7 @@
  * standing (the caller owns the decision), while dispatch() still cancels it — the
  * pre-split behaviour that aif-rest-dispatch.test.ts pins.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AifHandoffBackend } from '../src/AifHandoffBackend.js';
 import { ManualBackend } from '../src/ManualBackend.js';
 import { supportsClaims } from '../src/backend.js';
@@ -90,7 +90,12 @@ const backend = (): AifHandoffBackend =>
     projectId: 'proj-uuid',
   });
 
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -261,6 +266,12 @@ describe('dispatch() — composed from the two halves, old semantics kept', () =
           return Promise.resolve(
             new Response(JSON.stringify({ id: 'task-123' }), { status: 201 }),
           );
+        }
+        if (method === 'GET' && url.endsWith('/tasks/task-123')) {
+          // release() re-reads the persisted description before the unpause
+          // (intent-first-result scope check) — an unscoped row, so the PUT below
+          // remains the failing effect this arm is about.
+          return Promise.resolve(new Response(JSON.stringify({ id: 'task-123' }), { status: 200 }));
         }
         return Promise.resolve(new Response('nope', { status: 400 }));
       },

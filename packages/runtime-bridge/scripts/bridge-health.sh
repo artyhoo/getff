@@ -23,7 +23,28 @@
 set -uo pipefail
 
 # ── CONFIG (env-overridable; sensible defaults) ──────────────────────────────
-AGENT_CONTAINER="${RUNTIME_BRIDGE_AGENT_CONTAINER:-$(docker ps --filter 'name=agent' --format '{{.Names}}' 2>/dev/null | grep -i aif | head -1)}"
+# Which container, on which docker context: the shared resolver used by the aif-doctor helpers and
+# the dispatcher's in-flight probe (.claude/skills/aif-doctor/helpers/aif-agent-target.sh). Only an
+# UNAMBIGUOUS candidate is used; a candidate on another docker context is reached via DOCKER_CONTEXT.
+_health_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+while [ "$_health_root" != / ] && [ ! -f "$_health_root/.agents/procedures/aif-doctor/helpers/aif-agent-target.sh" ] && [ ! -f "$_health_root/.claude/skills/aif-doctor/helpers/aif-agent-target.sh" ]; do
+  _health_root="$(dirname "$_health_root")"
+done
+_aif_agent_target="$_health_root/.agents/procedures/aif-doctor/helpers/aif-agent-target.sh"
+[ -f "$_aif_agent_target" ] || _aif_agent_target="$_health_root/.claude/skills/aif-doctor/helpers/aif-agent-target.sh"
+AGENT_CONTAINER="${RUNTIME_BRIDGE_AGENT_CONTAINER:-}"
+AGENT_LOOKUP=""
+if [[ -z "$AGENT_CONTAINER" && -f "$_aif_agent_target" ]]; then
+  # shellcheck disable=SC1090  # path resolved at runtime from this script's location
+  . "$_aif_agent_target"
+  if aif_agent_resolve; then
+    AGENT_CONTAINER="$AIF_AGENT_NAME"
+    [[ -n "$AIF_AGENT_CONTEXT" ]] && export DOCKER_CONTEXT="$AIF_AGENT_CONTEXT"
+    AGENT_LOOKUP="$AIF_AGENT_NOTE"
+  else
+    AGENT_LOOKUP="$AIF_AGENT_REASON"
+  fi
+fi
 CONTAINER_REPO="${RUNTIME_BRIDGE_CONTAINER_REPO:-/home/www/rules-as-tests-aif}"
 DEDUP_PATH="${RUNTIME_BRIDGE_DEDUP_PATH:-/tmp/runtime-bridge-dedup.jsonl}"
 # park.ts probes these in order; we check the same set is reachable from inside.
@@ -44,10 +65,10 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 if [[ -z "$AGENT_CONTAINER" ]]; then
-  fail "no aif agent container detected (set RUNTIME_BRIDGE_AGENT_CONTAINER)"
+  fail "no aif agent container detected${AGENT_LOOKUP:+: $AGENT_LOOKUP} (set RUNTIME_BRIDGE_AGENT_CONTAINER)"
   exit 1
 fi
-pass "agent container = $AGENT_CONTAINER"
+pass "agent container = $AGENT_CONTAINER${AGENT_LOOKUP:+ — $AGENT_LOOKUP}"
 
 # ── 1. Container checkout clean (Finding A precheck) ─────────────────────────
 hdr "1. Container checkout clean? (dirty → dispatch 409s)"

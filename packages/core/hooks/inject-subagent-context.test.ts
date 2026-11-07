@@ -30,8 +30,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-subagent-context.sh');
-const SOURCE_DIGEST = resolve(REPO_ROOT, '.claude/hooks/inject-session-bootstrap.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/inject-subagent-context.sh');
+const SOURCE_DIGEST = resolve(REPO_ROOT, '.agents/hooks/inject-session-bootstrap.sh');
 
 // Hermetic fixture (mirrors inject-project-digest.test.ts:makeTempRepo). The hook reads its
 // digest from the `<!-- digest:start -->…<!-- digest:end -->` block of
@@ -187,7 +187,7 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     // shape (hookEventName INSIDE hookSpecificOutput is allowed by the discriminated union Uan;
     // top-level hookEventName is NOT). Regression guard: catches anyone flattening the wrapper
     // or leaking hookEventName to top level (a prior shape emitted it top-level and was silently
-    // rejected by ZCode). Precedent: inject-matching-rule.test.ts:72-105.
+    // rejected by ZCode). Precedent: inject-matching-rule.test.ts:99-132.
     const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     const json = JSON.parse(stdout);
     const allowedTopLevel = new Set([

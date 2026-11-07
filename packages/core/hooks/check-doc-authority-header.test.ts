@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/check-doc-authority-header.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/check-doc-authority-header.sh');
 
 function hasJq(): boolean {
   try {
@@ -67,7 +67,7 @@ function runHook(
   env: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
   // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode, which would flip
-  // the JSON branch and break the CC-exit-2 assertions. Mirrors deps-hash-check.test.ts:106.
+  // the JSON branch and break the CC-exit-2 assertions. Mirrors deps-hash-check.test.ts:346.
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;

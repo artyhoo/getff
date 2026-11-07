@@ -1,0 +1,146 @@
+{
+  "servers": [
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.open-and-sustainable/prismaid-mcp",
+        "description": "MCP server for prismAId AI-assisted systematic reviews and protocol conformance checking.",
+        "title": "prismAId MCP",
+        "repository": {
+          "url": "https://github.com/open-and-sustainable/prismaid",
+          "source": "github"
+        },
+        "version": "0.17.1",
+        "packages": [
+          {
+            "registryType": "oci",
+            "identifier": "ghcr.io/open-and-sustainable/prismaid-mcp:0.17.1",
+            "transport": {
+              "type": "stdio"
+            }
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-08-20T10:24:57.711085Z",
+          "publishedAt": "2026-08-20T10:24:57.711085Z",
+          "updatedAt": "2026-08-20T10:24:57.711085Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.prismatic-io/prism-mcp",
+        "description": "MCP server that wraps Prismatic's Prism CLI tool",
+        "repository": {
+          "url": "https://github.com/prismatic-io/prism-mcp",
+          "source": "github"
+        },
+        "version": "1.5.0",
+        "packages": [
+          {
+            "registryType": "npm",
+            "identifier": "@prismatic-io/prism-mcp",
+            "version": "1.5.0",
+            "transport": {
+              "type": "stdio"
+            },
+            "packageArguments": [
+              {
+                "description": "Path to the working directory for the MCP server",
+                "isRequired": true,
+                "format": "filepath",
+                "value": "{workingDirectory}",
+                "variables": {
+                  "workingDirectory": {
+                    "description": "Path to the working directory for the MCP server",
+                    "isRequired": true,
+                    "format": "filepath",
+                    "placeholder": "/path/to/code"
+                  }
+                },
+                "type": "positional",
+                "valueHint": "workingDirectory"
+              },
+              {
+                "description": "Limit tools to a specific domain. Pass 'integration' or 'component' to restrict available tools.",
+                "value": "{toolFilter}",
+                "variables": {
+                  "toolFilter": {
+                    "description": "Limit tools to a specific domain",
+                    "placeholder": "integration",
+                    "choices": [
+                      "integration",
+                      "component"
+                    ]
+                  }
+                },
+                "type": "positional",
+                "valueHint": "toolFilter"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-07-13T20:30:26.18758Z",
+          "publishedAt": "2026-07-13T20:30:26.18758Z",
+          "updatedAt": "2026-07-13T20:30:26.18758Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-16/server.schema.json",
+        "name": "io.prisma/mcp",
+        "description": "MCP server for managing Prisma Postgres.",
+        "repository": {
+          "url": "https://github.com/prisma/mcp",
+          "source": "github"
+        },
+        "version": "1.0.0",
+        "remotes": [
+          {
+            "type": "sse",
+            "url": "https://mcp.prisma.io/sse",
+            "headers": [
+              {
+                "description": "Bearer token for Prisma platform authentication",
+                "name": "Authorization"
+              }
+            ]
+          },
+          {
+            "type": "streamable-http",
+            "url": "https://mcp.prisma.io/mcp",
+            "headers": [
+              {
+                "description": "Bearer token for Prisma platform authentication",
+                "name": "Authorization"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2025-10-07T08:43:06.941629Z",
+          "publishedAt": "2025-10-07T08:43:06.941629Z",
+          "updatedAt": "2025-10-07T08:43:06.941629Z",
+          "isLatest": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "count": 3
+  }
+}

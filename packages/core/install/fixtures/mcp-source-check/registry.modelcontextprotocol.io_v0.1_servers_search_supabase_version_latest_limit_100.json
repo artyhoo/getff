@@ -1,0 +1,294 @@
+{
+  "servers": [
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+        "name": "ai.smithery/MisterSandFR-supabase-mcp-selfhosted",
+        "description": "Manage Supabase projects end to end across database, auth, storage, realtime, and migrations. Moni…",
+        "repository": {
+          "url": "https://github.com/MisterSandFR/Supabase-MCP-SelfHosted",
+          "source": "github"
+        },
+        "version": "1.14.1",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://server.smithery.ai/@MisterSandFR/supabase-mcp-selfhosted/mcp",
+            "headers": [
+              {
+                "description": "Bearer token for Smithery authentication",
+                "isRequired": true,
+                "value": "Bearer {smithery_api_key}",
+                "isSecret": true,
+                "name": "Authorization"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2025-09-18T14:42:06.197815Z",
+          "publishedAt": "2025-09-18T14:42:06.197815Z",
+          "updatedAt": "2025-09-18T14:42:06.197815Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+        "name": "ai.smithery/pinion05-supabase-mcp-lite",
+        "description": "Same functionality, consuming only 1/20 of the context window tokens.",
+        "repository": {
+          "url": "https://github.com/pinion05/supabase-mcp-lite",
+          "source": "github"
+        },
+        "version": "1.0.0",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://server.smithery.ai/@pinion05/supabase-mcp-lite/mcp",
+            "headers": [
+              {
+                "description": "Bearer token for Smithery authentication",
+                "isRequired": true,
+                "value": "Bearer {smithery_api_key}",
+                "isSecret": true,
+                "name": "Authorization"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2025-09-17T09:26:34.42483Z",
+          "publishedAt": "2025-09-17T09:26:34.42483Z",
+          "updatedAt": "2025-09-17T09:26:34.42483Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+        "name": "ai.waystation/supabase",
+        "description": "Connect to your Supabase database to query data and schemas.",
+        "repository": {
+          "url": "https://github.com/waystation-ai/mcp",
+          "source": "github"
+        },
+        "version": "0.3.1",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://waystation.ai/supabase/mcp"
+          },
+          {
+            "type": "sse",
+            "url": "https://waystation.ai/supabase/mcp/sse"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2025-09-09T14:46:10.221625Z",
+          "publishedAt": "2025-09-09T14:46:10.221625Z",
+          "updatedAt": "2025-09-09T14:46:10.221625Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "com.supabase/mcp",
+        "description": "MCP server for interacting with the Supabase platform",
+        "title": "Supabase",
+        "repository": {
+          "url": "https://github.com/supabase/mcp",
+          "source": "github",
+          "subfolder": "packages/mcp-server-supabase"
+        },
+        "version": "0.13.0",
+        "websiteUrl": "https://supabase.com/mcp",
+        "icons": [
+          {
+            "src": "https://supabase.com/favicon/favicon-16x16.png",
+            "mimeType": "image/png",
+            "sizes": [
+              "16x16"
+            ]
+          },
+          {
+            "src": "https://supabase.com/favicon/favicon-32x32.png",
+            "mimeType": "image/png",
+            "sizes": [
+              "32x32"
+            ]
+          },
+          {
+            "src": "https://supabase.com/favicon/favicon-48x48.png",
+            "mimeType": "image/png",
+            "sizes": [
+              "48x48"
+            ]
+          },
+          {
+            "src": "https://supabase.com/favicon/favicon-96x96.png",
+            "mimeType": "image/png",
+            "sizes": [
+              "96x96"
+            ]
+          },
+          {
+            "src": "https://supabase.com/favicon/favicon-128.png",
+            "mimeType": "image/png",
+            "sizes": [
+              "128x128"
+            ]
+          },
+          {
+            "src": "https://supabase.com/favicon/favicon-180x180.png",
+            "mimeType": "image/png",
+            "sizes": [
+              "180x180"
+            ]
+          },
+          {
+            "src": "https://supabase.com/favicon/favicon-196x196.png",
+            "mimeType": "image/png",
+            "sizes": [
+              "196x196"
+            ]
+          }
+        ],
+        "packages": [
+          {
+            "registryType": "npm",
+            "registryBaseUrl": "https://registry.npmjs.org",
+            "identifier": "@supabase/mcp-server-supabase",
+            "version": "0.13.0",
+            "runtimeHint": "npx",
+            "transport": {
+              "type": "stdio"
+            },
+            "runtimeArguments": [
+              {
+                "description": "Supabase project reference ID",
+                "format": "string",
+                "type": "named",
+                "name": "--project-ref"
+              },
+              {
+                "description": "Enable read-only mode",
+                "format": "boolean",
+                "type": "named",
+                "name": "--read-only"
+              },
+              {
+                "description": "Comma-separated list of features to enable",
+                "format": "string",
+                "type": "named",
+                "name": "--features"
+              },
+              {
+                "description": "Custom API URL",
+                "format": "string",
+                "type": "named",
+                "name": "--api-url"
+              }
+            ],
+            "environmentVariables": [
+              {
+                "description": "Personal access token for Supabase API",
+                "isRequired": true,
+                "format": "string",
+                "isSecret": true,
+                "name": "SUPABASE_ACCESS_TOKEN"
+              }
+            ]
+          }
+        ],
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://mcp.supabase.com/mcp"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-09-17T13:43:48.019874Z",
+          "publishedAt": "2026-09-17T13:43:48.019874Z",
+          "updatedAt": "2026-09-17T13:43:48.019874Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.mcp-dir/supabase-mcp",
+        "description": "Your Supabase account in natural language: run SQL, apply migrations, manage tables, storage, edge f",
+        "title": "Supabase",
+        "repository": {
+          "url": "https://github.com/mcp-dir/supabase-mcp",
+          "source": "github"
+        },
+        "version": "0.1.0",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://api.mcp.ai/p_supabase"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-08-21T13:34:44.900102Z",
+          "publishedAt": "2026-08-21T13:34:44.900102Z",
+          "updatedAt": "2026-08-21T13:34:44.900102Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.sadri-dridi/supabase-url-shape",
+        "description": "Check a Supabase project URL shape. Secrets discarded.",
+        "title": "Supabase URL Shape",
+        "repository": {
+          "url": "https://github.com/sadri-dridi/named-mcp-utilities",
+          "source": "github"
+        },
+        "version": "1.0.0",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://agent-observatory-sensor.nolimit-observatory.workers.dev/s/supabase-url-shape/mcp"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-09-08T22:53:53.264725Z",
+          "publishedAt": "2026-09-08T22:53:53.264725Z",
+          "updatedAt": "2026-09-08T22:53:53.264725Z",
+          "isLatest": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "count": 6
+  }
+}

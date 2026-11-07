@@ -28,10 +28,10 @@ cat > "$TMP/drift.json" <<'JSON'
   "devDependencies": { "eslint": "^9.10.0", "prettier": "3.8.3" } }
 JSON
 out=$(warn_preset_staleness "$META" "$TMP/drift.json")
-echo "$out" | grep -qiE 'frozen Next-15 snapshot' && ok "drift: staleness WARN fires" || bad "drift: WARN did not fire"
-echo "$out" | grep -qE 'next: preset pinned to v15, you are on v16' && ok "drift: names next 15→16" || bad "drift: missing next drift line"
+grep -qiE 'frozen Next-15 snapshot' <<<"$out" && ok "drift: staleness WARN fires" || bad "drift: WARN did not fire"
+grep -qE 'next: preset pinned to v15, you are on v16' <<<"$out" && ok "drift: names next 15→16" || bad "drift: missing next drift line"
 # eslint matches (9 vs 9) → must NOT appear in the drift list
-echo "$out" | grep -qE 'eslint: preset pinned' && bad "drift: false-positive on matching eslint" || ok "drift: matching eslint not flagged"
+grep -qE 'eslint: preset pinned' <<<"$out" && bad "drift: false-positive on matching eslint" || ok "drift: matching eslint not flagged"
 
 # (2) Consumer on Next 15 / eslint 9 (all match) → no WARN (paired-negative; non-vacuity).
 cat > "$TMP/match.json" <<'JSON'
@@ -46,6 +46,6 @@ cat > "$TMP/anchor.json" <<'JSON'
 { "devDependencies": { "eslint-config-prettier": "^10.0.0", "next": "15.0.0" } }
 JSON
 out=$(warn_preset_staleness "$META" "$TMP/anchor.json")
-echo "$out" | grep -qE 'eslint: preset pinned' && bad "anchor: eslint-config-prettier mis-matched as eslint" || ok "anchor: eslint key not confused with eslint-config-prettier"
+grep -qE 'eslint: preset pinned' <<<"$out" && bad "anchor: eslint-config-prettier mis-matched as eslint" || ok "anchor: eslint key not confused with eslint-config-prettier"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

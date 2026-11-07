@@ -74,9 +74,15 @@ export function readPythonCargo(projectRoot: string): DetectionResult | null {
 
   // go.mod → go (adapter-jig J3). No go framework detection (T14: detect the
   // stack only — no echo/gin/chi claim; go's toolchain-direct stdlib suffices).
-  // Precedence: pyproject > Cargo > go.mod > package.json (manifest, weaker
-  // than config presence). A polyglot repo (e.g. one shipping both Cargo.toml
-  // and go.mod) detects deterministically as cargo by the order above.
+  // Precedence: inside this reader pyproject > Cargo > go.mod (first match
+  // wins). The dispatcher (index.ts detectStack) runs readManifest — i.e.
+  // package.json — BEFORE this reader, so any parseable package.json keeps its
+  // JS detection (JS-first history, pinned by the read-python-cargo.test.ts
+  // manifest-precedence suite + the A2 RED-proof arm), and readConfig
+  // (next.config/tsconfig) AFTER it: an explicit language manifest outranks
+  // config presence. A package.json-less polyglot repo (e.g. one shipping
+  // both Cargo.toml and go.mod) detects deterministically as cargo by the
+  // order above.
   if (existsSync(resolve(projectRoot, 'go.mod'))) {
     return {
       stack: 'go',

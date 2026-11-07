@@ -1,0 +1,400 @@
+{
+  "kind": "spec-review",
+  "version": 1,
+  "featureId": "deterministic-core",
+  "prdRef": {
+    "path": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md",
+    "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+  },
+  "specRef": {
+    "path": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md",
+    "sha256": "b30836da511c96d1de996b373262140fbf6c8b65d023b7c0d902fcb9861d099e"
+  },
+  "approvalRef": {
+    "path": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-approval@a86648554d19.json",
+    "sha256": "7de1d887212aabbef1a2a7f05511157de94f99a18e780866ad7cd643d260e7b4"
+  },
+  "reviewer": {
+    "independence": "Fresh artifact-only product-intent reviewer; not the architecture author. No dialogue, handoff, continuation notes, architecture verdicts or self-check were read.",
+    "context": "Semantic comparison of all seven essential promises and rejected interpretations against the five immutable supplied snapshots at Inputs-ref a86648554d19860ca6956d633b7414cc46fb63f2. The spec-review procedure was read for record requirements. This review assesses proposed behavior only, not implementation truth or operator specification agreement.",
+    "documents": [
+      {
+        "path": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md",
+        "sha256": "b30836da511c96d1de996b373262140fbf6c8b65d023b7c0d902fcb9861d099e"
+      },
+      {
+        "path": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-coverage@a86648554d19.md",
+        "sha256": "03770d8453fc1f3a64df940969fa2bea506416f9b5003044898d80cdb9a093db"
+      },
+      {
+        "path": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md",
+        "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+      },
+      {
+        "path": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-intent-source@a86648554d19.md",
+        "sha256": "d8208866c44ae7af5cf071735253151d12fa0eec9ae55fa6fa1557cc15be7762"
+      },
+      {
+        "path": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-approval@a86648554d19.json",
+        "sha256": "7de1d887212aabbef1a2a7f05511157de94f99a18e780866ad7cd643d260e7b4"
+      }
+    ]
+  },
+  "promises": [
+    {
+      "id": "DC-P1",
+      "comparison": "supported",
+      "reason": "The candidate replaces specified acquisition, checks and reporting with a family-owned command while retaining rule meaning, diagnosis and repair judgment with the model. Target binding and independent completeness prevent failed acquisition from becoming a clean inventory. Deferred mechanical responsibilities remain explicitly open; the operation, not each prose sentence, is the conversion unit.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Scenario: a core skill requires an inventory and a structured report. A reusable mechanism performs the formal acquisition/validation/publication steps; the agent decides what the findings mean. Given equivalent valid inputs, different capable callers obtain the same formal checks and result semantics. The trigger may be an explicit skill entry or a relevant host event; mere reminder text is not evidence of execution.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:51"
+        },
+        {
+          "source": "prd",
+          "quote": "Failure: the model must remember a long shell recipe; it can silently omit a required formal step; or a script invents a semantic verdict from a syntactic check. A failed acquisition reported as a clean empty inventory also fails this promise.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:53"
+        },
+        {
+          "source": "prd",
+          "quote": "Permitted deferral: individual capability families and hosts may be phased with explicit residual coverage. Not permitted: claiming the core objective complete while known in-scope mechanical responsibilities remain silently prose-only.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:55"
+        },
+        {
+          "source": "spec",
+          "quote": "Mechanize operations whose accepted inputs, effects and outcomes can be specified without a new semantic choice: resolve an explicit target, select a documented command, validate prerequisites, enumerate declared inputs, preserve exits/output, apply exact result rules, count findings, render reports and bind evidence to its target.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:92"
+        },
+        {
+          "source": "spec",
+          "quote": "Keep the following with judgment: whether a declared rule expresses the right intent, whether a reported violation is an actual problem or a probe defect, how to repair it, whether two operations share the same meaning, and whether an abstraction reduces total complexity. A semantic verdict supplied by a model can be structurally validated without becoming mechanically proven.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:94"
+        },
+        {
+          "source": "spec",
+          "quote": "The overall result must preserve two independent facts: known violations and completeness. A run can contain known FAIL findings while another check is unavailable. Only a completed eligible population with no failures may be described as clean. Optional absence must be reported as not applicable where the contract permits it; unreadable or required-but-missing inputs are not an empty population. Unknown/custom output must remain available with an explicit unsupported/incomplete interpretation, not silently counted as PASS.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:146"
+        },
+        {
+          "source": "spec",
+          "quote": "- Input: explicit project root and a supported audit profile (or the existing deterministic profile selector). Resolve the root once and use it for every check. A missing/ambiguous target fails before subprocess execution; no fallback to the framework cwd.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:178"
+        },
+        {
+          "source": "spec",
+          "quote": "- Operation: validate prerequisites, resolve the supported existing runner, execute it once, collect bounded output, run admitted auxiliary probes, aggregate mechanical findings and render a concise result. Do not analyze arbitrary prose meaning or synthesize new checks.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:179"
+        },
+        {
+          "source": "spec",
+          "quote": "Each increment closes on its declared family and observable outcome. Overall coverage remains open until every in-scope deterministic responsibility is accounted for. Deferred mechanics remain mechanics; they are not reclassified as judgment to make the inventory green. The 100 principle rows and the skill/role population must not be merged into an invented denominator.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:265"
+        }
+      ]
+    },
+    {
+      "id": "DC-P2",
+      "comparison": "supported",
+      "reason": "Routine entries keep a usable invocation and interpretation contract; logs and implementation are cold detail. The role is explicitly prohibited from reconstructing the displaced recipes. Essential effects, applicability and diagnostic access remain visible, so shorter prose cannot hide prerequisites or merely move eager context elsewhere.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Scenario: the agent receives a compact invocation/result contract and the evidence needed for its decision. Full logs and implementation are accessible when a failure requires investigation, without being loaded on every routine run.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:59"
+        },
+        {
+          "source": "prd",
+          "quote": "Failure: a shorter skill eagerly loads equivalent or larger references/logs, hides an essential precondition, or leaves the caller unable to diagnose a failed mechanism.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:61"
+        },
+        {
+          "source": "prd",
+          "quote": "Permitted deferral: universal caching or automatic context management. Not permitted: removing information necessary for correct use or reporting byte reduction as measured token savings.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:63"
+        },
+        {
+          "source": "spec",
+          "quote": "| Routine context | Purpose, when to invoke, inputs, effects, result interpretation, judgment residue and diagnostic pointer |",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:111"
+        },
+        {
+          "source": "spec",
+          "quote": "| Cold detail | Implementation recipes, complete logs and repair detail loaded only when needed |",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:112"
+        },
+        {
+          "source": "spec",
+          "quote": "- Result: one machine-readable JSON result on stdout; launcher diagnostics on stderr. Include target, profile, per-check identity/status, known findings, completeness and reasons, and diagnostic references when created. Counts are derived from findings, never supplied by the model. Full logs stay outside routine context. No new global receipt/hash format is required.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:181"
+        },
+        {
+          "source": "spec",
+          "quote": "The model-facing role retains only purpose, applicability, invocation, effects, result interpretation and judgment responsibilities. It does not reconstruct the mechanical report or rerun the displaced recipes. Detailed implementation stays at the owning module; diagnostic detail is loaded when relevant.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:189"
+        },
+        {
+          "source": "spec",
+          "quote": "Compare the original and converted entry on the same task inputs and accepted outputs. Capture actual prompt/reference loads, tool-output volume, repeated calls, clerical errors and repair work, elapsed time and maintenance obligations. Record model/harness/version when available; unavailable token telemetry stays unavailable. Source bytes can be a proxy for reading burden, not observed token savings.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:255"
+        }
+      ]
+    },
+    {
+      "id": "DC-P3",
+      "comparison": "supported",
+      "reason": "The specification requires independent expected outcomes, actual caller-path acceptance, and reached no-op, wrong-result and disconnected-check faults against an unchanged outer oracle. Diagnostic identity is preserved in the second family. TAK reuse is conditional evidence, not a green-suite substitute or a claim that tautology is universally solved.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Scenario: a core validator accepts a correct result, rejects a relevant bad result, and its assurance detects an implementation that returns success without checking. Expected outcomes come from the intended contract rather than being recreated by the same production logic. Evidence covers the actual invocation path as well as the helper where relevant.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:67"
+        },
+        {
+          "source": "prd",
+          "quote": "Failure: assertions check only file existence or output shape while wrong behavior passes; a missing/disabled check is reported as successful; a shared diagnostic from another rule supplies a false success.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:69"
+        },
+        {
+          "source": "prd",
+          "quote": "Permitted deferral: exhaustive platform coverage and a particular test technology. Not permitted: treating a tautological green suite or an uninvoked check as assurance of the advertised behavior.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:71"
+        },
+        {
+          "source": "spec",
+          "quote": "The second family, rule-tests, invokes its existing verification path with explicit rule identity and isolation. It preserves diagnostic identity and the existing verifier's normative verdict. It must not copy the audit's profile rules, broaden into test generation or claim semantic test adequacy from a successful process exit. Compare real shared concerns only after both family paths are exercised.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:191"
+        },
+        {
+          "source": "spec",
+          "quote": "The first execution slice completes only when the actual role entry reaches the delivered command; good input, a real violation and required-input/runner failures produce the correct distinct results; no-op and bypass controls fail the unchanged outer oracle; supported payloads contain all dependencies; and routine role recipes have been replaced with the compact invocation contract. Exercise the framework's genuine missing-consumer-script case and controlled positive/negative installed layouts. This is a useful completed result even while other core families remain unconverted.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:195"
+        },
+        {
+          "source": "spec",
+          "quote": "For each load-bearing mechanical obligation in this initiative, require the existing TAK contract: unchanged good/bad oracle \u2192 baseline through the real entrypoint \u2192 reached permissive/over-rejecting/check-disconnection fault \u2192 intended failure of the unchanged outer driver \u2192 restored baseline. If the checker itself lives in a `.test.ts` principle, mutate that checker in isolation while retaining the outer oracle and its expected outcomes. Mutating only the governed input demonstrates detection, not sensitivity to a defective checker.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:228"
+        },
+        {
+          "source": "spec",
+          "quote": "Sufficiency is per obligation, not a global assertion that tautology is solved. Full-core assurance requires a complete obligation register and relevant evidence for each admitted row; a green suite and Q1/Q2 presence alone are insufficient. Source inspection in this design turn ran no TAK battery and does not reuse historical execution results as a fresh green claim.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:232"
+        },
+        {
+          "source": "spec",
+          "quote": "Expected results must be independently specified from contract examples and actual adverse behavior. Do not generate the oracle using the same production function under test. Use targeted mutations/disabled-check controls at this seam; choose an existing test runner rather than adding a universal mutation service. Review tests for meaningful assertions and plausible false positives/false negatives.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:249"
+        }
+      ]
+    },
+    {
+      "id": "DC-P4",
+      "comparison": "supported",
+      "reason": "A bounded living-docs result can complete while the remaining core stays mapped. Assurance is scoped to the selected mechanism; neither full TAK closure nor a shared engine delays usable delivery. Subsequent order follows observed benefit/cost and explicit residuals. Neither the withdrawn lightweight-project interpretation nor a numeric interpretation of the analogy becomes a requirement.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Prioritize operations where relatively little effort produces a large useful result. Frequency, repeated model effort, clerical failures, reuse and implementation/maintenance cost should inform that judgment. No ratio, quota, percentage or numeric prioritization rule is implied. Each increment should have a demonstrable outcome and a stopping boundary, so the initiative produces usable improvements rather than endless construction. This brief establishes no separate lightweight installation mode or relaxed quality policy for small projects.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:21"
+        },
+        {
+          "source": "prd",
+          "quote": "Scenario: several formal operations are candidates. One repeatedly consumes model context and causes clerical errors across core skills; another is rare and costly to automate. Select a bounded increment with explicit expected benefit, confirm the actual result and use that evidence to choose the next increment. A completed increment is usable before the full inventory is converted.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:75"
+        },
+        {
+          "source": "prd",
+          "quote": "The long-term goal remains mechanization of deterministic work. Prioritizing or deferring a lower-value operation does not reclassify it as judgment or pretend it is already automated.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:77"
+        },
+        {
+          "source": "prd",
+          "quote": "Failure: the first usable result waits on a universal engine, more framework layers become the success metric, scope expands without closure, or an illustrative analogy becomes a numerical requirement. A convenient sample presented as full coverage also fails.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:79"
+        },
+        {
+          "source": "prd",
+          "quote": "Permitted deferral: lower-priority families and exact numerical optimization targets, with residual work visible. Not permitted: abandoning prioritization and bounded completion or misrepresenting a stage as full automation coverage.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:81"
+        },
+        {
+          "source": "spec",
+          "quote": "Formal report validation/publication and common wrappers were considered as first increments. Execution/result handling in living-docs-auditor is selected because it has an existing shipped caller, bounded mechanical residue and a concrete false-clean risk. Move report/inventory work next after the second caller; do not build all-skill wrappers first. Reorder only on recorded evidence that the selected work is already covered or another bounded operation provides materially greater benefit for lower total cost.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:152"
+        },
+        {
+          "source": "spec",
+          "quote": "The first execution slice completes only when the actual role entry reaches the delivered command; good input, a real violation and required-input/runner failures produce the correct distinct results; no-op and bypass controls fail the unchanged outer oracle; supported payloads contain all dependencies; and routine role recipes have been replaced with the compact invocation contract. Exercise the framework's genuine missing-consumer-script case and controlled positive/negative installed layouts. This is a useful completed result even while other core families remain unconverted.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:195"
+        },
+        {
+          "source": "spec",
+          "quote": "F0 assurance is scoped to the selected mechanism and runs alongside F1 preparation. Full TAK campaign closure and a shared library are not prerequisites. The simplicity principle is recorded through existing catalog/design/review owners; it does not create a new mandatory review station. After the second family, prefer inventory/report operations with an existing parser, repeated callers and explicit expected output. Defer only their implementation order, never erase remaining deterministic obligations from the whole-core map.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:197"
+        },
+        {
+          "source": "spec",
+          "quote": "Choose subsequent work using actual frequency, repeated interpretation, failure history, reuse and integration/maintenance cost. No 20/80 quota, weighted score or universal savings threshold follows from the operator's analogy. A neutral or harmful result is recorded in the existing decision/evidence record and changes the next recommendation.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:259"
+        },
+        {
+          "source": "spec",
+          "quote": "Each increment closes on its declared family and observable outcome. Overall coverage remains open until every in-scope deterministic responsibility is accounted for. Deferred mechanics remain mechanics; they are not reclassified as judgment to make the inventory green. The 100 principle rows and the skill/role population must not be merged into an invented denominator.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:265"
+        },
+        {
+          "source": "spec",
+          "quote": "| D4 Prioritization meaning | answered | P12/P13: useful bounded increments, no numeric rule or small-project policy | Numeric analogy becomes a target, or useful results wait on universal construction |",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:276"
+        }
+      ]
+    },
+    {
+      "id": "DC-P5",
+      "comparison": "supported",
+      "reason": "The named simplest-sufficient-structure criterion evaluates caller, maintenance, verification, operation and context burden through existing owners. Compatible obligations must be demonstrated by two real families before sharing; incompatible semantics remain local. New registries, ceremony and line-count success are expressly rejected.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Scenario: common report mechanics are shared while distinct reviewers retain their judgments. A useful boundary removes repeated decisions from callers. Existing owners carry the named simplicity criterion.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:85"
+        },
+        {
+          "source": "prd",
+          "quote": "Failure: fewer lines in a skill introduce extra registries, state synchronization, pass-through layers or duplicated caller logic; semantic differences are erased to force all operations into one pattern.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:87"
+        },
+        {
+          "source": "prd",
+          "quote": "Permitted deferral: final naming and exact wording of the simplicity criterion. Not permitted: measuring simplicity by script count, line count or a universal numeric threshold alone.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:89"
+        },
+        {
+          "source": "spec",
+          "quote": "No service, database, workflow DSL, generic plugin registry, persistent scheduler or FSM package is introduced for this feature. Straight-line operations use functions; explicit branches represent known states. Extract a shared helper only after the living-docs and rule-tests callers demonstrate compatible obligations. Runtime/protocol reuse is a possible result, not a required deliverable. Keep family-specific result meaning and authorization separate.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:170"
+        },
+        {
+          "source": "spec",
+          "quote": "**Proposed wording:** Prefer the simplest structure that satisfies accepted behavior and required invariants. Before adding a layer or mechanism, examine removal, reuse and a better data/interface shape. Keep each genuine decision with one owner. Evaluate complexity for callers, maintainers, verification, operation and agent context.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:203"
+        },
+        {
+          "source": "spec",
+          "quote": "The operator accepted a distinct named core principle in the second design round (P15). It has one canonical criterion referenced by existing design/review owners, with examples and counterexamples. The exact catalog identifier and final wording remain technical design work. The planned population is the 100 existing principles plus this accepted addition; the live inventory has not yet been modified. Do not add a new mandatory reviewer or universal complexity gate merely to host the principle.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:205"
+        },
+        {
+          "source": "spec",
+          "quote": "A7 continues to own the mechanical/judgment division. B7/H2/H6/H12 retain their narrower complexity, dependency, public-surface and unused-code responsibilities. Mechanically checkable slices reuse their tools. The broad architectural judgment must not become a regex verdict, a line-count threshold or a new mandatory reviewer for every change.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:207"
+        },
+        {
+          "source": "spec",
+          "quote": "Counterexample: fewer lines in a role do not constitute simplification if callers must coordinate a new registry and several pass-through commands. Conversely, a larger helper can simplify the system if it eliminates repeated callers' state and preserves diagnosis. Removal still requires a consumer map and preservation of unique obligations.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:209"
+        }
+      ]
+    },
+    {
+      "id": "DC-P6",
+      "comparison": "supported",
+      "reason": "Framework execution and isolated installed-layout cases are distinct acceptance evidence; the genuine framework missing-script case cannot supply a false positive. Source correctness, packaging, discoverability and host invocation remain separate. Profile dependency checks and the separately scoped operator lane prevent local presence from being marketed as consumer activation.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Scenario: a bounded core family is exercised on this repository through real callers. A subsequent delivery claim is supported for the relevant install profile and activation path. Operator-only procedures remain identified as such.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:93"
+        },
+        {
+          "source": "prd",
+          "quote": "Failure: a helper's presence or local unit test is presented as proof that an installed consumer actually runs it, or all operator capabilities are silently added to the consumer default.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:95"
+        },
+        {
+          "source": "prd",
+          "quote": "Permitted deferral: consumer breadth and later capability families. Not permitted: collapsing source, delivery and activation into one unsupported claim.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:97"
+        },
+        {
+          "source": "spec",
+          "quote": "Use the existing glossary meanings of [base core](../../../CONTEXT.md#base-core) and [internal core](../../../CONTEXT.md#internal-core). The PRD's ready-made core includes maintained install-delivered capabilities, with profile-specific boundaries; it is not synonymous with every file under `packages/core/` or every operator procedure. Internal-only examples can inform reuse without becoming default consumer payload.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:48"
+        },
+        {
+          "source": "spec",
+          "quote": "6. **F6 \u2014 workflow transitions in their actual scope.** Reuse intent/runtime/pipeline owners for counters, state preconditions and receipts; keep optional operator machinery separate from consumer default.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:127"
+        },
+        {
+          "source": "spec",
+          "quote": "Framework-first acceptance must exercise the same command on this repository and through a controlled installed-layout fixture. The framework normally lacks the consumer `scripts/audit-ai-docs.sh`; that run must honestly demonstrate the missing-script branch. Positive and violation cases need actual installed-layout execution, not a false green from the framework's missing script. No live consumer installation is authorized by writing this design.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:148"
+        },
+        {
+          "source": "spec",
+          "quote": "| Model/harness | A normal CLI can be invoked by any supported harness with process access; native trigger adapters stay with existing owners | Actual adapter invocation where supported; direct CLI evidence does not establish native hook firing |",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:163"
+        },
+        {
+          "source": "spec",
+          "quote": "| Packaging | Consumer gets the entry plus all runtime resources | Run from an isolated installed layout without imports from the contributor checkout |",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:166"
+        },
+        {
+          "source": "spec",
+          "quote": "The first execution slice completes only when the actual role entry reaches the delivered command; good input, a real violation and required-input/runner failures produce the correct distinct results; no-op and bypass controls fail the unchanged outer oracle; supported payloads contain all dependencies; and routine role recipes have been replaced with the compact invocation contract. Exercise the framework's genuine missing-consumer-script case and controlled positive/negative installed layouts. This is a useful completed result even while other core families remain unconverted.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:195"
+        },
+        {
+          "source": "spec",
+          "quote": "Distinguish source correctness, installed payload closure, entry discoverability and actual host invocation. Preserve existing installation profiles and generated native entries. A source-only local result can be delivered as such, with remaining delivery work explicit; it cannot substantiate a consumer activation claim.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:267"
+        }
+      ]
+    },
+    {
+      "id": "DC-P7",
+      "comparison": "supported",
+      "reason": "Comparable inputs and unchanged accepted outputs anchor observation of context, calls, time, clerical errors and repairs. Unavailable telemetry cannot become invented savings. An initial model comparison may be deferred, but improved weaker-model performance requires observed comparable runs; arbitrary semantic competence and numeric savings guarantees are excluded.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Scenario: comparable tasks capture relevant model input, tool-output volume, repeated calls, time, clerical failures and repair work. Where model capability is compared, the same formal contract and acceptance criteria apply. Less capable models benefit specifically where mechanisms take over formal work; semantic reasoning remains evaluated separately.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:101"
+        },
+        {
+          "source": "prd",
+          "quote": "Failure: corpus size is reported as token savings, a stronger model compensates for missing mechanisms, or faster runs omit necessary checks. No guarantee that arbitrary models can perform arbitrary semantic work follows from this feature.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:103"
+        },
+        {
+          "source": "prd",
+          "quote": "Permitted deferral: a universal savings percentage, calendar estimate, all-model benchmarking and paid evaluation infrastructure. Not permitted: claiming an observed reliability or efficiency improvement without evidence, or weakening acceptance to manufacture one.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md:105"
+        },
+        {
+          "source": "spec",
+          "quote": "Each later family closes with actual execution, supported delivery, meaningful adverse tests and removed routine interpretation. Context/trigger work occurs in every slice; F3 reconciles cross-family gaps. F4/F5 may proceed independently when ready; F6 remains a separately scoped operator lane. Measure useful outcomes at every checkpoint, without claiming token savings from source-line reduction alone.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:199"
+        },
+        {
+          "source": "spec",
+          "quote": "Compare the original and converted entry on the same task inputs and accepted outputs. Capture actual prompt/reference loads, tool-output volume, repeated calls, clerical errors and repair work, elapsed time and maintenance obligations. Record model/harness/version when available; unavailable token telemetry stays unavailable. Source bytes can be a proxy for reading burden, not observed token savings.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:255"
+        },
+        {
+          "source": "spec",
+          "quote": "An initial model comparison is optional for a bounded technical increment, but any claim that weaker models perform better requires comparable observed runs under the same contract. Semantic competence is outside the guarantee. All-model benchmarking and paid infrastructure are not prerequisites.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:257"
+        },
+        {
+          "source": "spec",
+          "quote": "Choose subsequent work using actual frequency, repeated interpretation, failure history, reuse and integration/maintenance cost. No 20/80 quota, weighted score or universal savings threshold follows from the operator's analogy. A neutral or harmful result is recorded in the existing decision/evidence record and changes the next recommendation.",
+          "location": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md:259"
+        }
+      ]
+    }
+  ],
+  "outcome": "matches"
+}

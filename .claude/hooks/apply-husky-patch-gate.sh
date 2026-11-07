@@ -1,0 +1,1 @@
+../../.agents/hooks/apply-husky-patch-gate.sh

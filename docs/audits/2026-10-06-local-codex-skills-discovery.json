@@ -1,0 +1,380 @@
+{
+  "cwd": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills",
+  "head": "d8924768f59a0d71530ca3d366c84ed2319e62e1",
+  "nativeMethod": "skills/list",
+  "forceReload": true,
+  "repoSkills": [
+    {
+      "name": "adapter-jig-reviewer",
+      "description": "Read the canonical adapter-jig-reviewer procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/adapter-jig-reviewer/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "ai-doc",
+      "description": "Use when creating or fixing an AI-facing doc/rule/skill/agent in this repo (SKILL.md, .claude/rules/*, agents/*, CLAUDE.md, AGENTS.md) — to apply the project's context-hygiene + rule-as-test + AI-agnostic authoring standard. Triggers: write a rule, author a skill, fix a doc, doc-authority header, progressive disclosure, channel selection, документация, правило, скилл.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/ai-doc/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "aif-doctor",
+      "description": "Use when the aif-handoff runtime is misbehaving — a task is stuck or crash-looping, new tasks stay backlog at capacity, the claude runtime is broken. Triggers: aif-doctor, aif health, task stuck, задача висит, runtime broken, рантайм сломан, aif не отвечает, capacity skipping, native binary not installed, why won't my task start. Invokable when the dispatcher is NOT running. NOT for running the dispatch loop (/dispatcher) or planning (/pipeline).",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/aif-doctor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "aif-init",
+      "description": "Read the canonical aif-init procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/aif-init/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "arch",
+      "description": "Use when starting the EXTERNAL design contour — turning a raw idea or prep-doc into a reviewed design and a routed handoff. Triggers: /arch, external contour, внешний контур, спроектируй идею, задумка в архитектуру, design contour, arch loop, продумай и спроектируй, идея → kickoff, research contour, research-spec, distillate, исследовательский контур. NOT for reviewing code (/reviewer), dispatching stages (/pipeline), factory runtime questions (aif-doctor), or a bare brainstorm with no handoff (superpowers:brainstorming).",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/arch/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "backward-sweep-auditor",
+      "description": "Read the canonical backward-sweep-auditor procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/backward-sweep-auditor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "capability-reuse-auditor",
+      "description": "Read the canonical capability-reuse-auditor procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/capability-reuse-auditor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "claims-conformance-auditor",
+      "description": "Read the canonical claims-conformance-auditor procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/claims-conformance-auditor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "claude-glm-executor-handoff",
+      "description": "Use when an in-aif Claude coordinator is about to dispatch an executable task to a GLM-5.3 worker (any agent whose frontmatter carries `model: glm-5.3` or a GLM-family model). Triggers: writing a dispatch prompt for a GLM worker inside aif-handoff, GLM executor, implement-worker GLM, cross-model dispatch within aif, planning a handoff to GLM-5.3, parsing a GLM worker's REPORT. NOT for Claude→Claude worker dispatch (use SDD directly).",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/claude-glm-executor-handoff/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "compliance-verifier",
+      "description": "Read the canonical compliance-verifier procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/compliance-verifier/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "dispatch-input-checker",
+      "description": "Read the canonical dispatch-input-checker procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/dispatch-input-checker/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "dispatcher",
+      "description": "Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop. Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance. Invocation channel: explicit /dispatcher only — disable-model-invocation:true is a channel flag and not a permission (§0). NOT for planning — priority and launch-table are /pipeline.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/dispatcher/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "docplan-auditor",
+      "description": "Read the canonical docplan-auditor procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/docplan-auditor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "docs-author",
+      "description": "Use when writing or editing any getff.ai docs page under docs/site/ (including the glossary terms.md), when picking a page kind or filling the reader-comfort card, or when running a docs refresh over touched pages — to apply the kind registry, the craft contract, and the docs-check done-checklist. Triggers: write a docs page, new page under docs/site, glossary entry, terms.md, docs refresh, gold page, Diátaxis, задокументировать, страница документации.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/docs-author/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "docs-form-auditor",
+      "description": "Read the canonical docs-form-auditor procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/docs-form-auditor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "dual-channel-drift-auditor",
+      "description": "Read the canonical dual-channel-drift-auditor procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/dual-channel-drift-auditor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "fidelity-auditor",
+      "description": "Read the canonical fidelity-auditor procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/fidelity-auditor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "getff",
+      "description": "Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or \"how do I make my codebase resistant to AI agents breaking my conventions\". Also trigger on ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that \"looks fine but is wrong\".",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/getff/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "getff-cold-run-prober",
+      "description": "Read the canonical getff-cold-run-prober procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/getff-cold-run-prober/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "harvest",
+      "description": "Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invocation channel: explicit /harvest only — disable-model-invocation:true is a channel flag and not a permission (§0).",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/harvest/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "installing-enforcement",
+      "description": "Use when the user wants to actually WIRE the hard enforcement layer (git pre-commit/pre-push hooks + CI) into their repo, or asks \"how do I make these rules actually fail the build / block a commit / run in CI\", or wants to turn the rules-as-tests methodology from advice into a build-failing gate. Explains the soft-vs-hard boundary and points at the /getff:install-enforcement command.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/installing-enforcement/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "living-docs-auditor",
+      "description": "Read the canonical living-docs-auditor procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/living-docs-auditor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "manual-rule-liveness-prober",
+      "description": "Read the canonical manual-rule-liveness-prober procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/manual-rule-liveness-prober/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "memory-codification-auditor",
+      "description": "Read the canonical memory-codification-auditor procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/memory-codification-auditor/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "night-mode",
+      "description": "Use when running a task FULLY AUTONOMOUSLY (overnight / unattended) as an orchestrator. Trigger on «работай всю ночь автономно», «оставляю на ночь», «прогони сам до готовности», «автономный режим», night mode, overnight autonomous, run to completion unattended. NOT for a single delegated edit (/orchestrator) or a one-shot review (/reviewer).",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/night-mode/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "orchestrator",
+      "description": "TRIGGER when: «оркестратор/orchestrator», «старшая/младшая модель», «делегируй/delegate», «Mode A/B», «file-prompt», «umbrella», «батч правок/batch fixes», «пакет фиксов»; ИЛИ первая из серии мелких правок одной темы; ИЛИ задача распадается на ≥3 независимых подзадач; ИЛИ «автономно / волнами / работай без остановок / прогони очередь кикофов сам» при ≥2 kickoff'ах → Queue mode. SKIP: тривиальная правка по точному пути (≤5 строк, 1 файл).",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/orchestrator/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "orchestrator-worker-discipline",
+      "description": "Read the canonical orchestrator-worker-discipline procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/orchestrator-worker-discipline/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "pipeline",
+      "description": "Use when you have ≥2 in-flight wave umbrellas with cross-stage dependencies, suspect drift between wave-sequencing-plan.md and live git reality, or need to dispatch the next wave with verified Stage N→N+1 gates. Triggers: pipeline, wave orchestrator, wave plan, stage-gate, umbrella priority, waves parallel/sequential, wave-sequencing-plan drift. Invocation channel: explicit /pipeline only — disable-model-invocation:true is a channel flag and not a permission (§0).",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/pipeline/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "review-sidecar",
+      "description": "Read the canonical review-sidecar procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/review-sidecar/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "reviewer",
+      "description": "Use when the operator or an orchestrator asks for an interactive review with a verdict — «проверь», «ревью», «вердикт», «это правильно?», «оцени результат», «phase N закрыт», review, second opinion, independent review, verify deliverable, \"is this correct?\" — and the deliverable is a GO/REVISE/STOP verdict or a verified answer, not code. NOT for implementing fixes or writing tests (orchestrator work), and NOT for the cold PR-boundary protocols (agents/fidelity-auditor.md, agents/review-sidecar.md — those are dispatched, not interactive).",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/reviewer/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "reviewer-discipline",
+      "description": "Read the canonical reviewer-discipline procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/reviewer-discipline/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "rule-research",
+      "description": "Use when a consumer wants to bootstrap stack-aware ESLint rules from LIVE documentation rather than ship pre-baked recipes. Triggers: rule research, research stack practices, generate eslint rule from docs, bootstrap rules for my stack, rules-research, rule-bootstrapping, no-head-element, исследовать практики стека, сгенерировать правило из документации.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/rule-research/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "rule-researcher",
+      "description": "Read the canonical rule-researcher procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/rule-researcher/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "rule-test-author",
+      "description": "Read the canonical rule-test-author procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/rule-test-author/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "rule-tests",
+      "description": "Use when a consumer has an EXISTING generated rule whose firing test material is missing, broken, or needs a bypass variant. Triggers: rule tests, repair test material, fix negative-test, rule test material, verify the rule fires, rule-tests, починить тест правила, исправить негативный тест, проверить что правило срабатывает, тестовый материал для правила. NOT for creating new rules (/rule-research).",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/rule-tests/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "self-reflection",
+      "description": "Use when introducing or extending a rule, principle, pattern, methodology, discipline, or process change in this repository. Auto-trigger on «правило», «принцип», «дисциплина», «методология», «процесс», recommend, introduce rule, new principle, discipline change, process rule, meta, recursive, applies to itself, check own work, self-review, forward check, backward check, closing recommendation, discipline-bearing artefact, self-reflection, anti-pattern, or any edit touching `.claude/rules/`, `packages/core/principles/`, `docs/meta-factory/EXECUTION-PLAN.md`, `docs/meta-factory/prior-art-evaluations.md`, `CLAUDE.md`. Do NOT trigger on simple typo fixes, code edits without rule changes, or routine PR work.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/self-reflection/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "shipped-agent-liveness-prober",
+      "description": "Read the canonical shipped-agent-liveness-prober procedure when explicitly asked to run that review or audit.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/shipped-agent-liveness-prober/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "story",
+      "description": "Use when work is done / a PR was pushed, or when the user asks to recap what was done — «расскажи что сделали», «расскажи историю», «что изменилось за сессию», story, recap.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/story/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "template-audit",
+      "description": "Use when auditing rendered templates via local advisory review. Triggers: template, audit, render, generated docs, AGENTS.md, paraphrase, cue placement, local advisory, template-render, audit-template.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/template-audit/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "tool-bootstrapping",
+      "description": "Use when analysing project stack for MCP or skill recommendations. Triggers: tool bootstrapping, MCP installation, skill discovery, project onboarding tools, package.json deps changed, .ai-factory/tool-decisions.md, AIF /aif, tool detection, инструменты, бутстраппинг, MCP серверы, скиллы, зависимости, онбординг, подбор инструментов, предложение инструментов, подтверждение установки, tool proposal confirmation, incremental tool re-evaluation, rejected tools memory, memory persistence for tools.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/tool-bootstrapping/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    },
+    {
+      "name": "using-getff",
+      "description": "Use when choosing getff plugin skills for a code-quality enforcement task — linting, CI, hooks, architecture rules, mutation/contract tests or preventing AI convention drift. Explains skill access, invocation scope and the consumer instruction envelope; unrelated conversation does not require getff activation.",
+      "path": "/Users/art/code/rules-as-tests-aif/.claude/worktrees/local-codex-skills/.agents/skills/using-getff/SKILL.md",
+      "scope": "repo",
+      "enabled": true,
+      "pluginId": null
+    }
+  ],
+  "errors": [],
+  "localCardHashes": {
+    ".agents/skills/adapter-jig-reviewer/SKILL.md": "2ce7382b0576e873b48a936082131276ca2258846cac05cffd56a4e1856e86a1",
+    ".agents/skills/ai-doc/SKILL.md": "688b225d6d6b86854bff2befe9451b2a7ed9703c1c0d85c4559bfbb4f97acc20",
+    ".agents/skills/aif-doctor/SKILL.md": "59323555fb438cf12e923b759a663efcf4be0993d25d4e7759f848c08d9f9523",
+    ".agents/skills/aif-init/SKILL.md": "dd98aadaa5ebf528c593cc2e46e6a0aff5060d4d99cbae3aee1ba8b4f15ca55d",
+    ".agents/skills/arch/SKILL.md": "db1ce04c32a9510d67bb79d33a2e6c668052c73f6f9ab10c0414959599c25bc2",
+    ".agents/skills/backward-sweep-auditor/SKILL.md": "091be616b5086ff3d2982e6e39c34e0624f446d09ebb5f1bed06028238e0b834",
+    ".agents/skills/capability-reuse-auditor/SKILL.md": "2d650030c3df463d045331f9e5e6878bdd64eb12672f902b448c346d4abe8e83",
+    ".agents/skills/claims-conformance-auditor/SKILL.md": "e8c2d9182d624ea0e7a3d759c6fa4e98c1bdd7a58732106f3c82a049dfe55983",
+    ".agents/skills/claude-glm-executor-handoff/SKILL.md": "43cd7d04a7d6f33da713f79f1cd05176d5e7ff69589f9aee0876a72b4d5155f4",
+    ".agents/skills/compliance-verifier/SKILL.md": "7ba50c8c665424109eabb5f4bebeba39daa25043222ce6468d5caebab9ff9a38",
+    ".agents/skills/dispatch-input-checker/SKILL.md": "fd7795f09f066114b9e208712ef66a848b91c113a8e1093771db6cde6723907d",
+    ".agents/skills/dispatcher/SKILL.md": "8f49646f8b70460820e44e65303de3170f7d8575ed35563c43ff2b9889c1f859",
+    ".agents/skills/docplan-auditor/SKILL.md": "e07e9f0ae83a5e7674fffb2cd02645214ae7cfda6aba9aaef877d3456ef87960",
+    ".agents/skills/docs-author/SKILL.md": "44ee73d1f2e9672cdf1ff6375b03f6befe7ab501c27eb7fd43a3c444504df827",
+    ".agents/skills/docs-form-auditor/SKILL.md": "5a9d9378fda146f507658ebdbbfca51d0fda2abe00c4d181bc6d3ee569319309",
+    ".agents/skills/dual-channel-drift-auditor/SKILL.md": "a226285835645198c2277bf94046cc450744a3958b6896b6610d85faab97345c",
+    ".agents/skills/fidelity-auditor/SKILL.md": "dcde3dc18d353cd6e0d0382d6e7a3dc65f13edcad7d163660c4f897344d4c5d2",
+    ".agents/skills/getff-cold-run-prober/SKILL.md": "5f92eb4e1f2beec9425528ec12e0d3db5d154855550a19d04d50ade41184b4fa",
+    ".agents/skills/getff/SKILL.md": "eb9c8a0357e018188f18b1bbaa887519e2443a2f4c1c53861b5024a3d0865f1e",
+    ".agents/skills/harvest/SKILL.md": "9c6c1a161c34a913fa31a70afd76b3c10d72dcea4d01c0105f2f5b848a4711a4",
+    ".agents/skills/installing-enforcement/SKILL.md": "8f7c6644befd4e3fe83033c2ef775b762a0481fd50fc2332e9671296956e6a28",
+    ".agents/skills/living-docs-auditor/SKILL.md": "6651dc90b57d1de5013428ae81a81e2ad7a627ba4df3536386b564498574f088",
+    ".agents/skills/manual-rule-liveness-prober/SKILL.md": "8b7db3ae86cb214a922335f1c8268b85445f90fe8699a080764cbc412a26d2d6",
+    ".agents/skills/memory-codification-auditor/SKILL.md": "7686d893a413233cb0328ffcd099d814c6239f485d6a2b09854e741260d0cacc",
+    ".agents/skills/night-mode/SKILL.md": "6b37b4694e50020b74103626e9a9c69a6bf9e8d77cd07cdcd91918e3eb165210",
+    ".agents/skills/orchestrator-worker-discipline/SKILL.md": "d207c316b0bc3c1eaa43bff208575a3436f39f19eaf9bd1c266151be7dda32c2",
+    ".agents/skills/orchestrator/SKILL.md": "966e2594816fd1802d8c7e4d9e16a34056de46f7c4a1447fac21ad735e919ab0",
+    ".agents/skills/pipeline/SKILL.md": "b5021cca4ee5a8ace1e48e7382fa5b2269eb8e57e84535b7fea67d82a8c7ce45",
+    ".agents/skills/review-sidecar/SKILL.md": "df2de1d2f08d05ad0fb22b82a0a1835e92cee8fe8785d167ac7706e507d59476",
+    ".agents/skills/reviewer-discipline/SKILL.md": "667b86f5ae21ef43e94c8a67f1b70764d1e1a8caf11b7159d976233113274744",
+    ".agents/skills/reviewer/SKILL.md": "6d67cbd435305617106fa4aeaf379a223d86cc399df0f757baba303eb7048963",
+    ".agents/skills/rule-research/SKILL.md": "0252e0bc3608717da308078edda3ab28baaa4d4683940e4e4ce57c7c79fe076b",
+    ".agents/skills/rule-researcher/SKILL.md": "bdeec35a23a7821b2f9d8ab10ab48f720539403fdcdd410b2edce0d08e659cd2",
+    ".agents/skills/rule-test-author/SKILL.md": "b625a7d133c1a86eab5b25e0162b4a396cb110ffd2ea50b4166f93e8f4277e12",
+    ".agents/skills/rule-tests/SKILL.md": "ec45c33e86c6a9dac727c25545ae42307b43f1a1ef9bfe29e29dda0c59048194",
+    ".agents/skills/self-reflection/SKILL.md": "af99829231a0b809758dc108ba1b42c59fefe0cc3236e2a16436e4962e5109a1",
+    ".agents/skills/shipped-agent-liveness-prober/SKILL.md": "5c4647220f9166547a9c60b21f3727f40063d6c1a749b960e2c44782defaeee7",
+    ".agents/skills/story/SKILL.md": "9c4f101544e5443936b5202e09a4c42b4dc3cd1fe26174b00db732c2c5588174",
+    ".agents/skills/template-audit/SKILL.md": "a4c9311aebaa00599006e61c2d38d5e2bb7c139ae85ae557f0b19c031d2ea71e",
+    ".agents/skills/tool-bootstrapping/SKILL.md": "73e38454ffbfbab5b27258f289932762eba2cf87e15e89be30ed515ff1a1ed80",
+    ".agents/skills/using-getff/SKILL.md": "74d7a25749fa3d7ae3f225581eec574f6bdee53981666acfe7d3b1a5b318ab6f"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "kind": "batch",
+  "id": "DOT-EVT-BATCH-FIXTURE-0001",
+  "producer": "01a11aad-5df6-7663-ab3d-2e2055634093",
+  "parents": [],
+  "payload": {
+    "batch_id": "DOT-BATCH-FIXTURE-0001",
+    "reports": [
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1900,
+        "comment_id": "fixture-comment-0",
+        "body_sha256": "05f060e850e7056dc02ef73b0b47e8c002c7b8ca9c725ddc7c6e66fd341f2dbe",
+        "reviewed_sha": "9b1c83bec26208abdd59afe821b673beb955cd1c",
+        "url": "https://github.com/artyhoo/getff/pull/1900+0#discussion_r1000",
+        "body": "Synthetic fixture report body 0: no live report data, example text only."
+      },
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1901,
+        "comment_id": "fixture-comment-1",
+        "body_sha256": "3904d1fefe33f2d8bc4a9f46b79ab24a5c0becc6e87a463cda23121f9ce68e32",
+        "reviewed_sha": "5c9e3be7aa1cabb8ddde0d75e8e15e582ffe744f",
+        "url": "https://github.com/artyhoo/getff/pull/1900+1#discussion_r1001",
+        "body": "Synthetic fixture report body 1: no live report data, example text only."
+      },
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1902,
+        "comment_id": "fixture-comment-2",
+        "body_sha256": "524358f188ff6fa205cd949d73563d423f699581b9cae4ec717359e8f4867597",
+        "reviewed_sha": "2417790cf694c20f983adbcc0cbd542fc68deb5f",
+        "url": "https://github.com/artyhoo/getff/pull/1900+2#discussion_r1002",
+        "body": "Synthetic fixture report body 2: no live report data, example text only."
+      },
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1903,
+        "comment_id": "fixture-comment-3",
+        "body_sha256": "34943c3742fb0176cf8c7349cc5d7c5d76c55968981a2c3a2ca21cd591deed13",
+        "reviewed_sha": "467b1812782d9320bfba85db4e9aead8a1eba3da",
+        "url": "https://github.com/artyhoo/getff/pull/1900+3#discussion_r1003",
+        "body": "Synthetic fixture report body 3: no live report data, example text only."
+      },
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1904,
+        "comment_id": "fixture-comment-4",
+        "body_sha256": "fb185a0dc67f3ba48f10561150d86e566371e03df8f8e3d3a709636c84054522",
+        "reviewed_sha": "d0fceabd047a42920a1ca696f38e175927771d59",
+        "url": "https://github.com/artyhoo/getff/pull/1900+4#discussion_r1004",
+        "body": "Synthetic fixture report body 4: no live report data, example text only."
+      },
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1905,
+        "comment_id": "fixture-comment-5",
+        "body_sha256": "bc05f278bd985adba4d04c8d708fd033a07916227091c6df7604a8e43bbf1b5c",
+        "reviewed_sha": "aa286d111cdb83c17be3c80562bf37b3d76597bf",
+        "url": "https://github.com/artyhoo/getff/pull/1900+5#discussion_r1005",
+        "body": "Synthetic fixture report body 5: no live report data, example text only."
+      },
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1906,
+        "comment_id": "fixture-comment-6",
+        "body_sha256": "f24f7541479d8962ad5670c3ee4b4639ffb9b91f6b1dd666d8c33d22cdaf97d0",
+        "reviewed_sha": "e5f5e7892a10282e59043fddfd7613ba915d3612",
+        "url": "https://github.com/artyhoo/getff/pull/1900+6#discussion_r1006",
+        "body": "Synthetic fixture report body 6: no live report data, example text only."
+      },
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1907,
+        "comment_id": "fixture-comment-7",
+        "body_sha256": "2fd913737b7a89a7fc6ed4f1d0315e35733ae2cd58e37d10f7e231d74468c18d",
+        "reviewed_sha": "6224cd4aa3b1cc0ea890e9fd0b3f033e04af48ee",
+        "url": "https://github.com/artyhoo/getff/pull/1900+7#discussion_r1007",
+        "body": "Synthetic fixture report body 7: no live report data, example text only."
+      },
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1908,
+        "comment_id": "fixture-comment-8",
+        "body_sha256": "9b18456f07b0811143fefddfac6f5325f4e2ac28baf6d6506e650ff72d0cc003",
+        "reviewed_sha": "8650090cb897b1fcd6b8fb94a6897cf6ad67db38",
+        "url": "https://github.com/artyhoo/getff/pull/1900+8#discussion_r1008",
+        "body": "Synthetic fixture report body 8: no live report data, example text only."
+      },
+      {
+        "repository": "artyhoo/getff",
+        "pr": 1909,
+        "comment_id": "fixture-comment-9",
+        "body_sha256": "7e3345d8859dc74a3ab0d0ad789800babf802023c0772b348fd426f85b801e9a",
+        "reviewed_sha": "ef635a27ec6ba2e2559fa5ab34b160340964e7c7",
+        "url": "https://github.com/artyhoo/getff/pull/1900+9#discussion_r1009",
+        "body": "Synthetic fixture report body 9: no live report data, example text only."
+      }
+    ],
+    "complete": true
+  },
+  "sha256": "471f53b74ccfb973b07015f9efbcd910d54fca1c00ca31240d470b58a46e0249"
+}

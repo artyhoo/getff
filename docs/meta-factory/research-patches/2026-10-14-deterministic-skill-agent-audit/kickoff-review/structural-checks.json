@@ -1,0 +1,119 @@
+{
+  "scope": "Documentation preparation only; no implementation acceptance executed",
+  "inputsRef": "a82ebc9308e7c8d7d8bf2350223d8f3a3a5eb3b6",
+  "checks": [
+    {
+      "path": ".claude/orchestrator-prompts/deterministic-core/kickoff.md",
+      "sha256": "21ec59588830e3decc555fee1b7b7b9c66744f409b59793576f17a59e5d34d54",
+      "matchesFrozenSnapshot": true,
+      "regularFile": true,
+      "lines": 153,
+      "links": [
+        {
+          "link": "../../../docs/superpowers/specs/2026-10-14-deterministic-core-design.md",
+          "exists": true
+        },
+        {
+          "link": "../../../docs/superpowers/specs/2026-10-14-deterministic-core-coverage.md",
+          "exists": true
+        },
+        {
+          "link": "../../../docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/spec-agreement.md",
+          "exists": true
+        },
+        {
+          "link": "../../../docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/REVIEW-SUMMARY.md",
+          "exists": true
+        },
+        {
+          "link": "./kickoff-d0.md",
+          "exists": true
+        },
+        {
+          "link": "../../../docs/superpowers/specs/2026-10-08-test-assurance-kernel-design.md",
+          "exists": true
+        },
+        {
+          "link": "../../../.agents/rules/ai-laziness-traps.md",
+          "exists": true
+        }
+      ],
+      "englishOnly": true,
+      "rigorDeclarationManualPatternCheck": true,
+      "kickoffHook": {
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "hostContractExtractionOnly": {
+        "exit": 0,
+        "stdout": "\u2500\u2500 host-verify: .claude/orchestrator-prompts/deterministic-core/kickoff.md\n   opt-out (105 chars): \u2014 routing document only; executable acceptance is declared in kickoff-d0.md and each later admitted stage\n",
+        "stderr": ""
+      }
+    },
+    {
+      "path": ".claude/orchestrator-prompts/deterministic-core/kickoff-d0.md",
+      "sha256": "83b9f00bb58ada33d843bf21ae817405a3c3a6a9903e8b32b2dd8db5235a6bb0",
+      "matchesFrozenSnapshot": true,
+      "regularFile": true,
+      "lines": 148,
+      "links": [
+        {
+          "link": "./kickoff.md",
+          "exists": true
+        },
+        {
+          "link": "../../../.agents/rules/ai-laziness-traps.md",
+          "exists": true
+        }
+      ],
+      "englishOnly": true,
+      "rigorDeclarationManualPatternCheck": true,
+      "kickoffHook": {
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "hostContractExtractionOnly": {
+        "exit": 0,
+        "stdout": "\u2500\u2500 host-verify: .claude/orchestrator-prompts/deterministic-core/kickoff-d0.md\n   host=Darwin  repo=/Users/art/.codex/worktrees/6612/rules-as-tests-aif\n   \u2022 node --test tests/living-docs-auditor/runtime.test.mjs tests/living-docs-auditor/installed.test.mjs tests/living-docs-auditor/conformance.test.mjs\n   \u2022 node scripts/build-runtime-bundles.mjs --check\n   \u2022 npm --prefix packages/core run test -- audit-self/audit-ai-docs.test.ts\n   \u2022 bash scripts/build-getff-dist.sh --check\n",
+        "stderr": ""
+      }
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-14-deterministic-core-design.md",
+      "sha256": "b30836da511c96d1de996b373262140fbf6c8b65d023b7c0d902fcb9861d099e",
+      "agreedBytesUnchanged": true
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-14-deterministic-core-coverage.md",
+      "sha256": "03770d8453fc1f3a64df940969fa2bea506416f9b5003044898d80cdb9a093db",
+      "agreedBytesUnchanged": true
+    }
+  ],
+  "planPreparationGuard": {
+    "exit": 0,
+    "stdout": "{\"ok\":true,\"check\":\"plan-prep\",\"featureId\":\"deterministic-core\",\"attemptId\":\"565cd291f736f333c3421654c87bbcebb1fc315855ac3d4d037c9e8afba9324a\",\"prdSha256\":\"4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326\",\"specSha256\":\"b30836da511c96d1de996b373262140fbf6c8b65d023b7c0d902fcb9861d099e\"}\n",
+    "stderr": ""
+  },
+  "stagedWhitespace": {
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "trackedWorktreeChanges": {
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "normalIndexPaths": {
+    "exit": 0,
+    "stdout": ".claude/orchestrator-prompts/deterministic-core/kickoff-d0.md\n.claude/orchestrator-prompts/deterministic-core/kickoff.md\n",
+    "stderr": ""
+  },
+  "kickoffIndexModes": {
+    "exit": 0,
+    "stdout": "100644 0105aed0d6c06f0029e465dedc7565109e33ead1 0\t.claude/orchestrator-prompts/deterministic-core/kickoff-d0.md\n100644 393666e699d684927ad258c2c6a1dfbaeefdb318 0\t.claude/orchestrator-prompts/deterministic-core/kickoff.md\n",
+    "stderr": ""
+  }
+}

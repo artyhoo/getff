@@ -15,19 +15,27 @@ function run(lang?: string): string {
 }
 
 describe('emit-story-prompt.sh', () => {
-  it('default → English story instruction with the 🎬 marker', () => {
+  // D-G (plain-words recap v2) inverted the former "by acts" / "по актам" assertions
+  // ON PURPOSE: the story body is now the session-scale recap (why → what changed →
+  // decided → least sure → next), so the tests assert the new marker + session sections
+  // and the ABSENCE of the removed chronicle bullet. Red-first proof: both new marker
+  // assertions go red against the pre-D-G pack (## 🎬 The story / ## 🎬 Как это было).
+  it('default → English session-recap instruction with the P-7 🎬 marker', () => {
     const out = run(undefined);
-    expect(out).toContain('## 🎬 The story');
-    expect(out).toMatch(/by acts/i);
+    expect(out).toContain('## 🎬 What changed this session');
+    expect(out).toContain('Why all this was');
+    expect(out).toMatch(/What is different now/);
+    expect(out, 'D-G removed the by-acts chronicle').not.toMatch(/by acts/i);
   });
-  it('AIF_HOOK_LANG=ru → Russian story instruction', () => {
+  it('AIF_HOOK_LANG=ru → Russian session-recap instruction', () => {
     const out = run('ru');
-    expect(out).toContain('## 🎬 Как это было');
-    expect(out).toMatch(/по актам/i);
+    expect(out).toContain('## 🎬 Что изменилось за сессию');
+    expect(out).toContain('Зачем всё это было');
+    expect(out, 'D-G removed the «по актам» chronicle').not.toMatch(/по актам/i);
   });
   it('unknown lang → English fallback (non-empty)', () => {
     const out = run('zz');
-    expect(out).toContain('## 🎬 The story');
+    expect(out).toContain('## 🎬 What changed this session');
     expect(out.trim().length).toBeGreaterThan(0);
   });
 });

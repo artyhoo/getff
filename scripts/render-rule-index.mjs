@@ -26,9 +26,8 @@
  * Run via `tsx` (imports packages/core/composition/fence.ts — a .ts module, so plain
  * `node` cannot load it on Node <22.6). Precedent: scripts/render-harness-config.mjs --write/--check.
  */
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { findRegions, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
 import {
   checkPathsGlobsParity as sharedCheckPathsGlobsParity,
@@ -38,18 +37,19 @@ import {
   extractChannelMarkers as sharedExtractChannelMarkers,
   extractLivenessExemptions as sharedExtractLivenessExemptions,
 } from '../packages/core/principles/rule-channel-glob.ts';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const RULE_INDEX_SECTION_ID = 'rule-index';
 // This renderer is its own "plan" — there is no DocPlan JSON backing the rule index; the fence
 // marker's `plan=` attribute records the generating script instead (self-descriptive, T15).
 const RULE_INDEX_PLAN_PATH = 'scripts/render-rule-index.mjs';
 
-// 4KB size ceiling asserted by --check (ii). Raised from 3KB 2026-07-21: the rule population
-// (21 rules × ~150B/row) had consumed 3044/3072 BEFORE the 22nd rule landed, so the old ceiling
-// was structurally unmeetable — any legitimate new rule broke every push repo-wide. 4KB restores
-// headroom for ~5 more rules at the same row budget; raise again only with the same reasoning,
-// and prefer trimming verbose `Fires:` lines (the row's only elastic field) first.
-const INDEX_MAX_BYTES = 4 * 1024;
+// Size ceiling asserted by --check (ii). Raised 3KB->4KB 2026-07-21 (21 rules had used 3044/3072)
+// and 4KB->5KB 2026-10-01 (29 rules had used 4092/4096; a minimal row is ~90B) — both times no
+// legitimate new rule could fit, so every push broke repo-wide. Raise again only on that same
+// reasoning, and trim verbose `Fires:` lines (the row's only elastic field) first — the 30th rule
+// (coordinator-seat-delegation) did. 5KB leaves ~6 more rules at ~150B/row.
+const INDEX_MAX_BYTES = 5 * 1024;
 
 // Tier-0 core rules: never evicted, always-on regardless of paths:/globs — declared here as the
 // project's own current decision (P4 resolution), not derived from any rule's own markers.
@@ -61,7 +61,7 @@ const TIER0_CORE = new Set([
 function findRoot(start) {
   let d = resolve(start);
   for (;;) {
-    if (existsSync(join(d, '.claude/rules'))) return d;
+    if ((existsSync(join(d, '.agents/rules')) || existsSync(join(d, '.claude/rules')))) return d;
     const up = dirname(d);
     if (up === d) throw new Error('.claude/rules not found (walked to filesystem root). Pass --root <dir>.');
     d = up;
@@ -69,11 +69,23 @@ function findRoot(start) {
 }
 
 function listRuleFiles(root) {
-  const dir = join(root, '.claude/rules');
-  return readdirSync(dir)
-    .filter((f) => f.endsWith('.md') && f !== '00-rule-index.md')
-    .sort()
-    .map((f) => join(dir, f));
+  const owners = new Set();
+  const names = new Set();
+  const found = [];
+  for (const ruleRoot of ['.agents/rules', '.claude/rules']) {
+    const dir = join(root, ruleRoot);
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir).filter((f) => f.endsWith('.md') && f !== '00-rule-index.md').sort()) {
+      const path = join(dir, name);
+      const owner = realpathSync(path);
+      if (owners.has(owner)) continue;
+      if (names.has(name)) throw new Error(`${name}: distinct canonical and legacy rule owners; compatibility must be a file link`);
+      owners.add(owner);
+      names.add(name);
+      found.push(path);
+    }
+  }
+  return found;
 }
 
 // Header-marker parsers (extractHeaderField, extractFrontmatterPaths, extractGlobsMarker,
@@ -135,7 +147,7 @@ function checkPathsGlobsParity(rule, root) {
 
 function renderIndexBlock(rows) {
   const lines = [
-    'One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude/rules/00-rule-index.md`).',
+    'One line per rule — full text: read `.agents/rules/<name>.md` (index: `.agents/rules/00-rule-index.md`).',
     '',
     '| Rule | Class | Fires | Channel(s) |',
     '|---|---|---|---|',
@@ -166,7 +178,7 @@ function renderIndexFileContent(block) {
   return `# Rule index — generated, do not hand-edit
 
 > **Authoritative for:** rendered rule digest. Regen: \`npx tsx scripts/render-rule-index.mjs --write\`.
-> **NOT authoritative for:** project goal — see [README.md](../../README.md#why-this-exists). Full rule text — read \`.claude/rules/<name>.md\`.
+> **NOT authoritative for:** project goal — see [README.md](../../README.md#why-this-exists). Full rule text — read \`.agents/rules/<name>.md\`.
 
 ${block}
 `;
@@ -187,7 +199,7 @@ function run(argv) {
   }
 
   const block = renderIndexBlock(rows);
-  const indexPath = join(root, '.claude/rules/00-rule-index.md');
+  const indexPath = join(root, existsSync(join(root, '.agents/rules')) ? '.agents/rules/00-rule-index.md' : '.claude/rules/00-rule-index.md');
   const indexContent = renderIndexFileContent(block);
 
   const agentsPath = join(root, 'AGENTS.md');
@@ -233,13 +245,6 @@ function run(argv) {
   return 0;
 }
 
-function isMainEntry() {
-  try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-}
-if (isMainEntry()) process.exit(run(process.argv.slice(2)));
+if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));
 
 export { buildRows, renderIndexBlock, renderIndexFileContent, RULE_INDEX_SECTION_ID, RULE_INDEX_PLAN_PATH };

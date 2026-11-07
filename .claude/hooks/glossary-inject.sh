@@ -1,0 +1,1 @@
+../../.agents/hooks/glossary-inject.sh

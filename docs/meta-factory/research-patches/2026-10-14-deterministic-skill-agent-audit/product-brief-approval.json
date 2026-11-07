@@ -1,0 +1,85 @@
+{
+  "featureId": "deterministic-core",
+  "decision": "approved",
+  "approvedAt": "2026-10-14T20:10:26Z",
+  "approver": "Codex under explicit operator-delegated product-brief approval",
+  "authority": "Operator-provided AGENTS instruction: review the exact brief against its kickoff/spec, record evidence-backed approval bound to immutable content, and continue within authorized scope without a separate brief vote. This approval grants no implementation, installation, integration, spend, security change or main-merge authority.",
+  "approvedSha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326",
+  "gitBlob": "17aecaf1433dc5c474c28d1581f7dc5aaf8faa5a",
+  "snapshotRef": {
+    "path": "/Users/art/.codex/worktrees/e220/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326.md",
+    "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+  },
+  "premiseRef": {
+    "path": "/Users/art/.codex/worktrees/e220/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-intent-source.md",
+    "sha256": "d8208866c44ae7af5cf071735253151d12fa0eec9ae55fa6fa1557cc15be7762"
+  },
+  "capturedSelectorRevision": 0,
+  "reviewEvidence": {
+    "advisor": "/root/product_brief_check",
+    "inputScope": "Only product-intent-source.md and product-brief.md; no design, implementation or research narrative.",
+    "finalVerdict": "matches",
+    "unresolvedProductMismatches": [],
+    "understanding": "Mechanize deterministic work in the ready-made core, reserve context for judgment, and prioritize operations where relatively little effort yields a large useful result. Deliver bounded usable increments with strong core assurance. The lever/20-80 analogy implies no numerical target or heuristic and no separate lightweight-project policy.",
+    "promiseCoverage": [
+      {
+        "id": "DC-P1",
+        "premises": [
+          "P1",
+          "P4"
+        ],
+        "evidence": "product-brief.md:39,51-55"
+      },
+      {
+        "id": "DC-P2",
+        "premises": [
+          "P1",
+          "P4"
+        ],
+        "evidence": "product-brief.md:40,59-63"
+      },
+      {
+        "id": "DC-P3",
+        "premises": [
+          "P5"
+        ],
+        "evidence": "product-brief.md:41,67-71"
+      },
+      {
+        "id": "DC-P4",
+        "premises": [
+          "P12",
+          "P13"
+        ],
+        "evidence": "product-brief.md:21,42,75-81"
+      },
+      {
+        "id": "DC-P5",
+        "premises": [
+          "P2",
+          "P3"
+        ],
+        "evidence": "product-brief.md:43,85-89"
+      },
+      {
+        "id": "DC-P6",
+        "premises": [
+          "P9",
+          "P10"
+        ],
+        "evidence": "product-brief.md:44,93-97"
+      },
+      {
+        "id": "DC-P7",
+        "premises": [
+          "P7",
+          "P12",
+          "P13"
+        ],
+        "evidence": "product-brief.md:45,101-105"
+      }
+    ],
+    "repairedFindings": "Preserved scoped HANDOFF obligation; removed unsupported historical counts and pilot attribution; incorporated operator correction removing separate proportionality policy and then numeric-heuristic reading."
+  },
+  "approvalRationale": "The exact current brief preserves the operator's settled product premises and corrections, supplies scenarios/failure cases and deferrals for all seven essential promises, leaves architecture choices open, and does not grant implementation authority. The product advisor's matches is supporting evidence; this separate statement is the delegated approval decision."
+}

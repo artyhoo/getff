@@ -1,0 +1,196 @@
+{
+  "kind": "spec-review",
+  "version": 1,
+  "featureId": "portable-verified-autonomy",
+  "prdRef": {
+    "path": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md",
+    "sha256": "ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721"
+  },
+  "specRef": {
+    "path": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md",
+    "sha256": "d82086984feffc8bc038021ef4419e0d4388e32e82accbe7ebab0e016002904c"
+  },
+  "approvalRef": {
+    "path": "docs/superpowers/specs/reviews/portable-verified-autonomy/approval.md",
+    "sha256": "f47200daf3b47147d8be26c66e9213689757d4dd84c00e255218ccc93782e0ea"
+  },
+  "reviewer": {
+    "independence": "Fresh artifact-only product-intent reviewer, separate from the producer. No chat/history/memory, prior reviewer opinions or expected verdict was consulted. Candidate-embedded producer claims and approval-linked review summaries were not adopted as verdict evidence.",
+    "context": "Semantic specification fidelity only at Git inputs-ref 709216205eacd2bce791e42a6db6db9ebf105f27. Inputs: exact approved PRD snapshot, exact approval, recorded architecture/product decisions, unlabeled candidate specification, canonical spec/result review procedures and validator shape. No implementation/runtime evidence was claimed or evaluated.",
+    "documents": [
+      {
+        "path": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md",
+        "sha256": "ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md",
+        "sha256": "d82086984feffc8bc038021ef4419e0d4388e32e82accbe7ebab0e016002904c"
+      },
+      {
+        "path": "docs/superpowers/specs/reviews/portable-verified-autonomy/approval.md",
+        "sha256": "f47200daf3b47147d8be26c66e9213689757d4dd84c00e255218ccc93782e0ea"
+      },
+      {
+        "path": "docs/superpowers/specs/reviews/portable-verified-autonomy/arch-decisions.md",
+        "sha256": "c1592febcf8b813b46f880f201d7c61baab07ecfc748f84a8913b284a44f8f23"
+      }
+    ]
+  },
+  "promises": [
+    {
+      "id": "PA1",
+      "comparison": "supported",
+      "reason": "The design preserves an automatic implementation/review/finding/correction/recheck/delivery obligation. Native returns plus recurring reconciliation carry that obligation across completed host attempts; pending healthy work cannot exhaust intake. Q1 must demonstrate actual continuation, not just rejection of premature acceptance. This supports design fidelity, not a runtime success claim.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Routine transitions proceed without human message relaying or continuation prompts.",
+          "location": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md:42"
+        },
+        {
+          "source": "spec",
+          "quote": "Routine result delivery and authorized correction must not need another operator prompt.",
+          "location": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md:200"
+        }
+      ]
+    },
+    {
+      "id": "PA2",
+      "comparison": "supported",
+      "reason": "Exact current authority/candidate applicability, independent product review, mechanical checks and existing distinct review obligations remain required. AIF or CLI completion cannot substitute for acceptance; stale-green and wrong-requirement adverse tests remain explicit.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Acceptance proves the current result meets agreed intent and applicable conventions.",
+          "location": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md:43"
+        },
+        {
+          "source": "spec",
+          "quote": "Any changed candidate, unmet essential promise, missing observation or non-matches result holds delivery/expansion",
+          "location": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md:149"
+        }
+      ]
+    },
+    {
+      "id": "PA3",
+      "comparison": "supported",
+      "reason": "Durable stage-scoped relationship records, ownership generations, actual subsystem reconciliation and control revisions preserve recoverable responsibility. Uncertain-owner is an explicit bounded hold rather than duplicated execution. P17 narrows availability to the laptop returning, without removing recovery or task controls.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Responsibility and recoverable task state survive supported interruptions.",
+          "location": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md:44"
+        },
+        {
+          "source": "spec",
+          "quote": "On a spawn-intent-only crash, reconcile the named CLI session/process before another launch",
+          "location": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md:131"
+        }
+      ]
+    },
+    {
+      "id": "PA4",
+      "comparison": "supported",
+      "reason": "The design names two actual environments, separate OS worker launch and actionable record/REPORT/result identities. Native children transport references rather than replacing the standalone worker. PA4 requires live exchange before credit; model labels or delivered messages alone are insufficient.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Different supported agent environments can exchange actionable work and results.",
+          "location": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md:45"
+        },
+        {
+          "source": "spec",
+          "quote": "The selected pair is Codex in OpenMaus plus a standalone Claude Code pipeline worker",
+          "location": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md:118"
+        }
+      ]
+    },
+    {
+      "id": "PA5",
+      "comparison": "supported",
+      "reason": "The scoped Hy-Memory reader/writer, source and correction metadata, explicit supersession and real successor-use test preserve continuity. Repository authority wins over lessons. Q2 excludes author rationale and unrelated project memory from independent product review; missing isolation fails qualification.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Relevant project experience survives sessions and agent changes.",
+          "location": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md:46"
+        },
+        {
+          "source": "spec",
+          "quote": "Then demonstrate a successor's use of a real sourced lesson on the selected workflow.",
+          "location": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md:157"
+        }
+      ]
+    },
+    {
+      "id": "PA6",
+      "comparison": "supported",
+      "reason": "The actual transitive procedure/helper/role closure must ship and run in an independent consumer with legitimate local authority/access. Consumer-private bindings are initialized locally; S3 requires the same cycle and memory/control cases. Staging does not waive PA6.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Consumers receive the useful capability demonstrated in getff.",
+          "location": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md:47"
+        },
+        {
+          "source": "spec",
+          "quote": "Test delivery through the actual installer, not manifest presence alone.",
+          "location": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md:161"
+        }
+      ]
+    },
+    {
+      "id": "PA7",
+      "comparison": "supported",
+      "reason": "Status exposes owner/candidate/evidence/next action/blocker. Pause/cancel acknowledge pending cessation and prevail over late results; routine correction remains automatic, unresolved product decisions escalate. Existing grants and effect boundaries remain authoritative; no merge or deployment authority is inferred.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Human intervention is meaningful and authority remains effective.",
+          "location": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md:48"
+        },
+        {
+          "source": "spec",
+          "quote": "`resume` requires an explicit authorized business-control action; a host restart or late result cannot do it.",
+          "location": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md:137"
+        }
+      ]
+    },
+    {
+      "id": "PA8",
+      "comparison": "supported",
+      "reason": "Execution must retain configured subscription eligibility with no API fallback; memory processing, retrieval and hosting are included. Missing eligibility holds preflight. Idle routine model turns and retry resources are measured explicitly, not described as free. The design preserves the constraint without claiming current billing proof.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "The default supported path requires no additional paid service beyond already-held eligible subscriptions, or uses free components.",
+          "location": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md:49"
+        },
+        {
+          "source": "spec",
+          "quote": "Model extraction/embedding is allowed only through verified already-eligible or free/local operation.",
+          "location": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md:155"
+        }
+      ]
+    },
+    {
+      "id": "PA9",
+      "comparison": "supported",
+      "reason": "Host-specific enrollment/wake/transport is separated from core intent, rules and acceptance. S4 requires a materially different coordination host and actual cycle/failure cases; another engine within OpenMaus does not qualify. AIF is optional at core-contract level. Later host design is permitted staged work, not a waiver of independence.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Core product meaning and quality obligations are independent of any single model, provider or host.",
+          "location": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md:50"
+        },
+        {
+          "source": "spec",
+          "quote": "S3/S4 are required feature acceptance, not promises that all host bindings are already designed.",
+          "location": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md:170"
+        }
+      ]
+    }
+  ],
+  "outcome": "matches",
+  "outcomeReason": "All essential PA1\u2013PA9 remain binding in the design, including adverse cases and mandatory later consumer/second-host proofs. Named runtime qualifications and later economic/operator checkpoints remain prerequisites to their respective claims, not evidence already achieved or permission to execute."
+}

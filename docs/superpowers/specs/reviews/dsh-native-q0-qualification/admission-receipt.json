@@ -1,0 +1,23 @@
+{
+  "status": "PLAN_PREP_OK_PUBLICATION_PENDING",
+  "featureId": "dsh-native-q0-qualification",
+  "revision": 2,
+  "prdSha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da",
+  "specSha256": "1adc905b57e1d78dc2ed2c54b2cc3edd7b39fe361e3ad5d4afb8e88f683fb03b",
+  "specReviewAttemptId": "0968e550aa61336a022fd75a0b6d3174d05dfe32cb627fa6cef9291f8c1d80c6",
+  "semanticOutcome": "matches",
+  "semanticCoverage": {"essentialPromises": ["Q0-P1", "Q0-P2", "Q0-P3", "Q0-P4"], "taskClauses": 19, "outputs": 9, "exactCitations": 27},
+  "normalTransitions": [
+    {"verb": "advance-prd", "expectedRevision": 0, "resultRevision": 1, "exitCode": 0},
+    {"verb": "publish-spec-review", "attemptId": "0968e550aa61336a022fd75a0b6d3174d05dfe32cb627fa6cef9291f8c1d80c6", "exitCode": 0},
+    {"verb": "check-presentation", "capturedRevision": 1, "exitCode": 0},
+    {"verb": "advance-spec", "expectedRevision": 1, "resultRevision": 2, "exitCode": 0},
+    {"verb": "check-plan-prep", "exitCode": 0}
+  ],
+  "scopeAgreement": "Actual prior/current operator Q0 instructions bound to the complete unchanged task slice; no agreement to unrecovered whole-design bytes or architecture adoption is claimed.",
+  "parentFeature": {"featureId": "portable-verified-autonomy", "observedRevision": 2, "unchangedByQualification": true},
+  "corpusVisibilityRepair": "Use the actual shared orchestration home through the existing supported --orch-home argument. No selector edit, fabricated attempt, pre-mechanism seed or new mechanism.",
+  "runtimeQ0Started": false,
+  "remainingRelease": ["Exact staging publication/input-closure receipt", "Independent execution-readiness review", "Fresh destination/in-flight/current-authority checks", "ADMITTED_Q0 binding to the retained real session"],
+  "recordScope": "This receipt records preparation admission at its creation. Later task-local execution binding supplies current runtime release; historical preparation fields do not override satisfied current gates."
+}

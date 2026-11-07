@@ -13,11 +13,38 @@
  * scripts/render-rule-index.mjs and packages/core/principles/31-rule-channel-declaration.ts
  * import it.
  *
- * Grammar mirrors .claude/hooks/inject-matching-rule.sh:44-51 glob_match: `prefix/**` (prefix
+ * Grammar is the subset the loader's old glob_match accepted; trigger build slice 1 replaced it
+ * with glob_to_ere in .claude/hooks/inject-matching-rule.sh, which accepts a superset (`*`, `**`,
+ * `?`, `{a,b}`), so every glob valid here still matches there: `prefix/**` (prefix
  * may contain slashes, e.g. ".github/workflows/**"), `*.ext` (suffix match), or an exact path —
  * each alternative anchored so a pattern must be wholly one shape, never a mix.
  */
 import { execFileSync } from 'node:child_process';
+
+/**
+ * Git probes here must auto-discover the repo like a bare shell would. A pre-push hook
+ * inherits an absolute GIT_DIR (the invoking worktree's); inherited, `git check-ignore` /
+ * `git ls-files` die with "fatal: this operation must be run in a work tree", which the
+ * catches below misread as "not ignored" / "no tracked match" — dead-glob false positives
+ * for EVERY push from a linked worktree (reproduced 2026-10-07, #2081). The var list comes
+ * from git itself so it cannot drift.
+ */
+let localEnvVarsCache: string[] | null = null;
+
+function hookCleanEnv(root: string): NodeJS.ProcessEnv {
+  if (localEnvVarsCache === null) {
+    localEnvVarsCache = execFileSync('git', ['rev-parse', '--local-env-vars'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .map((k) => k.trim())
+      .filter(Boolean);
+  }
+  const env = { ...process.env };
+  for (const name of localEnvVarsCache) delete env[name];
+  return env;
+}
 
 /** Extract the first `> **Key:** value` line's value (may span the rest of that single line). */
 export function extractHeaderField(source: string, key: string): string | null {
@@ -146,21 +173,44 @@ export function isSubsetGlob(pattern: string): boolean {
 export function isDeliberatelyGitignoredExact(root: string, pattern: string): boolean {
   if (pattern.includes('*')) return false; // only applies to exact-path patterns
   try {
-    execFileSync('git', ['check-ignore', '-q', pattern], { cwd: root });
+    execFileSync('git', ['check-ignore', '-q', pattern], {
+      cwd: root,
+      env: hookCleanEnv(root),
+    });
     return true; // exit 0 = ignored
   } catch {
     return false; // exit 1 = not ignored, or git unavailable
   }
 }
 
+let trackedFilesCache: string[] | null = null;
+
+function trackedFiles(root: string): string[] | null {
+  if (trackedFilesCache === null) {
+    try {
+      trackedFilesCache = execFileSync('git', ['ls-files'], {
+        cwd: root,
+        encoding: 'utf8',
+        env: hookCleanEnv(root),
+        maxBuffer: 50 * 1024 * 1024,
+      })
+        .split('\n')
+        .filter(Boolean);
+    } catch {
+      return null; // no git available — cannot assert liveness; do not false-fail
+    }
+  }
+  return trackedFilesCache;
+}
+
 /** Does `pattern` (prefix/** | *.ext | exact) match at least one tracked file? */
 export function globHasLiveMatch(root: string, pattern: string): boolean {
-  let tracked: string[];
-  try {
-    tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' })
-      .split('\n')
-      .filter(Boolean);
-  } catch {
+  // One `git ls-files` per process, not per pattern: the parity sweep walks ~150
+  // patterns over ~35 rules, and a full listing per pattern timed principle 31 out
+  // under pre-push load (measured 2026-10-07, #2081). The tracked set cannot change
+  // mid-run, and both consumers (renderer --check, principle 31) read it read-only.
+  const tracked = trackedFiles(root);
+  if (tracked === null) {
     return true; // no git available — cannot assert liveness; do not false-fail
   }
   if (pattern.endsWith('/**')) {

@@ -216,7 +216,7 @@ if [ "$LIST_RC" -ne 0 ]; then
   exit 2
 fi
 
-if printf '%s\n' "$LIST_OUT" | grep -q '   opt-out ('; then
+if grep -q '   opt-out (' <<<"$LIST_OUT"; then
   printf 'CONTRACT-COVERAGE: %s\n' "$REL_KICKOFF"
   printf 'Contract: OPT-OUT — no commands to compare against\n'
   printf 'Candidates: 0\n'
@@ -257,7 +257,7 @@ printf 'Commands name: %s\n' "$(printf '%s' "$NAMED_AREAS" | tr '\n' ' ')"
 N_CAND=0
 while IFS= read -r a; do
   [ -z "$a" ] && continue
-  if ! printf '%s\n' "$NAMED_AREAS" | grep -qxF "$a"; then
+  if ! grep -qxF "$a" <<<"$NAMED_AREAS"; then
     printf 'CANDIDATE: %s — permitted, named by no declared command\n' "$a"
     N_CAND=$((N_CAND + 1))
   fi

@@ -91,7 +91,7 @@ out=$(grep -nE 'Pre-PR[^|]*audit-ai-docs' "$C")
 
 # pos-C: ASCII pipeline diagram PRE-PR tool no longer bare /aif-verify
 dr=$(grep -nE 'IDE LSP.*full tests' "$C" || true)
-printf '%s' "$dr" | grep -q '/aif-verify' \
+grep -q '/aif-verify' <<<"$dr" \
   && bad "checks-map pos-C: diagram still lists /aif-verify as PRE-PR tool" \
   || ok "checks-map pos-C: diagram PRE-PR tool no longer bare /aif-verify"
 

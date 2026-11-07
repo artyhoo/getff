@@ -31,7 +31,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/render-status.sh',
+  '.agents/procedures/pipeline/helpers/render-status.sh',
 );
 
 function runHelper(

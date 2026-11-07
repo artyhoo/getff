@@ -84,7 +84,7 @@ function yamlDq(s: string): string {
 interface RuleEntry {
   id: string;
   severity: string;
-  message: string; // ALWAYS node.claim (spec §4 parity with render-clippy.ts:112)
+  message: string; // ALWAYS node.claim (spec §4 parity with render-clippy.ts:135)
   kind: BackendParamKind;
   pattern: string;
   replacement?: string;

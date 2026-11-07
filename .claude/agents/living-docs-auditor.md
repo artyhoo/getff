@@ -1,0 +1,1 @@
+../../.agents/roles/living-docs-auditor.md

@@ -1,0 +1,9 @@
+harvest: metadata byte-verbatim; all canonical/Claude/Codex reference links and owners reachable
+harvest: every new detail has explicit card routing; missing-resource negative control discriminates
+claude-glm-executor-handoff: metadata byte-verbatim; all canonical/Claude/Codex reference links and owners reachable
+claude-glm-executor-handoff: every new detail has explicit card routing; missing-resource negative control discriminates
+getff: metadata byte-verbatim; all canonical/Claude/Codex reference links and owners reachable
+getff: every new detail has explicit card routing; missing-resource negative control discriminates
+self-reflection: metadata byte-verbatim; all canonical/Claude/Codex reference links and owners reachable
+self-reflection: every new detail has explicit card routing; missing-resource negative control discriminates
+consumer plugin: new getff resources present, content preserved under link transforms, all local relative links reachable

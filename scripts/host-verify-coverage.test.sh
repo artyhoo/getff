@@ -41,10 +41,10 @@ EOF
 OUT_A="$("$SCRIPT" "$TMP/uncovered.md" 2>&1)"
 RC_A=$?
 [ "$RC_A" -eq 0 ] || fail "uncovered fixture: emitter must exit 0 (emission, not a gate); got $RC_A"
-printf '%s\n' "$OUT_A" | grep -q '^CANDIDATE: packages/core/synthesizer' \
+grep -q '^CANDIDATE: packages/core/synthesizer' <<<"$OUT_A" \
   || fail "uncovered fixture: expected a CANDIDATE for packages/core/synthesizer; got:
 $OUT_A"
-printf '%s\n' "$OUT_A" | grep -qx 'Candidates: 1' \
+grep -qx 'Candidates: 1' <<<"$OUT_A" \
   || fail "uncovered fixture: expected exactly 1 candidate; got:
 $(printf '%s\n' "$OUT_A" | grep '^Candidates:')"
 
@@ -66,10 +66,10 @@ bash tests/install-sh/snapshot.sh
 EOF
 
 OUT_B="$("$SCRIPT" "$TMP/covered.md" 2>&1)"
-printf '%s\n' "$OUT_B" | grep -qx 'Candidates: 0' \
+grep -qx 'Candidates: 0' <<<"$OUT_B" \
   || fail "covered fixture: expected 0 candidates; got:
 $OUT_B"
-printf '%s\n' "$OUT_B" | grep -q '^CANDIDATE:' \
+grep -q '^CANDIDATE:' <<<"$OUT_B" \
   && fail "covered fixture: emitted a CANDIDATE line where the contract covers the allowlist"
 
 # ── fixture C — no allowlist: must report N/A, never "clean" ──────────────────
@@ -94,10 +94,10 @@ bash tests/install-sh/snapshot.sh
 EOF
 
 OUT_C="$("$SCRIPT" "$TMP/noallowlist.md" 2>&1)"
-printf '%s\n' "$OUT_C" | grep -q 'Allowlist: ABSENT' \
+grep -q 'Allowlist: ABSENT' <<<"$OUT_C" \
   || fail "no-allowlist fixture: expected 'Allowlist: ABSENT'; got:
 $OUT_C"
-printf '%s\n' "$OUT_C" | grep -q 'Candidates: N/A' \
+grep -q 'Candidates: N/A' <<<"$OUT_C" \
   || fail "no-allowlist fixture: absence of input must not read as 'Candidates: 0'; got:
 $OUT_C"
 
@@ -109,7 +109,7 @@ cat > "$TMP/optout.md" <<'EOF'
 EOF
 
 OUT_D="$("$SCRIPT" "$TMP/optout.md" 2>&1)"
-printf '%s\n' "$OUT_D" | grep -q 'Contract: OPT-OUT' \
+grep -q 'Contract: OPT-OUT' <<<"$OUT_D" \
   || fail "opt-out fixture: expected 'Contract: OPT-OUT'; got:
 $OUT_D"
 
@@ -150,11 +150,11 @@ test -f docs/meta-factory/triage-corpus/s2-labels.csv
 EOF
 
 OUT_F="$("$SCRIPT" "$TMP/siblingareas.md" 2>&1)"
-printf '%s\n' "$OUT_F" | grep -qx 'CANDIDATE: docs/meta-factory/research-patches — permitted, named by no declared command' \
+grep -qx 'CANDIDATE: docs/meta-factory/research-patches — permitted, named by no declared command' <<<"$OUT_F" \
   || fail "sibling-areas fixture: a permitted area sharing a prefix with a named one must
 still be a candidate — this is the S4b false negative; got:
 $OUT_F"
-printf '%s\n' "$OUT_F" | grep -qx 'Candidates: 1' \
+grep -qx 'Candidates: 1' <<<"$OUT_F" \
   || fail "sibling-areas fixture: expected exactly 1 candidate; got:
 $(printf '%s\n' "$OUT_F" | grep '^Candidates:')"
 
@@ -178,7 +178,7 @@ test -f docs/meta-factory/research-patches/2026-08-09-contract-deliverable-cover
 EOF
 
 OUT_G="$("$SCRIPT" "$TMP/siblingcovered.md" 2>&1)"
-printf '%s\n' "$OUT_G" | grep -qx 'Candidates: 0' \
+grep -qx 'Candidates: 0' <<<"$OUT_G" \
   || fail "sibling-covered fixture: expected 0 candidates; got:
 $OUT_G"
 
@@ -204,7 +204,7 @@ test -f docs/meta-factory/EXECUTION-PLAN.md
 EOF
 
 OUT_H="$("$SCRIPT" "$TMP/samedir.md" 2>&1)"
-printf '%s\n' "$OUT_H" | grep -qx 'Candidates: 0' \
+grep -qx 'Candidates: 0' <<<"$OUT_H" \
   || fail "same-dir fixture: the area floor is the containing directory, so a sibling file
 must count as covered (epilogue false-negative class (b)); got:
 $OUT_H"
@@ -214,7 +214,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 REAL="$REPO_ROOT/.claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md"
 if [ -f "$REAL" ]; then
   OUT_R="$("$SCRIPT" "$REAL" 2>&1)"
-  printf '%s\n' "$OUT_R" | grep -q '^CANDIDATE: packages/core/synthesizer' \
+  grep -q '^CANDIDATE: packages/core/synthesizer' <<<"$OUT_R" \
     || fail "incident replay: the motivating kickoff must still emit its synthesizer candidate; got:
 $(printf '%s\n' "$OUT_R" | grep -E '^(Candidates|CANDIDATE)')"
 fi

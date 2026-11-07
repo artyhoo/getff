@@ -23,7 +23,7 @@
  *   ManualBackend + exit 0. It is an operator-fixable defect in the dispatch spec's
  *   required configuration, so it belongs on the abort side of isFallbackEligible.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AifHandoffBackend } from '../src/AifHandoffBackend.js';
 import { BackendError } from '../src/backend.js';
 import { describeCancelOutcome, handleFromTaskId } from '../src/cli/claim.js';
@@ -94,7 +94,12 @@ const backend = (): AifHandoffBackend =>
 
 const deletes = (calls: Call[]): Call[] => calls.filter((c) => c.method === 'DELETE');
 
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -207,6 +212,13 @@ describe('A5-1 — cancelClaim refuses to delete a task that is not a paused cla
         if (method === 'POST' && url.endsWith('/tasks')) {
           return Promise.resolve(new Response(JSON.stringify({ id: 'task-123' }), { status: 201 }));
         }
+        if (method === 'GET' && /\/tasks\/task-123$/.test(url)) {
+          // release()'s intent-scope re-read (reads the persisted description before
+          // the unpause) — an unscoped row, so the PUT below stays the failing effect
+          // this arm is about. Flipping production change: removing this read drops
+          // the count to 0 (the assertion below pins it).
+          return Promise.resolve(new Response(JSON.stringify({ id: 'task-123' }), { status: 200 }));
+        }
         if (method === 'DELETE') {
           return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 }));
         }
@@ -215,9 +227,14 @@ describe('A5-1 — cancelClaim refuses to delete a task that is not a paused cla
     );
     await expect(backend().dispatch(KICKOFF)).rejects.toThrow(/PUT \/tasks\/task-123 HTTP 400/);
     expect(deletes(calls)).toHaveLength(1);
-    // No GET /tasks/:id gate in front of the rollback delete.
-    expect(calls.filter((c) => c.method === 'GET' && /\/tasks\/task-123$/.test(c.url))).toHaveLength(
-      0,
+    // The rollback delete is still unguarded — the one GET /tasks/:id in the trace is
+    // release()'s scope re-read BEFORE the unpause, not a gate in front of the delete:
+    // between the failing PUT and the DELETE there is no read that could orphan the
+    // task when it is the thing that is broken.
+    const taskGets = calls.filter((c) => c.method === 'GET' && /\/tasks\/task-123$/.test(c.url));
+    expect(taskGets).toHaveLength(1);
+    expect(taskGets[0] ? calls.indexOf(taskGets[0]) : -1).toBeLessThan(
+      calls.findIndex((c) => c.method === 'PUT'),
     );
   });
 });

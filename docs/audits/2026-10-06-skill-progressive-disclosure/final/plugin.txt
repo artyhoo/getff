@@ -1,0 +1,17 @@
+  ✗ generator non-zero exit on the real tree
+  ✓ regeneration is a no-op on a clean tree
+  ✓ lib.sh transform exposes 20 arms
+  ✓ transform parity: generator arms 1-20 identical to setup.d/lib.sh
+  ✓ 21st textstrip arm present, generator-only as documented
+  ✓ sandbox: absent table entry is created
+  ✓ sandbox: second run is a no-op
+  ✓ sandbox: tampered payload → exit 3, content preserved (clobber guard)
+  ✓ sandbox: stale payload re-synced with the source edit staged (pre-commit flow)
+  ✓ sandbox: manual marker (>=20-char rationale) skips, payload untouched
+  ✓ sandbox: short manual rationale → exit 2
+  ✓ sandbox: plugin-native entry untouched
+  ✓ sandbox: source deleted (uncommitted) → orphan payload removed, rc 0
+  ✓ sandbox: committed source deletion → orphan payload removed (no exit-3 dead-end)
+  ✓ sandbox: diverged orphan (wt source deleted, HEAD still has it) → exit 3, content preserved
+
+PASS=14 FAIL=1

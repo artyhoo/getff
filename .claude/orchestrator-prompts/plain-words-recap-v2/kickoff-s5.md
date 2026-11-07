@@ -245,9 +245,9 @@ in-session — **recheck at implementation time**, this is the kind of claim tha
 Umbrella §7 host-verify contract, plus:
 
 ```bash host-verify
-PC_LOCAL=1 npx vitest run packages/core/principles/29-worker-dispatch-channel.test.ts
-PC_LOCAL=1 npx vitest run packages/core/hooks/check-worker-dispatch-channel.test.ts
-PC_LOCAL=1 npx vitest run packages/core/principles/ --testTimeout=90000
+npx vitest run packages/core/principles/29-worker-dispatch-channel.test.ts
+npx vitest run packages/core/hooks/check-worker-dispatch-channel.test.ts
+npx vitest run packages/core/principles/ --testTimeout=90000
 wc -l .claude/skills/pipeline/SKILL.md        # must still be exactly 600
 ```
 

@@ -99,7 +99,7 @@
     "ts-server": [
       "templates/ts-server/eslint.config.mjs",
       "templates/ts-server/vitest.config.ts",
-      "templates/ts-server/dependency-cruiser.cjs",
+      "templates/ts-server/dependency-cruiser.mjs",
       "templates/ts-server/stryker.config.json",
       "templates/ts-server/github-actions-ci.yml",
       "templates/ts-server/github-actions-workflow-integrity.yml"

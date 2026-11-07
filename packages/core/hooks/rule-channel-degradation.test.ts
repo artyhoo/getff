@@ -3,7 +3,7 @@
  * scripts/render-rule-channels.mjs, "channel-as-data" lite — design §4 Тезис B).
  *
  * Channel: test:hooks (`vitest run hooks/`), already armed in CI at
- * audit-self.yml:244 — no workflow edit needed (same channel as the sibling
+ * audit-self.yml:562 — no workflow edit needed (same channel as the sibling
  * harness-config-drift.test.ts, #894).
  *
  * Two enforcement surfaces:
@@ -74,7 +74,7 @@ function sandbox(): string {
   // to the real tree's. computeMatrix()'s file lookup tries `git ls-files` first and
   // falls back to plain readdirSync when git is unavailable (no .git dir in this
   // tmpdir) — so a verbatim file copy, without `git init`, is sufficient here.
-  const rulesDir = join(REPO_ROOT, '.claude/rules');
+  const rulesDir = join(REPO_ROOT, '.agents/rules');
   for (const f of readdirSync(rulesDir)) {
     if (f.endsWith('.md')) copyFileSync(join(rulesDir, f), join(dir, '.claude/rules', f));
   }

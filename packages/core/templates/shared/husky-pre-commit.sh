@@ -8,4 +8,29 @@
 #
 # Install: place at .husky/pre-commit and run `chmod +x .husky/pre-commit`
 
-npx lint-staged
+# ZCode skill-mirror check (#1502): blocks a commit whose .zcode/skills mirror of .claude/skills
+# is incomplete — CC-only consumers get one info line and exit 0. getff's installer delivers the
+# script next to this hook on every install and every --refresh, so it is missing only when it was
+# removed from the project — and it stays missing only while a Layer-3
+# scripts/check-zcode-mirror.sh.override.md says the project owns it (--refresh skips such a
+# file). Missing is a loud WARN, never a silent skip. `-f`, not `-x`: the script runs through `sh`,
+# so its executable bit must not decide whether the check runs. "$PWD" is passed explicitly: git
+# runs this hook from the tree root, and an AIF_PROJECT_ROOT inherited from the environment must
+# not point the check at another tree.
+if [ -f scripts/check-zcode-mirror.sh ]; then
+  sh scripts/check-zcode-mirror.sh "$PWD" || exit 1
+else
+  echo "check-zcode-mirror: WARN scripts/check-zcode-mirror.sh not found — mirror NOT checked; getff's installer puts it back: bash /path/to/getff/install.sh --refresh (skipped while scripts/check-zcode-mirror.sh.override.md marks it project-owned)" >&2
+fi
+# --concurrent false serializes the .lintstagedrc.json task groups: with the default infinite
+# concurrency, sort-package-json/prettier rewrite package.json (a truncate-then-write) while the
+# lint group's plugin load reads it (oxlint JS plugins resolve against the project) — the read can
+# land in the truncate window and get an empty file (CI flake 2026-10-05/06: oxlint JSONError
+# "File is empty", PR #2056 run 37393570781). The reader reads a file it does not stage, so the
+# negation-pattern fix lint-staged documents cannot apply — serialized groups are the fix.
+npx lint-staged --concurrent false || exit $?
+# A check the pre-push probe (or `npm run validate`) found green waits in a per-clone sidecar; fold it
+# into the tracked record (.ai-factory/tool-decisions.md) and stage it, so the flip rides this commit.
+# After lint-staged, so its stash-and-restore never sees the index change. A failed fold never blocks
+# the commit: the sidecar stays and scripts/run-armed.sh keeps reading it.
+if [ -f scripts/run-armed.sh ]; then bash scripts/run-armed.sh --fold || true; fi

@@ -27,10 +27,13 @@
 # DEGRADES GRACEFULLY when:
 #   - Manifest absent (80-rule-bootstrap skipped → zero generated rules → exit 0)
 #   - ESLint binary absent (tsx not available → skip with guidance)
-#   - No rules with both selector + negative-test (degenerate → exit 0)
+#   - No declarative rules in the manifest (degenerate → exit 0; an unreadable manifest is a FAIL)
 #
 # NOT a CI gate — runs ONLY under FULL (--full install). MUST NOT run on CI self-install
 # path (FULL unset). rc=0 on degrade, rc=1 on kill-rate failure.
+# A run that tested no rule exits ${GETFF_SKIP_RC:-0}: the install self-verify capstone sets
+# GETFF_SKIP_RC=77 (the automake/TAP SKIP code) so «checked nothing» is counted as SKIP, not PASS
+# (critical-review S4-7); every other caller keeps rc 0.
 #
 # @cc-only-rationale: sourced by install.sh dispatcher (setup.d/99-finalize.sh); not a
 #   consumer-facing npm script (mutation depth pass uses run-generated-rule-mutation.sh).
@@ -58,7 +61,7 @@ if [ ! -f "$MANIFEST" ]; then
     echo "    (80-rule-bootstrap skipped or no research artefacts under $_research_dir —"
     echo "     zero generated rules; skipped)"
   fi
-  exit 0
+  exit "${GETFF_SKIP_RC:-0}"
 fi
 
 PASS=0; FAIL=0; SKIP=0; RULES_TESTED=0
@@ -85,12 +88,28 @@ for _e in \
   [ -x "$_e" ] && ESLINT_BIN="$_e" && break
 done
 
-if [ -z "$TSX_BIN" ] || [ -z "$ESLINT_BIN" ]; then
-  skip "check-generated-rule-mutation SKIP — tsx ($([ -n "$TSX_BIN" ] && echo found || echo missing)) or eslint ($([ -n "$ESLINT_BIN" ] && echo found || echo missing)) not available"
-  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit 0
+# The TypeScript parser comes with ESLint from one node_modules. A project without typescript-eslint (an oxlint
+# project) gets getff's rule-generator toolchain, which 80-rule-bootstrap.sh keeps in node_modules/.cache (the
+# delivered run-generated-rule-mutation.sh resolves it the same way). P6 run 2 N1: without it every input
+# failed to parse, 0 rules were tested and the install still ended «complete».
+NM_SRC=""
+[ -z "$ESLINT_BIN" ] || NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
+# `.complete` marks a toolchain npm finished installing (80-rule-bootstrap.sh / the runner write it). Under
+# --global the install keeps it in the user cache instead of the project's node_modules/.cache.
+if [ ! -f "$NM_SRC/typescript-eslint/package.json" ]; then
+  for _gen in "$CONSUMER_ROOT/node_modules/.cache/getff/generator-tools" "${XDG_CACHE_HOME:-$HOME/.cache}/getff/generator-tools"; do
+    if [ -f "$_gen/.complete" ] && [ -f "$_gen/node_modules/typescript-eslint/package.json" ] \
+       && [ -f "$_gen/node_modules/eslint/package.json" ]; then
+      NM_SRC="$_gen/node_modules"; ESLINT_BIN="$_gen/node_modules/.bin/eslint"; break
+    fi
+  done
 fi
 
-NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
+if [ -z "$TSX_BIN" ] || [ -z "$ESLINT_BIN" ]; then
+  skip "check-generated-rule-mutation SKIP — tsx ($([ -n "$TSX_BIN" ] && echo found || echo missing)) or eslint ($([ -n "$ESLINT_BIN" ] && echo found || echo missing)) not available"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit "${GETFF_SKIP_RC:-0}"
+fi
+
 
 # ─── Scratch + static probe script ────────────────────────────────────────────
 SCRATCH=$(mktemp -d)
@@ -111,16 +130,30 @@ if (!selector || !code) {
   process.exit(9);
 }
 
+// Generated negative inputs are TypeScript and may hold JSX (the shipped manifest's own inputs
+// carry `(): void` annotations), so parse them the way the consumer's lint does: with the
+// typescript-eslint parser when the consumer has it, JSX on. `files` is required — a flat-config
+// object without it matches only js/mjs/cjs (see run-generated-rule-mutation.sh's probe).
+let parser: unknown;
+try { parser = (await import('typescript-eslint')).parser; } catch { parser = undefined; }
 const linter = new Linter();
 const cfg = [{
+  files: ['**/*.{ts,tsx,js,jsx}'],
   rules: {
     'no-restricted-syntax': ['error' as const, { selector, message: 'mutation-probe' }],
   },
-  languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+  languageOptions: {
+    ecmaVersion: 2022, sourceType: 'module',
+    ...(parser ? { parser } : {}),
+    parserOptions: { ecmaFeatures: { jsx: true } },
+  },
 }];
 
 try {
-  const msgs = linter.verify(code, cfg, { filename: 'probe.js' });
+  const msgs = linter.verify(code, cfg as never, { filename: parser ? 'probe.tsx' : 'probe.jsx' });
+  // An input the parser rejects says nothing about the selector: infrastructure, not a miss.
+  const fatal = msgs.find(m => m.fatal);
+  if (fatal) { process.stderr.write('probe: input does not parse: ' + fatal.message + '\n'); process.exit(9); }
   process.exit(msgs.some(m => m.ruleId === 'no-restricted-syntax') ? 0 : 1);
 } catch (e) {
   process.stderr.write('probe error: ' + String(e) + '\n');
@@ -129,37 +162,51 @@ try {
 PROBE
 
 # ─── Helper: run probe ────────────────────────────────────────────────────────
-# Returns 0 if selector fires on code, 1 if not, 9 if error.
+# Returns 0 if selector fires on code, 1 if not, 9 if the probe cannot evaluate it (the input does not
+# parse, or ESLint rejects the selector); the error of a 9 is kept in PROBE_LAST_ERR, one line.
+PROBE_LAST_ERR=""
 _probe_selector() {
-  local SEL="$1" CODE="$2"
+  local SEL="$1" CODE="$2" QUIET="${3:-}"
   local OUT RC
   OUT=$(cd "$SCRATCH" && PROBE_SELECTOR="$SEL" PROBE_CODE="$CODE" "$TSX_BIN" selector-probe.mts 2>&1)
   RC=$?
   if [ "$RC" -eq 9 ]; then
-    # Probe error — treat as infrastructure skip
-    echo "PROBE_ERR:$OUT" >&2
+    PROBE_LAST_ERR=$(tr '\n' ' ' <<<"$OUT")
+    [ -n "$QUIET" ] || echo "PROBE_ERR:$OUT" >&2
   fi
   return "$RC"
 }
 
 # ─── Extract rules from manifest ──────────────────────────────────────────────
 # Returns JSON array: [{id, selector, negativeTestInputs}] for declarative rules with negative-test.
-RULES_JSON=$(node --input-type=module -e "
+# critical-review S8-1 — fail closed: a manifest that does not parse used to become `[]` here and
+# read as «no declarative rules … skipped», exit 0. The path travels in the environment (a `'` in a
+# consumer path broke the old JS string splice the same way). A declarative rule whose negative-test
+# is missing or misspelled is kept with inputs=[] so _test_rule reports it instead of it vanishing.
+_rules_err=$(mktemp)
+if ! RULES_JSON=$(GETFF_MUTATION_MANIFEST="$MANIFEST" node --input-type=module -e "
 import { readFileSync } from 'node:fs';
-const manifest = JSON.parse(readFileSync('$MANIFEST', 'utf8'));
+const manifest = JSON.parse(readFileSync(process.env.GETFF_MUTATION_MANIFEST, 'utf8'));
+if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) throw new Error('manifest is not a JSON object');
 const rules = [];
 for (const [id, rule] of Object.entries(manifest)) {
-  const r = rule;
+  const r = rule ?? {};
   const check = r.check ?? {};
   const selector = check.selector ?? '';
   if (!selector || check.type !== 'declarative') continue;
   // handle both 'negative-test' (hyphenated, SynthesizedRule) and 'negativeTest' (camelCase)
   const nt = r['negative-test'] ?? r['negativeTest'] ?? null;
-  if (!nt || !Array.isArray(nt.input) || nt.input.length === 0) continue;
-  rules.push({ id, selector, inputs: nt.input });
+  rules.push({ id, selector, inputs: nt && Array.isArray(nt.input) ? nt.input : [] });
 }
 process.stdout.write(JSON.stringify(rules));
-" 2>/dev/null || echo '[]')
+" 2>"$_rules_err"); then
+  # Node prints the throwing SOURCE LINE (`… throw new Error('…');`) above the message, so match
+  # the message line itself — `Error: …` / `SyntaxError: …` / `Error [ERR_…]: …` at column 0 (#1390).
+  bad "check-generated-rule-mutation: could not read the manifest $MANIFEST: $(grep -m1 -E '^[A-Za-z]*Error( \[[A-Z0-9_]+\])?: ' "$_rules_err" || head -n 1 "$_rules_err")"
+  rm -f "$_rules_err"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP RULES_TESTED=0"; exit 1
+fi
+rm -f "$_rules_err"
 
 RULE_COUNT=$(echo "$RULES_JSON" | node --input-type=module -e "
 import { createInterface } from 'node:readline';
@@ -173,7 +220,7 @@ process.stdin.on('end', () => {
 
 if [ "$RULE_COUNT" -eq 0 ]; then
   skip "check-generated-rule-mutation: manifest has no declarative rules with negative-test inputs — skipped"
-  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP RULES=0"; exit 0
+  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP RULES=0"; exit "${GETFF_SKIP_RC:-0}"
 fi
 
 echo "▶ check-generated-rule-mutation: testing $RULE_COUNT generated rule(s) for mutation kill-rate ≥60%"
@@ -213,19 +260,22 @@ _test_rule() {
   local INPUTS_JSON="$3"  # JSON array of bad input strings
   local MIN_KILL_PCT=60
 
-  # Read inputs array into bash array
+  # Read inputs array into bash array — NUL-delimited end to end (critical-review S8-1 sibling).
+  # The old `| tr '\x00' '\n'` never touched the NUL (BSD tr reads '\x00' as the characters
+  # `x` `0` `0` and mapped every x and 0 to a newline instead), so inputs were cut at those letters,
+  # the last one — lacking a newline — was dropped by `read`, and a rule with a single input took
+  # the «no inputs» skip below. `read -d ''` splits on the NUL directly.
   local INPUTS=()
-  while IFS= read -r _line; do
+  while IFS= read -r -d '' _line; do
     INPUTS+=("$_line")
   done < <(node --input-type=module -e "
-    import { createInterface } from 'node:readline';
     const chunks = [];
     process.stdin.on('data', c => chunks.push(c));
     process.stdin.on('end', () => {
       const arr = JSON.parse(chunks.join(''));
-      arr.forEach(s => process.stdout.write(s + '\x00'));
+      arr.slice(0, 3).forEach(s => process.stdout.write(String(s) + '\x00'));
     });
-  " 2>/dev/null <<< "$INPUTS_JSON" | tr '\x00' '\n' | head -3 || true)
+  " 2>/dev/null <<< "$INPUTS_JSON" || true)
 
   if [ "${#INPUTS[@]}" -eq 0 ]; then
     skip "[$RULE_ID] no inputs in negative-test — skipped"
@@ -236,9 +286,15 @@ _test_rule() {
   local BAD_CODE="${INPUTS[0]}"
 
   # First verify the ORIGINAL selector fires on the bad input
-  if ! _probe_selector "$SELECTOR" "$BAD_CODE"; then
-    if [ $? -eq 9 ]; then
-      skip "[$RULE_ID] probe infrastructure error — skipped"
+  # rc is captured BEFORE branching: inside `if ! cmd; then` $? is the negation's 0, so the
+  # old `[ $? -eq 9 ]` there never fired and every probe error read as a broken selector.
+  local _orig_rc=0
+  _probe_selector "$SELECTOR" "$BAD_CODE" || _orig_rc=$?
+  if [ "$_orig_rc" -ne 0 ]; then
+    if [ "$_orig_rc" -eq 9 ]; then
+      # P6 run 2 N1 (R3): this was a skip, so an install whose every generated rule failed to parse ended
+      # «complete». getff generated this material in this install and could not test it: a failure.
+      bad "[$RULE_ID] could not be tested — the probe could not evaluate its negative-test input (PROBE_ERR above)"
       return
     fi
     bad "[$RULE_ID] ORIGINAL selector did NOT fire on negative-test input (selector broken before mutation?)"
@@ -247,25 +303,30 @@ _test_rule() {
 
   # Apply 11 semantic selector mutations (VAL/ATTR/NODE/LOGIC operators can SURVIVE
   # on weak tests, making the ≥60% kill-floor meaningful).
-  local KILLED=0 TOTAL=0
+  # A mutation that still fires SURVIVED; one that stops firing is KILLED. One the probe cannot evaluate
+  # (9: ESLint rejects the mutated selector — ATTR-1 on `:matches([…], …)` leaves `:matches(, …)`) was
+  # not tested: it used to count as killed. It is named, counted apart and left out of the kill rate
+  # (P6 run 4 N10).
+  local KILLED=0 TOTAL=0 UNEVAL=0 _mrc
   while IFS= read -r MUT; do
     [ -z "$MUT" ] && continue
-    TOTAL=$((TOTAL+1))
-    if _probe_selector "$MUT" "$BAD_CODE"; then
-      : # still fires = SURVIVED
-    else
-      KILLED=$((KILLED+1))
-    fi
+    _mrc=0; _probe_selector "$MUT" "$BAD_CODE" quiet || _mrc=$?
+    case "$_mrc" in
+      0) TOTAL=$((TOTAL+1)) ;;  # still fires = SURVIVED
+      9) UNEVAL=$((UNEVAL+1)); echo "    · [$RULE_ID] unevaluable: $MUT — $PROBE_LAST_ERR" ;;
+      *) TOTAL=$((TOTAL+1)); KILLED=$((KILLED+1)) ;;
+    esac
   done < <(_mutate "$SELECTOR")
 
-  [ "$TOTAL" -eq 0 ] && { skip "[$RULE_ID] no mutations generated — skipped"; return; }
+  [ "$TOTAL" -eq 0 ] && { skip "[$RULE_ID] no mutation generated or evaluable — skipped"; return; }
   local KILL_PCT=$(( KILLED * 100 / TOTAL ))
+  local _unev=""; [ "$UNEVAL" -eq 0 ] || _unev="; $UNEVAL mutation unevaluable, not counted"
   RULES_TESTED=$((RULES_TESTED+1))
 
   if [ "$KILL_PCT" -ge "$MIN_KILL_PCT" ]; then
-    ok "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) ≥${MIN_KILL_PCT}% — generated test non-vacuous"
+    ok "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) ≥${MIN_KILL_PCT}% — generated test non-vacuous$_unev"
   else
-    bad "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) <${MIN_KILL_PCT}% — generated negative-test is selector-blind (test theatre)"
+    bad "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) <${MIN_KILL_PCT}% — generated negative-test is selector-blind (test theatre)$_unev"
   fi
 }
 
@@ -313,4 +374,5 @@ done
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP RULES_TESTED=$RULES_TESTED"
-[ "$FAIL" -eq 0 ]
+[ "$FAIL" -eq 0 ] || exit 1
+[ "$RULES_TESTED" -gt 0 ] || exit "${GETFF_SKIP_RC:-0}"

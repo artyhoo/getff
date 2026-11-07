@@ -1,0 +1,6 @@
+[ERROR] generate-plugin-skills: getff — refusing to overwrite plugin/skills/getff/SKILL.md.
+  Its content matches neither the render from .agents/procedures/getff/SKILL.md (working tree) nor from HEAD,
+  so this file holds logic no source reproduces; writing would delete it silently
+  (the #1044/#1442 silent-loss class).
+  Fix: move the content into the SOURCE and re-run, or commit the payload reduction
+  explicitly first, or declare <!-- @plugin-skills: manual — <rationale> --> on the source SKILL.md.

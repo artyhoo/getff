@@ -60,6 +60,15 @@ fi
 [ ! -e "$P/.ruff_cache" ] \
   && ok "(1) no .ruff_cache in the consumer tree (self-check writes to an OS temp dir ONLY — STOP line)" \
   || bad "(1) .ruff_cache leaked into the consumer tree (STOP-line violation)"
+# W2-G (#1502) kickoff §6 falsifier — «neither runs the check nor prints its not-wired line»: a
+# non-git tree gets the mirror check delivered, but no hook is active to run it, so the install
+# must say so. Case 1, Case 2 (its pre-commit pre-push stage not installed, or — 16f — its getff entry
+# not added) and Case 3 below assert the same; (14) is the paired negative (hook active → no such line), and so is install-no-manual-step
+# Y2 for Case 2 (stage installed → no such line).
+MIRROR_NOT_WIRED='ZCode skill-mirror check (scripts/check-zcode-mirror.sh, delivered): no hook runs it'
+[ -f "$P/scripts/check-zcode-mirror.sh" ] && grep -qF "$MIRROR_NOT_WIRED" <<<"$out" \
+  && ok "(1) non-git tree: mirror check delivered AND its not-wired line printed" \
+  || bad "(1) non-git tree: check delivered=$( [ -f "$P/scripts/check-zcode-mirror.sh" ] && echo y || echo n ), not-wired line=$(echo "$out" | grep -cF "$MIRROR_NOT_WIRED") — a delivered check no hook runs went unmentioned"
 
 # ── (2) explicit `python` OVERRIDES npm auto-detect in a MIXED repo (package.json + pyproject) ─────
 echo ""; echo "  ── (2) explicit override: mixed repo, install.sh python wins over npm detect ──"
@@ -93,13 +102,13 @@ out=$( cd "$P" && bash "$INSTALL" < /dev/null 2>&1 ); rc=$?
 [ ! -e "$P/sgconfig.yml" ] \
   && ok "(4) OFFER declined on EOF (default No) → python bundle NOT delivered (npm lane, then no-package.json abort)" \
   || bad "(4) python bundle delivered despite a declined OFFER"
-echo "$out" | grep -qi 'Detected a Python project' \
+grep -qi 'Detected a Python project' <<<"$out" \
   && ok "(4) the OFFER prompt was shown (auto-detect fired on pyproject + no package.json)" \
   || bad "(4) OFFER prompt not shown: $(echo "$out" | tr '\n' '|' | cut -c1-160)"
 [ "$rc" -eq 1 ] \
   && ok "(4) exit code 1 (clean abort at the npm no-package.json precondition, not an arbitrary crash)" \
   || bad "(4) unexpected exit code $rc (expected 1): $(echo "$out" | tr '\n' '|' | cut -c1-160)"
-echo "$out" | grep -qF 'No package.json found' \
+grep -qF 'No package.json found' <<<"$out" \
   && ok "(4) EOF-safe read fell through to the clean 'No package.json found' message (fix 1: bare EOF read no longer set-e-aborts message-less)" \
   || bad "(4) 'No package.json found' message MISSING — a bare \`read\` at EOF likely set-e-aborted the script silently before reaching the npm lane: $(echo "$out" | tr '\n' '|' | cut -c1-200)"
 
@@ -152,10 +161,10 @@ out=$( cd "$P" && bash "$INSTALL" ts-server --refresh < /dev/null 2>&1 ); rc=$?
 [ "$rc" -eq 0 ] \
   && ok "(7b) exit 0 — npm refresh completed" \
   || bad "(7b) unexpected exit $rc: $(echo "$out" | tail -5 | tr '\n' '|')"
-echo "$out" | grep -qF 'Refreshing rules-as-tests-aif framework artefacts' \
+grep -qF 'Refreshing rules-as-tests-aif framework artefacts' <<<"$out" \
   && ok "(7b) npm refresh banner shown (explicit ts-server arg took precedence over the python marker)" \
   || bad "(7b) npm refresh banner MISSING: $(echo "$out" | head -5 | tr '\n' '|')"
-echo "$out" | grep -qF 'Refreshing getff Python toolchain' \
+grep -qF 'Refreshing getff Python toolchain' <<<"$out" \
   && bad "(7b) WRONGLY routed to the python-only refresh despite an explicit npm stack arg (marker auto-detect beat the explicit arg)" \
   || ok "(7b) did NOT reroute to the python-only refresh (explicit stack arg precedence holds)"
 [ -f "$P/.claude/agents/aif-init.md" ] \
@@ -171,33 +180,33 @@ out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
 # the setgid(1) coreutil, so a bare `command -v sg` would take the "present" branch on a
 # host that has NO ast-grep (CI install-sh shards), diverging from the self-check's own
 # guarded detection (45-python.sh). Both must agree or the assertions below false-fire.
-if command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; }; then
-  echo "$out" | grep -qF 'ast-grep fired RED' \
+if command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && grep -qi 'ast-grep' <<<"$(sg --version 2>/dev/null)"; }; then
+  grep -qF 'ast-grep fired RED' <<<"$out" \
     && ok "(8) ast-grep present → self-check FIRED RED on the planted violation" \
     || bad "(8) ast-grep present but self-check did not report a RED fire: $(echo "$out" | grep -i ast-grep | tr '\n' '|')"
   # Paired GREEN direction (adapter-jig E1): the self-check must ALSO prove the rules stay quiet on
   # conforming code — a RED-only harness passes identically under an always-firing rule set.
-  echo "$out" | grep -qF 'ast-grep clean control GREEN' \
+  grep -qF 'ast-grep clean control GREEN' <<<"$out" \
     && ok "(8) ast-grep clean control GREEN reported (rules discriminate, not always-red)" \
     || bad "(8) no ast-grep clean-control GREEN line — self-check is RED-only (vacuous vs an over-broad rule set)"
 else
-  echo "$out" | grep -qF 'ast-grep not on PATH' \
+  grep -qF 'ast-grep not on PATH' <<<"$out" \
     && ok "(8) ast-grep absent → self-check DEGRADED loudly (not silently green)" \
     || bad "(8) ast-grep absent but no loud degrade line"
 fi
 if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
-  echo "$out" | grep -qF 'ruff fired RED' \
+  grep -qF 'ruff fired RED' <<<"$out" \
     && ok "(8) ruff present → self-check FIRED RED on the planted violation" \
     || bad "(8) ruff present but self-check did not report a RED fire: $(echo "$out" | grep -i ruff | tr '\n' '|')"
-  echo "$out" | grep -qF 'ruff clean control GREEN' \
+  grep -qF 'ruff clean control GREEN' <<<"$out" \
     && ok "(8) ruff clean control GREEN reported (bans discriminate, not always-red)" \
     || bad "(8) no ruff clean-control GREEN line — self-check is RED-only (vacuous vs an over-broad config)"
 else
-  echo "$out" | grep -qF 'ruff not on PATH' \
+  grep -qF 'ruff not on PATH' <<<"$out" \
     && ok "(8) ruff absent → self-check DEGRADED loudly (not silently green)" \
     || bad "(8) ruff absent but no loud degrade line"
 fi
-echo "$out" | grep -qF 'OVER-BROAD' \
+grep -qF 'OVER-BROAD' <<<"$out" \
   && bad "(8) self-check reported OVER-BROAD on a healthy install (false alarm)" \
   || ok "(8) no OVER-BROAD verdict on the healthy delivered rule set"
 
@@ -226,17 +235,23 @@ deg=$(
     source "'"$REPO_ROOT"'/setup.d/lib.sh"
     PY_LAYER_LIB_ONLY=1 source "'"$REPO_ROOT"'/setup.d/45-python.sh"
     PATH="$NOTOOLS" _py_firing_self_check
+    print_not_wired
   ' 2>&1
 )
-echo "$deg" | grep -qF 'ast-grep not on PATH' && echo "$deg" | grep -qF 'ruff not on PATH' \
-  && ok "(9) both lanes print a loud tool-absent degrade with the exact manual command" \
+grep -qF 'ast-grep not on PATH' <<<"$deg" && grep -qF 'ruff not on PATH' <<<"$deg" \
+  && ok "(9) both lanes print a loud tool-absent degrade" \
   || bad "(9) degrade lines missing: $(echo "$deg" | tr '\n' '|')"
-echo "$deg" | grep -qiE 'NOT proven|NOT green' \
+grep -qiE 'NOT proven|NOT green' <<<"$deg" \
   && ok "(9) degrade summary refuses to claim green (attention-is-not-a-mechanism honesty)" \
   || bad "(9) degrade summary did not withhold the green claim"
-echo "$deg" | grep -qF '@ast-grep/cli@0.44.1' && echo "$deg" | grep -qF 'ruff@0.15.21' \
-  && ok "(9) manual commands carry the PINNED tool versions (@0.44.1 / ==0.15.21 lineage)" \
-  || bad "(9) manual commands missing pinned versions"
+# Q4.7: the degrade hands back no manual command — its reason is a NOT-wired line instead.
+grep -qE 'firing self-check \(ast-grep\): not proven' <<<"$deg" && grep -qE 'firing self-check \(ruff\): not proven' <<<"$deg" \
+  && ok "(9) each degrade is a NOT-wired line with its reason (Q4.7)" \
+  || bad "(9) degrade NOT-wired lines missing: $(echo "$deg" | tr '\n' '|')"
+_hand_cmd='npx|uvx ruff|pip[[:space:]]install'  # a printed install command, not an install
+grep -qE "$_hand_cmd" <<<"$deg" \
+  && bad "(9) the degrade still prints a command to run by hand: $(echo "$deg" | grep -E "$_hand_cmd" | head -1)" \
+  || ok "(9) the degrade prints no command to run by hand"
 [ ! -e "$P/.ruff_cache" ] \
   && ok "(9) degrade run wrote nothing under the consumer tree (temp-dir-only STOP line holds)" \
   || bad "(9) .ruff_cache leaked during the degrade run"
@@ -271,10 +286,10 @@ out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 ) || true
   && ok "(10) REFUSE cell held: consumer ruff.toml untouched + getff-ruff.toml reference shipped" \
   || bad "(10) REFUSE cell wrong: consumer ruff.toml modified or getff-ruff.toml missing"
 if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
-  echo "$out" | grep -qF 'ruff fired RED' \
+  grep -qF 'ruff fired RED' <<<"$out" \
     && ok "(10) self-check FIRED via the DELIVERED .getff/ruff-bans.toml (not the consumer's bans-less config)" \
     || bad "(10) self-check did not fire in the REFUSE cell — delivered-config resolution bug: $(echo "$out" | grep -i ruff | tr '\n' '|')"
-  echo "$out" | grep -qF 'ruff did NOT fire' \
+  grep -qF 'ruff did NOT fire' <<<"$out" \
     && bad "(10) FALSE SILENT verdict — the self-check validated the consumer's config (W4 finding-1 class)" \
     || ok "(10) no false SILENT verdict in the REFUSE cell"
 fi
@@ -309,10 +324,10 @@ if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
       _py_firing_self_check
     ' 2>&1
   )
-  echo "$ordr" | grep -qF 'ruff fired RED' \
+  grep -qF 'ruff fired RED' <<<"$ordr" \
     && ok "(11) self-check resolved the GETFF-owned getff-ruff.toml — planted violation fired" \
     || bad "(11) FALSE SILENT — fallback resolved the consumer's bans-less ruff.toml (consumer-first ordering bug): $(echo "$ordr" | grep -i ruff | tr '\n' '|')"
-  echo "$ordr" | grep -qF 'ruff did NOT fire' \
+  grep -qF 'ruff did NOT fire' <<<"$ordr" \
     && bad "(11) explicit false-SILENT verdict printed (delivered-config resolution bug)" \
     || ok "(11) no false-SILENT verdict (getff-owned-first ordering holds)"
 elif [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ]; then
@@ -330,7 +345,7 @@ fi
 # controls (pre-fix the RED-only self-check printed «enforcement is live» identically): an ast-grep
 # rule matching EVERY expression + a bans config banning the clean control's own import (json).
 # @arm:E1:neg scratch-consumer-red-green-pair (over-broad rules → clean controls RED the self-check)
-if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; }; } \
+if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && grep -qi 'ast-grep' <<<"$(sg --version 2>/dev/null)"; }; } \
    && { command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; }; then
   echo ""; echo "  ── (12) over-broad delivered rules → clean controls catch them (E1 negative) ──"
   P=$(py_fixture)
@@ -356,16 +371,16 @@ if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && s
       _py_firing_self_check
     ' 2>&1
   )
-  echo "$ovb" | grep -qF 'ast-grep FIRED on the clean control' \
+  grep -qF 'ast-grep FIRED on the clean control' <<<"$ovb" \
     && ok "(12) ast-grep clean control FIRED under the over-broad rule → detected" \
     || bad "(12) over-broad ast-grep rule NOT detected: $(echo "$ovb" | grep -i 'ast-grep' | tr '\n' '|')"
-  echo "$ovb" | grep -qF 'ruff FIRED on the clean control' \
+  grep -qF 'ruff FIRED on the clean control' <<<"$ovb" \
     && ok "(12) ruff clean control FIRED under the json-banning config → detected" \
     || bad "(12) over-broad ruff config NOT detected: $(echo "$ovb" | grep -i 'ruff' | tr '\n' '|')"
-  echo "$ovb" | grep -qF 'OVER-BROAD' \
+  grep -qF 'OVER-BROAD' <<<"$ovb" \
     && ok "(12) summary refuses the green verdict (OVER-BROAD reported)" \
     || bad "(12) summary still claimed green under always-red rules (the pre-arm false-green)"
-  echo "$ovb" | grep -qF 'enforcement is live' \
+  grep -qF 'enforcement is live' <<<"$ovb" \
     && bad "(12) «enforcement is live» printed for over-broad rules (false green)" \
     || ok "(12) no false «enforcement is live» claim"
 elif [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ]; then
@@ -451,8 +466,13 @@ rm -rf "$P"
 echo ""; echo "  ── (14) D-S2b local git pre-push rung: delivered + executable + activated ──"
 P=$(py_fixture)
 git -C "$P" init -q
-( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+out14=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
 _s2b_fail=0
+# Paired negative of the not-wired arms in (1)/(16a)/(16c): the rung IS active here, so the install
+# must not claim the mirror check is unwired.
+grep -qF "$MIRROR_NOT_WIRED" <<<"$out14" \
+  && bad "(14) not-wired line printed although core.hooksPath activates the rung that runs the check" \
+  || ok "(14) rung active → no mirror-check not-wired line"
 # (a) hook file delivered
 [ -f "$P/.getff/hooks/pre-push" ] \
   && ok "(14) .getff/hooks/pre-push delivered" \
@@ -496,7 +516,7 @@ rm -rf "$P" "$P2"
 # of ast-grep/ruff. Tool-gated — when ast-grep + ruff are both absent the arm is SKIP (the rung
 # would fail-OPEN; the RED/GREEN assertion is vacuous without the tools).
 echo ""; echo "  ── (15) D-S2b RED/GREEN firing through actual git push (T-S2B-C) ──"
-if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; }; } \
+if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && grep -qi 'ast-grep' <<<"$(sg --version 2>/dev/null)"; }; } \
    && { command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; }; then
   # Build a fixture WITH a bare remote so git push has a destination (pre-push needs a real push).
   P3=$(py_fixture)
@@ -536,7 +556,7 @@ if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && s
     # arm can never go green in the RED case it exists to prove. Caught on the host 2026-08-07;
     # invisible in the container, where the arm SKIPs for want of ast-grep/ruff (T14).
     _red_out=$( { cat push_red; git -C "$P3" push origin "$BR" 2>&1; } || true )
-    if printf '%s\n' "$_red_out" | grep -qi 'getff pre-push'; then
+    if grep -qi 'getff pre-push' <<<"$_red_out"; then
       ok "(15) RED run: planted violation blocked the push via the getff rung (hook fired through git)"
     else
       bad "(15) RED run: push blocked but getff hook output not found: $(cat push_red | tr '\n' '|')"
@@ -570,12 +590,15 @@ _act3=$(git -C "$P4" config --get core.hooksPath 2>/dev/null || true)
 [ "$_act3" = ".my-hooks" ] \
   && ok "(16a) case 1: existing core.hooksPath='.my-hooks' preserved (NOT overwritten)" \
   || bad "(16a) case 1 FAILED: core.hooksPath='$_act3' (expected '.my-hooks')"
-echo "$out1" | grep -qi 'NOT overwriting\|NOT activated' \
+grep -qi 'NOT overwriting\|NOT activated' <<<"$out1" \
   && ok "(16a) case 1: printed notice (consumer informed)" \
   || bad "(16a) case 1: no notice printed (silently broken): $(echo "$out1" | grep -i hook | tr '\n' '|')"
 [ -f "$P4/.getff/hooks/pre-push" ] \
   && ok "(16a) case 1: getff hook body still delivered to .getff/hooks/pre-push" \
   || bad "(16a) case 1: getff hook body NOT delivered (declined too hard)"
+grep -qF "$MIRROR_NOT_WIRED" <<<"$out1" \
+  && ok "(16a) case 1: the mirror check's not-wired line printed (the rung that runs it is not active)" \
+  || bad "(16a) case 1: no mirror-check not-wired line — the delivered check runs nowhere, silently"
 rm -rf "$P4"
 
 # Case 2: existing .pre-commit-config.yaml → fragment appended (idempotent on re-install).
@@ -585,6 +608,11 @@ out2=$( cd "$P5" && bash "$INSTALL" python < /dev/null 2>&1 )
 grep -q 'getff-python-pre-push' "$P5/.pre-commit-config.yaml" \
   && ok "(16b) case 2: getff entry appended to .pre-commit-config.yaml" \
   || bad "(16b) case 2 FAILED: getff entry NOT appended: $(echo "$out2" | grep -i 'pre-commit\|getff' | tr '\n' '|')"
+# The fixture is not a git repository yet, so the pre-commit pre-push stage that runs the getff
+# entry cannot be installed — the delivered mirror check runs nowhere and the install must say so.
+grep -qF "$MIRROR_NOT_WIRED" <<<"$out2" \
+  && ok "(16b) case 2: stage not installed → the mirror check's not-wired line printed" \
+  || bad "(16b) case 2: no mirror-check not-wired line although the pre-commit pre-push stage is not installed"
 # Idempotency: re-run install — no duplicate entry (Task 5: marker-grep prevents duplication).
 # Count the unique marker line (one per append) — NOT the substring 'getff-python-pre-push',
 # which appears 3× per append (marker + SKIP= comment + id: line) and would mask a duplication.
@@ -601,6 +629,148 @@ _act4=$(git -C "$P5" config --get core.hooksPath 2>/dev/null || true)
   || bad "(16b) case 2: core.hooksPath='$_act4' set anyway (would compete with pre-commit)"
 rm -rf "$P5"
 
+# ── (16f) case 2 output is VALID YAML whatever the consumer's `repos:` style ──────────────────────
+# (16b) greps for the entry, so it passed while the column-0 fragment appended under an INDENTED
+# `repos:` sequence broke the file («expected <block end>, but found '-'») — pre-commit then cannot
+# load the config and every hook in the project stops. Parse the result (js-yaml, a packages/core
+# dependency — resolvable in the CI shard) and require every original hook plus the getff one, on
+# the first install and again after a re-install.
+echo ""; echo "  ── (16f) case 2: the appended entry keeps .pre-commit-config.yaml parseable (every repos: style) ──"
+_yaml_doc() {  # print `keys=<sorted top-level keys>` then the hook ids, one per line; non-zero on a parse error
+  node -e '
+    const r = require("module").createRequire(process.argv[1] + "/packages/core/package.json");
+    const doc = r("js-yaml").load(require("fs").readFileSync(process.argv[2], "utf8"));
+    console.log("keys=" + Object.keys(doc).sort().join(","));
+    for (const repo of doc.repos) for (const h of repo.hooks) console.log(h.id);
+  ' "$REPO_ROOT" "$1" 2>&1
+}
+_pc_style() {  # <label> <config text> <comma-joined expected ids besides getff's> [<expected top-level keys>]
+  local label="$1" body="$2" want="$3" keys="${4:-repos}" P got exp run
+  P=$(py_fixture); git -C "$P" init -q
+  printf '%s' "$body" > "$P/.pre-commit-config.yaml"
+  exp="keys=$keys|$(printf '%s\n' ${want//,/ } getff-python-pre-push | sort | paste -sd, -)"
+  for run in install re-install; do
+    ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+    if got=$(_yaml_doc "$P/.pre-commit-config.yaml") \
+       && [ "$(head -1 <<<"$got")|$(tail -n +2 <<<"$got" | sort | paste -sd, -)" = "$exp" ]; then
+      ok "(16f) $label, $run: parses, $(head -1 <<<"$got"), hooks = $(tail -n +2 <<<"$got" | paste -sd, -)"
+    else
+      bad "(16f) $label, $run: $(printf '%s' "$got" | tail -3 | tr '\n' '|') — file: $(tr '\n' '|' < "$P/.pre-commit-config.yaml")"
+    fi
+  done
+  case "$label" in *CRLF*)
+    [ "$(awk '!/\r$/ { n++ } END { print n + 0 }' "$P/.pre-commit-config.yaml")" = 0 ] \
+      && ok "(16f) $label: every line still ends in CRLF" \
+      || bad "(16f) $label: the inserted lines are LF in a CRLF file" ;;
+  esac
+  rm -rf "$P"
+}
+_pc_style "indented repos:" 'repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+' trailing-whitespace
+_pc_style "column-0 repos:" 'repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+  - id: trailing-whitespace
+' trailing-whitespace
+_pc_style "empty flow repos: []" 'repos: []
+' ""
+_pc_style "null repos: ~" 'repos: ~  # filled in later
+' ""
+_pc_style "no repos: key (empty file)" '' ""
+_pc_style "indented repos: followed by a ci: key" 'default_stages: [pre-commit]
+repos:
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v4.6.0
+      hooks:
+          - id: trailing-whitespace
+          - id: end-of-file-fixer
+
+# pre-commit.ci settings
+ci:
+  autofix_prs: false
+' trailing-whitespace,end-of-file-fixer ci,default_stages,repos
+_pc_style "quoted \"repos\": key, column-0 comments between and after items" '"repos":  # the list
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+# python
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+# end of list
+' trailing-whitespace,black
+_pc_style "indented repos: in a CRLF file" "$(printf 'repos:\r\n  - repo: https://github.com/pre-commit/pre-commit-hooks\r\n    rev: v4.6.0\r\n    hooks:\r\n      - id: trailing-whitespace\r\n')
+" trailing-whitespace
+# A flow sequence with items cannot take a block item — on the `repos:` line or on the next one:
+# the file is left byte-identical and the summary names the entry as not added (never a silently
+# broken or silently skipped config). With no getff entry in the file, the delivered mirror check
+# runs nowhere: the summary must say so, and the pre-commit pre-push stage must not be installed,
+# nor claimed to run a getff entry that is not there (C3 cold review I-1). A stub pre-commit on
+# PATH makes that arm deterministic — without one the stage records the line on its own («pre-commit
+# is not on PATH») and the assertions would pass for the wrong reason.
+_PC_STUB=$(mktemp -d)
+cat > "$_PC_STUB/pre-commit" <<'STUB'
+#!/bin/sh
+echo "pre-commit $*" >> "$PC_CALLS"
+[ "$1 $2 $3" = "install --hook-type pre-push" ] || exit 2
+d=$(git rev-parse --git-path hooks); mkdir -p "$d"
+printf '#!/bin/sh\n# File generated by pre-commit: https://pre-commit.com\n' > "$d/pre-push"; chmod +x "$d/pre-push"
+STUB
+chmod +x "$_PC_STUB/pre-commit"
+_not_added_arms() {  # <label> <fixture> <install output> — the shared I-1 assertions for an entry that was not added
+  grep -qF "$MIRROR_NOT_WIRED" <<<"$3" \
+    && ok "(16f) $1: the mirror check's not-wired line printed (no getff entry runs it)" \
+    || bad "(16f) $1: no mirror-check not-wired line although the getff entry was not added"
+  grep -qF 'the getff entry runs on git push' <<<"$3" \
+    && bad "(16f) $1: the install claims «the getff entry runs on git push» for an entry it did not add" \
+    || ok "(16f) $1: no «the getff entry runs on git push» claim"
+  [ ! -s "$2/.pc.calls" ] \
+    && ok "(16f) $1: pre-commit's pre-push stage was not installed for an entry that is not there" \
+    || bad "(16f) $1: pre-commit ran after the entry was not added: $(tr '\n' '|' < "$2/.pc.calls")"
+}
+for _flow in 'repos: [{repo: local, hooks: [{id: x, name: x, entry: x, language: system}]}]\n' \
+             'repos:\n  [{repo: local, hooks: [{id: x, name: x, entry: x, language: system}]}]\n'; do
+  P=$(py_fixture); git -C "$P" init -q
+  printf "$_flow" > "$P/.pre-commit-config.yaml"
+  cp "$P/.pre-commit-config.yaml" "$P/.orig"
+  out=$( cd "$P" && PC_CALLS="$P/.pc.calls" PATH="$_PC_STUB:$PATH" bash "$INSTALL" python < /dev/null 2>&1 )
+  if cmp -s "$P/.orig" "$P/.pre-commit-config.yaml" && grep -q 'entry in .pre-commit-config.yaml — not added' <<<"$out"; then
+    ok "(16f) flow repos: ${_flow%%\\n*}…: file untouched, named in the NOT wired summary"
+  else
+    bad "(16f) flow repos: ${_flow%%\\n*}…: file $(cmp -s "$P/.orig" "$P/.pre-commit-config.yaml" && echo untouched || echo CHANGED), notice $(grep -c 'not added' <<<"$out")"
+  fi
+  _not_added_arms "flow repos: ${_flow%%\\n*}…" "$P" "$out"
+  rm -rf "$P"
+done
+# The other not-added branch: the temp file for the entry cannot be made. A mktemp stub fails only
+# for that one template and hands every other call to the real mktemp, so the rest of the install
+# runs as usual on a block `repos:` the entry would otherwise go into.
+_real_mktemp=$(command -v mktemp)
+cat > "$_PC_STUB/mktemp" <<STUB
+#!/bin/sh
+case "\$*" in *getff-precommit.*) exit 1 ;; esac
+exec "$_real_mktemp" "\$@"
+STUB
+chmod +x "$_PC_STUB/mktemp"
+P=$(py_fixture); git -C "$P" init -q
+printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n' > "$P/.pre-commit-config.yaml"
+cp "$P/.pre-commit-config.yaml" "$P/.orig"
+out=$( cd "$P" && PC_CALLS="$P/.pc.calls" PATH="$_PC_STUB:$PATH" bash "$INSTALL" python < /dev/null 2>&1 )
+if cmp -s "$P/.orig" "$P/.pre-commit-config.yaml" && grep -q 'entry in .pre-commit-config.yaml — not added: mktemp failed' <<<"$out"; then
+  ok "(16f) mktemp failure: file untouched, named in the NOT wired summary"
+else
+  bad "(16f) mktemp failure: file $(cmp -s "$P/.orig" "$P/.pre-commit-config.yaml" && echo untouched || echo CHANGED), notice $(grep -c 'not added' <<<"$out")"
+fi
+_not_added_arms "mktemp failure" "$P" "$out"
+rm -rf "$P" "$_PC_STUB"
+
 # Case 3: existing .git/hooks/pre-push file (no core.hooksPath) → declined with notice.
 P6=$(py_fixture); git -C "$P6" init -q
 mkdir -p "$P6/.git/hooks"
@@ -614,9 +784,12 @@ _act5=$(git -C "$P6" config --get core.hooksPath 2>/dev/null || true)
 [ -f "$P6/.git/hooks/pre-push" ] \
   && ok "(16c) case 3: legacy .git/hooks/pre-push preserved (NOT overwritten)" \
   || bad "(16c) case 3 FAILED: legacy .git/hooks/pre-push REMOVED (T-S2B-B violation)"
-echo "$out3" | grep -qi 'existing git hook.*pre-push' \
+grep -qi 'existing git hook.*pre-push' <<<"$out3" \
   && ok "(16c) case 3: printed notice naming the existing pre-push (consumer informed)" \
   || bad "(16c) case 3: no notice printed (silently broken): $(echo "$out3" | grep -i hook | tr '\n' '|')"
+grep -qF "$MIRROR_NOT_WIRED" <<<"$out3" \
+  && ok "(16c) case 3: the mirror check's not-wired line printed (the rung that runs it is not active)" \
+  || bad "(16c) case 3: no mirror-check not-wired line — the delivered check runs nowhere, silently"
 rm -rf "$P6"
 
 # ── (16d) A2-2 paired-negative: ANY existing executable hook must keep firing (never-clobber) ──
@@ -642,7 +815,7 @@ _act6=$(git -C "$P7" config --get core.hooksPath 2>/dev/null || true)
 [ -f "$P7/.pre-commit-fired" ] \
   && ok "(16d) existing pre-commit FIRED through git after install (never-clobber contract held)" \
   || bad "(16d) FAILED: pre-commit did NOT fire after install (commit rc=$_c_rc) — silently disabled"
-echo "$out4" | grep -qi 'existing git hook' \
+grep -qi 'existing git hook' <<<"$out4" \
   && ok "(16d) printed notice naming the existing hook(s) (consumer informed)" \
   || bad "(16d) no notice printed (silently declined): $(echo "$out4" | grep -i hook | tr '\n' '|')"
 [ -f "$P7/.getff/hooks/pre-push" ] \
@@ -705,7 +878,7 @@ if [ ! -f "$_a210_arch" ]; then
   _a210_fail=1
 else
   # (a) POSITIVE — the materialized SoT names this lane's language.
-  head -1 "$_a210_arch" | grep -q 'Python' \
+  grep -q 'Python' <<<"$(head -1 "$_a210_arch")" \
     && ok "(17a) ARCHITECTURE.md H1 names Python: $(head -1 "$_a210_arch")" \
     || { bad "(17a) ARCHITECTURE.md H1 is not a Python doc: $(head -1 "$_a210_arch")"; _a210_fail=1; }
   # (b) PAIRED NEGATIVE — the ts-server PRESCRIPTIONS must be gone. Matched on strings verbatim
@@ -755,6 +928,287 @@ done
   && ok "(17) A2-10 fail-closed arm held GREEN — python lane ships a python architecture doc" \
   || bad "(17) A2-10 arm RED — see items above"
 rm -rf "$P9"
+
+# ── (18) --profile is HONOURED on the python lane ────────────────────────────────────────────────
+# install.sh dispatches the non-npm lanes and exits before the profile block ever runs, so every
+# `--profile` on this lane used to be a silent no-op: an unknown value exited 0 instead of failing
+# loud, and `--profile factory` shipped none of the factory-gated payload the npm lane ships for
+# the same flag. The gate is BOTH directions — factory ships the AIF skill-context override, core
+# does not — so a lane that ignores the flag cannot pass by shipping everything.
+echo ""
+echo "  ── (18) --profile on the python lane: validated, and factory-gated payload follows it ──"
+_P18_SC=".ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md"
+
+P18=$(py_fixture)
+out=$( cd "$P18" && bash "$INSTALL" python --profile bogus < /dev/null 2>&1 ); rc=$?
+[ "$rc" -ne 0 ] \
+  && ok "(18a) an unknown --profile value fails loud on this lane (exit $rc)" \
+  || bad "(18a) --profile bogus exited 0 — the flag is a no-op on this lane"
+grep -q -- '--profile' <<<"$out" \
+  && ok "(18a) the rejection names the flag" \
+  || bad "(18a) exited without naming --profile: $(printf '%s' "$out" | tail -2 | tr '\n' '|')"
+rm -rf "$P18"
+
+P18=$(py_fixture)
+( cd "$P18" && bash "$INSTALL" python --profile factory < /dev/null > /dev/null 2>&1 )
+[ -f "$P18/$_P18_SC" ] \
+  && ok "(18b) --profile factory ships the AIF skill-context override (20-agents.sh parity)" \
+  || bad "(18b) --profile factory shipped no $_P18_SC — the factory depth never reached the lane"
+rm -rf "$P18"
+
+P18=$(py_fixture)
+( cd "$P18" && bash "$INSTALL" python --profile core < /dev/null > /dev/null 2>&1 )
+[ ! -e "$P18/$_P18_SC" ] \
+  && ok "(18c) paired negative: --profile core ships no factory-gated skill-context" \
+  || bad "(18c) --profile core shipped $_P18_SC — the gate is constant-true, (18b) proves nothing"
+rm -rf "$P18"
+
+# ── (19) one-button W2 — the project-checks record: probe at install, arm only if green ───────────
+# The lane exits before 99-finalize, so it writes its own record (the aif:project-checks block of
+# .ai-factory/tool-decisions.md) and delivers scripts/run-armed.sh; the delivered pre-push hook and
+# the delivered CI workflow both read that record. What was green before the install stays green
+# (operator log entry 28, fork 1 = A): a brownfield tree pushes. The two ruff runs are TWO record
+# lines (T-OBW2P-A): arming them as one would let a green bans run arm a red discovered-config run.
+# The A2 push-exits-0 assertion is RED by construction against the pre-change hook — that hook ran
+# `ruff check .` unconditionally over the whole tree and blocked on any pre-existing finding — so
+# the arm needs no rev-pinned pre-image copy (one that would die at the first squash-merge).
+echo ""; echo "  ── (19) project-checks record: probe at install, arm only if green ──"
+
+# (19a) deterministic: record written + runner delivered + three lines (T-OBW2P-A)
+P=$(py_fixture); git -C "$P" init -q
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19a) install exited $_rc — a crashed install must not read as a green arm"
+_rec="$P/.ai-factory/tool-decisions.md"
+grep -q '^stack: python$' "$_rec" \
+  && ok "(19a) record written into .ai-factory/tool-decisions.md (stack: python)" \
+  || bad "(19a) record missing or wrong stack: $(awk '/aif:project-checks/{f=1} f' "$_rec" 2>/dev/null | head -4 | tr '\n' '|')"
+[ -x "$P/scripts/run-armed.sh" ] \
+  && ok "(19a) scripts/run-armed.sh delivered + executable (the record's only reader)" \
+  || bad "(19a) scripts/run-armed.sh not delivered or not executable"
+[ "$(awk '/aif:project-checks:end/{f=0} f; /aif:project-checks:begin/{f=1}' "$_rec" | grep -c '^- ')" = 3 ] \
+  && ok "(19a) exactly 3 record lines (the two ruff runs recorded separately, T-OBW2P-A)" \
+  || bad "(19a) record does not carry exactly 3 check lines"
+# prefix, not byte-exact: this arm is deterministic (runs on tool-less hosts too), where the
+# probe records the line not-armed with a ` # …` reason suffix; the ARMED byte-exact string is
+# asserted where it can hold — tool-gated (19d).
+grep -qE '^- ruff check \. --config \.getff/ruff-bans\.toml --no-cache( # .*)?$' "$_rec" \
+  && ok "(19a) bans line is the canonical command (armed bare, or not-armed with its reason)" \
+  || bad "(19a) bans record line drifted from 'ruff check . --config .getff/ruff-bans.toml --no-cache'"
+# one block only (falsifier 3: never a second record format)
+[ "$(grep -c 'aif:project-checks:begin' "$_rec")" = 1 ] \
+  && ok "(19a) exactly one aif:project-checks block (no second record format)" \
+  || bad "(19a) $(grep -c 'aif:project-checks:begin' "$_rec") record blocks in tool-decisions.md"
+rm -rf "$P"
+
+# (19b) --dry-run writes neither the record block nor the runner
+P=$(py_fixture)
+( cd "$P" && bash "$INSTALL" python --dry-run < /dev/null ) >/dev/null 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19b) dry-run install exited $_rc — the plan phase itself must not fail"
+if [ ! -e "$P/scripts/run-armed.sh" ] && ! grep -q 'aif:project-checks:begin' "$P/.ai-factory/tool-decisions.md" 2>/dev/null; then
+  ok "(19b) --dry-run wrote neither the record block nor the runner"
+else
+  bad "(19b) --dry-run leaked runner=$( [ -e "$P/scripts/run-armed.sh" ] && echo y || echo n ) record-block=$(grep -c 'aif:project-checks:begin' "$P/.ai-factory/tool-decisions.md" 2>/dev/null || echo 0)"
+fi
+rm -rf "$P"
+
+# (19g) deterministic: bans config MISSING at probe time → structural «not wired:» reason
+# (a directory parked at the path makes copy_safe's delivery fail open while [ -f ] stays false —
+# the only externally reachable shape, since a healthy install always writes the file first).
+P=$(py_fixture); git -C "$P" init -q
+mkdir -p "$P/.getff/ruff-bans.toml"
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19g) install exited $_rc — the bans-missing arm is fail-open, not a lane abort"
+grep -qxF -- '- ruff check . --config .getff/ruff-bans.toml --no-cache # not wired: .getff/ruff-bans.toml is missing' "$P/.ai-factory/tool-decisions.md" \
+  && ok "(19g) bans config absent at probe → structural not-armed reason recorded" \
+  || bad "(19g) expected the structural bans-missing reason: $(grep 'ruff-bans' "$P/.ai-factory/tool-decisions.md" | tr '\n' '|')"
+rm -rf "$P"
+
+# (19h) deterministic §8-3: consumer-owned core.hooksPath — the record + runner are written
+# regardless of rung activation (the record write is independent of GETFF_SKIP_HOOKS/the rung).
+P=$(py_fixture); git -C "$P" init -q
+git -C "$P" config core.hooksPath .my-hooks
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19h) install exited $_rc — an owned hooksPath must not abort the lane"
+grep -q '^stack: python$' "$P/.ai-factory/tool-decisions.md" && [ -x "$P/scripts/run-armed.sh" ] \
+  && ok "(19h) consumer-owned core.hooksPath: record + runner still delivered (§8-3)" \
+  || bad "(19h) integration case lost the record/runner: rec=$(grep -c 'stack: python' "$P/.ai-factory/tool-decisions.md" 2>/dev/null) runner=$([ -x "$P/scripts/run-armed.sh" ] && echo y || echo n)"
+rm -rf "$P"
+
+# (19i) a record write that FAILS must not read as «recorded»: the runner ships only behind a
+# written record, the lane says so loudly, and the file's prior content is untouched (T-S2B-A —
+# a hook die-louding «no readable record» with nothing to restore to is worse than its fallback).
+# The 444 file makes the final cat in record_project_checks fail (EACCES); copy_safe skips the
+# pre-existing file (no --force), so the mode survives to the record step. Tool-independent.
+P=$(py_fixture); git -C "$P" init -q
+mkdir -p "$P/.ai-factory"
+printf '# Tool decisions\n\nmy own notes\n' > "$P/.ai-factory/tool-decisions.md"
+chmod 444 "$P/.ai-factory/tool-decisions.md"
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19i) install exited $_rc — a failed record write is fail-open, not a lane abort"
+[ ! -e "$P/scripts/run-armed.sh" ] \
+  && ok "(19i) the runner is NOT delivered behind an unwritten record" \
+  || bad "(19i) scripts/run-armed.sh delivered although the record write failed"
+grep -qF 'not written, and scripts/run-armed.sh not delivered' "$P/.install.log" \
+  && ok "(19i) the failed write is named loudly in the lane's NOT-wired summary" \
+  || bad "(19i) the summary lacks the not-written line: $(grep -A3 'NOT wired' "$P/.install.log" | head -4 | tr '\n' '|')"
+grep -qxF 'my own notes' "$P/.ai-factory/tool-decisions.md" \
+  && ! grep -q 'aif:project-checks' "$P/.ai-factory/tool-decisions.md" \
+  && ok "(19i) the record file kept its prior content (nothing half-written)" \
+  || bad "(19i) the 444 record changed under the failed write: $(tr '\n' '|' < "$P/.ai-factory/tool-decisions.md" | head -c 120)"
+chmod 644 "$P/.ai-factory/tool-decisions.md" 2>/dev/null || true
+rm -rf "$P"
+
+# (19c)-(19f), (19j) tool-gated: the push fixtures need ast-grep AND ruff exactly where the hook's own
+# `command -v` looks (a uvx-only host cannot arm `ruff check .`, so the assertions would diverge
+# from the hook's view). SKIP loudly otherwise — a vacuous GREEN is worse than a visible SKIP.
+if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
+  RT_PATH="$PATH"
+  # (19c) A2 brownfield: pre-existing finding → not-armed with its count reason → push exits 0
+  echo ""; echo "  ── (19c) A2 brownfield: pre-existing finding → not-armed → push exits 0 ──"
+  P=$(py_fixture); git -C "$P" init -q
+  git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
+  printf 'import os\nimport tensorflow\n\ndef main():\n    return 1\n' > "$P/app.py"
+  git -C "$P" add -A; git -C "$P" commit -q -m init
+  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19c) brownfield install exited $_rc — the lane must not abort on pre-existing findings"
+  grep -qE '^- ruff check \. # [0-9]+ ruff finding\(s\) at install$' "$P/.ai-factory/tool-decisions.md" \
+    && ok "(19c) the pre-existing finding recorded not-armed with its count reason" \
+    || bad "(19c) expected a count-bearing not-armed line: $(grep 'ruff' "$P/.ai-factory/tool-decisions.md" | tr '\n' '|')"
+  grep -qxF -- '- ast-grep scan' "$P/.ai-factory/tool-decisions.md" \
+    && ok "(19c) ast-grep armed on the same brownfield tree (per-check, not per-tree)" \
+    || bad "(19c) ast-grep line not armed"
+  REMOTE=$(mktemp -d); git init -q --bare "$REMOTE"; git -C "$P" remote add origin "$REMOTE"
+  BR=$(git -C "$P" symbolic-ref --short HEAD 2>/dev/null || echo main)
+  _a2_out=$( { cat /dev/null; PATH="$RT_PATH" git -C "$P" push origin "$BR" 2>&1; } || true )
+  if PATH="$RT_PATH" git -C "$P" push -q origin "$BR" 2>/dev/null; then
+    ok "(19c) A2: brownfield push exits 0 (what was green before the install stays green)"
+  else
+    bad "(19c) A2 FAILED — brownfield push blocked: $(printf '%s' "$_a2_out" | tail -4 | tr '\n' '|')"
+  fi
+  grep -qF '· not armed: ruff check .' <<<"$_a2_out" \
+    && ok "(19c) the hook SKIPPED the check through the record (printed its reason), it did not pass silently" \
+    || bad "(19c) push output lacks the «· not armed» skip line: $(printf '%s' "$_a2_out" | grep -c 'not armed')"
+  rm -rf "$P" "$REMOTE"
+
+  # (19d) A1 greenfield: all three armed → a NEW banned import blocks the push
+  echo ""; echo "  ── (19d) A1 greenfield: all armed → a NEW finding still blocks ──"
+  P=$(py_fixture); git -C "$P" init -q
+  git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
+  git -C "$P" add -A 2>/dev/null; git -C "$P" commit -q -m init --allow-empty 2>/dev/null
+  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19d) greenfield install exited $_rc — arming must not fail the lane that armed it"
+  _rec="$P/.ai-factory/tool-decisions.md"
+  grep -qxF -- '- ast-grep scan' "$_rec" && grep -qxF -- '- ruff check .' "$_rec" \
+    && grep -qxF -- '- ruff check . --config .getff/ruff-bans.toml --no-cache' "$_rec" \
+    && [ "$(awk '/^not-armed:/{f=1;next} /^armed:/{f=0} f && /^- /' "$_rec" | wc -l | tr -d ' ')" = 0 ] \
+    && ok "(19d) greenfield: all three checks armed (not-armed list empty)" \
+    || bad "(19d) greenfield record not fully armed: $(tr '\n' '|' < "$_rec" | grep -o 'armed:.*' | head -1)"
+  REMOTE=$(mktemp -d); git init -q --bare "$REMOTE"; git -C "$P" remote add origin "$REMOTE"
+  BR=$(git -C "$P" symbolic-ref --short HEAD 2>/dev/null || echo main)
+  printf 'import tensorflow\n' > "$P/banned.py"
+  git -C "$P" add -A; git -C "$P" commit -q -m "new banned import"
+  _a1_out=$( { cat /dev/null; PATH="$RT_PATH" git -C "$P" push origin "$BR" 2>&1; } || true )
+  if PATH="$RT_PATH" git -C "$P" push -q origin "$BR" 2>/dev/null; then
+    bad "(19d) A1 FAILED — a NEW banned import PASSED the push (arming lost the green case)"
+  else
+    ok "(19d) A1: the new banned import BLOCKED the push (armed checks still fire)"
+  fi
+  grep -qF '✗ getff pre-push' <<<"$_a1_out" \
+    && ok "(19d) the blocking came from the getff rung's loud line" \
+    || bad "(19d) push blocked but no getff rung line: $(printf '%s' "$_a1_out" | tail -3 | tr '\n' '|')"
+  rm -rf "$P" "$REMOTE"
+
+  # (19e) A3: tools absent at INSTALL (stripped PATH) → structural reasons; present at PUSH →
+  # the hook still exits 0 and names every structural skip loudly.
+  echo ""; echo "  ── (19e) A3 tool-absent install: structural reasons → push 0, said loudly ──"
+  P=$(py_fixture); git -C "$P" init -q
+  git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
+  git -C "$P" commit -q -m init --allow-empty 2>/dev/null
+  _notools="$P/.no-tools-bin"; mkdir -p "$_notools"
+  for _d in /usr/bin /bin /usr/local/bin /opt/homebrew/bin; do
+    [ -d "$_d" ] || continue
+    for _f in "$_d"/*; do
+      [ -e "$_f" ] || continue
+      _b=${_f##*/}
+      case "$_b" in ast-grep|sg|ruff|uvx) continue ;; esac
+      [ -e "$_notools/$_b" ] || ln -s "$_f" "$_notools/$_b" 2>/dev/null || true
+    done
+  done
+  ( cd "$P" && PATH="$_notools" bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19e) tool-absent install exited $_rc — absent tools are structural not-armed, never an abort"
+  _rec="$P/.ai-factory/tool-decisions.md"
+  grep -qF -- '- ast-grep scan # not wired: ast-grep is not on PATH' "$_rec" \
+    && grep -qF -- '- ruff check . # not wired: ruff is not on PATH' "$_rec" \
+    && ok "(19e) both structural «not wired:» reasons recorded (never probed by the runner)" \
+    || bad "(19e) structural reasons missing: $(grep '^- ' "$_rec" | tr '\n' '|')"
+  REMOTE=$(mktemp -d); git init -q --bare "$REMOTE"; git -C "$P" remote add origin "$REMOTE"
+  BR=$(git -C "$P" symbolic-ref --short HEAD 2>/dev/null || echo main)
+  _a3_out=$( { cat /dev/null; PATH="$RT_PATH" git -C "$P" push origin "$BR" 2>&1; } || true )
+  if PATH="$RT_PATH" git -C "$P" push -q origin "$BR" 2>/dev/null; then
+    ok "(19e) A3: push exits 0 with the checks structurally not armed"
+  else
+    bad "(19e) A3 FAILED — push blocked on structural not-armed: $(printf '%s' "$_a3_out" | tail -4 | tr '\n' '|')"
+  fi
+  grep -qF 'not wired: ast-grep is not on PATH' <<<"$_a3_out" \
+    && ok "(19e) the push output names the structural reason (loud, not silent)" \
+    || bad "(19e) push output lacks the structural reason"
+  rm -rf "$P" "$REMOTE"
+
+  # (19f) record unreadable at push → die loud (exit 1), never a silent no-check push
+  echo ""; echo "  ── (19f) record unreadable at push → die loud ──"
+  P=$(py_fixture); git -C "$P" init -q
+  git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
+  git -C "$P" commit -q -m init --allow-empty 2>/dev/null
+  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19f) install exited $_rc — the unreadable-record arm needs a healthy install to corrupt"
+  mv "$P/.ai-factory/tool-decisions.md" "$P/.ai-factory/tool-decisions.md.stash"
+  REMOTE=$(mktemp -d); git init -q --bare "$REMOTE"; git -C "$P" remote add origin "$REMOTE"
+  BR=$(git -C "$P" symbolic-ref --short HEAD 2>/dev/null || echo main)
+  _ru_out=$( { cat /dev/null; PATH="$RT_PATH" git -C "$P" push origin "$BR" 2>&1; } || true )
+  if PATH="$RT_PATH" git -C "$P" push -q origin "$BR" 2>/dev/null; then
+    bad "(19f) push SUCCEEDED with no readable record — a silent no-check push"
+  else
+    ok "(19f) unreadable record BLOCKS the push (exit ≠ 0, never a silent skip)"
+  fi
+  grep -qF 'the project-checks record (.ai-factory/tool-decisions.md) is missing or unreadable' <<<"$_ru_out" \
+    && ok "(19f) the die-loud line names the record and the restore path" \
+    || bad "(19f) blocked without the die-loud line: $(printf '%s' "$_ru_out" | tail -3 | tr '\n' '|')"
+  mv "$P/.ai-factory/tool-decisions.md.stash" "$P/.ai-factory/tool-decisions.md"
+  rm -rf "$P" "$REMOTE"
+
+  # (19j) a TRUNCATED runner must never read as the record path: bash exits 0 on an early-cut
+  # script (it runs to EOF having only defined functions), so a 30-line prefix would have made
+  # every run_recorded call pass without running anything — the silent no-check push. The floor is
+  # the runner's own usage literal (line 92 of the source, inside the final `case`): a prefix that
+  # parses lacks it → the loud ⚠ direct fallback below; a cut deep enough to keep it is an
+  # unterminated `case` → rc 2, fail-closed. Green tree → the fallback runs the same checks → 0.
+  echo ""; echo "  ── (19j) truncated runner → loud direct fallback, never a silent pass ──"
+  P=$(py_fixture); git -C "$P" init -q
+  git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
+  git -C "$P" commit -q -m init --allow-empty 2>/dev/null
+  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19j) install exited $_rc — the truncation arm needs a healthy install"
+  head -30 "$P/scripts/run-armed.sh" > "$P/scripts/run-armed.sh.cut" \
+    && mv "$P/scripts/run-armed.sh.cut" "$P/scripts/run-armed.sh" \
+    || bad "(19j) could not truncate the delivered runner"
+  REMOTE=$(mktemp -d); git init -q --bare "$REMOTE"; git -C "$P" remote add origin "$REMOTE"
+  BR=$(git -C "$P" symbolic-ref --short HEAD 2>/dev/null || echo main)
+  _rt_out=$( { cat /dev/null; PATH="$RT_PATH" git -C "$P" push origin "$BR" 2>&1; } || true )
+  if PATH="$RT_PATH" git -C "$P" push -q origin "$BR" 2>/dev/null; then
+    ok "(19j) truncated runner: a green push still exits 0 (the fallback ran the same checks)"
+  else
+    bad "(19j) truncated runner blocked a green push: $(printf '%s' "$_rt_out" | tail -4 | tr '\n' '|')"
+  fi
+  grep -qF 'missing, unreadable, or not a run-armed script' <<<"$_rt_out" \
+    && ok "(19j) the truncation is named loudly (the ⚠ direct-fallback line), never silent" \
+    || bad "(19j) push passed with no fallback line — silent no-check push: $(printf '%s' "$_rt_out" | tail -3 | tr '\n' '|')"
+  rm -rf "$P" "$REMOTE"
+else
+  echo ""; echo "  · (19c)-(19f), (19j) SKIP record push fixtures (ast-grep and/or ruff not on PATH)"
+  echo "    └─ the arming assertions need the hook's own view of the tools; a uvx-only host diverges."
+  [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ] \
+    && bad "(19c-f,19j) REQUIRED but skipped: ast-grep and/or ruff missing while GETFF_REQUIRE_RESEARCH_TOOLS=1"
+fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

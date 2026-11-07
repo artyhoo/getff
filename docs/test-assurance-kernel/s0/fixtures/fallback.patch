@@ -1,0 +1,12 @@
+diff --git a/scripts/tmp-unknown-path-helper.mjs b/scripts/tmp-unknown-path-helper.mjs
+new file mode 100644
+index 00000000000..c34e03e4af0
+--- /dev/null
++++ b/scripts/tmp-unknown-path-helper.mjs
+@@ -0,0 +1,6 @@
++// S0 fallback-lane fixture: a new file at a previously unknown path.
++// Models the broad/unknown-path change class whose conservative green
++// lane is the widest local suite (packages/core/principles).
++export function tmpUnknownPathHelper(x) {
++  return Array.isArray(x) ? x.length : 0;
++}

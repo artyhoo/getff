@@ -1,0 +1,39 @@
+{
+  "prepare": {
+    "cwd": "/Users/art/.codex/worktrees/advisor-role-reminders/rules-as-tests-aif",
+    "args": [
+      "claude",
+      "-p",
+      "--session-id",
+      "bca94b76-61c8-4852-91cb-d32be286fc96",
+      "--model",
+      "glm-5.3",
+      "--permission-prompts",
+      "none",
+      "--output-format",
+      "json",
+      "--settings",
+      "/private/tmp/advisor-reminders-live-final/launch-prepare-settings.json",
+      "No tools. Quote the injected advisor bridge role reminder verbatim, then give one short REPORT preparation step. If absent, say ABSENT."
+    ],
+    "stdin": "DEVNULL"
+  },
+  "consume": {
+    "cwd": "/Users/art/.codex/worktrees/advisor-role-reminders/rules-as-tests-aif",
+    "args": [
+      "claude",
+      "-p",
+      "--session-id",
+      "50b4e1ce-24ac-47bf-824d-86a9aa835406",
+      "--model",
+      "glm-5.3",
+      "--permission-prompts",
+      "none",
+      "--output-format",
+      "json",
+      "--settings",
+      "/private/tmp/advisor-reminders-live-final/consume-settings.json",
+      "Do not use tools or read files. Quote verbatim the advisor bridge role reminder delivered in your injected context. Then give one sentence showing how you will apply it before acting on a bound senior decision. If there is no such reminder, reply ABSENT."
+    ]
+  }
+}
