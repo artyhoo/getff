@@ -48,7 +48,8 @@ header comment «core (default)» in that block is stale — not in §2, report 
 - `packages/core/principles/49-readme-install-claims.ts` (new — the pure functions, the NN-pair
   convention of principles 46/48) and `packages/core/principles/49-readme-install-claims.test.ts`
   (new). If a file with prefix `49-` already exists on `origin/staging` at branch time, take the
-  next free number for both.
+  next free number for both. The focused command in §5 resolves the allocated test filename
+  and fails before Vitest when no file or more than one file matches.
 - `scripts/render-install-roster.mjs` — only to export the factory-gated agent set (§3.1); its
   `--write`/`--check` output must not change.
 - `README.md` — **only** the `## What you get today` section (§3.3). Never `## Why this exists`.
@@ -122,7 +123,7 @@ in-memory strings (paired negatives) and on the real files:
 Paired negatives (in-memory, each must be RED): README text with 11 agents and no
 `docs-form-auditor` (arm A, names the missing agent); today's «A skill» item 1 (arm C, claim not
 found); a list naming a non-existent agent (arm A, names the extra); «seven authoring-only
-tools» / «11 agents» outside a claim (arm E). Each paired positive is GREEN.
+agents» / «11 agents» outside a claim (arm E). Each paired positive is GREEN.
 
 Commit trailer (required, the pre-push `prior-art` check reads it):
 
@@ -138,8 +139,8 @@ entry; #280).
 
 ### 3.2 RED-first evidence
 
-Before commits 2-3, run `npx vitest run packages/core/principles/49-readme-install-claims.test.ts`
-on commit 1 and paste the raw output into the PR body: arms A, B, C, D (claims absent/drifted in
+Before commits 2-3, run the focused test command from §5 on commit 1 and paste the raw output
+into the PR body: arms A, B, C, D (claims absent/drifted in
 today's README — B because it names no `--profile factory`) and F (no `# why:` today) must fail. A green run here means the test cannot see
 the defect → STOP.
 
@@ -199,8 +200,12 @@ change it follows. Drift anywhere else → STOP.
 
 ## §5 Exit gates
 
+Keep the first command on one line: the host-verify runner executes each line in its own
+shell. It accepts exactly one allocated test file, so a missing file or duplicate allocation
+cannot silently pass or select an unrelated principle.
+
 ```bash host-verify
-npx vitest run packages/core/principles/49-readme-install-claims.test.ts
+set -- packages/core/principles/[0-9]*-readme-install-claims.test.ts && [ "$#" -eq 1 ] && [ -f "$1" ] && npx vitest run "$1"
 npx vitest run packages/core/principles/
 npx tsx scripts/render-install-roster.mjs --check
 bash tests/install-sh/cic-s3-dep-install.test.sh
