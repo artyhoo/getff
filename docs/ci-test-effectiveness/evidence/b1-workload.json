@@ -1,0 +1,10 @@
+{
+  "frozenBeforeSourceEdits": true,
+  "inputSHA": "35bb1a22fb1809e78408881583285a5fe470d5de",
+  "subject": "actual --list-gates actionlint row, passed unchanged to actual sweep in disposable repository",
+  "timing": "three warm sequential valid-workflow trials per source version; elapsed monotonic wall seconds; same host, binary, fixture and command; fixture setup excluded",
+  "controls": ["installed status0 PASS", "installed status1 FAIL with diagnostic", "installed status42 FAIL with diagnostic", "absent WARN-SKIP, NOT a real run", "real valid workflow PASS", "real unexpected root key FAIL", "real invalid expression FAIL"],
+  "expectedFinalStatuses": [0, 1, 1, 0, 0, 1, 1],
+  "oneShotFaults": ["restore old actual-row status swallowing with tests frozen", "disable added regression block in disposable copy against old row; held failure expectation must reject false green"],
+  "notClaimed": "optimization, hosted timing, Darwin semantics or E9 completion"
+}

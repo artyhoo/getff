@@ -1,0 +1,3 @@
+Fixture attempts, not accepted RED/GREEN:
+1. Restricted PATH initially omitted env; installed/absent controls returned 127. Added env before meaningful RED (12 intended failures).
+2. One-shot disposable conformance initially omitted existing harness dependency scripts/run-install-sh-suite.sh. Weakening had 12 intended actionlint failures + 1 missing-policy-twin failure; restoration and detector-disable each had that unrelated failure. Added byte-identical helper fixture; no production or expected-outcome changes.
