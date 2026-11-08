@@ -1,9 +1,9 @@
 {
   "status": "Source/population reconciliation; bounded evidence views remain distinct",
-  "sourceHead": "10bb7294dcef8b3f887c9583cec113e6703f47ac",
+  "sourceHead": "b593e59214ec192b3208f35c7e919253e54acaf8",
   "acceptedS1Head": "9098d3c5abc5409de0f138fcf5d0b8375fed3b68",
   "originalLogicalRecords": 2121,
-  "s2SupplementRecords": 43,
+  "s2SupplementRecords": 44,
   "logicalCountWarning": "Supplement rows describe changes and drivers, not extra disjoint tests. Do not sum into a native test count.",
   "originalSourceCandidateCount": 736,
   "originalTestSourceCount": 722,
@@ -2422,7 +2422,7 @@
       "path": "packages/core/principles/41-shell-test-ci-coverage.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e",
-      "currentSHA256": "cbbf4595ce0e89058b7efe12b10c1244e6784bb7b959e27f5efe5be2f8dc4aa0",
+      "currentSHA256": "f03ca44ebba29efbbf4489b09cbea9c65fe35398c18fd49048b2fd506e6e2eb5",
       "disposition": "changed-assessment-in-S2",
       "batchRefs": [
         "batches/b7.json"
@@ -7581,6 +7581,19 @@
     },
     {
       "id": "FINAL-source-reconciliation",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "FINAL-review-repair",
       "criterionNames": [
         "relevance",
         "effectiveness",

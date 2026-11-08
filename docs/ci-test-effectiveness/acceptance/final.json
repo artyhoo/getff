@@ -1,0 +1,51 @@
+{
+  "status": "SOURCE_ACCEPTED; CAMPAIGN_PARTIAL_PENDING_HOSTED_AND_ADMIN",
+  "approvedSpecSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+  "wholeBranchReview": {
+    "base": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+    "head": "7defdb78ba1a4c74713e10787cdc8917ebf1dbdc",
+    "original": "acceptance/final-review.md.gz",
+    "originalSHA256": "b71a28c39fd9422ab6350ed0876908186c78ea5c2e4aa3ae41e303ff10c8893f",
+    "findings": "I1/I2 Important + M1 Minor, all fixed in one wave"
+  },
+  "scopedFinalFixReview": {
+    "base": "7defdb78ba1a4c74713e10787cdc8917ebf1dbdc",
+    "head": "b593e59214ec192b3208f35c7e919253e54acaf8",
+    "report": "acceptance/final-fix-review.md",
+    "sha256": "81790b8c5e0725b21dfc32fc025bccb3424184e904d3768e01b1e3f4c0334f9d",
+    "verdict": "I1/I2/M1 ADDRESSED; plan PASS, quality APPROVE; no new actionable breakage"
+  },
+  "controllerFinalMetadataCarry": "This final bookkeeping commit only adds review acceptance, source reconciliation and truthful status/rulings. No new production behavior, no extra cold full-source review. Exact published full head and CI evidence belong in PR2150 body.",
+  "acceptance": {
+    "coverage": "Accepted S1 complete7criteria individual/group applicability + final source reconciliation +44S2selfassessed records; no hidden reduced denominator.",
+    "sufficientProtection": "Source faults fixed and actual invocation/held restoration proven; required live registration and hosted Node22/Windows still pending.",
+    "noLoss": "Retained witnesses/workload/canonical/unknownfallback; actual finalreviewcounterexample corrected; finalhost proof pending.",
+    "minimality": "Both detached checker copies and both equivalent root repeats removed; P37 zero-marginal wrapper copies consolidated; no known proven redundant removal remains advice only.",
+    "economicalImplementation": "Four equivalent suites redistributed with commands/prerequisites preserved; unique useful cold/host witnesses retained and repairs charged as overhead.",
+    "costResult": "Actual before traces + bounded forecast; native recurring/audit costs visible; hosted AFTER and incremental developer/financial payoff unknown, no gain claim.",
+    "freshnessAndTAK": "Actual staging5fc + three unchanged open ownerheads, acceptedS0only, no competing kernel; actual published-head binding external.",
+    "generalPrevention": "RC1\u20137 existing channels/rubric + actual diffbound consumed dispositions, real fault/companion/disable/restore, six independent bounded cold cases and real fixture repairs.",
+    "recursiveQualityEfficiency": "All new controls/drivers have7criteria, distinct oracles, bounded costs and finite explicit trusted boundary; no paid modelCI/census/platform.",
+    "honestCompletion": "PARTIAL until missing3registered+observed and final applicablehost evidence; source acceptance is not campaignDONE."
+  },
+  "declinedBehaviorResolution": {
+    "hosted": "Mandatory final published-head evidence, source review cannot waive it.",
+    "registration": "Actual missing3 observed1/admin403; user administrator action required, no settingswrite.",
+    "afterTimingAndROI": "Keep unmeasured until actual afterrun, do not extrapolate financial gain.",
+    "ownerFutureWork": "Reconcile actual accepted changes only, currentTAK/OCR/Windowsownercode notassumed.",
+    "arbitraryGrammar": "Finite supported grammar declared; real in-scope huskycounterexample fixed, notexcused.",
+    "semanticIdentity": "Truthful controller/competent coldreview fixed independentcontract trusted; no hypothetical attestationplatform.",
+    "unchangedS1": "Frozen independentassessment+currentGit sourcehashes reused; universalruntimecertificationnotclaimed.",
+    "consumerSweep": "Existing framework-only applicability considered, no new supported consumer greenpathloss established; no new generalconsumercompletenessclaim.",
+    "diagnosticNoise": "Expected fixtures/WARN/raw logs retained without pristineoutputclaim.",
+    "oldMinorLabels": "Closed in actual current batchmetadata; no new round.",
+    "scopeFixes": "One finalfixwave+onescopedrereview complete; no open source finding."
+  },
+  "remaining": [
+    "Final exact-head hosted Node22/Windows + existing required pipeline results.",
+    "Register exact missing3requiredcontexts preserving all existing contexts/apps/otherpolicy; current integration cannotadminread/write403.",
+    "Actual hostedtoken observer result and afterinstaller durations; keep timing attributionbounded."
+  ],
+  "publication": "https://github.com/artyhoo/getff/pull/2150",
+  "at": "2026-11-08T20:44:02.825510+00:00"
+}

@@ -1,5 +1,5 @@
 {
-  "status": "Final review I1/I2/M1 repaired with focused local evidence; scoped independent rereview and hosted/admin final acceptance pending",
+  "status": "Source accepted after whole-branch review + single scoped final fix; hosted/admin final acceptance pending",
   "authority": "Approved design \u00a77.1\u20137.2, accepted S1 RC1\u2013RC7; current map only, frozen S1 unchanged",
   "map": [
     {
@@ -225,5 +225,6 @@
     "OCR2146": "open4b59504f; append-only trusted connection card; scripts/lib/review-sidecar-card.mjs is TEST-ONLY commandprefix/loader conformance, not economics parser; producer absent baseline; no import/fork",
     "Windows2116": "openba4fdd70; no native Windows acceptance claimed"
   },
-  "trustedBoundary": "Truthful controller/competent cold review plus finite independent expectations and host behavior. No arbitrary semantic certification or cryptographic identity."
+  "trustedBoundary": "Truthful controller/competent cold review plus finite independent expectations and host behavior. No arbitrary semantic certification or cryptographic identity.",
+  "finalSourceAcceptance": "acceptance/final.json"
 }
