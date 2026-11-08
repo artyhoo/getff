@@ -1,0 +1,14 @@
+[render-install-roster] 20-agents.sh: 7 skip-list + 2 factory-gated entries
+[render-install-roster] agents/: 21 files -> 12 shipped at default depth
+[render-reference] wrote docs/site/reference/A.json (18 members)
+[render-reference] wrote docs/site/reference/B.json (23 members)
+[render-reference] wrote docs/site/reference/C.json (12 members)
+[render-reference] wrote docs/site/reference/D.json (28 members)
+[render-reference] wrote docs/site/reference/E.json (40 members)
+[render-reference] wrote docs/site/reference/F1.json (30 members)
+[render-reference] wrote docs/site/reference/F2.json (26 members)
+[render-reference] wrote docs/site/reference/F3.json (42 members)
+[render-reference] wrote docs/site/reference/G.json (8 members)
+[render-reference] wrote docs/site/reference/H.json (11 members)
+[render-reference] wrote docs/site/reference/I.json (13 members)
+render-reference: wrote 11 family JSONs + filled 4 fence(s)

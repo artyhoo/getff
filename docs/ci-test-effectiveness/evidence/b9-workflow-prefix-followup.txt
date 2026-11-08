@@ -1,0 +1,38 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts unrelated docs without a review record
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > requires a record even when author claims skipped/applicable=false
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts zero findings with scoped basis and consumed original report
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base ref
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing head
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base sha
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unavailable Git base
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > preserves main promotion exemption
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale base
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale full head
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > wrong scope
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unconsumed
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unresolved material
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unaccepted deferral
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports fixed (schema only)
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports retained-with-evidence (schema only)
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports owner-accepted-deferral (schema only)
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > rejects duplicate stable finding IDs
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > rejects duplicate records and malformed JSON
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > does not borrow commented or quoted code examples as an actual record
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: deleted test
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: renamed test
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: runner
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: schedule
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: package scripts
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: unknown file
+ ↓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > still rejects a missing fidelity verdict with an otherwise valid record
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > keeps edited/unfiltered events, full history, and actual base/head/body bindings 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > executes the actual run block and propagates edited-body repair and failure 1373ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > resolves a fresh named base through a local origin and fails on fetch errors 52ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed | 27 skipped (30)
+   Start at  19:51:28
+   Duration  1.91s (transform 71ms, setup 47ms, import 80ms, tests 1.49s, environment 0ms)

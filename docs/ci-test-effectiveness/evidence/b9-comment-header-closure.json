@@ -1,0 +1,23 @@
+[
+  {
+    "path": "scripts/check-discipline-pr-body.sh",
+    "beforeSHA256": "86e1c2835b5a89f16a560e60b33351afc26393f29f3b0b01d3af2f2d734472c6",
+    "afterSHA256": "31a6761f6b376d5716ea40ad2f1c0903c9be821956100cf6481e1bd91f67af4d",
+    "onlyLine2Changed": true,
+    "bodyBytesIdentical": true
+  },
+  {
+    "path": "scripts/check-husky-presence.sh",
+    "beforeSHA256": "2949fbf6e13c991d14a7592dd0bbfb473570eaef527533f6abaae129c7bf8ab1",
+    "afterSHA256": "f5150c16da72c47255727484b1c5707cc69d480996aa254ab14aea35063e98c3",
+    "onlyLine2Changed": true,
+    "bodyBytesIdentical": true
+  },
+  {
+    "path": "scripts/check-required-contexts.sh",
+    "beforeSHA256": "8dfda7a473197990d649a47f3b2324cca40f824b345a732de74af8f791005770",
+    "afterSHA256": "2f016272fe7183df3f570e2f73f5956f021b3714a5c0e51b69466373a0943c7d",
+    "onlyLine2Changed": true,
+    "bodyBytesIdentical": true
+  }
+]

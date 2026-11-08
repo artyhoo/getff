@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Observe staging through ordinary readable metadata. Registration remains an owner action.
+# check-required-contexts.sh — Observe staging through ordinary readable metadata. Registration remains an owner action.
 # Exit 0: concrete classic witness covers all wanted contexts; 1: known missing; 2: unverified.
 set -euo pipefail
 

@@ -1,0 +1,18 @@
+  ⚠ emitZcode: hooks NOT emitted to .zcode/config.json — workspace-config hooks are pending interactive trust on ZCode (diagnostic config_project_hooks_pending_trust; sha256 declaration-digest re-trust on every hook edit — anti-consumer churn, survey #1699 §4). Operator Fork A=A2: the plugin channel (plugin/hooks/hooks.json, emitPlugin) is the delivery path. This file carries MCP + skills only.
+  ⚠ emitZcode: 5 PostToolUse gate hook(s) are ADVISORY-ONLY on zcode (schema Uan @ zcode.cjs:53 rejects permissionDecision for PostToolUse; exit1 is swallowed as HookRunFailed, not surfaced): check-doc-authority, check-doc-authority-header, check-hook-marker, check-kickoff-traps, check-worker-dispatch-channel. CC surfaces these via exit1+stderr; on zcode they inject additionalContext only. Post-mutation checks cannot block on any harness — this is inherent, not a fixable gap.
+  ⚠ emitZcode: 3 event(s) NOT in zcode's event set (cannot be expressed on zcode via any channel):
+    SubagentStart — backup: PreToolUse:Agent+updatedInput (inject-subagent-context) delivers the SubagentStart payload — full parity since Stage 7B (#1047), one-shot as the subagent first message rather than persistent-lifecycle
+    SubagentStop — parity via 4D hybrid (#1046): warn-subagent-report-zcode arms on PostToolUse:Agent (real-time, 120KB payload) + Stop (completeness rollout scan) deliver the report the SubagentStop event would have carried
+    PreCompact — zcode does not support this event (CC-only)
+  ⚠ emitZcode: matcher(s) name tool(s) zcode has no alias for — registered but INERT on zcode: MultiEdit. These hooks fire on CC only.
+  ⚠ emitPlugin: 3 model event(s) are outside ZCODE_EVENTS and were NOT emitted to plugin/hooks/hooks.json — they are CC-only by construction and reach ZCode through no channel. Each needs a row in zcode-parity-doctrine.md §2 with its degradation rationale:
+    SubagentStart (1 hook(s))
+    SubagentStop (1 hook(s))
+    PreCompact (1 hook(s))
+  ⚠ emitPlugin: 5 model hook(s) are NOT plugin-channel-compatible and were skipped (plugin/hooks/hooks.json does not carry them):
+    seal-primary-checkout: cc-only internal tooling — seals the framework repo's own primary checkout; no plugin/hooks/ twin, a consumer plugin must not register it
+    close-aif-task-on-merge: operator-axis only — closes tasks in the operator's own aif-handoff stack through the framework's harvest.ts; a plugin consumer has neither, and the hook has no plugin twin
+    link-coordination: maintainer-env-only cross-worktree coordinator — no consumer-plugin meaning (plugin SessionStart bootstrap delivers entry-point context instead)
+    inject-handoff-on-compact: installer-only — env+ consumers receive it with the residue writer through the installer (setup.d/ships.manifest), and the plugin SessionStart slot is occupied by the session-start bootstrap (spec D20)
+    inject-session-bootstrap: operator-axis only — the framework's own goal/invariants digest; a consumer's anchor ships as inject-project-digest (one-button spec R6-10)
+render-harness-config: wrote selected harness config from .ai-factory/harness-model.json

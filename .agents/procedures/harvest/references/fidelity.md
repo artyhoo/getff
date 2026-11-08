@@ -4,6 +4,22 @@
 > **NOT authoritative for:** skill activation, shared gates, or project goal; those remain with the card and its declared owners.
 
 1. **Own cold-QA before handoff** (T19) — CI checks form, not design. Invoke `superpowers:requesting-code-review` on the 3-dot diff (`git diff origin/staging...HEAD`).
+   For check-changing work, use the existing canonical `review-sidecar` cold seat and
+   its Test-Quality Review/minimal sufficient protection rubric (AIF uses the same
+   native binding). Determine scope from the fresh named-base merge-base/full-head
+   diff, including deletion/rename/unknown paths, not an author applicability flag.
+   Ordinary unrelated docs need no extra seat or history lookup. Reuse at most two
+   available matched history traces; record unavailable data and a bounded owner decision.
+   Preserve and consume the ORIGINAL cold report before fidelity. Give every material
+   observation its stable ID and honest fixed/retained-with-evidence/owner-accepted-deferral/
+   unresolved disposition. Fixed means actual source repair plus fresh verification;
+   unresolved or unaccepted deferral blocks GO. Zero findings with scoped basis is valid.
+   Put the canonical role's `protection-review` record in the PR body outside Git,
+   bound to actual base/full head/exact scope and reviewer/report/controller references.
+   A head/base change calls for a narrow reassessment, never relabelling unchanged bad
+   source fixed. The existing fidelity CLI consumes it even when fidelity is skipped;
+   its structural pass does not certify semantic truth, execution, or reviewer identity.
+   Truthful controller/cold-seat judgment remains the explicit trusted boundary.
 2. **Fidelity verdict (design altitude — spec D2).** Dispatch
    [`agents/fidelity-auditor.md`](../../../../agents/fidelity-auditor.md) as a cold read-only
    subagent **with an explicit `name`** (keeps the resume exception of

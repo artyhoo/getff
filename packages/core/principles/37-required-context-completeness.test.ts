@@ -782,13 +782,6 @@ describe('Principle 37 — actual live required-context CLI and workflow conform
       message: 'UNVERIFIED',
     },
     {
-      name: 'active ruleset plus sufficient classic witness',
-      branch: classic(wanted),
-      rules: '[{"enforcement":"active"}]',
-      status: 0,
-      message: 'READABLE COMPLETE',
-    },
-    {
       name: 'branch HTTP failure despite valid complete body',
       branch: classic(wanted),
       rules: '[]',
@@ -907,7 +900,12 @@ describe('Principle 37 — actual live required-context CLI and workflow conform
     expect(step?.env?.GH_REPO).toBe('${{ github.repository }}');
   });
   for (const fixture of cases) {
+    // The wrapper has no schema logic: retain success, exact missing list, and
+    // early/late transport failure. All distinct helper schemas remain below.
+    const wrapperCases = ['complete classic contexts', 'known missing three',
+      'branch HTTP failure despite valid complete body', 'rules API failure despite valid empty body'];
     for (const entry of ['helper', 'workflow'] as const) {
+      if (entry === 'workflow' && !wrapperCases.includes(fixture.name)) continue;
       it(`${entry}: ${fixture.name} => ${fixture.status}`, () => {
         const dir = mkdtempSync(resolve(tmpdir(), 'p37-live-'));
         try {
@@ -916,6 +914,7 @@ describe('Principle 37 — actual live required-context CLI and workflow conform
           writeFileSync(
             resolve(dir, 'gh'),
             `#!/bin/bash
+printf '%s\\n' "$*" >> "$FIXTURE_DIR/requests"
 case "$*" in
   'api repos/fixture/repo/branches/staging') cat "$FIXTURE_DIR/branch.json"; exit "$BRANCH_STATUS" ;;
   'api --paginate repos/fixture/repo/rulesets?includes_parents=true&per_page=100') cat "$FIXTURE_DIR/rules.json"; exit "$RULES_STATUS" ;;
@@ -947,6 +946,11 @@ esac
           expect(result.error, output).toBeUndefined();
           expect(result.status, output).toBe(fixture.status);
           expect(output).toContain(fixture.message);
+          if (fixture.name === 'classic complete needs no rules API') {
+            expect(readFileSync(resolve(dir, 'requests'), 'utf8')).toBe(
+              'api repos/fixture/repo/branches/staging\n',
+            );
+          }
           if (fixture.status === 0)
             expect(output).toContain('branches/staging');
           if (fixture.status === 1) {

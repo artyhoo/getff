@@ -1,0 +1,50 @@
+[
+  {
+    "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/checks/pr-body-fidelity.test.ts packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+    "status": 0,
+    "seconds": 24.923,
+    "log": "docs/ci-test-effectiveness/evidence/b9-host-1.txt"
+  },
+  {
+    "command": "node --test scripts/review-sidecar-contract.test.mjs",
+    "status": 0,
+    "seconds": 0.154,
+    "log": "docs/ci-test-effectiveness/evidence/b9-host-2.txt"
+  },
+  {
+    "command": "npx --prefix packages/core vitest run --reporter=default packages/core/principles/36-ci-needs-completeness.test.ts packages/core/principles/37-required-context-completeness.test.ts packages/core/principles/38-vitest-include-ci-coverage.test.ts packages/core/principles/41-shell-test-ci-coverage.test.ts",
+    "status": 0,
+    "seconds": 5.379,
+    "log": "docs/ci-test-effectiveness/evidence/b9-host-3.txt"
+  },
+  {
+    "command": "/workspace/getff-tools/bin/actionlint .github/workflows/pr-body-fidelity.yml",
+    "status": 0,
+    "seconds": 0.011,
+    "log": "docs/ci-test-effectiveness/evidence/b9-host-4.txt"
+  },
+  {
+    "command": "node scripts/render-harness-config.mjs --check",
+    "status": 0,
+    "seconds": 0.115,
+    "log": "docs/ci-test-effectiveness/evidence/b9-host-5.txt"
+  },
+  {
+    "command": "node scripts/render-reference.mjs --check",
+    "status": 0,
+    "seconds": 4.844,
+    "log": "docs/ci-test-effectiveness/evidence/b9-host-6.txt"
+  },
+  {
+    "command": "SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh",
+    "status": 0,
+    "seconds": 509.16,
+    "log": "docs/ci-test-effectiveness/evidence/b9-host-7.txt"
+  },
+  {
+    "command": "bash scripts/build-getff-dist.sh --check",
+    "status": 0,
+    "seconds": 7.977,
+    "log": "docs/ci-test-effectiveness/evidence/b9-host-8.txt"
+  }
+]

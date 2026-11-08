@@ -1,0 +1,30 @@
+{
+  "measure": "UTF-8 bytes, not tokens or billed inference cost",
+  "rows": [
+    {
+      "path": ".agents/roles/review-sidecar.md",
+      "beforeBytes": 11949,
+      "afterBytes": 16499,
+      "deltaBytes": 4550
+    },
+    {
+      "path": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+      "beforeBytes": 4725,
+      "afterBytes": 8891,
+      "deltaBytes": 4166
+    },
+    {
+      "path": ".codex/agents/review-sidecar.toml",
+      "beforeBytes": 701,
+      "afterBytes": 720,
+      "deltaBytes": 19
+    },
+    {
+      "path": ".agents/skills/review-sidecar/SKILL.md",
+      "beforeBytes": 836,
+      "afterBytes": 855,
+      "deltaBytes": 19
+    }
+  ],
+  "limits": "Canonical/AIF role cost is paid when existing review reads it, not per CI execution. Native Codex pointer remains a pointer. No paid model CI; queue/support/falsealarm costs not measured by this static size comparison."
+}

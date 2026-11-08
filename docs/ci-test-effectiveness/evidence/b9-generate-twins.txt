@@ -1,0 +1,21 @@
+[INFO] generate-plugin-twins: generating plugin twins from .agents/hooks/*.sh
+[INFO] generate-plugin-twins: twin: ask-question-reminder mode: identity
+[INFO] generate-plugin-twins: twin: check-doc-authority-header mode: identity
+[INFO] generate-plugin-twins: twin: check-doc-authority mode: identity
+[INFO] generate-plugin-twins: twin: check-hook-marker mode: identity
+[INFO] generate-plugin-twins: twin: check-kickoff-traps mode: identity
+[INFO] generate-plugin-twins: twin: check-worker-dispatch-channel mode: identity
+[INFO] generate-plugin-twins: twin: deps-hash-check mode: identity
+[INFO] generate-plugin-twins: twin: end-of-turn-reminder mode: identity
+[INFO] generate-plugin-twins: twin: glossary-inject mode: identity
+[INFO] generate-plugin-twins: twin: inject-matching-rule mode: identity
+[INFO] generate-plugin-twins: twin: inject-memory-codification mode: identity
+[INFO] generate-plugin-twins: twin: inject-output-language mode: identity
+[INFO] generate-plugin-twins: twin: inject-project-digest mode: identity
+[INFO] generate-plugin-twins: twin: inject-subagent-context mode: identity
+[INFO] generate-plugin-twins: twin: runtime-bridge-dispatch mode: identity
+[INFO] generate-plugin-twins: twin: validate-prompt mode: identity
+[INFO] generate-plugin-twins: twin: warn-subagent-report-zcode mode: file (authored canonical adapter)
+[INFO] generate-plugin-twins: generated 17 twins, skipped 0 manual, 0 sed-transformed
+[INFO] generate-plugin-twins: agent twin: review-sidecar.md mode: identity (byte-copy)
+[INFO] generate-plugin-twins: agent twins: 1 re-synced

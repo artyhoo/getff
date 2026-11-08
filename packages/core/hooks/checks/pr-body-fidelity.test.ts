@@ -444,3 +444,34 @@ describe('checkPrBodyFidelity — merged indented-fence compatibility corpus', (
     });
   }
 });
+
+describe('protection record structure (not semantic truth)', () => {
+  const base = 'b'.repeat(40);
+  const protection = { baseSha: base, paths: ['scripts/check.sh'] };
+  const record = {
+    version: 1, base, head: HEAD, scope: protection.paths,
+    reviewer: 'cold-seat', report: 'report:1', consumedBy: 'controller',
+    basis: 'Finite controlled structural fixture; no actual semantic verdict claimed.',
+    history: { status: 'available', traces: ['matched-run:1'] }, findings: [],
+  };
+  const check = (value: unknown) => checkPrBodyFidelity({
+    body: wrap(goSection()) + '\n```protection-review\n' + JSON.stringify(value) + '\n```',
+    headSha: HEAD, protection,
+  });
+  it('preserves the GO grammar with one matched history trace', () => {
+    expect(check(record).ok).toBe(true);
+  });
+  for (const [name, patch] of [
+    ['wrong version', { version: 2 }],
+    ['missing original report', { report: '' }],
+    ['missing basis', { basis: '' }],
+    ['missing findings assessment', { findings: null }],
+    ['too many history traces', { history: { status: 'available', traces: ['one', 'two', 'three'] } }],
+    ['unsupported unavailable decision', { history: { status: 'unavailable', reason: 'offline' } }],
+    ['missing finding scenario', { findings: [{ id: 'M1', class: 'oracle', disposition: 'fixed', evidence: ['fixture:1'] }] }],
+    ['non-string disposition', { findings: [{ id: 'M1', class: 'oracle', failureScenario: 'false pass', disposition: ['fixed'], evidence: ['fixture:1'] }] }],
+    ['missing finding evidence', { findings: [{ id: 'M1', class: 'oracle', failureScenario: 'false pass', disposition: 'retained-with-evidence', evidence: [] }] }],
+  ]) it(`rejects ${name}`, () => {
+    expect(check({ ...record, ...(patch as Record<string, unknown>) }).ok).toBe(false);
+  });
+});

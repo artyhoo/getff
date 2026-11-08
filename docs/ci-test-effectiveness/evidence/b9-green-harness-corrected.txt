@@ -1,0 +1,144 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts unrelated docs without a review record 635ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > requires a record even when author claims skipped/applicable=false 564ms
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts zero findings with scoped basis and consumed original report 559ms
+   → expected 1 to be +0 // Object.is equality
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base ref 421ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing head 492ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base sha 473ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unavailable Git base 438ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > preserves main promotion exemption 413ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale base 515ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale full head 504ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > wrong scope 584ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unconsumed 539ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unresolved material 668ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unaccepted deferral 509ms
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports fixed (schema only) 515ms
+   → expected 1 to be +0 // Object.is equality
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports retained-with-evidence (schema only) 718ms
+   → expected 1 to be +0 // Object.is equality
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports owner-accepted-deferral (schema only) 529ms
+   → expected 1 to be +0 // Object.is equality
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > rejects duplicate stable finding IDs 514ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > rejects duplicate records and malformed JSON 1301ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > does not borrow commented or quoted code examples as an actual record 1071ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: deleted test 496ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: renamed test 606ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: runner 511ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: schedule 638ms
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: package scripts 188ms
+   → expected 'node:internal/modules/package_json_re…' to contain 'protection-review'
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: unknown file 626ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > still rejects a missing fidelity verdict with an otherwise valid record 538ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > keeps edited/unfiltered events, full history, and actual base/head/body bindings 1ms
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > executes the actual run block and propagates edited-body repair and failure 1017ms
+   → expected 1 to be +0 // Object.is equality
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > resolves a fresh named base through a local origin and fails on fetch errors 96ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts zero findings with scoped basis and consumed original report
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:57:53
+     55|   }, 15000);
+     56|   it('accepts zero findings with scoped basis and consumed original re…
+     57|     expect(run(skipped + block(record())).exitCode).toBe(0);
+       |                                                     ^
+     58|   }, 15000);
+     59|   for (const [name, env, message] of [
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports fixed (schema only)
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports retained-with-evidence (schema only)
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports owner-accepted-deferral (schema only)
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:83:76
+     81|     const finding = { id: 'M1', failureScenario: 'fixture failure', cl…
+     82|       evidence: ['controlled fixture only; not semantic repair evidenc…
+     83|     expect(run(skipped + block(record({ findings: [finding] }))).exitC…
+       |                                                                            ^
+     84|   }, 15000);
+     85|   it('rejects duplicate stable finding IDs', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: package scripts
+AssertionError: expected 'node:internal/modules/package_json_re…' to contain 'protection-review'
+
+- Expected
++ Received
+
+- protection-review
++ node:internal/modules/package_json_reader:173
++   const result = modulesBinding.getNearestParentPackageJSON(checkPath);
++                                 ^
++
++ Error: Invalid package config /tmp/fidelity-range-UX7kMO/package.json.
++     at Object.getNearestParentPackageJSON (node:internal/modules/package_json_reader:173:33)
++     at trySelf (node:internal/modules/cjs/loader:656:33)
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1493:24)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.require (node:internal/modules/cjs/loader:1617:12)
++     at node:internal/modules/cjs/loader:2164:12 {
++   code: 'ERR_INVALID_PACKAGE_CONFIG'
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:108:60
+    106|     git('-c', 'user.name=fixture', '-c', 'user.email=fixture@example.i…
+    107|     const result = run(skipped, { BASE_SHA: head, HEAD_SHA: git('rev-p…
+    108|     expect(result.exitCode).toBe(1); expect(result.stderr).toContain('…
+       |                                                            ^
+    109|   }, 15000);
+    110|   it('still rejects a missing fidelity verdict with an otherwise valid…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > executes the actual run block and propagates edited-body repair and failure
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:133:56
+    131|       env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, BASE_…
+    132|     expect(invoke(skipped).exitCode).toBe(1);
+    133|     expect(invoke(skipped + block(record())).exitCode).toBe(0);
+       |                                                        ^
+    134|   }, 25000);
+    135|   it('resolves a fresh named base through a local origin and fails on …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 24 passed (30)
+   Start at  19:41:13
+   Duration  17.25s (transform 76ms, setup 40ms, import 85ms, tests 16.77s, environment 0ms)

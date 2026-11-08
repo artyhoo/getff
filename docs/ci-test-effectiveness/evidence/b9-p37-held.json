@@ -1,0 +1,39 @@
+{
+  "sourceHashes": {
+    "packages/core/principles/37-required-context-completeness.test.ts": "d98339ab8d106e318a094466ed710199a8a5ab8f05229ccad3ee1ee46b30f414",
+    ".github/workflows/workflow-integrity.yml": "d84360a7ea11fb4b2a67e4f6f23ee8d6d465a70373b0ec17bf865f47422ec714",
+    "scripts/check-required-contexts.sh": "2f016272fe7183df3f570e2f73f5956f021b3714a5c0e51b69466373a0943c7d"
+  },
+  "runs": [
+    {
+      "label": "consumer-removed",
+      "status": 1,
+      "expected": 1,
+      "seconds": 1.203,
+      "pattern": "workflow:"
+    },
+    {
+      "label": "detector-disabled",
+      "status": 1,
+      "expected": 1,
+      "seconds": 0.921,
+      "pattern": "helper: known missing three|helper: active uninspected ruleset"
+    },
+    {
+      "label": "restored",
+      "status": 0,
+      "expected": 0,
+      "seconds": 1.757,
+      "pattern": "actual live required-context CLI"
+    }
+  ],
+  "disposableRestored": {
+    ".github/workflows/workflow-integrity.yml": true,
+    "scripts/check-required-contexts.sh": true
+  },
+  "realSourceUnchanged": {
+    "packages/core/principles/37-required-context-completeness.test.ts": true,
+    ".github/workflows/workflow-integrity.yml": true,
+    "scripts/check-required-contexts.sh": true
+  }
+}

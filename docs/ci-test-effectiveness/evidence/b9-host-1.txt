@@ -1,0 +1,38 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts (85 tests) 929ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts (30 tests) 22592ms
+     ✓ accepts unrelated docs without a review record  1211ms
+     ✓ requires a record even when author claims skipped/applicable=false  1052ms
+     ✓ accepts zero findings with scoped basis and consumed original report  594ms
+     ✓ missing base ref  668ms
+     ✓ missing head  574ms
+     ✓ missing base sha  729ms
+     ✓ unavailable Git base  552ms
+     ✓ preserves main promotion exemption  669ms
+     ✓ stale base  548ms
+     ✓ stale full head  698ms
+     ✓ wrong scope  569ms
+     ✓ unconsumed  573ms
+     ✓ unresolved material  664ms
+     ✓ unaccepted deferral  640ms
+     ✓ transports fixed (schema only)  575ms
+     ✓ transports retained-with-evidence (schema only)  764ms
+     ✓ transports owner-accepted-deferral (schema only)  597ms
+     ✓ rejects duplicate stable finding IDs  515ms
+     ✓ rejects duplicate records and malformed JSON  1099ms
+     ✓ does not borrow commented or quoted code examples as an actual record  2165ms
+     ✓ actual diff trigger: deleted test  788ms
+     ✓ actual diff trigger: renamed test  697ms
+     ✓ actual diff trigger: runner  1103ms
+     ✓ actual diff trigger: schedule  1076ms
+     ✓ actual diff trigger: package scripts  796ms
+     ✓ actual diff trigger: unknown file  663ms
+     ✓ still rejects a missing fidelity verdict with an otherwise valid record  598ms
+     ✓ executes the actual run block and propagates edited-body repair and failure  1236ms
+
+ Test Files  2 passed (2)
+      Tests  115 passed (115)
+   Start at  19:48:38
+   Duration  23.29s (transform 291ms, setup 142ms, import 601ms, tests 23.52s, environment 1ms)

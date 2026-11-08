@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Production §1.7 grammar checker. PR_BODY is data, never evaluated as shell.
+# check-discipline-pr-body.sh — Production §1.7 grammar checker. PR_BODY is data, never evaluated as shell.
 set -euo pipefail
 
 if [ -z "${PR_BODY:-}" ]; then

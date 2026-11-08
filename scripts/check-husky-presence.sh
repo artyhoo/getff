@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural presence/marker check only; does not execute or certify hook semantics.
+# check-husky-presence.sh — Structural presence/marker check only; does not execute or certify hook semantics.
 # Optional hook directory allows the same production checker to inspect disposable fixtures.
 set -euo pipefail
 

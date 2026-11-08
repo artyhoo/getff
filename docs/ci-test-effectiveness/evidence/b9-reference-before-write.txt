@@ -1,0 +1,7 @@
+[render-install-roster] 20-agents.sh: 7 skip-list + 2 factory-gated entries
+[render-install-roster] agents/: 21 files -> 12 shipped at default depth
+✗ reference drift:
+    - docs/site/reference/C.json drifted from the sources
+    - docs/site/reference/F3.json drifted from the sources
+    - docs/site/reference/I.json drifted from the sources
+  Fix: npx tsx scripts/render-reference.mjs --write

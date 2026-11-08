@@ -66,7 +66,7 @@ c9417baaba5e22158a9808ccd21dec2d60c007cc51ed4d395ba778bb22f7d59c  .agents/proced
 7cb07ee88ad67a8a625d25348147a5a813801ab7027bb69c30f38d8088d3e3d1  .agents/procedures/pipeline/evals/runtime-audit.test.py
 2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf  .agents/procedures/pipeline/helpers/assign-skill.sh
 8d803757ed7775d2fdf4a87cc13245fd27985a5ed00056a91637a321494209c2  .agents/procedures/pipeline/helpers/autonomy-binding.mjs
-79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4  .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs
+aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52  .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs
 e3d080760f23041a45ace2d57b875a0a65c82400cc560b9994b1c31e94a08471  .agents/procedures/pipeline/helpers/autonomy-binding/authority.mjs
 e87b749bf77e5f18dcd9ff5e8797df2590d4890561dec8c8f676e684c12790ca  .agents/procedures/pipeline/helpers/autonomy-binding/engine.mjs
 367cf1c5baddaa7231e6aa95bc21e445691a8f17e81c01ff3c4095238a09b85a  .agents/procedures/pipeline/helpers/autonomy-binding/lock.mjs
@@ -157,7 +157,7 @@ c248744920da17c91f5fbd01f2dded11135d87147fbb297bafc4cbe9c531b840  .agents/roles/
 860d526a85605c3144932897b18645a528c225fe548dc789fc2de7249b3fcf68  .agents/roles/resources/docs-form-auditor/framework-terms.md
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .agents/roles/resources/docs-form-auditor/page-kinds.md
 fe24bec231104ce17e1dc69ea99283ee68cefc9e93e1508c2121af82bb8d375b  .agents/roles/resources/rule-researcher/preflight.mjs
-5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb  .agents/roles/review-sidecar.md
+277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc  .agents/roles/review-sidecar.md
 313c33d0d688ebeecb794e721ca1d70f28c2f1777c1ba1c0433f9040f8d3efe6  .agents/roles/rule-researcher.md
 c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .agents/roles/rule-test-author.md
 5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .agents/session-bootstrap.md
@@ -193,7 +193,7 @@ e5b12a46858d13c5ddf5f1b60e141819d8ce5897f4601f289c017035d34da8a7  .agents/skills
 a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/pipeline/agents/openai.yaml
 da6a18a6e6fd2b43badad1e87c348f95fea796690a1e21980470b89d99686afd  .agents/skills/plan-drift-semantic-auditor/SKILL.md
 a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/plan-drift-semantic-auditor/agents/openai.yaml
-fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed  .agents/skills/review-sidecar/SKILL.md
+f5f4c1af2cf36a2c79ba5e98c0826f748d172a28c4b259ec69e2aaf2a47d8ab6  .agents/skills/review-sidecar/SKILL.md
 a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/review-sidecar/agents/openai.yaml
 317dbb7038254b82338fc7ac12bc731c46ae265e287d1ddb6d2058459afc85f1  .agents/skills/reviewer/SKILL.md
 8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/reviewer/agents/openai.yaml
@@ -225,9 +225,9 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-fa34c9e157aa3d41a5dd2127a1267d5de2b8eca1c8daf2f0168665f96c2ea3f9  .ai-factory/refresh-baseline.json
+8f65aaeb0bcb3846016501bb4888ab58e8525937d0b1b83ca206cb6c04651e61  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
-f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
+59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
 f6844f9af829a3252cdaa5b7045c0a352141eb54a635729c453fe8befc669327  .ai-factory/tier-home.md
 25c4962990d049fdd8ac7c0149e0b263aae7507e272005869226d7b80bf4b283  .ai-factory/tool-decisions.md
@@ -241,7 +241,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .claude/agents
 2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b  .claude/agents/living-docs-auditor.md
 6a01d5b944ca479245937328aa923774e103a317e679b4031136926b8485a1af  .claude/agents/memory-codification-auditor.md
 d0145f74cade866ddfc14208bd0c8a9d3b9b42d992ec6a8c8e06ad151614de10  .claude/agents/plan-drift-semantic-auditor.md
-5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb  .claude/agents/review-sidecar.md
+277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc  .claude/agents/review-sidecar.md
 313c33d0d688ebeecb794e721ca1d70f28c2f1777c1ba1c0433f9040f8d3efe6  .claude/agents/rule-researcher.md
 c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .claude/agents/rule-test-author.md
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .claude/hooks/ask-question-reminder.sh
@@ -313,7 +313,7 @@ c9417baaba5e22158a9808ccd21dec2d60c007cc51ed4d395ba778bb22f7d59c  .claude/skills
 7cb07ee88ad67a8a625d25348147a5a813801ab7027bb69c30f38d8088d3e3d1  .claude/skills/pipeline/evals/runtime-audit.test.py
 2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf  .claude/skills/pipeline/helpers/assign-skill.sh
 8d803757ed7775d2fdf4a87cc13245fd27985a5ed00056a91637a321494209c2  .claude/skills/pipeline/helpers/autonomy-binding.mjs
-79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4  .claude/skills/pipeline/helpers/autonomy-binding.test.mjs
+aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52  .claude/skills/pipeline/helpers/autonomy-binding.test.mjs
 e3d080760f23041a45ace2d57b875a0a65c82400cc560b9994b1c31e94a08471  .claude/skills/pipeline/helpers/autonomy-binding/authority.mjs
 e87b749bf77e5f18dcd9ff5e8797df2590d4890561dec8c8f676e684c12790ca  .claude/skills/pipeline/helpers/autonomy-binding/engine.mjs
 367cf1c5baddaa7231e6aa95bc21e445691a8f17e81c01ff3c4095238a09b85a  .claude/skills/pipeline/helpers/autonomy-binding/lock.mjs
@@ -410,7 +410,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .zcode/agents/
 2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b  .zcode/agents/living-docs-auditor.md
 6a01d5b944ca479245937328aa923774e103a317e679b4031136926b8485a1af  .zcode/agents/memory-codification-auditor.md
 d0145f74cade866ddfc14208bd0c8a9d3b9b42d992ec6a8c8e06ad151614de10  .zcode/agents/plan-drift-semantic-auditor.md
-5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb  .zcode/agents/review-sidecar.md
+277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc  .zcode/agents/review-sidecar.md
 313c33d0d688ebeecb794e721ca1d70f28c2f1777c1ba1c0433f9040f8d3efe6  .zcode/agents/rule-researcher.md
 c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .zcode/agents/rule-test-author.md
 a0df000f4952fbfef03a2024feaf5021a8d250f5ca77648086dca780fc22d685  .zcode/skills/ai-doc/SKILL.md
@@ -465,7 +465,7 @@ c9417baaba5e22158a9808ccd21dec2d60c007cc51ed4d395ba778bb22f7d59c  .zcode/skills/
 7cb07ee88ad67a8a625d25348147a5a813801ab7027bb69c30f38d8088d3e3d1  .zcode/skills/pipeline/evals/runtime-audit.test.py
 2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf  .zcode/skills/pipeline/helpers/assign-skill.sh
 8d803757ed7775d2fdf4a87cc13245fd27985a5ed00056a91637a321494209c2  .zcode/skills/pipeline/helpers/autonomy-binding.mjs
-79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4  .zcode/skills/pipeline/helpers/autonomy-binding.test.mjs
+aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52  .zcode/skills/pipeline/helpers/autonomy-binding.test.mjs
 e3d080760f23041a45ace2d57b875a0a65c82400cc560b9994b1c31e94a08471  .zcode/skills/pipeline/helpers/autonomy-binding/authority.mjs
 e87b749bf77e5f18dcd9ff5e8797df2590d4890561dec8c8f676e684c12790ca  .zcode/skills/pipeline/helpers/autonomy-binding/engine.mjs
 367cf1c5baddaa7231e6aa95bc21e445691a8f17e81c01ff3c4095238a09b85a  .zcode/skills/pipeline/helpers/autonomy-binding/lock.mjs
@@ -666,7 +666,7 @@ d159796d5f6dbe79701ac512a725a5dfc01baa02f91bcf46e22b5eb68369edc0  scripts/prove-
 799ebfed0f72f64b817e2601d76c4e5b66febaaede041df5d2e91be1a781dfa1  scripts/render-terms-style.mjs
 a6c6a7ef50a8ea31c9e81b1cff916a55a2d2faa38744baa1c63200868471c04b  scripts/run-armed.sh
 bd04e4cdb8ab0f5df78a4ab9fa3aba6385cabbc2107f9bfbda5389cca623cb1a  scripts/run-generated-rule-mutation.sh
-b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d  scripts/run-rule-tests-firing.sh
+609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e  scripts/run-rule-tests-firing.sh
 c1a4a0e247bf301f4d09db6a7f2c2ca23ee35488ad0d6e1bbc834eeec9c7b228  scripts/snapshot-for-seat.sh
 7759de3d663cd73dfffdbdb4ee10de093a9b65578e7c68e25555357762382eb8  scripts/worktree-node-modules.sh
 3cb6f04b83ea266a42bc0c821f75ceb767b1c0dd12bba3c21aa36221f53ec524  stryker.config.json
