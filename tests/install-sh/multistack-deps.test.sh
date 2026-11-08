@@ -45,10 +45,14 @@ add_mobile() {
   fi
 }
 run_installer() {
-  local d="$1" stack="${2:-ts-server}"
+  local d="$1" stack="${2:-ts-server}" expected_rc="${3:-0}" rc=0
   ISSUE_1842_PM_LOG="$d.pm.log"; export ISSUE_1842_PM_LOG
   : > "$ISSUE_1842_PM_LOG"
-  (cd "$d" && FENCES_FIRE_ALLOW_SKIP='Issue 1842 argv-only fixture: package manager is a recording stub' bash "$REPO_ROOT/install.sh" "$stack" --full </dev/null) > "$d.install.log" 2>&1 || true
+  (cd "$d" && FENCES_FIRE_ALLOW_SKIP='Issue 1842 argv-only fixture: package manager is a recording stub' bash "$REPO_ROOT/install.sh" "$stack" --full </dev/null) > "$d.install.log" 2>&1 || rc=$?
+  if [ "$rc" -ne "$expected_rc" ]; then
+    bad "installer exit for ${d##*/}: expected $expected_rc, got $rc"
+    tail -n 20 "$d.install.log"
+  fi
 }
 if [ "${ISSUE_1842_FOCUS:-}" != reification ] && [ "${ISSUE_1842_FOCUS:-}" != literal ]; then
 # No workspaces field: real 40-configs discovers apps/*; npm must install at root.
@@ -110,23 +114,29 @@ g="$TMP/pnpm-list-failure"
 make_fixture "$g" '{"name":"root","version":"1.0.0","private":true}' pnpm
 add_mobile "$g" bare
 ISSUE_1842_LIST_FAIL=1; ISSUE_1842_FAIL_FILTER=__none__; export ISSUE_1842_LIST_FAIL ISSUE_1842_FAIL_FILTER
-run_installer "$g"
+run_installer "$g" ts-server 1
 if grep -q -- 'zod@' <<< "$(grep -F "pnpm|$g|add -w" "$g.pm.log")"; then bad 'pnpm membership failure permitted runtime install'; else ok 'pnpm membership failure stops runtime install'; fi
 if grep -q 'dep install incomplete' "$g.install.log"; then ok 'pnpm membership failure reports incomplete install'; else bad 'pnpm membership failure was not reported'; fi
 unset ISSUE_1842_LIST_FAIL
 ISSUE_1842_MEMBERS='not-json'; export ISSUE_1842_MEMBERS
-run_installer "$g"
+run_installer "$g" ts-server 1
 if grep -q 'cannot validate pnpm workspace membership' "$g.install.log" && ! grep -q -- 'zod@' <<< "$(grep -F "pnpm|$g|add -w" "$g.pm.log")"; then ok 'malformed pnpm membership fails closed'; else bad 'malformed pnpm membership was accepted'; fi
 ISSUE_1842_MEMBERS=$(printf '[{"path":"%s"},{"path":"%s/apps/mobile"}]' "$g" "$g"); ISSUE_1842_FAIL_FILTER=mobile; ISSUE_1842_FAIL_CWD="$g/apps/mobile"; export ISSUE_1842_MEMBERS ISSUE_1842_FAIL_FILTER ISSUE_1842_FAIL_CWD
-run_installer "$g"
+run_installer "$g" ts-server 1
 if grep -q 'dep install incomplete' "$g.install.log" && ! grep -q -- 'zod@' <<< "$(grep -F "pnpm|$g|add -w" "$g.pm.log")"; then ok 'failed pnpm member add stops runtime install'; else bad 'failed pnpm member add did not fail closed'; fi
 unset ISSUE_1842_LIST_FAIL ISSUE_1842_FAIL_FILTER ISSUE_1842_FAIL_CWD ISSUE_1842_MEMBERS
-# Alternative root linter: installer must not acquire an ESLint toolchain.
+# A Biome migration may retain the old Expo config without using it.
 d="$TMP/biome"
 make_fixture "$d" '{"name":"biome-root","version":"1.0.0","private":true,"scripts":{"lint":"biome lint"}}' npm
 add_mobile "$d" expo
+cp "$REPO_ROOT/packages/preset-react-native/templates/eslint.config.expo.mjs" "$d/apps/mobile/eslint.config.mjs"
 run_installer "$d"
-grep -q -- 'eslint-config-expo' <<< "$(grep -F "npm|$d|install --save-dev" "$d.pm.log")" && bad 'Biome consumer was given Expo ESLint deps' || ok 'Biome consumer does not receive Expo ESLint deps'
+biome_dev_install=$(grep -F "npm|$d|install --save-dev" "$d.pm.log")
+if [ -n "$biome_dev_install" ] && ! grep -Eq -- 'eslint-config-expo|--legacy-peer-deps' <<<"$biome_dev_install"; then
+  ok 'Biome keeps Expo dependencies and peer relaxation out of the root install'
+else
+  bad 'Biome root install was missing or included Expo dependencies or peer relaxation'
+fi
 fi
 # A literal glob-like directory must never select the similarly named sibling.
 if [ "${ISSUE_1842_FOCUS:-}" != reification ]; then
