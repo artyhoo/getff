@@ -1892,10 +1892,21 @@ jobs:
             exit 1
           fi
           cat "$RUNNER_TEMP/install.log"
-          test -x node_modules/.bin/eslint || { echo "::error::eslint was not installed"; exit 1; }
-          node --input-type=module -e "await import('./apps/mobile/eslint.config.mjs')"
+          if [ ! -x node_modules/.bin/eslint ]; then
+            echo "::error::eslint was not installed"
+            exit 1
+          fi
+          # A direct import reports module-resolution failures before the CLI runs.
+          # Evaluate ESLint from the mobile workspace to check local resolution.
+          # Use a JavaScript file so print-config selects the applicable config.
+          node --input-type=module -e "
+            await import('./apps/mobile/eslint.config.mjs');
+          "
           printf 'const value = 1;\n' > apps/mobile/index.js
-          (cd apps/mobile && ../../node_modules/.bin/eslint --print-config index.js > /dev/null)
+          (
+            cd apps/mobile &&
+              ../../node_modules/.bin/eslint --print-config index.js > /dev/null
+          )
           echo "✓ Expo config imports and ESLint resolves its effective config (#1842)"
           echo "CONSUMER=$CONSUMER" >> "$GITHUB_ENV"
       - name: Assert the consumer toolchain installed (else the gates are vacuous)
