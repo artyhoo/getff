@@ -1,9 +1,9 @@
 {
   "status": "Source/population reconciliation; bounded evidence views remain distinct",
-  "sourceHead": "08d06933075972d45a565e5b9d01a89810efb68a",
+  "sourceHead": "ce1435c988cfdf69c650c570b7c73383fade5a5f",
   "acceptedS1Head": "9098d3c5abc5409de0f138fcf5d0b8375fed3b68",
   "originalLogicalRecords": 2121,
-  "s2SupplementRecords": 45,
+  "s2SupplementRecords": 46,
   "logicalCountWarning": "Supplement rows describe changes and drivers, not extra disjoint tests. Do not sum into a native test count.",
   "originalSourceCandidateCount": 736,
   "originalTestSourceCount": 722,
@@ -7637,6 +7637,19 @@
     },
     {
       "id": "PUBLICATION-current-citation-closure",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "PUBLICATION-plugin-cache-and-rigor-metadata",
       "criterionNames": [
         "relevance",
         "effectiveness",

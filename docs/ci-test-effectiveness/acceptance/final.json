@@ -17,7 +17,7 @@
   },
   "controllerFinalMetadataCarry": "This final bookkeeping commit only adds review acceptance, source reconciliation and truthful status/rulings. No new production behavior, no extra cold full-source review. Exact published full head and CI evidence belong in PR2150 body.",
   "acceptance": {
-    "coverage": "Accepted S1 + final reconciliation +45S2selfassessed rows, including explicit citation-onlyinheritance; no reduced native denominator.",
+    "coverage": "Accepted S1 + final reconciliation +46S2selfassessed rows, including explicit citation-onlyinheritance; no reduced native denominator.",
     "sufficientProtection": "Source faults fixed and actual invocation/held restoration proven; required live registration and hosted Node22/Windows still pending.",
     "noLoss": "Retained witnesses/workload/canonical/unknownfallback; actual finalreviewcounterexample corrected; finalhost proof pending.",
     "minimality": "Both detached checker copies and both equivalent root repeats removed; P37 zero-marginal wrapper copies consolidated; no known proven redundant removal remains advice only.",
@@ -54,5 +54,12 @@
     "evidence": "evidence/publication-citation-closure.json",
     "rootVerification": "Read complete28path actualdiff; all current/Gitbeforehashes match; explicit13TS AST/emitted-JS,2YAML,4shell,9Markdown equivalence; current pointer meaning inspected. No new runtime behavior, installed baseline drift or checker change. Existing registered citationgate0 on committed source; originalfailedpush preserved.",
     "acceptance": "Approved publication transport closure, no second behavioralreviewwave."
+  },
+  "publicationMetadataClosure": {
+    "sourceCommit": "044b65f2b7e2fc18c6bd2e59216a50298258f60c",
+    "receiptHead": "ce1435c988cfdf69c650c570b7c73383fade5a5f",
+    "evidence": "evidence/publication-metadata-closure.json",
+    "rootVerification": "Exact four versionfields0.3.38\u21920.3.39 only; nine kickoffdiffs preserve8existingresearchgradechoices + explicitly inheriteds2f, no originalscope/spec/requirements change. ActualexistingP24/P4025/25 aftersourcecommit; sourcepaths outsidecurrentpayload/installedmaps, no release/cacheuptakeclaimed.",
+    "acceptance": "Routinepublicationmetadata accepted; actualnormalfullprepush remains mandatory."
   }
 }
