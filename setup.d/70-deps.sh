@@ -282,6 +282,56 @@ DEVDEPS=( "${CORE_DEVDEPS[@]}" )
 [ "$STACK" = "react-next" ] && DEVDEPS+=( "${REACT_DEVDEPS[@]}" )
 [ "$STACK" = "react-spa" ] && DEVDEPS+=( "${REACT_SPA_DEVDEPS[@]}" )
 [ "$STACK" = "react-native" ] && DEVDEPS+=( "${REACT_NATIVE_DEVDEPS[@]}" )
+
+# #1842: 40-configs resolves each workspace separately; a root STACK alone
+# misses the imports in another stack's placed config. Keep the same resolver
+# and include only actual getff preset bytes (not a consumer-owned config).
+# pnpm workspaces install their stack-specific packages in the workspace below;
+# npm without workspaces needs the union at root for Node's ancestor lookup.
+_deps_ws_lines=$(_resolve_workspace_stacks "$PROJECT_ROOT")
+_deps_ws_pnpm=""
+if [ "$(detect_pm)" = pnpm ] && [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
+  _deps_ws_pnpm=1
+fi
+_deps_has_rn=""
+[ "$STACK" = react-native ] && _deps_has_rn=1
+_deps_workspace_specs() {
+  local dir="$1" stack="$2" template=""
+  DEPS_WORKSPACE_SPECS=()
+  case "$stack" in
+    react-next) template="$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs"; DEPS_WORKSPACE_SPECS=( "${REACT_DEVDEPS[@]}" ) ;;
+    react-spa) template="$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs"; DEPS_WORKSPACE_SPECS=( "${REACT_SPA_DEVDEPS[@]}" ) ;;
+    react-native)
+      template="$PKG_ROOT/packages/preset-react-native/templates/eslint.config.bare-rn.mjs"
+      if grep -qE '"expo"[[:space:]]*:' "$PROJECT_ROOT/$dir/package.json" 2>/dev/null; then
+        template="$PKG_ROOT/packages/preset-react-native/templates/eslint.config.expo.mjs"
+      fi
+      DEPS_WORKSPACE_SPECS=( "${REACT_NATIVE_DEVDEPS[@]}" ) ;;
+    *) return 0 ;;
+  esac
+  if [ "${LINTER_SLOT:-}" = oxlint ] || [ "${LINTER_SLOT:-}" = biome ] \
+    || [ "$(eslint_flat_config "$PROJECT_ROOT/$dir")" != eslint.config.mjs ] \
+    || ! cmp -s "$template" "$PROJECT_ROOT/$dir/eslint.config.mjs"; then
+    DEPS_WORKSPACE_SPECS=()
+  fi
+}
+if [ -n "$_deps_ws_lines" ]; then
+  while IFS=$'\t' read -r _deps_dir _deps_stack _deps_provenance; do
+    [ -n "$_deps_dir" ] || continue
+    _deps_workspace_specs "$_deps_dir" "$_deps_stack"
+    if [ "$_deps_stack" = react-native ] && [ -n "${DEPS_WORKSPACE_SPECS[*]-}" ]; then _deps_has_rn=1; fi
+    if [ -z "$_deps_ws_pnpm" ]; then
+      for _deps_spec in ${DEPS_WORKSPACE_SPECS[@]+"${DEPS_WORKSPACE_SPECS[@]}"}; do
+        _deps_name=$(deps_spec_name "$_deps_spec")
+        _deps_seen=""
+        for _deps_existing in ${DEVDEPS[@]+"${DEVDEPS[@]}"}; do
+          [ "$(deps_spec_name "$_deps_existing")" = "$_deps_name" ] && _deps_seen=1 && break
+        done
+        [ -n "$_deps_seen" ] || DEVDEPS+=("$_deps_spec")
+      done
+    fi
+  done <<< "$_deps_ws_lines"
+fi
 # P2 G5 / K4: an oxlint or Biome project gets no ESLint toolchain (40-configs placed no ESLint config),
 # a Biome or dprint project no prettier. @typescript-eslint/utils stays: getff's rule plugin imports
 # it, and an oxlint config can load that plugin (jsPlugins).
@@ -318,16 +368,16 @@ RUNTIME_DEPS=( "${CORE_RUNTIME_DEPS[@]}" )
 # From here on DEVDEPS / RUNTIME_DEPS may be EMPTY: every expansion below is `${X[@]+"${X[@]}"}`.
 deps_drop_declared
 
-# react-native only: eslint-plugin-react-native-a11y peer-deps eslint ^3..^8 (no eslint-9-compatible
+# RN configs: eslint-plugin-react-native-a11y peer-deps eslint ^3..^8 (no eslint-9-compatible
 # release exists), while the preset ships eslint ^9. npm 7+ strict peer resolution aborts the whole
 # dev-dep install with ERESOLVE → a fresh `install.sh react-native --full` lands NO toolchain (no
 # prettier/depcruise) and the consumer's `npm run validate` cannot run. The plugin's rules are flat-
 # config plugin OBJECTS consumed as `plugins: { 'react-native-a11y': … }` (eslint.config.rn-common.mjs)
 # — they are eslint-9-functional; the peer range is stale npm metadata, not a runtime incompatibility.
-# So relax peer resolution for the RN npm install ONLY (ts-server/react-next/react-spa keep strict
-# peer checks). npm-specific: pnpm/yarn do not hard-fail on peer conflicts by default. (GH #779 follow-up)
+# Relax peer resolution when an npm install includes RN configs; other config sets keep strict
+# peer checks. npm-specific: pnpm/yarn do not hard-fail on peer conflicts by default. (GH #779 follow-up)
 NPM_PEER_FLAG=""
-[ "$STACK" = "react-native" ] && NPM_PEER_FLAG="--legacy-peer-deps"
+[ -n "$_deps_has_rn" ] && NPM_PEER_FLAG="--legacy-peer-deps"
 
 # npm's peer-set walk can CRASH (an unhandled TypeError inside arborist's #loadPeerSet, npm/cli#9787,
 # npm/cli#8261) when a third party publishes a major; that crash — and only that, never an ERESOLVE —
@@ -424,6 +474,63 @@ if [ "$_do_dep_install" = "yes" ]; then
         ' || true
       fi
     fi
+    # A pnpm workspace resolves its own preset imports from its own dependency
+    # graph. Do not rewrite package versions the workspace already declares.
+    _deps_pnpm_workspace_install() {
+      local dir stack prov declared spec name version members real_dir
+      local wanted=()
+      [ -n "$_deps_ws_lines" ] || return 0
+      # The generic config resolver also sees directories excluded by pnpm's
+      # workspace manifest. Ask pnpm for the actual membership; an unreadable
+      # or malformed answer must fail closed, never mean "no members".
+      if ! members=$(cd "$PROJECT_ROOT" && pnpm --recursive list --depth -1 --json); then
+        echo "  ⚠  cannot determine pnpm workspace membership" >&2
+        return 1
+      fi
+      if ! members=$(AIF_PNPM_MEMBERS="$members" AIF_PNPM_ROOT="$PROJECT_ROOT" node -e '
+        try {
+          const fs = require("fs");
+          const path = require("path");
+          const entries = JSON.parse(process.env.AIF_PNPM_MEMBERS);
+          if (!Array.isArray(entries) || entries.length === 0) throw new Error("empty or invalid list");
+          const paths = entries.map(e => {
+            if (!e || typeof e.path !== "string" || !path.isAbsolute(e.path) || /[\r\n]/.test(e.path)) throw new Error("invalid path");
+            return fs.realpathSync(e.path);
+          });
+          if (!paths.includes(fs.realpathSync(process.env.AIF_PNPM_ROOT))) throw new Error("workspace root missing");
+          process.stdout.write(paths.join("\n"));
+        } catch (err) { console.error("invalid pnpm workspace membership: " + err.message); process.exit(1); }
+      '); then
+        echo "  ⚠  cannot validate pnpm workspace membership" >&2
+        return 1
+      fi
+      while IFS=$'\t' read -r dir stack prov; do
+        [ -n "$dir" ] || continue
+        _deps_workspace_specs "$dir" "$stack"
+        [ -n "${DEPS_WORKSPACE_SPECS[*]-}" ] || continue
+        real_dir=$(cd "$PROJECT_ROOT/$dir" && pwd -P) || return 1
+        if ! grep -Fxq -- "$real_dir" <<< "$members"; then
+          echo "  · $dir is not a pnpm workspace member; skipping its dependency install"
+          continue
+        fi
+        declared=$(PROJECT_ROOT="$PROJECT_ROOT/$dir" deps_declared_packages)
+        wanted=()
+        for spec in ${DEPS_WORKSPACE_SPECS[@]+"${DEPS_WORKSPACE_SPECS[@]}"}; do
+          name=$(deps_spec_name "$spec")
+          version=$(awk -F'\t' -v n="$name" '$1 == n { print $2; exit }' <<<"$declared")
+          if [ -n "$version" ]; then
+            echo "  ✓ kept $dir's $name $version"
+          else
+            wanted+=("$spec")
+          fi
+        done
+        if [ -n "${wanted[*]-}" ]; then
+          # Run from the verified literal directory: pnpm filters treat *, ?, and [] as globs.
+          ( cd "$real_dir" && pnpm add -D ${wanted[@]+"${wanted[@]}"} ) || return 1
+          _deps_pnpm_changed=1
+        fi
+      done <<< "$_deps_ws_lines"
+    }
     _ok=""
     case "$_pm" in
       pnpm)
@@ -436,7 +543,16 @@ if [ "$_do_dep_install" = "yes" ]; then
           # claims "nothing to do". Follow with a full `pnpm install` to materialise the whole
           # workspace link graph; idempotent + cheap when the tree is already warm. The `&&` keeps
           # honesty: if linking fails, _ok stays empty → the «install failed» not-wired path.
-          if [ "${#DEVDEPS[@]}" -eq 0 ] || ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" && pnpm install ); then _ok="yes"; fi
+          _deps_pnpm_root_ok=""
+          _deps_pnpm_changed=""
+          if [ "${#DEVDEPS[@]}" -eq 0 ]; then
+            _deps_pnpm_root_ok=1
+          elif ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" ); then
+            _deps_pnpm_root_ok=1
+            _deps_pnpm_changed=1
+          fi
+          if [ -n "$_deps_pnpm_root_ok" ] && _deps_pnpm_workspace_install \
+            && { [ -z "$_deps_pnpm_changed" ] || ( cd "$PROJECT_ROOT" && pnpm install ); }; then _ok="yes"; fi
         else
           if [ "${#DEVDEPS[@]}" -eq 0 ] || ( cd "$PROJECT_ROOT" && pnpm add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi
         fi ;;
