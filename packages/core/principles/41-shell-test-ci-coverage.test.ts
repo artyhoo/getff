@@ -113,13 +113,20 @@ function wrapperTargets(sources: (path: string) => string = read): string[] {
   ) {
     for (const block of directCallbacks(advisorSource)) {
       const body = block.statements.map(compact);
-      const declaration = block.statements
-        .flatMap((node) =>
-          ts.isVariableStatement(node)
-            ? [...node.declarationList.declarations]
-            : [],
-        )
-        .find((node) => node.name.getText() === 'run');
+      // This one carrier has exactly three direct statements. Accept that ordered
+      // sequence only; returns, throws, conditionals or extra calls are unsupported,
+      // even when the required spellings remain elsewhere in the callback.
+      if (block.statements.length !== 3) continue;
+      const declarationStatement = block.statements[1];
+      if (
+        !ts.isVariableStatement(declarationStatement) ||
+        declarationStatement.declarationList.flags !== ts.NodeFlags.Const ||
+        declarationStatement.declarationList.declarations.length !== 1
+      )
+        continue;
+      const declaration = declarationStatement.declarationList.declarations[0];
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== 'run')
+        continue;
       const spawn = declaration?.initializer;
       const options =
         spawn && ts.isCallExpression(spawn) ? spawn.arguments[2] : undefined;
@@ -134,9 +141,8 @@ function wrapperTargets(sources: (path: string) => string = read): string[] {
             )
           : undefined;
       if (
-        body.includes(
-          "constroot=fileURLToPath(newURL('../../../',import.meta.url));",
-        ) &&
+        body[0] ===
+          "constroot=fileURLToPath(newURL('../../../',import.meta.url));" &&
         spawn &&
         ts.isCallExpression(spawn) &&
         spawn.expression.getText() === 'spawnSync' &&
@@ -161,7 +167,7 @@ function wrapperTargets(sources: (path: string) => string = read): string[] {
         cwd &&
         ts.isPropertyAssignment(cwd) &&
         cwd.initializer.getText() === 'root' &&
-        body.includes('expect(run.status,run.stderr).toBe(0);')
+        body[2] === 'expect(run.status,run.stderr).toBe(0);'
       )
         out.push('tests/advisor-role-reminders/test_reminders.py');
     }
@@ -317,6 +323,51 @@ describe('Principle 41 — native source suites reach actual CI invocations', ()
     expect(
       workflowRegistry([yamlRun('npm run missing')], () => ({})).calls,
     ).toEqual([]);
+  });
+  it('(I2) Node test options must precede the script or test operands', () => {
+    const target = 'scripts/codex-hook-compatibility.test.mjs';
+    for (const command of [
+      `node /dev/null --test ${target}`,
+      `node scripts/noop.mjs --test ${target}`,
+      `node --experimental-strip-types scripts/noop.mjs --test ${target}`,
+    ]) {
+      const registry = commands(command);
+      expect(nativeCovered(target, registry.calls), command).toBe(false);
+      expect(registry.unsupported.join(), command).toContain(
+        'Node option position',
+      );
+    }
+    for (const command of [
+      `node --test ${target} scripts/pipeline-saved-coordination.test.mjs`,
+      `node --experimental-strip-types --test ${target}`,
+    ])
+      expect(nativeCovered(target, commands(command).calls), command).toBe(
+        true,
+      );
+  });
+  it('(I3) advisor requires the ordered direct spawn and assertion without control flow', () => {
+    const path = 'packages/core/hooks/advisor-role-reminders.test.ts';
+    const target = 'tests/advisor-role-reminders/test_reminders.py';
+    const source = read(path);
+    for (const mutation of [
+      (s: string) => s.replace('const root =', 'return; const root ='),
+      (s: string) => s.replace('const run =', 'return; const run ='),
+      (s: string) =>
+        s.replace('expect(run.status', 'return; expect(run.status'),
+      (s: string) => s.replace('const run =', 'if (true) return; const run ='),
+      (s: string) =>
+        s.replace('const run =', 'throw new Error("stopped"); const run ='),
+    ])
+      expect(
+        wrapperTargets((p) => (p === path ? mutation(source) : read(p))),
+      ).not.toContain(target);
+    const commented = source.replace(
+      'const run =',
+      '// literal straight-line companion\n    const run =',
+    );
+    expect(wrapperTargets((p) => (p === path ? commented : read(p)))).toContain(
+      target,
+    );
   });
   it('(f) wrappers require a live callback, real spawn and status assertion', () => {
     expect(wrapperTargets()).toEqual([

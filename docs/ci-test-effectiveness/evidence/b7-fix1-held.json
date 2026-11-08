@@ -1,0 +1,143 @@
+{
+  "base": "bb969b66e939bbc0761e2694d9b787ed9cbae23d",
+  "boundary": "I1/I2/I3 invocation failures + native detector bypass, with fixed expected statuses and diagnostics in disposable git tree. Existing suite/parser limits remain.",
+  "results": [
+    {
+      "name": "good",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test:principles",
+        "--",
+        "-t",
+        "^Principle (38|41)",
+        "--exclude",
+        "**/principles/!(38-vitest*|41-shell*).test.ts"
+      ],
+      "expectedExit": 0,
+      "exit": 0,
+      "diagnostic": null,
+      "accepted": true,
+      "seconds": 4.057
+    },
+    {
+      "name": "I1-cross-cwd",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test:principles",
+        "--",
+        "-t",
+        "^Principle (38|41)",
+        "--exclude",
+        "**/principles/!(38-vitest*|41-shell*).test.ts"
+      ],
+      "expectedExit": 1,
+      "exit": 1,
+      "diagnostic": "packages/core/hooks/advisor-role-reminders.test.ts",
+      "accepted": true,
+      "seconds": 3.777
+    },
+    {
+      "name": "I2-script-arguments",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test:principles",
+        "--",
+        "-t",
+        "^Principle (38|41)",
+        "--exclude",
+        "**/principles/!(38-vitest*|41-shell*).test.ts"
+      ],
+      "expectedExit": 1,
+      "exit": 1,
+      "diagnostic": "scripts/codex-hook-compatibility.test.mjs",
+      "accepted": true,
+      "seconds": 3.169
+    },
+    {
+      "name": "I3-dead-wrapper",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test:principles",
+        "--",
+        "-t",
+        "^Principle (38|41)",
+        "--exclude",
+        "**/principles/!(38-vitest*|41-shell*).test.ts"
+      ],
+      "expectedExit": 1,
+      "exit": 1,
+      "diagnostic": "tests/advisor-role-reminders/test_reminders.py",
+      "accepted": true,
+      "seconds": 3.099
+    },
+    {
+      "name": "disabled-detector",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test:principles",
+        "--",
+        "-t",
+        "^Principle (38|41)",
+        "--exclude",
+        "**/principles/!(38-vitest*|41-shell*).test.ts"
+      ],
+      "expectedExit": 1,
+      "exit": 1,
+      "diagnostic": "(I2) Node test options",
+      "accepted": true,
+      "seconds": 3.239
+    },
+    {
+      "name": "restored",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test:principles",
+        "--",
+        "-t",
+        "^Principle (38|41)",
+        "--exclude",
+        "**/principles/!(38-vitest*|41-shell*).test.ts"
+      ],
+      "expectedExit": 0,
+      "exit": 0,
+      "diagnostic": null,
+      "accepted": true,
+      "seconds": 4.863
+    }
+  ],
+  "sourceHashesBefore": {
+    "packages/core/principles/38-vitest-include-ci-coverage.test.ts": "9aee92c313e8e1bea0a12fc79d5fcfe34ec2a6cc89f6e5ab74ef46b69a8f6d62",
+    "packages/core/principles/41-shell-test-ci-coverage.test.ts": "cbbf4595ce0e89058b7efe12b10c1244e6784bb7b959e27f5efe5be2f8dc4aa0",
+    "packages/core/principles/ci-test-invocations.ts": "4ad9e1935adc11c033873c73b225bb206c5789ee1a742ab4727faaa8ae5f5115",
+    ".github/workflows/audit-self.yml": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+    "packages/core/package.json": "b2a206444cf522269272794aa611a5542c3481e25e6a7cdb7f7c002572266f74",
+    "packages/core/hooks/advisor-role-reminders.test.ts": "375968ff13eaac6cb61acee93b3de69fc2cf8ef4b2733825f7346dda4955e05b"
+  },
+  "sourceHashesAfter": {
+    "packages/core/principles/38-vitest-include-ci-coverage.test.ts": "9aee92c313e8e1bea0a12fc79d5fcfe34ec2a6cc89f6e5ab74ef46b69a8f6d62",
+    "packages/core/principles/41-shell-test-ci-coverage.test.ts": "cbbf4595ce0e89058b7efe12b10c1244e6784bb7b959e27f5efe5be2f8dc4aa0",
+    "packages/core/principles/ci-test-invocations.ts": "4ad9e1935adc11c033873c73b225bb206c5789ee1a742ab4727faaa8ae5f5115",
+    ".github/workflows/audit-self.yml": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+    "packages/core/package.json": "b2a206444cf522269272794aa611a5542c3481e25e6a7cdb7f7c002572266f74",
+    "packages/core/hooks/advisor-role-reminders.test.ts": "375968ff13eaac6cb61acee93b3de69fc2cf8ef4b2733825f7346dda4955e05b"
+  },
+  "restored": true
+}

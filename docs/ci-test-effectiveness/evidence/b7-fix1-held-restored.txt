@@ -1,0 +1,13 @@
+
+> @rules-as-tests/core@0.1.0 test:principles
+> vitest run principles/ -t ^Principle (38|41) --exclude **/principles/!(38-vitest*|41-shell*).test.ts
+
+
+ RUN  v4.1.8 <DISPOSABLE>/packages/core
+
+
+ Test Files  2 passed (2)
+      Tests  46 passed (46)
+   Start at  18:58:27
+   Duration  3.40s (transform 558ms, setup 84ms, import 1.57s, tests 3.03s, environment 0ms)
+

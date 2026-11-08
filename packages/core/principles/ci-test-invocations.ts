@@ -251,20 +251,38 @@ export function commands(
         else if (a.startsWith('-')) valid = false;
         else filters.push(a);
       }
+      // A config path selects configuration, not the runner root. No explicit-root
+      // model is supported here, so cross-cwd config shapes earn no coverage.
+      if (config && repoPath(cwd, '.') !== posix.dirname(config)) {
+        reject(`unsupported cross-cwd Vitest config: ${part}`);
+        continue;
+      }
       if (valid)
         registry.calls.push({ runner: 'vitest', cwd, args: filters, config });
       else reject(`unsupported vitest options: ${part}`);
     } else if (runner === 'node' && rest.includes('--test')) {
       if (rest.some((a) => a.startsWith('--test-name-pattern'))) continue; // subset, never whole-suite credit
-      const files = rest.filter((a) => !a.startsWith('-'));
+      const firstOperand = rest.findIndex((a) => !a.startsWith('-'));
+      const optionEnd = firstOperand < 0 ? rest.length : firstOperand;
+      // After a script operand, --test is only a script argument. Restrict the
+      // accepted form to supported leading options followed by literal test operands.
       if (
-        rest.every(
-          (a) =>
-            !a.startsWith('-') ||
-            ['--test', '--experimental-strip-types'].includes(a),
-        )
+        rest.indexOf('--test') >= optionEnd ||
+        rest.slice(optionEnd).some((a) => a.startsWith('-'))
+      ) {
+        reject(`unsupported Node option position: ${part}`);
+        continue;
+      }
+      if (
+        rest
+          .slice(0, optionEnd)
+          .every((a) => ['--test', '--experimental-strip-types'].includes(a))
       )
-        registry.calls.push({ runner: 'node', cwd, args: files });
+        registry.calls.push({
+          runner: 'node',
+          cwd,
+          args: rest.slice(optionEnd),
+        });
       else reject(part);
     } else if (runner === 'python3' || runner === 'python') {
       if (
@@ -441,6 +459,7 @@ export function selected(
 ): boolean {
   if (call.runner !== 'vitest') return false;
   const config = call.config ?? repoPath(call.cwd, 'vitest.config.ts');
+  if (repoPath(call.cwd, '.') !== posix.dirname(config)) return false;
   if (config !== population.config && config !== 'vitest.config.ts')
     return false;
   // Root config defaults differ from core's explicit *.audit.ts population. Unknown

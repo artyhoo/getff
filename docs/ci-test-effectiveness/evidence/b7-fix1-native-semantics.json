@@ -1,0 +1,65 @@
+[
+  {
+    "name": "I1-cross-cwd",
+    "cwd": "/workspace/getff-native",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "list",
+      "--config",
+      "packages/core/vitest.config.ts",
+      "--filesOnly",
+      "--json",
+      "--passWithNoTests",
+      "packages/core/hooks/advisor-role-reminders.test.ts"
+    ],
+    "exit": 0,
+    "stdout": "[]\n",
+    "stderr": "",
+    "seconds": 0.482
+  },
+  {
+    "name": "I1-package-cwd",
+    "cwd": "/workspace/getff-native/packages/core",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "list",
+      "--config",
+      "./vitest.config.ts",
+      "--filesOnly",
+      "--json",
+      "--passWithNoTests",
+      "hooks/advisor-role-reminders.test.ts"
+    ],
+    "exit": 0,
+    "stdout": "[\n  {\n    \"file\": \"/workspace/getff-native/packages/core/hooks/advisor-role-reminders.test.ts\"\n  }\n]\n",
+    "stderr": "",
+    "seconds": 0.689
+  },
+  {
+    "name": "I2-script-argument",
+    "cwd": "/workspace/getff-native",
+    "command": [
+      "node",
+      "/dev/null",
+      "--test",
+      "/tmp/b7-fix1-native-zx1hgkhs/sentinel.test.mjs"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "seconds": 0.04
+  },
+  {
+    "name": "I2-option-position",
+    "cwd": "/workspace/getff-native",
+    "command": [
+      "node",
+      "--test",
+      "/tmp/b7-fix1-native-zx1hgkhs/sentinel.test.mjs"
+    ],
+    "exit": 0,
+    "stdout": "\u2714 B7_ACTUAL_CASE (1.226212ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 112.855109\n",
+    "stderr": "",
+    "seconds": 0.167
+  }
+]

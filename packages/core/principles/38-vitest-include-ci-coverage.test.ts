@@ -105,13 +105,33 @@ describe('Principle 38 — workspace Vitest population reaches actual CI invocat
         p,
       ),
     ).toBe(false);
-    expect(
-      selected(
-        'packages/core/hooks/a.test.ts',
-        commands('vitest run --config packages/core/vitest.config.ts').calls[0],
-        p,
-      ),
-    ).toBe(true);
+  });
+  it('(I1) explicit config does not move the effective runner cwd', () => {
+    const p = {
+      cwd: 'packages/core',
+      config: 'packages/core/vitest.config.ts',
+      files: [],
+    };
+    const target = 'packages/core/hooks/advisor-role-reminders.test.ts';
+    const wrongCwd = commands(
+      'vitest run --config packages/core/vitest.config.ts',
+    );
+    expect(wrongCwd.calls.some((call) => selected(target, call, p))).toBe(
+      false,
+    );
+    expect(wrongCwd.unsupported.join()).toContain('cross-cwd');
+    const rightCwd = commands(
+      'vitest run --config "./vitest.config.ts" hooks/advisor-role-reminders.test.ts',
+      './packages/core',
+    );
+    expect(rightCwd.calls.some((call) => selected(target, call, p))).toBe(true);
+    const wrongRoot = commands(
+      'vitest run --config ../../vitest.config.ts',
+      'packages/core',
+    );
+    expect(wrongRoot.calls.some((call) => selected(target, call, p))).toBe(
+      false,
+    );
   });
   it.each([
     ['direct', 'vitest run hooks/', true],
