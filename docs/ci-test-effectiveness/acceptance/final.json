@@ -17,7 +17,7 @@
   },
   "controllerFinalMetadataCarry": "This final bookkeeping commit only adds review acceptance, source reconciliation and truthful status/rulings. No new production behavior, no extra cold full-source review. Exact published full head and CI evidence belong in PR2150 body.",
   "acceptance": {
-    "coverage": "Accepted S1 + current reconciliation +51 S2 self-assessed rows:736 original sources all retained,709 unchanged,16 S2-assessed,11 citation-only;724 test/probe files; no reduced native denominator.",
+    "coverage": "Accepted S1 + current reconciliation +52 S2 self-assessed rows:736 original sources all retained,709 unchanged,16 S2-assessed,11 citation-only;724 test/probe files; no reduced native denominator.",
     "sufficientProtection": "Source faults fixed and actual invocation/held restoration proven; required live registration and hosted Node22/Windows still pending.",
     "noLoss": "Retained witnesses/workload/canonical/unknownfallback; actual finalreviewcounterexample corrected; finalhost proof pending.",
     "minimality": "Both detached checker copies and both equivalent root repeats removed; P37 zero-marginal wrapper copies consolidated; no known proven redundant removal remains advice only. B10 removes repeated unasserted live-catalog scans from P20 setup through meaningful real helper inputs, preserving all original contracts and both async/sync/default-directory witnesses.",
@@ -73,5 +73,10 @@
       "acceptance": "acceptance/b11.json",
       "head": "948add8cf7fccd6334b44e834d8c3641fed2f80b"
     }
-  ]
+  ],
+  "publicationKickoffClosure": {
+    "base": "b8c963fec62d68a8ca7d9b9446dcd97b7f588441",
+    "evidence": "evidence/publication-kickoff-closure.json",
+    "acceptance": "Root-owned append-only coordinator documentation; exact original prefix hashes retained, late provenance explicit; actual existing P12 9/9 and unchanged two host-list contracts pass. No behavior/payload/checker changes; full normal publishing gate remains mandatory."
+  }
 }

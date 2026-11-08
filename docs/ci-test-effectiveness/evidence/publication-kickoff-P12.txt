@@ -1,0 +1,14 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default principles/12-ai-laziness-traps.test.ts
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ✓ principles/12-ai-laziness-traps.test.ts (9 tests) 873ms
+     ✓ all non-exempt kickoffs satisfy the compound citation check  745ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  22:41:10
+   Duration  2.37s (transform 105ms, setup 85ms, import 358ms, tests 873ms, environment 1ms)

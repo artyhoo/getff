@@ -69,3 +69,12 @@ Report full commands/results/source hashes/API limits in
 .superpowers/sdd/ci-test-effectiveness/task-12-report.md. Commit normally, no push or
 self-review agent. Return short status/head/checks/concerns. Final overall status remains
 PARTIAL until actual final applicable hosted results and missing3 context registrations.
+
+## Execution traps — explicit publication closure
+
+This section was added after B11 execution, not part of the original dispatch provenance.
+Apply `.agents/rules/ai-laziness-traps.md` §2–§3: **T3** retains actual compiler/API
+commands and target-context module hashes; **T7** challenges ESM/require compatibility
+using real exports, workflow inputs and valid/malformed companions rather than a type
+assertion; **T15** subjects each one-shot driver to the same seven criteria and cost
+accounting. Original requirements and recorded evidence stand.

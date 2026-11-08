@@ -1,0 +1,4 @@
+── host-verify: .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2j.md
+   host=Linux  repo=/workspace/getff-native
+   • npm --prefix packages/core run test -- principles/20-bundle-classification.test.ts principles/20-bundle-classification.paired-negative.test.ts skills/assign-skill.test.ts
+   • bash scripts/build-getff-dist.sh --check

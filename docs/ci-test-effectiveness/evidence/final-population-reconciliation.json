@@ -1,9 +1,9 @@
 {
   "status": "Source/population reconciliation; bounded evidence views remain distinct",
-  "sourceHead": "948add8cf7fccd6334b44e834d8c3641fed2f80b",
+  "sourceHead": "b8c963fec62d68a8ca7d9b9446dcd97b7f588441",
   "acceptedS1Head": "9098d3c5abc5409de0f138fcf5d0b8375fed3b68",
   "originalLogicalRecords": 2121,
-  "s2SupplementRecords": 51,
+  "s2SupplementRecords": 52,
   "logicalCountWarning": "Supplement rows describe changes and drivers, not extra disjoint tests. Do not sum into a native test count.",
   "originalSourceCandidateCount": 736,
   "originalTestSourceCount": 722,
@@ -7731,6 +7731,19 @@
     },
     {
       "id": "B11-one-shot-compatibility-closure-drivers",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "publication-kickoff-trap-citation-closure",
       "criterionNames": [
         "relevance",
         "effectiveness",

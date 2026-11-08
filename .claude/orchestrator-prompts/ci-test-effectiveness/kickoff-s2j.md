@@ -120,3 +120,12 @@ commands/output refs, source restoration, new fixture/guard7criteria, cost/limit
 retained/default witnesses. Commit normally, no push. Return concise status/head/checks/
 concerns. Campaign remains PARTIAL pending published hosted results and actual missing3
 required-context registrations; no source-only DONE or fabricated cache/host uptake.
+
+## Execution traps — explicit publication closure
+
+This section was added after B10 execution, not part of the original dispatch provenance.
+Apply `.agents/rules/ai-laziness-traps.md` §2–§3: **T3** binds actual RED/prime/held
+commands and source hashes; **T7** challenges whether smaller setup merely hides a
+missing real async/sync/default-directory witness, using the frozen meaningful catalog
+and actual output guards; **T15** applies all seven criteria and measured costs to
+those guards and one-shot drivers. Original requirements and recorded evidence stand.
