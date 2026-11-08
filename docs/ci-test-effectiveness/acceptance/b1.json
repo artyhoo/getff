@@ -23,5 +23,11 @@
     "Accepted TAKQ4/P52/driver integration and campaign E9 remain pending.",
     "Raw transcripts intentionally preserve existing trailing spaces; source diff is clean."
   ],
-  "hostVerification": "All3 declared host commands executed on nativeLinux with captured output: b1-final.txt and b1-host.json; independentreview traced receipts. No unnecessary identical rerun."
+  "hostVerification": "All3 declared host commands executed on nativeLinux with captured output: b1-final.txt and b1-host.json; independentreview traced receipts. No unnecessary identical rerun.",
+  "deliveryClosure": {
+    "commit": "a9dad195",
+    "artifact": "packages/getff/MANIFEST.sha256",
+    "method": "Existing build-getff-dist regeneration in B2; same B1 source bytes, derived hash reconciled and actual npm archive/source parity passed.",
+    "note": "B1 scoped source review did not include this derived manifest. Closure is included in B2 independent review and final combined acceptance."
+  }
 }

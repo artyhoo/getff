@@ -56,6 +56,7 @@ Stage gate: execute only after independent S1 acceptance and B1 completion. Cons
 Exact write scope:
 - .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs
 - packages/core/hooks/autonomy-binding-lifecycle.test.ts (new bounded regression via existing recurring core harness)
+- packages/getff/MANIFEST.sha256 (controller scoped ruling: normal derived closure of the changed shipped helper, new regression entry and B1 sweep hash; no hand editing)
 - docs/ci-test-effectiveness/batches/b2.json
 - docs/ci-test-effectiveness/evidence/b2-*
 - docs/ci-test-effectiveness/inventory-s2.jsonl (append only)
