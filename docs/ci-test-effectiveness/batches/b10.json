@@ -1,6 +1,6 @@
 {
   "id": "B10-RC6-D13",
-  "status": "IMPLEMENTED_PENDING_INDEPENDENT_REVIEW: focused35pass + held/no-loss/archive; full prepush/hosted/admin pending",
+  "status": "ACCEPTED_FOR_INTEGRATION; independenttaskreviewPASS/APPROVED; campaigncoretypecheck/hosted/adminpending",
   "inputCommit": "97660705318614ca0318a672ab44f736c07289cb",
   "authority": {
     "specSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
@@ -177,5 +177,6 @@
     "evidence/b10-typecheck.txt"
   ],
   "commit": "Recorded after normal commit in task11 report/controller; source hashes avoid self-reference.",
-  "defaultOracleChallenge": "evidence/b10-default-held.json"
+  "defaultOracleChallenge": "evidence/b10-default-held.json",
+  "independentAcceptance": "acceptance/b10.json"
 }
