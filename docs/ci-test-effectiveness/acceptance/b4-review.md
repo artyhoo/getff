@@ -1,0 +1,48 @@
+# B4 independent spec and quality review
+
+Reviewed range: `9a738611146e6e995826dde486776599e4611d55..9f74fab924d52f86c61d1b5e8d946c20795f4e59`. Primary changed-file source: the complete supplied `task-5-review-package.txt`; implementation context: `task-5-report.md`. Authority: canonical kickoff-s2d, identical task-5 brief, kickoff-s2 and agreed design §§7–9 (spec identity `77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a`). This is acceptance of bounded D02/D03 delivery, not campaign E9, TAK or measured hosted speed.
+
+**SpecCompliance: PASS within the bounded local-delivery scope. TaskQuality: PASS within that scope. Status: DONE_WITH_CONCERNS.** No Critical, Important or Minor corrective findings. Final hosted Node 22 execution and the actual campaign cost result remain pending; they are not silently treated as satisfied.
+
+Provenance: layer=corpus-measured; whose=judgment-only, not corpus-validated; class=measured null (recorded grade remains the class bar).
+
+## SpecCompliance
+
+- The production diff is exactly one workflow and five jobs. D02 deletes only each self-install job's final root auditor step. The consumer installation, local consumer Git setup and dependency setup survive unchanged. D03 transfers the specified four whole step objects with identical commands and names: synth-wire-consumer-config and first-commit-passable B→A; r2-glob-reach and r2-auto-wire B→C. No suite, selector, environment, setup, cache, lock, hook, job, service or event change occurs. The package's complete file list is inside the authorized workflow/B4 evidence/batch/inventory allowlist.
+- The frozen workflow and full before/after maps support a substantive global comparison. Independent read-only inspection found 39 jobs and exactly the five allowed changed jobs; all other jobs, all non-step job fields and workflow-level fields compare equal. Job counts change A 73→75, B 64→60, C 55→57, and each self-install 6→5. `ci-success` still requires all three shards, both consumer-install jobs and `probe-tests`. The analyzer also preserves unaffected step order and the complete shard step-object multiset, so a count-only green cannot hide a changed or lost step (`b4-analysis.py:41`–`:66`).
+- The same independent survivor supports **both** deletions jointly. `b4-no-loss.json:225` records the actual unchanged `probe-tests`: same runtime path condition, Ubuntu host, Node 22, core dependency installation, root invocation and fail-closed missing-suite branch. The deleted commands explicitly returned to `GITHUB_WORKSPACE`; their consumer labels did not make the consumer tree their test subject. Focused inspection of `packages/core/audit-self/audit-ai-docs.test.ts:23` and `:52` confirms source-relative framework-root resolution and private temporary fixtures. The unchanged root Vitest config supplies the same setup/global guard for both old and retained commands. Core `test:units` is correctly described as a separate configuration witness, not the exact replacement. No removed witness depends on the other removed witness.
+- Destination prerequisites are real complete step objects, not an inference from job names: identical checkout/full history, setup-node 22/cache/lock inputs, core `npm ci` and root `npm install` prefix. Both A moves and C moves follow that prefix (`b4-no-loss.json:17`). C's existing research-tool setup follows the moved R2 suites and remains unchanged; those suites previously ran in B without those tools. The private fixture source reads below found no reliance on a prior suite's consumer or global Git configuration.
+- Original S1 evidence is absent from the changed-file set. The source/config identity table binds auditor, root/core configs and four suite sources to current input, both S1 observations and newest-before source; all relevant recorded hashes agree, with the overall workflow difference explicitly preserved. The exact B3 M2 correction changes only current held-driver delivery wording to link its actual fault set; it adds no synchronization gate and does not rewrite historical observations.
+
+## TaskQuality and strengths
+
+The no-loss case combines structural comparison, unchanged independently specified fixture protections, real runner receipts and explicit limitations. Existing host evidence reports pinned actionlint 1.7.7, 34 P36/P37/P38/P41 tests, installer-wiring positive/negative controls, and 224 surviving auditor tests. Those functional checks support delivery and protection; the records correctly avoid claiming that they prevent future economically redundant work or imbalance.
+
+The main plausible D03 semantic counterexample was hidden cross-suite state or a write-through into borrowed framework dependencies. Focused unchanged-source inspection was necessary for this named risk: synth-wire allocates private WORK and constructs real per-consumer scope directories with individual borrowed package links (`synth-wire-consumer-config.test.sh:90`–`:121`), checks required ts-morph presence and detects framework-scope mutation; first-commit uses private SCRATCH, cleanup and explicit fixture arguments (`first-commit-passable.test.sh:30`–`:57`); R2 helpers install and run gates in their explicitly supplied private mktemp consumers (`r2-glob-reach.test.sh:29`, `r2-auto-wire.test.sh:12`). These support independence of placement, without claiming universal installer hermeticity or replacing the required hosted run.
+
+Cost handling is sound for the scoped decision. Independent decompression confirmed all three BEFORE REST traces contain all 53 reported jobs, the expected uniform head identities, and completed successful A/B/C jobs. Their observed durations agree with the records: 4100/10236/2847, 4714/9866/3247 and 3951/8495/2241 seconds. Moving held step durations yields forecasts 6219/5686/5278, 6789/5464/5574 and 5725/4751/4211; totals remain 17183/17827/14687. All four D02 observations remain 6/6/7/6 seconds. No after observation, billed-CPU saving, setup saving or developer-latency result is invented. Complete raw payloads and error metadata remain archived with compressed/uncompressed identities.
+
+The new audit-only analyzer receives substantive assessment under all seven criteria in `inventory-s2.jsonl:19`:
+
+| Criterion | Review conclusion |
+| --- | --- |
+| Relevance | Directly resolves the authorized combined removal and placement decisions. |
+| Effectiveness | Actual metadata, unchanged jobs/order, step multiset, unique moves and prerequisite comparisons reject meaningful structural loss; hashes expose historical source identities for review. |
+| Theatre | PASS rests on comparisons and real functional receipts, not JSON shape or record counts. |
+| Tautology | Frozen input and independently prescribed move set constrain the expected result; semantic witness/source claims still require this independent review. |
+| Duplication | One-shot evidence tool; no recurring CI/hook call, assignment-pinning test or competing TAK platform. |
+| Cost-effectiveness | Recorded analysis <1 second and focused host commands are proportionate; no full installer/timing battery. |
+| Sufficiency | Python/PyYAML/assert semantics, reviewed source/expectations and host/runner behavior form an explicit finite boundary; hosted execution and economic prevention remain separate. |
+
+The script records source hashes rather than independently proving semantic equivalence; the equal recorded identities and focused source tracing supply that part of this review. It is not accepted as a universal equivalence detector. Restoration is reviewable via the frozen workflow or the scoped B4 commit revert, retaining historical evidence.
+
+## CannotVerify and completion limits
+
+- Hosted Ubuntu/Node 22 AFTER behavior and actual runtime/cost improvement: pending (`b4-environment.json:9`, `batches/b4.json:112`). Native Node 24 functional receipts cannot establish this cell. Forecasts preserve uncertainty from queueing, caches, network, order and host load.
+- Campaign E9, RC5/RC6 recurring economic prevention, TAK owner/runtime integration and broader hook failures remain controller-owned open dependencies. B4's code acceptance does not waive or certify them.
+- Current external branch freshness and remote ownership were controller-supplied. I did not independently re-query the network or Git state; the review binds the supplied immutable range and package.
+- I did not rerun Git commands, the mutating evidence generator, reported host checks, installers, broad suites or timing trials. The only executable review inspection parsed compressed workflow maps and raw historical traces read-only. Its first direct map equality assertion exposed PyYAML's YAML-1.1 `on`→boolean-key versus JSON string-key representation; normalizing the frozen parse through JSON resolved that representation difference. No source behavior or recorded timing was changed.
+
+Self-review applied T3/T7/T10/T14/T15/T18/T19/T20/T22. Concrete challenges: could the two removals retain no independent exact root witness; could an unchanged command lose prerequisites or depend on prior suite state; could three green-looking forecasts conceal a dropped observation, changed denominator or claimed compute saving; could the audit tool exempt itself? Full job enumeration, joint witness/source/config inspection, actual setup/private-fixture tracing, complete raw trace inspection and the seven-criterion assessment address those bounded challenges. Rephrased challenge: could local structural/functional green certify actual hosted after speed? It cannot; that cell remains explicitly unverified.
+
+**Verdict: accept scoped B4 implementation as DONE_WITH_CONCERNS; no fix loop requested by this review.**
