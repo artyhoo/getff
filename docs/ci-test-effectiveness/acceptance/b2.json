@@ -1,0 +1,30 @@
+{
+  "batch": "B2",
+  "task": 3,
+  "status": "ACCEPTED",
+  "reviewedBase": "830732a7b8f50479dc69189b05456c94adb4919a",
+  "reviewedHead": "5e59ab7334839e040a6d6355716f8d39e0a7d958",
+  "decisionIds": [
+    "D05"
+  ],
+  "specCompliance": "PASS",
+  "taskQuality": "PASS",
+  "review": {
+    "path": "docs/ci-test-effectiveness/acceptance/b2-review.md",
+    "sha256": "3bb5561abde304012fcb82aaba51b172aea85b8d6af55d87394f6b5150b9e2cc"
+  },
+  "at": "2026-11-08T16:22:11.334826+00:00",
+  "hostVerification": "Both declared nativeLinux commands executed with captured output; real Node suite189tests/188pass/1 explicitnonLinuxskip, focusedregression5pass. Actualdistributionarchivecheck alsoPASS. No identical suite rerun required by reviewer.",
+  "minorFindings": [
+    {
+      "id": "M1",
+      "path": "docs/ci-test-effectiveness/inventory-s2.jsonl:6",
+      "issue": "one-shot B2 driver inherits recurring regression delivery field",
+      "disposition": "Correct exact delivery field in B3 metadata; no test or extra review round needed. Preserve S1 frozen evidence and B2 historical commit."
+    }
+  ],
+  "limits": [
+    "Real non-Linux execution, D07 full routing, TAK and campaign E9 remain separate."
+  ],
+  "combinedDelivery": "a9dad195 normal manifest regeneration closes B2 helper/newtest and unchanged B1 sweep source hash; actual npm archive/source parity verified."
+}
