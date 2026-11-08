@@ -189,7 +189,7 @@ Inputs-ref: <container HEAD sha the diff and every file path in this prompt are 
   this stock path**, because `harvest.ts` pushes the container commit as-is, so its SHA
   survives to become PR head. It is WRONG on the §2.4b API path, which mints a new commit
   — see the ordering note there (`pr-body-fidelity` requires `Audited-SHA` to prefix PR
-  head, `packages/core/hooks/checks/pr-body-fidelity.ts:252`).
+  head, `packages/core/hooks/checks/pr-body-fidelity.ts:317`).
 - `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
   the next harvest attempt audits as `Round: 2`. **On an intent-scoped task**, the plan-changing
   decisions (`request_changes`, `retry`, `resume`, `request_review_changes`) additionally require
@@ -277,7 +277,7 @@ It reads each `<srcdir>/<repo/path>` on the host and supports multiple files. Th
 mints a NEW commit (blobs→tree→commit), so the container commit the cold auditor judged
 never becomes PR head — and, never being pushed, CI cannot resolve it either. Running the
 §2.4 audit _before_ this helper therefore yields an `Audited-SHA` the gate MUST reject
-([`pr-body-fidelity.ts:252`](../../../../packages/core/hooks/checks/pr-body-fidelity.ts) requires it to prefix PR head). Unlike stock `harvest.ts`, this
+([`pr-body-fidelity.ts:317`](../../../../packages/core/hooks/checks/pr-body-fidelity.ts) requires it to prefix PR head). Unlike stock `harvest.ts`, this
 path **has a seam**: the helper only creates the branch commit, and `gh pr create` is a
 separate command. So here the audit runs **between** them, on the pushed commit — whose SHA
 IS the PR head:

@@ -1,0 +1,1 @@
+✓ rule-index up-to-date (00-rule-index.md + AGENTS.md region)

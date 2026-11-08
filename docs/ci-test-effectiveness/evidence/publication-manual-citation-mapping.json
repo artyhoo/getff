@@ -1,0 +1,270 @@
+{
+  "manualEdits": [
+    {
+      "source": ".agents/rules/evidence-regeneration.md",
+      "before": ".github/workflows/audit-self.yml:375",
+      "after": ".github/workflows/audit-self.yml:383",
+      "reason": "principles-meta-tests ast-grep pin"
+    },
+    {
+      "source": ".agents/rules/evidence-regeneration.md",
+      "before": "`:1151`",
+      "after": "`:1159`",
+      "reason": "install-sh-c ast-grep pin, distinct from principles job"
+    },
+    {
+      "source": ".agents/rules/evidence-regeneration.md",
+      "before": ".github/workflows/audit-self.yml:385",
+      "after": ".github/workflows/audit-self.yml:393",
+      "reason": "principles-meta-tests ruff pin"
+    },
+    {
+      "source": ".agents/rules/evidence-regeneration.md",
+      "before": "`:1149`",
+      "after": "`:1157`",
+      "reason": "install-sh-c ruff pin, distinct from principles job"
+    },
+    {
+      "source": "docs/site/reference/F1/evidence-regeneration.md",
+      "before": ".github/workflows/audit-self.yml:375",
+      "after": ".github/workflows/audit-self.yml:383",
+      "reason": "principles ast-grep pinned install quoted by source rule"
+    },
+    {
+      "source": "docs/site/reference/F1/evidence-regeneration.md",
+      "before": "`:1149`",
+      "after": "`:1157`",
+      "reason": "wrapped prose sibling is the actual install-sh-c ruff pin; not recognized by drift arm but current-reference intent must still follow its site"
+    },
+    {
+      "source": "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
+      "before": "41-shell-test-ci-coverage.test.ts:172-182",
+      "after": "41-shell-test-ci-coverage.test.ts:232-241",
+      "reason": "actual named arm(b) non-vacuity floor and population assertions; repeated closure token231 is not the intended start"
+    },
+    {
+      "source": "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+      "before": "pr-body-fidelity-bin.ts:14-17",
+      "after": "pr-body-fidelity-bin.ts:15-18",
+      "reason": "actual BASE_REF absent fail-closed guard, not blank line14"
+    },
+    {
+      "source": "scripts/format-shipped.sh",
+      "before": "audit-self.yml:354-355",
+      "after": "audit-self.yml:362-363",
+      "reason": "principles-meta-tests packages/core dependency install step, not another repeated job"
+    },
+    {
+      "source": "packages/core/principles/11-build-first-reuse-default.test.ts",
+      "before": "* now also carrying the `.agents/**` canonical roots and the native-adapter entries \u2014 scripts/build-getff-dist.sh:48)",
+      "after": "* whose current roots include `.agents/**` and the native-adapter entries \u2014 scripts/build-getff-dist.sh:48)",
+      "reason": "PAYLOAD remains actual line48; current roots still include canonical and native adapter entries after the campaign added the real sweep helper"
+    },
+    {
+      "source": "packages/core/principles/11-build-first-reuse-default.test.ts",
+      "before": "// canonical roots and the native-adapter entries \u2014 scripts/build-getff-dist.sh:48), where",
+      "after": "// current roots include canonical and native-adapter entries \u2014 scripts/build-getff-dist.sh:48), where",
+      "reason": "refresh the citing sentence against the current complete PAYLOAD; do not escape or imply old list is unchanged"
+    }
+  ],
+  "authorshipAndCurrentTargets": [
+    {
+      "citingPath": "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
+      "citingLine": 75,
+      "authorshipCommit": "9255442c33a29aea1818b8e9799d4e255538ea1c",
+      "targetPath": "packages/core/principles/41-shell-test-ci-coverage.test.ts",
+      "authorshipTargetLines": [
+        {
+          "line": 170,
+          "content": "        `COVERAGE_ALLOWLIST entry:\\n  ${missing.join('\\n  ')}`,"
+        },
+        {
+          "line": 171,
+          "content": "    ).toEqual([]);"
+        },
+        {
+          "line": 172,
+          "content": "  });"
+        },
+        {
+          "line": 173,
+          "content": ""
+        },
+        {
+          "line": 174,
+          "content": "  it('(b) non-vacuity: the population and the registry both parse to real, non-empty values', () => {"
+        },
+        {
+          "line": 175,
+          "content": "    const pop = population();"
+        },
+        {
+          "line": 176,
+          "content": "    // 130 tracked at the time of writing; a floor well under that catches a broken enumerator"
+        },
+        {
+          "line": 177,
+          "content": "    // without breaking on every added test."
+        },
+        {
+          "line": 178,
+          "content": "    expect("
+        },
+        {
+          "line": 179,
+          "content": "      pop.length,"
+        },
+        {
+          "line": 180,
+          "content": "      'population collapsed \u2014 git ls-files filter is broken',"
+        },
+        {
+          "line": 181,
+          "content": "    ).toBeGreaterThan(50);"
+        },
+        {
+          "line": 182,
+          "content": "    expect(pop.every((f) => existsSync(join(REPO_ROOT, f)))).toBe(true);"
+        },
+        {
+          "line": 183,
+          "content": "    const reg = workflowRegistry();"
+        },
+        {
+          "line": 184,
+          "content": "    expect("
+        }
+      ],
+      "currentTargetLines": [
+        {
+          "line": 232,
+          "content": "  it('(b) non-vacuity: source and invocation populations stay real', () => {"
+        },
+        {
+          "line": 233,
+          "content": "    expect("
+        },
+        {
+          "line": 234,
+          "content": "      population().filter((f) => f.endsWith('.test.sh')).length,"
+        },
+        {
+          "line": 235,
+          "content": "    ).toBeGreaterThan(50);"
+        },
+        {
+          "line": 236,
+          "content": "    expect(population()).toContain("
+        },
+        {
+          "line": 237,
+          "content": "      '.agents/roles/dual-channel-drift-auditor/test_overlap.py',"
+        },
+        {
+          "line": 238,
+          "content": "    );"
+        },
+        {
+          "line": 239,
+          "content": "    expect(workflowRegistry().calls.length).toBeGreaterThan(100);"
+        },
+        {
+          "line": 240,
+          "content": "    expect(missing([]).length).toBeGreaterThan(50);"
+        },
+        {
+          "line": 241,
+          "content": "  });"
+        }
+      ]
+    },
+    {
+      "citingPath": "packages/core/principles/11-build-first-reuse-default.test.ts",
+      "citingLine": 208,
+      "authorshipCommit": "f1411658d121975927cfacc220f7b284bd6a9d0c",
+      "targetPath": "scripts/build-getff-dist.sh",
+      "authorshipTargetLines": [
+        {
+          "line": 48,
+          "content": "PAYLOAD=\"install.sh setup setup.d agents skills templates .agents/procedures .agents/roles .agents/rules .agents/hooks .agents/session-bootstrap.md .agents/checks .claude/hooks .claude/skills .claude/templates .prettierrc.json packages/core packages/preset-next-15-canonical packages/preset-react-spa packages/preset-react-native packages/runtime-bridge scripts/check-ask-files.sh scripts/run-local-ci-sweep.sh scripts/create-worktree.sh scripts/worktree-node-modules.sh scripts/link-coordination.sh scripts/getff-work.sh scripts/codex-hook-adapter.mjs scripts/lib/is-main-entry.mjs scripts/lib/codex-hooks.mjs scripts/docs-check.mjs scripts/render-terms-style.mjs scripts/lib/mermaid-allowlist.mjs scripts/snapshot-for-seat.sh scripts/check-arch-retell.mjs docs/site-quality docs/site/terms.md plugin/hooks/lib/hook-language.sh\""
+        }
+      ],
+      "currentTargetLines": [
+        {
+          "line": 48,
+          "content": "PAYLOAD=\"install.sh setup setup.d agents skills templates .agents/procedures .agents/roles .agents/rules .agents/hooks .agents/session-bootstrap.md .agents/checks .claude/hooks .claude/skills .claude/templates .prettierrc.json packages/core packages/preset-next-15-canonical packages/preset-react-spa packages/preset-react-native packages/runtime-bridge scripts/check-ask-files.sh scripts/run-local-ci-sweep.sh scripts/check-husky-presence.sh scripts/create-worktree.sh scripts/worktree-node-modules.sh scripts/link-coordination.sh scripts/getff-work.sh scripts/codex-hook-adapter.mjs scripts/lib/is-main-entry.mjs scripts/lib/codex-hooks.mjs scripts/docs-check.mjs scripts/render-terms-style.mjs scripts/lib/mermaid-allowlist.mjs scripts/snapshot-for-seat.sh scripts/check-arch-retell.mjs docs/site-quality docs/site/terms.md plugin/hooks/lib/hook-language.sh\""
+        }
+      ]
+    },
+    {
+      "citingPath": "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+      "citingLine": 9,
+      "authorshipCommit": "574adde27dc4105d6d4ed54f4a75855ca39acfaf",
+      "targetPath": "packages/core/hooks/checks/pr-body-fidelity-bin.ts",
+      "authorshipTargetLines": [
+        {
+          "line": 14,
+          "content": "if (!baseRef) {"
+        },
+        {
+          "line": 15,
+          "content": "  console.error('::error::BASE_REF env var is required (workflow misconfiguration \u2014 the gate must not pass blind)');"
+        },
+        {
+          "line": 16,
+          "content": "  process.exit(1);"
+        },
+        {
+          "line": 17,
+          "content": "}"
+        },
+        {
+          "line": 18,
+          "content": "if (baseRef !== 'staging') {"
+        }
+      ],
+      "currentTargetLines": [
+        {
+          "line": 15,
+          "content": "if (!baseRef) {"
+        },
+        {
+          "line": 16,
+          "content": "  console.error('::error::BASE_REF env var is required (workflow misconfiguration \u2014 the gate must not pass blind)');"
+        },
+        {
+          "line": 17,
+          "content": "  process.exit(1);"
+        },
+        {
+          "line": 18,
+          "content": "}"
+        }
+      ]
+    }
+  ],
+  "scopeNote": "32 automatic repairs plus10 reported citations resolved manually; the wrapped current ruff sibling is also repaired within the same granted prose line.",
+  "additionalCurrentProseClarification": {
+    "source": "scripts/run-local-ci-sweep.sh",
+    "before": "# Those three can go red today and the PR still merges; an operator action closes that, and CI\n# cannot verify it (workflow-integrity.yml:24-34, GITHUB_TOKEN cannot read protection).",
+    "after": "# Those three can go red today and the PR still merges; an operator registers them. The CI\n# observer reads ordinary metadata (workflow-integrity.yml:48-49); observation does not register contexts.",
+    "reason": "The old cited administrator-endpoint restriction was replaced by ordinary branch observation. Preserve actual current distinction between observing and registering contexts instead of mechanically renumbering stale permission prose."
+  },
+  "payloadFinalProse": "Both original comment sites now describe current PAYLOAD roots and retain the actual line48 reference; only comments changed.",
+  "additionalSemanticLandingCorrections": [
+    {
+      "source": ".github/workflows/discipline-self-check.yml",
+      "before": "pr-body-fidelity.yml:40, pr-stale-revert.yml:61",
+      "automaticSuggestion": "pr-body-fidelity.yml:41 (name field)",
+      "after": "pr-body-fidelity.yml:43, pr-stale-revert.yml:63",
+      "reason": "Sentence explicitly describes staging-only job conditions, so cite the actual if fields rather than old job-name fields."
+    },
+    {
+      "source": "scripts/run-local-ci-sweep.sh",
+      "before": "workflow-integrity.yml:32-42",
+      "automaticSuggestion": "workflow-integrity.yml:24-34 (runner/env fields)",
+      "after": "workflow-integrity.yml:48-49",
+      "reason": "Current prose describes ordinary-metadata observation; cite the declared0/1/2 contract and actual checker invocation."
+    }
+  ]
+}

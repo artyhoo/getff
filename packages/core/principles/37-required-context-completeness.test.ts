@@ -50,7 +50,7 @@
  *
  * Mechanically detectable → gate, not injection (§3 step 1). A principle test is the earliest
  * gate that fires: the principles suite runs at pre-push (`principlesMetaSection`,
- * packages/core/hooks/pre-push.ts) and in CI (`principles-meta-tests`, audit-self.yml:335) —
+ * packages/core/hooks/pre-push.ts) and in CI (`principles-meta-tests`, audit-self.yml:343) —
  * developer-time first, CI as backstop, per the README "earliest reachable channel" invariant.
  *
  * The declaration gate remains here in the earlier principle channel. The separate paths-filtered

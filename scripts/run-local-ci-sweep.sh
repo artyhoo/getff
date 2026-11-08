@@ -39,8 +39,8 @@
 # Declared-required but NOT yet registered = `Template render probes — P1/P4/P6 (deterministic)`,
 # `capability PR carries Prior-art line in PR body (squash-survival)`, and — newly registrable as
 # of the §1.7 trigger unfiltering — `§1.7 forward+backward sections present in PR description`.
-# Those three can go red today and the PR still merges; an operator action closes that, and CI
-# cannot verify it (workflow-integrity.yml:32-42, GITHUB_TOKEN cannot read protection).
+# Those three can go red today and the PR still merges; an operator registers them. The CI
+# observer reads ordinary metadata (workflow-integrity.yml:48-49); observation does not register contexts.
 # Named, not positional, deliberately: this line previously said «the last three» / «the first
 # two», which silently became wrong the moment a sixth entry was appended above.
 #

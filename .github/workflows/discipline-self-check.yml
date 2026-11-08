@@ -68,7 +68,7 @@ jobs:
     # skipping reports `skipped`, which protection accepts.
     #
     # Deliberately `!= 'main'`, NOT the `== 'staging'` the two sibling gates use
-    # (pr-body-fidelity.yml:40, pr-stale-revert.yml:61). Those two are scoped to staging
+    # (pr-body-fidelity.yml:43, pr-stale-revert.yml:63). Those two are scoped to staging
     # because their subject — a kickoff's fidelity verdict, a stale-base rebuild against
     # staging — only exists on staging PRs. §1.7 has no such limit: it applies to any PR
     # introducing or extending a discipline rule, including the base=epic/* PRs CLAUDE.md

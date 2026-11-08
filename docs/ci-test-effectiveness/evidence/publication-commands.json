@@ -1,0 +1,200 @@
+{
+  "context": "Native current-reference publication closure; comment/prose-only equivalence, normal generators and actual gate. No full native test or installer repeat.",
+  "commands": [
+    {
+      "id": "citation-write",
+      "command": [
+        "node",
+        "scripts/check-line-citations.mjs",
+        "--write",
+        ".agents/procedures/dispatcher/references/execution.md",
+        ".agents/rules/ci-tool-pinning.md",
+        ".agents/rules/cold-seat-economy.md",
+        ".agents/rules/evidence-regeneration.md",
+        ".agents/rules/git-conflict-merge-forward.md",
+        ".agents/rules/reviewer-discipline.md",
+        ".github/workflows/context7-refresh.yml",
+        ".github/workflows/discipline-self-check.yml",
+        "docs/site/reference/B/template-audit.md",
+        "docs/site/reference/F1/companion-install-principle.md",
+        "docs/site/reference/F1/evidence-regeneration.md",
+        "packages/core/backends/astgrep/render-astgrep.test.ts",
+        "packages/core/backends/golangci/capability-matrix.test.ts",
+        "packages/core/backends/golangci/firing.test.ts",
+        "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
+        "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+        "packages/core/hooks/checks/pr-stale-revert.test.ts",
+        "packages/core/hooks/checks/pr-stale-revert.ts",
+        "packages/core/hooks/harness-config-drift.test.ts",
+        "packages/core/hooks/rule-channel-degradation.test.ts",
+        "packages/core/principles/11-build-first-reuse-default.test.ts",
+        "packages/core/principles/36-ci-needs-completeness.test.ts",
+        "packages/core/principles/37-required-context-completeness.test.ts",
+        "packages/core/principles/39-skill-fence-orch-home.test.ts",
+        "scripts/format-shipped.sh",
+        "scripts/run-local-ci-sweep-coverage.test.sh",
+        "scripts/run-local-ci-sweep.sh",
+        "tests/consumer-matrix/python-unfamiliar-stack-cell.sh"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 5.006874,
+      "output": "docs/ci-test-effectiveness/evidence/publication-citation-write.txt",
+      "outputSha256": "58e0bc684a8161e0380b1742a413e588e2112b25302f6299f3ead652e5efe9ac"
+    },
+    {
+      "id": "harness-check",
+      "command": [
+        "node",
+        "scripts/render-harness-config.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.14176,
+      "output": "docs/ci-test-effectiveness/evidence/publication-harness-check.txt",
+      "outputSha256": "19a3bf674455ede9d14068716294ea05c1cc6be248ccb295888bad40ea635c94"
+    },
+    {
+      "id": "reference-check",
+      "command": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 4.16756,
+      "output": "docs/ci-test-effectiveness/evidence/publication-reference-check.txt",
+      "outputSha256": "ad79324664522e4357f2e25f044d89a165d4f2cf80dbf582d83906f078bb7c65"
+    },
+    {
+      "id": "face-check",
+      "command": [
+        "node",
+        "scripts/render-face-facts.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 1.22349,
+      "output": "docs/ci-test-effectiveness/evidence/publication-face-check.txt",
+      "outputSha256": "1bc70a2404f93bc201de7511a7d888ac187a51799e2e4cb7825e8b0c8140de6f"
+    },
+    {
+      "id": "actionlint",
+      "command": [
+        "/workspace/getff-tools/bin/actionlint",
+        ".github/workflows/context7-refresh.yml",
+        ".github/workflows/discipline-self-check.yml"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.006883,
+      "output": "docs/ci-test-effectiveness/evidence/publication-actionlint.txt",
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "rule-index-check",
+      "command": [
+        "node",
+        "scripts/render-rule-index.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.237255,
+      "output": "docs/ci-test-effectiveness/evidence/publication-rule-index-check.txt",
+      "outputSha256": "08d1f61933a183c607c7c01cd5cc2750466f4a0049f811d5b1f92314b198d2cc"
+    },
+    {
+      "id": "manifest-write",
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 1.407638,
+      "output": "docs/ci-test-effectiveness/evidence/publication-manifest-write.txt",
+      "outputSha256": "af8a8a8d99bd09c6f6810f8b8df9998cc32ee0ce55495de6397fe832cf6e4d9c"
+    },
+    {
+      "id": "manifest-check",
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh",
+        "--check"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 6.295148,
+      "output": "docs/ci-test-effectiveness/evidence/publication-manifest-check.txt",
+      "outputSha256": "aa40e0a8803729d2111c29d3f279a0cf8aeb6f01bb2a4a44c13c1349a0a8d4d4"
+    },
+    {
+      "id": "final-actionlint",
+      "command": [
+        "/workspace/getff-tools/bin/actionlint",
+        ".github/workflows/context7-refresh.yml",
+        ".github/workflows/discipline-self-check.yml"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.006733,
+      "output": "docs/ci-test-effectiveness/evidence/publication-final-actionlint.txt",
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "final-manifest-write",
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 1.030612,
+      "output": "docs/ci-test-effectiveness/evidence/publication-final-manifest-write.txt",
+      "outputSha256": "af8a8a8d99bd09c6f6810f8b8df9998cc32ee0ce55495de6397fe832cf6e4d9c"
+    },
+    {
+      "id": "final-manifest-check",
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh",
+        "--check"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 7.114671,
+      "output": "docs/ci-test-effectiveness/evidence/publication-final-manifest-check.txt",
+      "outputSha256": "aa40e0a8803729d2111c29d3f279a0cf8aeb6f01bb2a4a44c13c1349a0a8d4d4"
+    },
+    {
+      "id": "source-body-equivalence",
+      "command": [
+        "node",
+        ".superpowers/sdd/ci-test-effectiveness/publication-equivalence.mjs"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 3.931339,
+      "output": "docs/ci-test-effectiveness/evidence/publication-source-body-equivalence.txt",
+      "outputSha256": "3adcf1f539fb6cdfe3a49d27db953ceb9b521173c9517b6def095c0df8169dbf"
+    },
+    {
+      "id": "source-hash-map-equivalence",
+      "command": [
+        "python3",
+        ".superpowers/sdd/ci-test-effectiveness/publication-bind.py"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.169876,
+      "output": "docs/ci-test-effectiveness/evidence/publication-source-hash-map-equivalence.txt",
+      "outputSha256": "9a62e6ba0a686ec41637342da356042655fb41ebb68c440234c139333acba1ef"
+    }
+  ],
+  "measuredCommandWallSeconds": 30.739839,
+  "limits": "Measured child-command wall only. Excludes authoring, prior unclocked source reads/checks, commit hooks until separately reported; not CPU, token/$ or savings."
+}

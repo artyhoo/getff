@@ -1,0 +1,29 @@
+check-line-citations --write: renumbered 32 citation(s)
+.agents/rules/evidence-regeneration.md:75  .github/workflows/audit-self.yml:375  → :383  (ambiguous — several lines match, fix by hand)
+      cited: run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
+      found: # a float/`latest`) keeps the fired toolchain deterministic and matched to the committed
+.agents/rules/evidence-regeneration.md:75  `:1151`  → :383  (ambiguous — several lines match, fix by hand)
+      cited: run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
+      found: # RED-proofs had never executed on any CI channel, while principle 33 stayed green
+.agents/rules/evidence-regeneration.md:76  .github/workflows/audit-self.yml:385  → :393  (ambiguous — several lines match, fix by hand)
+      cited: run: pip install ruff==0.15.21
+      found: # (packages/core/backends/ruff/firing.test.ts + capability-matrix.test.ts) fire the bare PATH
+.agents/rules/evidence-regeneration.md:76  `:1149`  → :393  (ambiguous — several lines match, fix by hand)
+      cited: run: pip install ruff==0.15.21
+      found: # adapter-jig arm E2, and arm (12) is E1's python negative. This shard installed
+docs/site/reference/F1/evidence-regeneration.md:137  .github/workflows/audit-self.yml:375  → :383  (ambiguous — several lines match, fix by hand)
+      cited: run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
+      found: # a float/`latest`) keeps the fired toolchain deterministic and matched to the committed
+packages/core/backends/shared/no-stray-hoist-markers.test.ts:75  packages/core/principles/41-shell-test-ci-coverage.test.ts:172-182  → :231-241  (ambiguous — several lines match, fix by hand)
+      cited: });
+      found: out.push('tests/advisor-role-reminders/test_reminders.py');
+packages/core/hooks/checks/pr-stale-revert-bin.ts:9  pr-body-fidelity-bin.ts:14-17  — packages/core/hooks/checks/pr-body-fidelity-bin.ts:14 is an empty line — the citation points at nothing
+packages/core/principles/11-build-first-reuse-default.test.ts:208  scripts/build-getff-dist.sh:48  → cited content no longer exists (rewrite the sentence or escape it)
+      cited: PAYLOAD="install.sh setup setup.d agents skills templates .agents/procedures .agents/roles .agents/r
+      found: PAYLOAD="install.sh setup setup.d agents skills templates .agents/procedures .agents/roles .agents/r
+packages/core/principles/11-build-first-reuse-default.test.ts:1204  scripts/build-getff-dist.sh:48  → cited content no longer exists (rewrite the sentence or escape it)
+      cited: PAYLOAD="install.sh setup setup.d agents skills templates .agents/procedures .agents/roles .agents/r
+      found: PAYLOAD="install.sh setup setup.d agents skills templates .agents/procedures .agents/roles .agents/r
+scripts/format-shipped.sh:298  audit-self.yml:354-355  → :362-363  (ambiguous — several lines match, fix by hand)
+      cited: - name: Install packages/core deps
+      found: fetch-depth: 0 # principle 11 needs full git history for introducing-commit detection
