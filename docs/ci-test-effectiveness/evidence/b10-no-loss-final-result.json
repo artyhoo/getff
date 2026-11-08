@@ -1,0 +1,30 @@
+{
+  "base": "97660705318614ca0318a672ab44f736c07289cb",
+  "all16OriginalPositiveCallsByteIdentical": true,
+  "positiveCases": 18,
+  "all11L5CaseNamesRetained": true,
+  "originalTwinByteIdentical": true,
+  "originalTwinCases": 6,
+  "backlogAndFrozenCatalogHashesMatch": true,
+  "sourceHashes": {
+    "packages/core/principles/20-bundle-classification.ts": "0484882288c58cbd7f2d412826c601302d98d084025717a3df681ab8129bfdf9",
+    "packages/core/principles/20-bundle-classification.test.ts": "62a874fc61e5681e85f3d2d675f9c77be0f463def2f6318145af0a1b17de3d77",
+    "packages/core/skills/assign-skill.test.ts": "b1f66c5883c6b29bff6a5611b8dd63055d621fa7aee3d9fde34dcb6f3a95bf5e",
+    "packages/core/principles/__fixtures__/bundle/catalog/agents/p20-agent.md": "217e9a42978beeb341d68eac882153fe007f2a9b55d423ab05c5c26d4358748a",
+    "packages/core/principles/__fixtures__/bundle/catalog/skills/p20-fixture/SKILL.md": "0e12414168f51be7484a4dbd4c6bf460fa45a210e5b3e7f8f894cfde868c09ba"
+  },
+  "typecheckErrorsAtUnchangedSources": [
+    {
+      "path": "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+      "equalToBase": true
+    },
+    {
+      "path": "packages/core/principles/37-required-context-completeness.test.ts",
+      "equalToBase": true
+    },
+    {
+      "path": "packages/core/principles/ci-test-invocations.ts",
+      "equalToBase": true
+    }
+  ]
+}

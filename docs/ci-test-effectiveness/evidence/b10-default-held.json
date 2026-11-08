@@ -1,0 +1,45 @@
+{
+  "collision": "Live agents/compliance-verifier.md exists; old basename-only default positive actually passes under wrong live-agent routing.",
+  "rows": [
+    {
+      "name": "old-basename-false-green",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "skills/assign-skill.test.ts",
+        "-t",
+        "B positive"
+      ],
+      "expectedExit": 0,
+      "actualExit": 0,
+      "wallSeconds": 1.936,
+      "log": "/workspace/scratch/b10-default-old-basename-false-green.txt"
+    },
+    {
+      "name": "unique-owned-red",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "skills/assign-skill.test.ts",
+        "-t",
+        "B positive"
+      ],
+      "expectedExit": 1,
+      "actualExit": 1,
+      "wallSeconds": 3.171,
+      "log": "/workspace/scratch/b10-default-unique-owned-red.txt"
+    }
+  ],
+  "productionHelperUntouched": true,
+  "heldRoutingRemoved": true,
+  "newOracleRetainsOriginalAssertions": true,
+  "finalL5Sha256": "b1f66c5883c6b29bff6a5611b8dd63055d621fa7aee3d9fde34dcb6f3a95bf5e"
+}

@@ -1,0 +1,10 @@
+{
+  "command": [
+    "node",
+    "/workspace/scratch/b10-final-prime.mjs"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 1.519,
+  "log": "/workspace/scratch/b10-final-prime.txt"
+}

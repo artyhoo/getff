@@ -1,0 +1,44 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default skills/assign-skill.test.ts -t B positive
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ❯ skills/assign-skill.test.ts (11 tests | 1 failed | 10 skipped) 1976ms
+     ↓ A positive: fixture meta-orchestrator SKILL.md → recommended_skill: meta-orchestrator
+     ↓ A paired-negative: remove meta-orchestrator SKILL.md → NOT recommended_skill: meta-orchestrator
+     × B positive: compliance-verifier.md mentions PR review → recommended_agent: agents/compliance-verifier.md 1974ms
+     ↓ B paired-negative: remove compliance-verifier.md → NOT recommended_agent for that path
+     ↓ C no-match: no skills and no agents → recommended: none
+     ↓ C no-match: skills present but description has zero keyword overlap → recommended: none
+     ↓ D tie: two skills with equal 1-token match → alphabetically-first slug wins
+     ↓ E empty description string → recommended: none (graceful, exit 0)
+     ↓ E whitespace-only description → recommended: none
+     ↓ T15 + T19: script exists, is executable, and contains required markers
+     ↓ T15 dogfood: output is exactly one line (not multi-line crash)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  skills/assign-skill.test.ts > assign-skill.sh — Case B: agent match (positive + paired-negative) > B positive: compliance-verifier.md mentions PR review → recommended_agent: agents/compliance-verifier.md
+AssertionError: default agent must come from the owned temporary catalog: expected 'recommended_agent: agents/compliance-…' to be 'recommended_agent: agents/owned-defau…' // Object.is equality
+
+Expected: "recommended_agent: agents/owned-default-assign-skill-test-JGUeFM.md"
+Received: "recommended_agent: agents/compliance-verifier.md"
+
+ ❯ skills/assign-skill.test.ts:188:69
+    186|     expect(runScript('fix', 'PR review substance check compliance', {
+    187|       MO_SKILLS_DIR: '', MO_AGENTS_DIR: '',
+    188|     }), 'default agent must come from the owned temporary catalog').to…
+       |                                                                     ^
+    189|   });
+    190|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 skipped (11)
+   Start at  22:03:24
+   Duration  2.34s (transform 79ms, setup 63ms, import 42ms, tests 1.98s, environment 0ms)
+

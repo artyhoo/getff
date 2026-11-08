@@ -1,0 +1,13 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "packages/core",
+    "run",
+    "typecheck"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 2,
+  "wallSeconds": 14.623,
+  "log": "/workspace/scratch/b10-typecheck.txt"
+}

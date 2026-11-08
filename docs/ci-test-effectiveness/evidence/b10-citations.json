@@ -1,0 +1,15 @@
+{
+  "command": [
+    "node",
+    "scripts/check-line-citations.mjs",
+    "--check",
+    "--corpus",
+    "--affected-by=packages/core/principles/20-bundle-classification.ts",
+    "--affected-by=packages/core/principles/20-bundle-classification.test.ts",
+    "--affected-by=packages/core/skills/assign-skill.test.ts"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 5.361,
+  "log": "/workspace/scratch/b10-citations.txt"
+}

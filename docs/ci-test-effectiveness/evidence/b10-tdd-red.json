@@ -1,0 +1,15 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "packages/core",
+    "run",
+    "test",
+    "--",
+    "principles/20-bundle-classification.test.ts",
+    "-t",
+    "catalog context"
+  ],
+  "exitCode": 1,
+  "wallSeconds": 13.594
+}

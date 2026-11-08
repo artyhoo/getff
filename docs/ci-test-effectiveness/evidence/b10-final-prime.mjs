@@ -1,0 +1,22 @@
+import {writeFileSync,readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {performance} from 'node:perf_hooks';
+// Hostile host seams must lose to the runner's fixed per-child pins.
+process.env.MO_SKILLS_DIR='/nonexistent/b10-host-skills';
+process.env.MO_AGENTS_DIR='/nonexistent/b10-host-agents';
+process.env.MO_SKILLS_GLOBAL='1';
+const before={...process.env};
+const r=await import('/workspace/getff-native/packages/core/principles/20-bundle-classification.ts');
+const names=['backlog-1-clean.txt','backlog-2-mixed.txt','backlog-3-overlap.txt'];
+const pairs=names.map(n=>[r.HELPER,r.FIXTURES+'/'+n]);
+const start=performance.now();const primed=await r.primeCurate(pairs);const elapsedMs=performance.now()-start;
+assert.equal(primed,3);assert.deepEqual({...process.env},before);
+const outputs=Object.fromEntries(names.map((n,i)=>[n,r.runCurate(...pairs[i])]));
+const baseline=JSON.parse(readFileSync('/workspace/scratch/p20-diagnosis-default.json','utf8'));
+const mask=text=>text.split('\n').map(l=>{const c=l.split('|');if(c.length===9&&!l.startsWith('|---|')&&!l.includes('idx | item-source')) c[5]='<assignment>';return c.join('|');}).join('\n');
+for(const n of names)assert.equal(mask(outputs[n]),mask(baseline.outputs[n]),n);
+assert.match(outputs[names[0]],/\| fix lint warning in alpha.sh \| fix \| direct-Edit \| skill:p20-fixture \|/);
+assert.match(outputs[names[0]],/\| fix typo in beta.sh \| fix \| direct-Edit \| agent:agents\/p20-agent.md \|/);
+const result={command:'node /workspace/scratch/b10-final-prime.mjs',primed,elapsedMs,outputs,baseline:'/workspace/scratch/p20-diagnosis-default.json',allNonassignmentColumnsIdentical:true,hostSeamsOverridden:true,parentEnvironmentUnchanged:true,finiteLimit:'one final local sample; diagnostic prototype had different catalog; no hosted timing claim'};
+writeFileSync('/workspace/scratch/b10-final-prime.json',JSON.stringify(result,null,2)+'\n');
+console.log(JSON.stringify({...result,outputs:undefined}));

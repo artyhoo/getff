@@ -21,6 +21,23 @@ export const HELPER = resolve(
 );
 export const FIXTURES = resolve(HERE, '__fixtures__/bundle');
 
+// The bundle contracts do not depend on the evolving project-wide assignment catalog.
+// One fixed catalog per module keeps the (helper, backlog) memo key valid. Both paths
+// must pin the same real dependency inputs, after inherited operator configuration.
+const CATALOG_ENV = Object.freeze({
+  MO_SKILLS_DIR: resolve(FIXTURES, 'catalog/skills'),
+  MO_AGENTS_DIR: resolve(FIXTURES, 'catalog/agents'),
+  MO_SKILLS_GLOBAL: '0',
+});
+
+function childOptions() {
+  return {
+    encoding: 'utf8' as const,
+    cwd: REPO_ROOT,
+    env: { ...process.env, ...CATALOG_ENV },
+  };
+}
+
 const cache = new Map<string, string>();
 
 /**
@@ -37,10 +54,7 @@ export function runCurate(helperPath: string, backlogPath: string): string {
   const key = cacheKey(helperPath, backlogPath);
   const hit = cache.get(key);
   if (hit !== undefined) return hit;
-  const out = execFileSync('/bin/bash', [helperPath, backlogPath], {
-    encoding: 'utf8',
-    cwd: REPO_ROOT,
-  });
+  const out = execFileSync('/bin/bash', [helperPath, backlogPath], childOptions());
   cache.set(key, out);
   return out;
 }
@@ -56,10 +70,7 @@ export async function primeCurate(
   await Promise.all(
     pairs.map(async ([helper, backlog]) => {
       try {
-        const { stdout } = await execFileAsync('/bin/bash', [helper, backlog], {
-          encoding: 'utf8',
-          cwd: REPO_ROOT,
-        });
+        const { stdout } = await execFileAsync('/bin/bash', [helper, backlog], childOptions());
         cache.set(cacheKey(helper, backlog), stdout);
       } catch {
         /* left uncached on purpose — runCurate re-runs and surfaces the real failure */

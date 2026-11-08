@@ -1,0 +1,11 @@
+{
+  "command": [
+    "node",
+    "scripts/render-reference.mjs",
+    "--check"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 6.67,
+  "log": "/workspace/scratch/b10-reference.txt"
+}

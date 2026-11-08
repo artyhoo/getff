@@ -1,0 +1,23 @@
+{
+  "command": [
+    "node_modules/.bin/tsc",
+    "--noEmit",
+    "--target",
+    "ES2022",
+    "--module",
+    "Node16",
+    "--moduleResolution",
+    "Node16",
+    "--strict",
+    "--esModuleInterop",
+    "--skipLibCheck",
+    "--allowImportingTsExtensions",
+    "packages/core/principles/20-bundle-classification.ts",
+    "packages/core/principles/20-bundle-classification.test.ts",
+    "packages/core/skills/assign-skill.test.ts"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 2.174,
+  "log": "/workspace/scratch/b10-changed-types.txt"
+}

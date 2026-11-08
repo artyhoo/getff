@@ -161,24 +161,27 @@
     {
       "rootCause": "RC6",
       "classification": "extended",
-      "principle": "Optimize latency without losing cases, environments, trigger coverage or isolation.",
+      "principle": "Optimize latency without losing cases, environments, trigger coverage or isolation; setup must purchase protection for the tested contract.",
       "sources": [
         ".agents/roles/review-sidecar.md",
         "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
         ".agents/procedures/harvest/SKILL.md",
-        "packages/core/hooks/checks/pr-body-fidelity.ts"
+        "packages/core/hooks/checks/pr-body-fidelity.ts",
+        "packages/core/principles/20-bundle-classification.ts",
+        "packages/core/principles/20-bundle-classification.test.ts",
+        "packages/core/skills/assign-skill.test.ts"
       ],
       "invocation": "Same existing cold review and consumed record on actual scheduling/runner/check changes",
-      "fault": "imbalanced equivalent workloads require evidence-backed review and disposition; unresolved blocks",
-      "validCompanion": "justified slow unique contract; matched history unavailable with bounded owner decision; no global SLO",
-      "boundedClaim": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured.",
+      "fault": "imbalanced equivalent workloads require evidence-backed review and disposition; unresolved blocks; P20 child catalog pins missing in async prefetch or distinct sync miss must reject fixed skill/agent output expectations",
+      "validCompanion": "justified slow unique contract; matched history unavailable with bounded owner decision; no global SLO; all old P20 eligibility/overlap/cap/mutants and default-directory L5 positives retained with tiny meaningful real inputs",
+      "boundedClaim": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured. B10 adds actual fixed-catalog recurrence witnesses, no wall-clock quota or global latency guarantee.",
       "criteria": {
-        "relevance": "Useful work is concentrated in one of three otherwise equivalent serial jobs.",
-        "effectiveness": "imbalanced equivalent workloads require evidence-backed review and disposition; unresolved blocks; justified slow unique contract; matched history unavailable with bounded owner decision; no global SLO",
+        "relevance": "Useful work is concentrated in one of three otherwise equivalent serial jobs. B10 observed unasserted global catalog scans in a timed-out bundle hook.",
+        "effectiveness": "imbalanced equivalent workloads require evidence-backed review and disposition; unresolved blocks; justified slow unique contract; matched history unavailable with bounded owner decision; no global SLO B10 real async/sync context guards reject dropped wiring; guard omission false green is independently rejected against fixed expected1, restoration35pass. Default-directory owned-name witness rejects the actual live-agent basename collision, retaining old assertions.",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
         "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
         "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
-        "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately.",
+        "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately. B10 uses existing principles/L5 carriers and two meaningful catalog entries; local measured costs in batches/b10.json, no broader replay.",
         "sufficiency": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured."
       },
       "evidence": [
@@ -188,7 +191,14 @@
         "evidence/b9-held-final.json",
         "evidence/b9-semantic-controller-assessment.json",
         "evidence/b9-semantic-manifest.json",
-        "acceptance/b9.json"
+        "acceptance/b9.json",
+        "evidence/b10-frozen-expectations.json",
+        "evidence/b10-held.json",
+        "evidence/b10-no-loss-result.json",
+        "evidence/b10-final-prime-result.json",
+        "batches/b10.json",
+        "evidence/b10-default-held.json",
+        "evidence/b10-final-green.txt"
       ],
       "TAKowner": "TAK2144 open7a5b63dc remains external/unaccepted; reconcile design \u00a74 on actual accepted runtime, no second TAK"
     },

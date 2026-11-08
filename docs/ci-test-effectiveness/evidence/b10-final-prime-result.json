@@ -1,0 +1,10 @@
+{
+  "command": "node /workspace/scratch/b10-final-prime.mjs",
+  "primed": 3,
+  "elapsedMs": 1373.238736,
+  "baseline": "/workspace/scratch/p20-diagnosis-default.json",
+  "allNonassignmentColumnsIdentical": true,
+  "hostSeamsOverridden": true,
+  "parentEnvironmentUnchanged": true,
+  "finiteLimit": "one final local sample; diagnostic prototype had different catalog; no hosted timing claim"
+}

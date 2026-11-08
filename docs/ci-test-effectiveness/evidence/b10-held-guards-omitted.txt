@@ -1,0 +1,14 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default principles/20-bundle-classification.test.ts
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ✓ principles/20-bundle-classification.test.ts (16 tests) 8349ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  21:57:30
+   Duration  8.68s (transform 40ms, setup 32ms, import 34ms, tests 8.35s, environment 0ms)
+

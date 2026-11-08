@@ -1,0 +1,10 @@
+{
+  "command": [
+    "node",
+    "/workspace/scratch/b10-no-loss.mjs"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 0.822,
+  "log": "/workspace/scratch/b10-no-loss.txt"
+}

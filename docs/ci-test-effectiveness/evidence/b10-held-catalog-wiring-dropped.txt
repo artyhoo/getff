@@ -1,0 +1,103 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default principles/20-bundle-classification.test.ts
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ❯ principles/20-bundle-classification.test.ts (18 tests | 2 failed) 11152ms
+     ✓ prefetch primed every fixture (no silent key drift between primeCurate and runCurate) 1ms
+     × async catalog context: prefetch uses the fixed skill and agent inputs 9ms
+     × sync catalog context: an unprimed backlog uses the fixed skill and agent inputs 2021ms
+     ✓ bundle-curate.sh helper exists and is executable 0ms
+     ✓ fixture directory exists with all 3 backlogs 0ms
+       ✓ emits markdown table header row 0ms
+       ✓ all 5 items enter the bundle (in-bundle N/5 notes) 0ms
+       ✓ no items are excluded 0ms
+       ✓ all items classified as fix type 0ms
+       ✓ exactly 5 items enter the bundle (cap enforced) 0ms
+       ✓ R-phase item is excluded (not in {fix,I-phase-small}) 1ms
+       ✓ I-phase-large item is excluded (not in {fix,I-phase-small}) 1ms
+       ✓ 1 item excluded by max-bundle-5 cap 0ms
+       ✓ total row count is 8 (all items accounted for) 0ms
+       ✓ 3 items enter the bundle (non-overlapping set) 0ms
+       ✓ 2 items excluded by file-overlap 1ms
+       ✓ total row count is 5 0ms
+     ✓ exits cleanly on all-comment backlog (empty effective input) — no crash 16ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  principles/20-bundle-classification.test.ts > Principle 20 — bundle-curate.sh mechanical correctness > async catalog context: prefetch uses the fixed skill and agent inputs
+AssertionError: async prefetch: fixture skill assignment context lost: expected 'skill:ai-doc' to be 'skill:p20-fixture' // Object.is equality
+
+Expected: "skill:p20-fixture"
+Received: "skill:ai-doc"
+
+ ❯ expectFixtureAssignments principles/20-bundle-classification.test.ts:113:5
+    111|     rows.find((cells) => cells[2] === 'fix lint warning in alpha.sh')?…
+    112|     `${context}: fixture skill assignment context lost`,
+    113|   ).toBe('skill:p20-fixture');
+       |     ^
+    114|   expect.soft(
+    115|     rows.find((cells) => cells[2] === 'fix typo in beta.sh')?.[5],
+ ❯ principles/20-bundle-classification.test.ts:150:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  principles/20-bundle-classification.test.ts > Principle 20 — bundle-curate.sh mechanical correctness > async catalog context: prefetch uses the fixed skill and agent inputs
+AssertionError: async prefetch: fixture agent assignment context lost: expected 'skill:self-reflection' to be 'agent:agents/p20-agent.md' // Object.is equality
+
+Expected: "agent:agents/p20-agent.md"
+Received: "skill:self-reflection"
+
+ ❯ expectFixtureAssignments principles/20-bundle-classification.test.ts:117:5
+    115|     rows.find((cells) => cells[2] === 'fix typo in beta.sh')?.[5],
+    116|     `${context}: fixture agent assignment context lost`,
+    117|   ).toBe('agent:agents/p20-agent.md');
+       |     ^
+    118| }
+    119|
+ ❯ principles/20-bundle-classification.test.ts:150:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  principles/20-bundle-classification.test.ts > Principle 20 — bundle-curate.sh mechanical correctness > sync catalog context: an unprimed backlog uses the fixed skill and agent inputs
+AssertionError: sync cache miss: fixture skill assignment context lost: expected 'skill:ai-doc' to be 'skill:p20-fixture' // Object.is equality
+
+Expected: "skill:p20-fixture"
+Received: "skill:ai-doc"
+
+ ❯ expectFixtureAssignments principles/20-bundle-classification.test.ts:113:5
+    111|     rows.find((cells) => cells[2] === 'fix lint warning in alpha.sh')?…
+    112|     `${context}: fixture skill assignment context lost`,
+    113|   ).toBe('skill:p20-fixture');
+       |     ^
+    114|   expect.soft(
+    115|     rows.find((cells) => cells[2] === 'fix typo in beta.sh')?.[5],
+ ❯ principles/20-bundle-classification.test.ts:158:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  principles/20-bundle-classification.test.ts > Principle 20 — bundle-curate.sh mechanical correctness > sync catalog context: an unprimed backlog uses the fixed skill and agent inputs
+AssertionError: sync cache miss: fixture agent assignment context lost: expected 'skill:self-reflection' to be 'agent:agents/p20-agent.md' // Object.is equality
+
+Expected: "agent:agents/p20-agent.md"
+Received: "skill:self-reflection"
+
+ ❯ expectFixtureAssignments principles/20-bundle-classification.test.ts:117:5
+    115|     rows.find((cells) => cells[2] === 'fix typo in beta.sh')?.[5],
+    116|     `${context}: fixture agent assignment context lost`,
+    117|   ).toBe('agent:agents/p20-agent.md');
+       |     ^
+    118| }
+    119|
+ ❯ principles/20-bundle-classification.test.ts:158:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 16 passed (18)
+   Start at  21:57:18
+   Duration  11.57s (transform 78ms, setup 55ms, import 45ms, tests 11.15s, environment 0ms)
+

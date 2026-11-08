@@ -29,7 +29,7 @@
  * (proven in paired-negative file). This is the mechanical enforcement of B1
  * eligibility: an R-phase item in the table means the filter is broken.
  *
- * ── Runtime (2026-09-06) ─────────────────────────────────────────────────────────────
+ * ── Historical runtime repair (2026-09-06) ─────────────────────────────────────────────────────────────
  * This file used to be the pre-push timeout lottery's loser. bundle-curate.sh spawns
  * classify-work.sh + assign-skill.sh ONCE PER backlog item (~0.6s per pair); the twelve
  * call sites below resolve to only THREE distinct fixtures, so the file was paying 75
@@ -46,7 +46,7 @@
  *   2. the three runs are prefetched CONCURRENTLY in `beforeAll`, so the file's whole
  *      shell cost is one fixed block and every `it` is a Map lookup.
  * After: 6.94s standalone, every individual test ≤23ms — no test's wall time tracks host
- * load any more. The paired-negative twin got the same treatment: 31.24s → 16.09s.
+ * load for cached assertions. The paired-negative twin got the same treatment: 31.24s → 16.09s.
  *
  * The memo cannot mask a broken helper: the key covers the SCRIPT path, so a mutated
  * copy gets its own entry. Verified by planting the eligibility-filter break into the
@@ -54,13 +54,20 @@
  * paired-negative twin pins that property as a standing arm, and both files assert the
  * prefetch actually landed (a key-construction drift between the prefetch and the sync
  * runner is otherwise a SILENT no-op: the first call site just re-runs and caches, so
- * only the load-lottery protection is lost, invisibly — that drift happened once while
+ * only the prefetch protection is lost, invisibly — that drift happened once while
  * this was being written).
+ *
+ * Current setup (2026-11-08): the fixed prefetch block still exceeded its 30s hook
+ * budget under full-suite load. The shared runner now supplies a tiny fixed assignment
+ * catalog through the existing helper seams. Real classification/assignment and every
+ * bundle/mutation contract remain; fixture-output guards cover both async prefetch and
+ * a distinct sync cache miss. No wall-clock claim or timeout increase is part of the gate.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import {
   HELPER,
   FIXTURES,
@@ -79,9 +86,9 @@ const BACKLOGS = [
 
 /**
  * Per-test timeout. bundle-curate.sh spawns classify-work.sh + assign-skill.sh once per
- * backlog item, so the FIRST run against a given fixture is ~5-6s; every later assertion
+ * eligible backlog item; the shared runner pins a small assignment catalog. Every later assertion
  * on the same fixture is served from the shared runner's memo (see the module header) and
- * costs nothing. The budget stays at 30s — this file no longer needs it, but a fixture
+ * uses the cached output. The budget stays at 30s; a fixture
  * gaining items must still fit under .husky/pre-push's per-file vitest timeout.
  */
 const SLOW_SHELL_MS = 30_000;
@@ -97,14 +104,26 @@ function runBundleCurate(fixtureName: string): string {
   return runCurate(HELPER, resolve(FIXTURES, fixtureName));
 }
 
+/** Test-owned outcomes: neither expected name comes from the runner under test. */
+function expectFixtureAssignments(output: string, context: string): void {
+  const rows = output.split('\n').map((line) => line.split('|').map((cell) => cell.trim()));
+  expect.soft(
+    rows.find((cells) => cells[2] === 'fix lint warning in alpha.sh')?.[5],
+    `${context}: fixture skill assignment context lost`,
+  ).toBe('skill:p20-fixture');
+  expect.soft(
+    rows.find((cells) => cells[2] === 'fix typo in beta.sh')?.[5],
+    `${context}: fixture agent assignment context lost`,
+  ).toBe('agent:agents/p20-agent.md');
+}
+
 describe(
   'Principle 20 — bundle-curate.sh mechanical correctness',
   { timeout: SLOW_SHELL_MS },
   () => {
     // One concurrent, fixed-cost block instead of twelve serial runs charged to the `it`
-    // bodies. Every assertion below is then a memo lookup, so no individual test's wall
-    // time tracks host load — which is what made this file the pre-push timeout lottery's
-    // loser (incident 2026-09-05). The three runs are independent processes over
+    // bodies. The original fixture assertions are memo lookups; the explicit sync-miss
+    // guard below uses its own short backlog. The three runs are independent processes over
     // read-only fixtures, so running them concurrently is safe.
     let primed = -1;
     beforeAll(async () => {
@@ -123,6 +142,25 @@ describe(
         BACKLOGS.length,
       );
     });
+
+    // Catalog-context guards: the independent fixture names were frozen before wiring.
+    // Dropping either child catalog pin must fail on real dependency output, not timing.
+    // catalog-guards:start
+    it('async catalog context: prefetch uses the fixed skill and agent inputs', () => {
+      expectFixtureAssignments(runBundleCurate('backlog-1-clean.txt'), 'async prefetch');
+    });
+
+    it('sync catalog context: an unprimed backlog uses the fixed skill and agent inputs', () => {
+      const dir = mkdtempSync(resolve(tmpdir(), 'p20-sync-catalog-'));
+      try {
+        const backlog = resolve(dir, 'unprimed.txt');
+        writeFileSync(backlog, 'fix lint warning in alpha.sh\nfix typo in beta.sh\n');
+        expectFixtureAssignments(runCurate(HELPER, backlog), 'sync cache miss');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+    // catalog-guards:end
 
     it('bundle-curate.sh helper exists and is executable', () => {
       expect(existsSync(HELPER), `helper not found at: ${HELPER}`).toBe(true);

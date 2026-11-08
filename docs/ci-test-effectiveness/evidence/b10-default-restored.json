@@ -1,0 +1,15 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "packages/core",
+    "run",
+    "test",
+    "--",
+    "skills/assign-skill.test.ts"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 3.506,
+  "log": "/workspace/scratch/b10-default-restored.txt"
+}
