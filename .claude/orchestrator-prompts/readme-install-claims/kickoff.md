@@ -28,16 +28,16 @@ list of skills; README says 11 agents while the installer ships 12; and the `esl
 
 ## §1 Measured facts (host, 2026-10-01 — do not re-derive from memory, re-derive from code)
 
-| Fact | Source | Value |
-|---|---|---|
-| agents shipped at default depth | `agents/*.md` minus the `continue ;;` skip list minus the factory pair in `setup.d/20-agents.sh` | 12: `aif-init`, `capability-reuse-auditor`, `claims-conformance-auditor`, `compliance-verifier`, `docplan-auditor`, `docs-form-auditor`, `fidelity-auditor`, `living-docs-auditor`, `memory-codification-auditor`, `review-sidecar`, `rule-researcher`, `rule-test-author` |
-| factory-gated agents | `setup.d/20-agents.sh` case `orchestrator-worker-discipline.md\|reviewer-discipline.md` — gate `PROFILE=factory` or `WITH_AIF_SUITE` (`--with-aif-suite`, set by `./setup --all`) | 2 |
-| skills at `env` | `setup.d/10-skills.sh` literals (`getff`, `tool-bootstrapping`) + `GETFF_SKILLS_CORE` + `GETFF_SKILLS_ENV` (`setup.d/lib.sh`) | 11 |
-| skills added by `factory` | `GETFF_SKILLS_FACTORY` | 5: `dispatcher`, `aif-doctor`, `harvest`, `story`, `claude-glm-executor-handoff` |
-| README today | `README.md` §What you get today item 1 «A skill», item 2 «11 shipped by default» (no `docs-form-auditor`), «the remaining 6 cover …», factory pair «only under `--with-aif-suite` / `--all`» (omits `--profile factory`) | drifted |
-| `eslint-plugin-jsx-a11y@latest` | `npm view eslint-plugin-jsx-a11y@latest version peerDependencies` | 6.10.2, peer eslint `^3‖…‖^9` — no ^10 |
-| `typescript-eslint@latest` | `npm view` | 8.71.0, peer eslint `^8.57.0‖^9.0.0‖^10.0.0` — admits 10 |
-| `@eslint/js@latest` | `npm view` | 10.0.1, peer eslint `^10.0.0` — must track the eslint major |
+| Fact                            | Source                                                                                                                                                                                                                   | Value                                                                                                                                                                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| agents shipped at default depth | `agents/*.md` minus the `continue ;;` skip list minus the factory pair in `setup.d/20-agents.sh`                                                                                                                         | 12: `aif-init`, `capability-reuse-auditor`, `claims-conformance-auditor`, `compliance-verifier`, `docplan-auditor`, `docs-form-auditor`, `fidelity-auditor`, `living-docs-auditor`, `memory-codification-auditor`, `review-sidecar`, `rule-researcher`, `rule-test-author` |
+| factory-gated agents            | `setup.d/20-agents.sh` case `orchestrator-worker-discipline.md\|reviewer-discipline.md` — gate `PROFILE=factory` or `WITH_AIF_SUITE` (`--with-aif-suite`, set by `./setup --all`)                                        | 2                                                                                                                                                                                                                                                                          |
+| skills at `env`                 | `setup.d/10-skills.sh` literals (`getff`, `tool-bootstrapping`) + `GETFF_SKILLS_CORE` + `GETFF_SKILLS_ENV` (`setup.d/lib.sh`)                                                                                            | 11                                                                                                                                                                                                                                                                         |
+| skills added by `factory`       | `GETFF_SKILLS_FACTORY`                                                                                                                                                                                                   | 5: `dispatcher`, `aif-doctor`, `harvest`, `story`, `claude-glm-executor-handoff`                                                                                                                                                                                           |
+| README today                    | `README.md` §What you get today item 1 «A skill», item 2 «11 shipped by default» (no `docs-form-auditor`), «the remaining 6 cover …», factory pair «only under `--with-aif-suite` / `--all`» (omits `--profile factory`) | drifted                                                                                                                                                                                                                                                                    |
+| `eslint-plugin-jsx-a11y@latest` | `npm view eslint-plugin-jsx-a11y@latest version peerDependencies`                                                                                                                                                        | 6.10.2, peer eslint `^3‖…‖^9` — no ^10                                                                                                                                                                                                                                     |
+| `typescript-eslint@latest`      | `npm view`                                                                                                                                                                                                               | 8.71.0, peer eslint `^8.57.0‖^9.0.0‖^10.0.0` — admits 10                                                                                                                                                                                                                   |
+| `@eslint/js@latest`             | `npm view`                                                                                                                                                                                                               | 10.0.1, peer eslint `^10.0.0` — must track the eslint major                                                                                                                                                                                                                |
 
 Default profile = `env` for an install (verified on the host): the `install.sh` TTY menu labels
 `2) env` «THE DEFAULT» and non-TTY resolves to env; only `--refresh` defaults to core. The
@@ -48,7 +48,8 @@ header comment «core (default)» in that block is stale — not in §2, report 
 - `packages/core/principles/49-readme-install-claims.ts` (new — the pure functions, the NN-pair
   convention of principles 46/48) and `packages/core/principles/49-readme-install-claims.test.ts`
   (new). If a file with prefix `49-` already exists on `origin/staging` at branch time, take the
-  next free number for both.
+  next free number for both. The focused command in §5 resolves the allocated test filename
+  and fails before Vitest when no file or more than one file matches.
 - `scripts/render-install-roster.mjs` — only to export the factory-gated agent set (§3.1); its
   `--write`/`--check` output must not change.
 - `README.md` — **only** the `## What you get today` section (§3.3). Never `## Why this exists`.
@@ -122,7 +123,7 @@ in-memory strings (paired negatives) and on the real files:
 Paired negatives (in-memory, each must be RED): README text with 11 agents and no
 `docs-form-auditor` (arm A, names the missing agent); today's «A skill» item 1 (arm C, claim not
 found); a list naming a non-existent agent (arm A, names the extra); «seven authoring-only
-tools» / «11 agents» outside a claim (arm E). Each paired positive is GREEN.
+agents» / «11 agents» outside a claim (arm E). Each paired positive is GREEN.
 
 Commit trailer (required, the pre-push `prior-art` check reads it):
 
@@ -138,8 +139,8 @@ entry; #280).
 
 ### 3.2 RED-first evidence
 
-Before commits 2-3, run `npx vitest run packages/core/principles/49-readme-install-claims.test.ts`
-on commit 1 and paste the raw output into the PR body: arms A, B, C, D (claims absent/drifted in
+Before commits 2-3, run the focused test command from §5 on commit 1 and paste the raw output
+into the PR body: arms A, B, C, D (claims absent/drifted in
 today's README — B because it names no `--profile factory`) and F (no `# why:` today) must fail. A green run here means the test cannot see
 the defect → STOP.
 
@@ -157,8 +158,8 @@ using the values from the code (§1), for example:
 - replace «the remaining 6 cover …» with a no-count phrasing that names every default agent not
   already given its own sub-bullet, one clause each, taken from that agent's frontmatter
   `description` (never invented).
-- factory pair line: `2 more agents ship only under `--profile factory` (or the legacy
-  `--with-aif-suite`, which `./setup --all` sets) …: `orchestrator-worker-discipline` + `reviewer-discipline`` …
+- factory pair line: ``2 more agents ship only under `--profile factory` (or the legacy
+`--with-aif-suite`, which `./setup --all` sets) …: `orchestrator-worker-discipline` + `reviewer-discipline` `` …
 - item 5 ESLint line: replace «pins `eslint@^9`, the verified peer matrix» with «pins
   `eslint@^9`; the reason for each pin is the `# why:` comment beside it in `CORE_DEVDEPS`».
 
@@ -199,8 +200,12 @@ change it follows. Drift anywhere else → STOP.
 
 ## §5 Exit gates
 
+Keep the first command on one line: the host-verify runner executes each line in its own
+shell. It accepts exactly one allocated test file, so a missing file or duplicate allocation
+cannot silently pass or select an unrelated principle.
+
 ```bash host-verify
-npx vitest run packages/core/principles/49-readme-install-claims.test.ts
+set -- packages/core/principles/[0-9]*-readme-install-claims.test.ts && [ "$#" -eq 1 ] && [ -f "$1" ] && npx vitest run "$1"
 npx vitest run packages/core/principles/
 npx tsx scripts/render-install-roster.mjs --check
 bash tests/install-sh/cic-s3-dep-install.test.sh
