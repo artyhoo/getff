@@ -1,16 +1,18 @@
 {
   "status": "Source/population reconciliation; bounded evidence views remain distinct",
-  "sourceHead": "b593e59214ec192b3208f35c7e919253e54acaf8",
+  "sourceHead": "08d06933075972d45a565e5b9d01a89810efb68a",
   "acceptedS1Head": "9098d3c5abc5409de0f138fcf5d0b8375fed3b68",
   "originalLogicalRecords": 2121,
-  "s2SupplementRecords": 44,
+  "s2SupplementRecords": 45,
   "logicalCountWarning": "Supplement rows describe changes and drivers, not extra disjoint tests. Do not sum into a native test count.",
   "originalSourceCandidateCount": 736,
   "originalTestSourceCount": 722,
   "originalSupportSourceCount": 14,
   "currentOriginalSources": 736,
-  "unchangedOriginalSources": 722,
-  "changedOriginalSources": 14,
+  "unchangedOriginalSources": 711,
+  "changedOriginalSources": 25,
+  "behaviorOrS2AssessedOriginalSources": 14,
+  "citationOnlyOriginalSources": 11,
   "removedOriginalSources": [],
   "newTestSourcePaths": [
     "packages/core/hooks/autonomy-binding-lifecycle.test.ts",
@@ -218,7 +220,9 @@
             "steps": 1
           }
         ],
-        "batchRefs": []
+        "batchRefs": [
+          "evidence/publication-citation-closure.json"
+        ]
       },
       {
         "path": ".github/workflows/demo-regen.yml",
@@ -239,7 +243,8 @@
           }
         ],
         "batchRefs": [
-          "batches/b3.json"
+          "batches/b3.json",
+          "evidence/publication-citation-closure.json"
         ]
       },
       {
@@ -578,9 +583,11 @@
       "path": "packages/core/backends/astgrep/render-astgrep.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "c408f1d77c17645246701ae71f3c55726e3a55647296cdedeb44edb5fb1a2e22",
-      "currentSHA256": "c408f1d77c17645246701ae71f3c55726e3a55647296cdedeb44edb5fb1a2e22",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "26361eb437d2188a389f4392f6a3a2ac0924e5ec25d56e71ccf5400b271bde89",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/backends/astgrep/researched-live-path.test.ts",
@@ -650,18 +657,22 @@
       "path": "packages/core/backends/golangci/capability-matrix.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "799f77609c11fa7ad45b20f74d06a22158737e68147f594fd615059015bdf27c",
-      "currentSHA256": "799f77609c11fa7ad45b20f74d06a22158737e68147f594fd615059015bdf27c",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "f90efd1594278d87daa974d8b50a89b396994c7e0d6cc96b492195ea9d7b39d0",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/backends/golangci/firing.test.ts",
       "path": "packages/core/backends/golangci/firing.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "a42762741645dc877a2d19774ba4892e2283509fb9fb7fdcfeedc8cd47802a32",
-      "currentSHA256": "a42762741645dc877a2d19774ba4892e2283509fb9fb7fdcfeedc8cd47802a32",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "bc9cb0f6e19f3f921aaeb4a497a5551a98d95cdeb26b97e95048c46cec7841d2",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/backends/npm/capability-matrix.test.ts",
@@ -749,9 +760,11 @@
       "path": "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "44cb113cf1fd4307538cc0d806f183e59f665654942afb19676114d6faf84d09",
-      "currentSHA256": "44cb113cf1fd4307538cc0d806f183e59f665654942afb19676114d6faf84d09",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "154cfdff35267ed8be5773b79f01ad0005d8570ab80a69d7499f9f06d7929bb8",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/backends/shared/toolchain-freshness-population.test.ts",
@@ -1250,9 +1263,11 @@
       "path": "packages/core/hooks/checks/pr-stale-revert.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "613273221f5dfc672380ded30742b5991bbaf52d994087afa31ba2332683ce40",
-      "currentSHA256": "613273221f5dfc672380ded30742b5991bbaf52d994087afa31ba2332683ce40",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "1be33eca8a180e02e7f594ef67cca30593c9085f7f5ab6ca35004366f28824b5",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/hooks/checks/prior-art.test.ts",
@@ -1432,9 +1447,11 @@
       "path": "packages/core/hooks/harness-config-drift.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "3752d389a0f3d4087b5d797d7c9db4ba0e2f10eeed2779592cde8afed624186b",
-      "currentSHA256": "3752d389a0f3d4087b5d797d7c9db4ba0e2f10eeed2779592cde8afed624186b",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "5cda3bf166603b71ec045417bbd47b46f72dac16037d642107145ebe933802c2",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/hooks/hook-emit-prelude.test.ts",
@@ -1713,9 +1730,11 @@
       "path": "packages/core/hooks/rule-channel-degradation.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "740432479c56c35841ab666bf7261668ab78c2facd665f9c8ca786b9a125decb",
-      "currentSHA256": "740432479c56c35841ab666bf7261668ab78c2facd665f9c8ca786b9a125decb",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "25e19ec4102e15d50b74e92dce91e070c3f0b81efca18ebef751c2c87594c6fc",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/hooks/runtime-bridge-dispatch.test.ts",
@@ -2109,9 +2128,11 @@
       "path": "packages/core/principles/11-build-first-reuse-default.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "998c6980c5ff77ad6e7815adbd489a65a5bb87db725d6fd226f36ad32510e4ae",
-      "currentSHA256": "998c6980c5ff77ad6e7815adbd489a65a5bb87db725d6fd226f36ad32510e4ae",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "72d2c8bac316dbefb6d7fe9b6c0b647bf1021ad26f31f0831a0593c6e4d23243",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/principles/12-ai-laziness-traps.test.ts",
@@ -2361,9 +2382,12 @@
       "path": "packages/core/principles/36-ci-needs-completeness.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "82209c725f43abceae5d0fe1effaca01823b88434f022366beebe240bb898f28",
-      "currentSHA256": "82209c725f43abceae5d0fe1effaca01823b88434f022366beebe240bb898f28",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "950c8bfce8432a3bc1f26702170be12e0da8b59867c387bf347b2e19c2768b90",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "batches/b3.json",
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/principles/37-make-target-claim-liveness.test.ts",
@@ -2379,12 +2403,13 @@
       "path": "packages/core/principles/37-required-context-completeness.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "4eabacf7329386d40e48b3762b49b92d05b97a7f64d0369468936d24f9e21f92",
-      "currentSHA256": "d98339ab8d106e318a094466ed710199a8a5ab8f05229ccad3ee1ee46b30f414",
+      "currentSHA256": "faf48f2baace3600f9baafa09fd2b313c650c7bc07374af369a1feb66a64ccb2",
       "disposition": "changed-assessment-in-S2",
       "batchRefs": [
         "batches/b3.json",
         "batches/b8.json",
-        "batches/b9.json"
+        "batches/b9.json",
+        "evidence/publication-citation-closure.json"
       ]
     },
     {
@@ -2404,9 +2429,11 @@
       "path": "packages/core/principles/39-skill-fence-orch-home.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "2da93bb3d34e9e60a15919b17b8a37fd64464f201c61cf70ddf6cc9a8939d81f",
-      "currentSHA256": "2da93bb3d34e9e60a15919b17b8a37fd64464f201c61cf70ddf6cc9a8939d81f",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "2cb9edb1a039f3a366ed6ef5502fde25aded6d8e62c0eeaeebac9913dbcb1807",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:packages/core/principles/40-kickoff-rigor-label.test.ts",
@@ -4687,11 +4714,12 @@
       "path": "scripts/run-local-ci-sweep-coverage.test.sh",
       "kind": "test-source-or-probe",
       "beforeSHA256": "79150ed9d860c986dcaa7e7ad57256344bb0a005af3965651e06abdbbb3f475d",
-      "currentSHA256": "2cc5bd1715e2f7755f4cbf3ad67f3db35a638d4a6c89d4bfcdc1a14ec7f5d4b1",
+      "currentSHA256": "81697e2e7a720564d5b56248680932dd145e443d12d46c570b52d8341d29ba32",
       "disposition": "changed-assessment-in-S2",
       "batchRefs": [
         "batches/b3.json",
-        "batches/b7.json"
+        "batches/b7.json",
+        "evidence/publication-citation-closure.json"
       ]
     },
     {
@@ -5027,9 +5055,11 @@
       "path": "tests/consumer-matrix/python-unfamiliar-stack-cell.sh",
       "kind": "test-source-or-probe",
       "beforeSHA256": "57202f6cee1b2e565c4ea422bb44fcab320ec02228ea0077df79cf57765d3998",
-      "currentSHA256": "57202f6cee1b2e565c4ea422bb44fcab320ec02228ea0077df79cf57765d3998",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "cc37fdfa575d5dde2e6b991d84b282e3299518c7a81200f49c356bf7be98d0ed",
+      "disposition": "citation-only-inherit-accepted-S1-assessment",
+      "batchRefs": [
+        "evidence/publication-citation-closure.json"
+      ]
     },
     {
       "id": "test:tests/dispatcher/harvest-via-api.test.sh",
@@ -7594,6 +7624,19 @@
     },
     {
       "id": "FINAL-review-repair",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "PUBLICATION-current-citation-closure",
       "criterionNames": [
         "relevance",
         "effectiveness",

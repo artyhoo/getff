@@ -17,7 +17,7 @@
   },
   "controllerFinalMetadataCarry": "This final bookkeeping commit only adds review acceptance, source reconciliation and truthful status/rulings. No new production behavior, no extra cold full-source review. Exact published full head and CI evidence belong in PR2150 body.",
   "acceptance": {
-    "coverage": "Accepted S1 complete7criteria individual/group applicability + final source reconciliation +44S2selfassessed records; no hidden reduced denominator.",
+    "coverage": "Accepted S1 + final reconciliation +45S2selfassessed rows, including explicit citation-onlyinheritance; no reduced native denominator.",
     "sufficientProtection": "Source faults fixed and actual invocation/held restoration proven; required live registration and hosted Node22/Windows still pending.",
     "noLoss": "Retained witnesses/workload/canonical/unknownfallback; actual finalreviewcounterexample corrected; finalhost proof pending.",
     "minimality": "Both detached checker copies and both equivalent root repeats removed; P37 zero-marginal wrapper copies consolidated; no known proven redundant removal remains advice only.",
@@ -47,5 +47,12 @@
     "Actual hostedtoken observer result and afterinstaller durations; keep timing attributionbounded."
   ],
   "publication": "https://github.com/artyhoo/getff/pull/2150",
-  "at": "2026-11-08T20:44:02.825510+00:00"
+  "at": "2026-11-08T20:44:02.825510+00:00",
+  "publicationCitationClosure": {
+    "sourceCommit": "c1930af47de3ff4932527972d8abec9a19e47923",
+    "receiptHead": "08d06933075972d45a565e5b9d01a89810efb68a",
+    "evidence": "evidence/publication-citation-closure.json",
+    "rootVerification": "Read complete28path actualdiff; all current/Gitbeforehashes match; explicit13TS AST/emitted-JS,2YAML,4shell,9Markdown equivalence; current pointer meaning inspected. No new runtime behavior, installed baseline drift or checker change. Existing registered citationgate0 on committed source; originalfailedpush preserved.",
+    "acceptance": "Approved publication transport closure, no second behavioralreviewwave."
+  }
 }

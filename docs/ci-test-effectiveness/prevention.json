@@ -226,5 +226,6 @@
     "Windows2116": "openba4fdd70; no native Windows acceptance claimed"
   },
   "trustedBoundary": "Truthful controller/competent cold review plus finite independent expectations and host behavior. No arbitrary semantic certification or cryptographic identity.",
-  "finalSourceAcceptance": "acceptance/final.json"
+  "finalSourceAcceptance": "acceptance/final.json",
+  "publicationCitationClosure": "evidence/publication-citation-closure.json; no runtime behavior change; existing citationgate pass and sourceequivalence, no new standing check"
 }
