@@ -47,7 +47,7 @@ describe('README claims', () => {
   it('F: rejects malformed blocks and contamination, accepts safe reasons', () => {
     const block = (s: string) => `CORE_DEVDEPS=(\n${s}\n)`;
     expect(checkPins(block('eslint@^9 # why: maintains supported peer compatibility'))).toEqual([]);
-    for (const value of ['', block(''), block('a@^1 # why: long enough explanation\n') + '\n' + block('b@^1 # why: long enough explanation'), block('a@^1 b@^1 # why: long enough explanation'), block('a@^1 # why: tbd'), block('a@^1 # why: references vitest@^4 as a dependency'), block('# helper.js is used here\na@^1 # why: long enough explanation'), block('# vitest@^4 is a package\na@^1 # why: long enough explanation')]) expect(checkPins(value)).not.toEqual([]);
+    for (const value of ['', block(''), block('a@^1 # why: long enough explanation\n') + '\n' + block('b@^1 # why: long enough explanation'), block('a@^1 b@^1 # why: long enough explanation'), block('a@^1 # why: tbd'), block('a@^1 # why: references vitest@^4 as a dependency'), block('# helper.js is used here\na@^1 # why: long enough explanation'), block('# .helper.mjs, supplies the check\na@^1 # why: long enough explanation'), block('# use `vitest@^4` here\na@^1 # why: long enough explanation'), block('# vitest@^4 is a package\na@^1 # why: long enough explanation')]) expect(checkPins(value)).not.toEqual([]);
   });
 });
 

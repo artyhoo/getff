@@ -47,7 +47,7 @@ export function checkPins(text: string): string[] {
   for (const line of blocks[0][1].split('\n')) {
     const [code, ...commentParts] = line.split('#');
     const comment = commentParts.join('#');
-    if (/(?:^|\s)(?:@[^\s/]+\/)?[\w.-]+@[^\s]+|(?:^|\s)\S+\.m?js(?:\s|$)/.test(comment)) errors.push('F: comment contains a package spec or JS token');
+    if (/(?:@[\w.-]+\/)?[\w.-]+@[\w.*^~<>=+-]+|[\w./-]+\.(?:c|m)?js\b/.test(comment)) errors.push('F: comment contains a package spec or JS token');
     if (!code.trim()) continue;
     const specs = code.trim().split(/\s+/);
     count += specs.length;
