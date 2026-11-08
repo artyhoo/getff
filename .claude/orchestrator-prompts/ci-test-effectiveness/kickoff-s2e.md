@@ -75,7 +75,7 @@ glossary's separate unmatched-load budget issue remains open; do not alter it in
 
 ## Traps and destination verification
 
-L0 research-grade with proportional probes. Apply ai-laziness-traps.md §2–§3:
+Rigor label (L0): `research-grade` with proportional probes. Apply ai-laziness-traps.md §2–§3:
 **T3**, **T7**, **T10**, **T14**, **T15**, **T18**, **T19**, **T20**, **T22**. Challenge omitted
 identity/status/capability states and which combined change could false-green; record bounds.
 Change method after two unsuccessful attempts; five failed iterations trigger scoped BLOCKED.

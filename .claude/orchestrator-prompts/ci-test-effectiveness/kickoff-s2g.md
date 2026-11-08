@@ -146,7 +146,7 @@ hosted22/Windows and pendingTAK remain explicit; no campaignDONE.
 
 ## Destination verification
 
-Rigor L0 research-grade for shipped checks with proportional bounded probes. Apply
+Rigor label (L0): `research-grade` for shipped checks with proportional bounded probes. Apply
 ai-laziness-traps.md §2–§3 **T3**, **T7**, **T10**, **T14**, **T15**, **T18**, **T19**, **T20**,
 **T22**. Challenge false invocation, native enumeration mismatch and changes to unknown-path
 fallback. Change method after two failed attempts; five failed iterations BLOCKED.

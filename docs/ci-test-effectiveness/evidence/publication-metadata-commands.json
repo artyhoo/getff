@@ -1,0 +1,19 @@
+{
+  "baseHead": "0a6a39a105cae46095e91f5bca4e55363d13e93c",
+  "commands": [
+    {
+      "id": "parsed-fields-and-mapping",
+      "command": [
+        "python3",
+        ".superpowers/sdd/ci-test-effectiveness/publication-metadata-verify.py"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.565734,
+      "output": "docs/ci-test-effectiveness/evidence/publication-metadata-parsed-fields-and-mapping.txt",
+      "outputSha256": "94aa9bb31246d338e1fa584e6e1e3110279e2d5732b362087bf30817633f2785"
+    }
+  ],
+  "measuredChildCommandWallSeconds": 0.565734,
+  "limit": "Metadata equivalence and focused existing checks only; no new runtime suite or savings claim. Commit hooks and failed push cost reported separately."
+}

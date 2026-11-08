@@ -84,7 +84,7 @@ channel unchanged. Append7criteria/cost and truthful claimlimits. No network on 
 
 ## Destination verification and proportional traps
 
-L0 research-grade for load-bearing CI observation with bounded offlinecorpus and one actualread.
+Rigor label (L0): `research-grade` for load-bearing CI observation with bounded offlinecorpus and one actualread.
 Apply ai-laziness-traps.md §2–§3 **T3**, **T7**, **T10**, **T14**, **T15**, **T18**, **T19**,
 **T20**, **T22**; challenge validstdout/nonzerostatus, unknownschema and activeruleset falsepass.
 Change method after two failedattempts; fivefailediterations BLOCKED. Use actual nativeLinux

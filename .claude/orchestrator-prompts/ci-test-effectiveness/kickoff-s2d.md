@@ -78,7 +78,7 @@ combined no-loss, costs and limits. Keep broader hook/TAK/campaign dependencies 
 
 ## Traps and destination verification
 
-L0 research-grade with proportional work. Apply ai-laziness-traps.md §2–§3:
+Rigor label (L0): `research-grade` with proportional work. Apply ai-laziness-traps.md §2–§3:
 **T3**, **T7**, **T10**, **T14**, **T15**, **T18**, **T19**, **T20**, **T22**. Challenge omitted
 witnesses, combined removals, prerequisites, event/host differences and new audit machinery.
 Five failed iterations trigger scoped BLOCKED; change method after two failed attempts.

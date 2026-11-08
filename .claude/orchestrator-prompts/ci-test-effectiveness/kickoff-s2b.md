@@ -39,7 +39,7 @@ contract. Native isolated execution is authorized by “го без аиф”; n
 Before dispatch the controller records exact head, fresh integration and conflicting owner work.
 TAK driver/host activation remains with its actual owner; do not silently supersede that work.
 
-L0: research-grade protection evidence with proportional experiments. Apply
+Rigor label (L0): `research-grade` protection evidence with proportional experiments. Apply
 .agents/rules/ai-laziness-traps.md §2–§3: **T3** real process outcomes, **T7** category challenge,
 **T10** selections/aftermath branches enumerated, **T14** timeout not assertion detection,
 **T15** assess new harness, **T18** preserve whole-run zero-effects witness, **T19** independent

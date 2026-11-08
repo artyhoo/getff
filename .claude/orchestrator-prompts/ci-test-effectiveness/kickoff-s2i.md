@@ -218,7 +218,7 @@ performanceevidence. No fake user/native/project acceptance or fixturetests exec
 
 ## Destination environment and bounded verification
 
-L0 research-grade for load-bearing shared review/acceptance, proportional actualconformance.
+Rigor label (L0): `research-grade` for load-bearing shared review/acceptance, proportional actualconformance.
 Apply ai-laziness-traps.md §2–§3 **T3**, **T7**, **T10**, **T14**, **T15**, **T18**, **T19**,
 **T20**, **T22**. Challenge field-only theatre, stale/disabledinvocation, false tautology,
 zero-marginal metacases and baselineblessing. Change method after2failedapproaches;5failed

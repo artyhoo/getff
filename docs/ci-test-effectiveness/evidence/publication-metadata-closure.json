@@ -1,0 +1,429 @@
+{
+  "baseHead": "0a6a39a105cae46095e91f5bca4e55363d13e93c",
+  "status": "Publication metadata source closure; committed P24/P40 verification pending",
+  "sourcePaths": [
+    "plugin/.claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    "plugin/install/fetch-and-wire.sh",
+    ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2a.md",
+    ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2b.md",
+    ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2c.md",
+    ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2d.md",
+    ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2e.md",
+    ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2f.md",
+    ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2g.md",
+    ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2h.md",
+    ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2i.md"
+  ],
+  "sourceBindings": [
+    {
+      "path": "plugin/.claude-plugin/plugin.json",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/plugin/.claude-plugin/plugin.json",
+      "device": 27,
+      "inodeBefore": 267593,
+      "beforeSha256": "72096fbf02b04027fcb2f2c7a80f93cafbdce79a78b2a29e465bf6088e4da7bb",
+      "afterSha256": "adb83588a00647432c4f5ffe4ad98097a4b8a87bac3b061ab5720d96a4fba16d",
+      "inodeAfter": 267593
+    },
+    {
+      "path": ".claude-plugin/marketplace.json",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude-plugin/marketplace.json",
+      "device": 27,
+      "inodeBefore": 263404,
+      "beforeSha256": "89c1e4776644db4f5d39ee4e0e698271d4410d3cb9cad1cd70d364f9abbbce10",
+      "afterSha256": "065e367bd4ff8821bf14b602a4dfb95ca2ef8fcf6edf19f25957aae4c27b486b",
+      "inodeAfter": 263404
+    },
+    {
+      "path": "plugin/install/fetch-and-wire.sh",
+      "gitIndexMode": "100755",
+      "worktreeMode": "0o700",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/plugin/install/fetch-and-wire.sh",
+      "device": 27,
+      "inodeBefore": 267637,
+      "beforeSha256": "2d7e8e5c4a5d82cb31d56178832f16a58f135c2c29877306383dfc771ce55ced",
+      "afterSha256": "3717146b39f46f18fd21737ec2f2a3ccee8e31a5f532c25890dfb502ef356098",
+      "inodeAfter": 267637
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2a.md",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2a.md",
+      "device": 27,
+      "inodeBefore": 286111,
+      "beforeSha256": "16923dcf3b454d47f569def858b82dd40b81004cc74a041585c93e21944fc1cd",
+      "afterSha256": "5204b0a54937816e830de3ffe372fef650a1e566458517d6911c9919e7a2f06d",
+      "inodeAfter": 286111
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2b.md",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2b.md",
+      "device": 27,
+      "inodeBefore": 286315,
+      "beforeSha256": "8c8881ad30406001dc2971ace6c239cc37d5742ed3a6fc260c4f3720f9025af9",
+      "afterSha256": "5fda76f21cd0a7eeb85c1c85b93edb5f13ff009f9ee1126c206804931f01e015",
+      "inodeAfter": 286315
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2c.md",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2c.md",
+      "device": 27,
+      "inodeBefore": 288479,
+      "beforeSha256": "8752cfd1b3910c4c2398496b376c9add967b6f3bb7e92c2ff9623d1a4b7e00e0",
+      "afterSha256": "41ebe3e68d7b1b28b71a92942e4f3aacdc763b9820394dafa185208532c459df",
+      "inodeAfter": 288479
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2d.md",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2d.md",
+      "device": 27,
+      "inodeBefore": 287394,
+      "beforeSha256": "65255eba5c9fc4c462e1b2e17c88df2f5ec4ed853d06bc6a7b3812023e43128f",
+      "afterSha256": "48a6ff550cc8f59d41bf2cd6737a4e87324fab8aae393bfe2e21bbe397bfb223",
+      "inodeAfter": 287394
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2e.md",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2e.md",
+      "device": 27,
+      "inodeBefore": 287545,
+      "beforeSha256": "c1b287c00b73775a30f85a07935ec93501af27b325b7c23564f3385040797bda",
+      "afterSha256": "3d020cce9aa5903a0db52e74f92e3f2a66e329268180fcae122b725f376be142",
+      "inodeAfter": 287545
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2f.md",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2f.md",
+      "device": 27,
+      "inodeBefore": 286957,
+      "beforeSha256": "f39d810d92f185150b7167039541424a2256df3d27e50174448becc80c40c051",
+      "afterSha256": "c66a873ad91856f93bde57edf5601a79ddb186b28319aa84b6f6df5a7d28a816",
+      "inodeAfter": 286957
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2g.md",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2g.md",
+      "device": 27,
+      "inodeBefore": 287000,
+      "beforeSha256": "6cd30dbf16da2c58d349ddc639486297764ef9982f8e8c7cf777519a3a13dbb3",
+      "afterSha256": "3b144867ae14a7adf958ab94599c8635cb374006b4f561c1a17183e28a250050",
+      "inodeAfter": 287000
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2h.md",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2h.md",
+      "device": 27,
+      "inodeBefore": 290020,
+      "beforeSha256": "5974119d4e6a56c3b0523df5319ce6292e397a8c81049576b3396282d464e8dd",
+      "afterSha256": "2d315eabdf80ef0a8ab5d1a2f8ec33aaaae85881de927ffa0e46ca14f199e54f",
+      "inodeAfter": 290020
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2i.md",
+      "gitIndexMode": "100644",
+      "worktreeMode": "0o600",
+      "regularFile": true,
+      "symlink": false,
+      "resolvedPath": "/workspace/getff-native/.claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2i.md",
+      "device": 27,
+      "inodeBefore": 287223,
+      "beforeSha256": "a9878155072af676e908777a7b952ffa5b3875c013a2201a492970e8d6fcd029",
+      "afterSha256": "52d69dd315a410bc0232d776f2243e68f6566e6e2d31a48316ac11bd0893bea7",
+      "inodeAfter": 287223
+    }
+  ],
+  "pluginTupleBefore": [
+    "0.3.38",
+    "0.3.38",
+    "0.3.38",
+    "0.3.38"
+  ],
+  "pluginTupleAfter": [
+    "0.3.39",
+    "0.3.39",
+    "0.3.39",
+    "0.3.39"
+  ],
+  "kickoffLabelEdits": [
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2a.md",
+      "beforePhrase": "rules and S2 coordinator kickoff. L0 rigor: research-grade for protection evidence; keep",
+      "afterPhrase": "rules and S2 coordinator kickoff.\nRigor label (L0): `research-grade` for protection evidence; keep",
+      "originalAtomicExplicitResearchGrade": true,
+      "inheritedLabelAddedNow": false,
+      "provenance": "Eight original explicit research-grade choices normalized. s2f inherits the unchanged parent research-grade choice; explicit field added now, not claimed to have existed before dispatch.",
+      "allOtherBytesUnchangedByExactReverseReplacement": true
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2b.md",
+      "beforePhrase": "L0: research-grade protection evidence with proportional experiments. Apply",
+      "afterPhrase": "Rigor label (L0): `research-grade` protection evidence with proportional experiments. Apply",
+      "originalAtomicExplicitResearchGrade": true,
+      "inheritedLabelAddedNow": false,
+      "provenance": "Eight original explicit research-grade choices normalized. s2f inherits the unchanged parent research-grade choice; explicit field added now, not claimed to have existed before dispatch.",
+      "allOtherBytesUnchangedByExactReverseReplacement": true
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2c.md",
+      "beforePhrase": "L0: research-grade, proportional to decisions. Apply",
+      "afterPhrase": "Rigor label (L0): `research-grade`, proportional to decisions. Apply",
+      "originalAtomicExplicitResearchGrade": true,
+      "inheritedLabelAddedNow": false,
+      "provenance": "Eight original explicit research-grade choices normalized. s2f inherits the unchanged parent research-grade choice; explicit field added now, not claimed to have existed before dispatch.",
+      "allOtherBytesUnchangedByExactReverseReplacement": true
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2d.md",
+      "beforePhrase": "L0 research-grade with proportional work. Apply",
+      "afterPhrase": "Rigor label (L0): `research-grade` with proportional work. Apply",
+      "originalAtomicExplicitResearchGrade": true,
+      "inheritedLabelAddedNow": false,
+      "provenance": "Eight original explicit research-grade choices normalized. s2f inherits the unchanged parent research-grade choice; explicit field added now, not claimed to have existed before dispatch.",
+      "allOtherBytesUnchangedByExactReverseReplacement": true
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2e.md",
+      "beforePhrase": "L0 research-grade with proportional probes. Apply",
+      "afterPhrase": "Rigor label (L0): `research-grade` with proportional probes. Apply",
+      "originalAtomicExplicitResearchGrade": true,
+      "inheritedLabelAddedNow": false,
+      "provenance": "Eight original explicit research-grade choices normalized. s2f inherits the unchanged parent research-grade choice; explicit field added now, not claimed to have existed before dispatch.",
+      "allOtherBytesUnchangedByExactReverseReplacement": true
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2f.md",
+      "beforePhrase": "L0 proportional evidence. Apply",
+      "afterPhrase": "Rigor label (L0): `research-grade` \u2014 inherited from parent kickoff-s2.md; made explicit during publication metadata closure.\nL0 proportional evidence. Apply",
+      "originalAtomicExplicitResearchGrade": false,
+      "inheritedLabelAddedNow": true,
+      "provenance": "Eight original explicit research-grade choices normalized. s2f inherits the unchanged parent research-grade choice; explicit field added now, not claimed to have existed before dispatch.",
+      "allOtherBytesUnchangedByExactReverseReplacement": true
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2g.md",
+      "beforePhrase": "Rigor L0 research-grade for shipped checks with proportional bounded probes. Apply",
+      "afterPhrase": "Rigor label (L0): `research-grade` for shipped checks with proportional bounded probes. Apply",
+      "originalAtomicExplicitResearchGrade": true,
+      "inheritedLabelAddedNow": false,
+      "provenance": "Eight original explicit research-grade choices normalized. s2f inherits the unchanged parent research-grade choice; explicit field added now, not claimed to have existed before dispatch.",
+      "allOtherBytesUnchangedByExactReverseReplacement": true
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2h.md",
+      "beforePhrase": "L0 research-grade for load-bearing CI observation with bounded offlinecorpus and one actualread.",
+      "afterPhrase": "Rigor label (L0): `research-grade` for load-bearing CI observation with bounded offlinecorpus and one actualread.",
+      "originalAtomicExplicitResearchGrade": true,
+      "inheritedLabelAddedNow": false,
+      "provenance": "Eight original explicit research-grade choices normalized. s2f inherits the unchanged parent research-grade choice; explicit field added now, not claimed to have existed before dispatch.",
+      "allOtherBytesUnchangedByExactReverseReplacement": true
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2i.md",
+      "beforePhrase": "L0 research-grade for load-bearing shared review/acceptance, proportional actualconformance.",
+      "afterPhrase": "Rigor label (L0): `research-grade` for load-bearing shared review/acceptance, proportional actualconformance.",
+      "originalAtomicExplicitResearchGrade": true,
+      "inheritedLabelAddedNow": false,
+      "provenance": "Eight original explicit research-grade choices normalized. s2f inherits the unchanged parent research-grade choice; explicit field added now, not claimed to have existed before dispatch.",
+      "allOtherBytesUnchangedByExactReverseReplacement": true
+    }
+  ],
+  "parentKickoff": {
+    "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2.md",
+    "sha256": "448c1344d83e1182e38b1a354a3f33d0d9e26e812319684346196ff745b10ca1",
+    "unchanged": true,
+    "existingLabel": "research-grade"
+  },
+  "failedPush2": {
+    "head": "0a6a39a105cae46095e91f5bca4e55363d13e93c",
+    "exitCode": 1,
+    "wallSeconds": 210.681,
+    "originalOutputSha256": "590e561efddaaaf96bffc4910b11c0a0cec3844af200530b69d11114783d45c7",
+    "gzipPath": "docs/ci-test-effectiveness/evidence/publication-metadata-failed-push2.txt.gz",
+    "gzipSha256": "d0871ecaf5d6c9d8a1c0a7520c2bb8cc97aeea687efd69327693c948da9de79d",
+    "decompressesByteExact": true,
+    "principlesResult": "737passed1skipped2failed; P24 version bump and P40 canonical label only",
+    "noRemoteUpdate": true
+  },
+  "authorityLimits": "Only granted metadata and nine atomic label fields; no goal/spec/PRD/agreement/execution requirement change; no tag/release/push/new experiment or runtime test added.",
+  "parsedTupleVerification": {
+    "tuple": [
+      "0.3.39",
+      "0.3.39",
+      "0.3.39",
+      "0.3.39"
+    ],
+    "jsonNonVersionFieldsEqual": true,
+    "pluginInstallBodyEqualExceptRAT_PLUGIN_VERSION": true,
+    "pluginInstallBodyAfterNormalizingVersionSha256": "2d7e8e5c4a5d82cb31d56178832f16a58f135c2c29877306383dfc771ce55ced",
+    "allKickoffOtherBytesEqualByReversingExplicitFieldEdits": true,
+    "allEightOriginalResearchGradeIntentsPreserved": true,
+    "s2fExplicitInheritedLabelAddedNow": true,
+    "parentUnchanged": true
+  },
+  "installedSourceMap": [
+    {
+      "path": "tests/install-sh/baselines/cargo/brownfield-clippy.fingerprint",
+      "sha256": "8f9f5856f579f04d2ce258d07697cd77b668b64b4725885e8c938c37c037b099",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/cargo/greenfield.fingerprint",
+      "sha256": "993d57e2c962f577fc064814dde65eb03ed7addba896ddc454dcb6c9fc8eb27d",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/go/brownfield-golangci.fingerprint",
+      "sha256": "d87939a33465d7499e06090b9b415dd811cf45a13adb25d3e617c08581f812c8",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/go/greenfield.fingerprint",
+      "sha256": "ddef381ad5a7c1a99f5271448a289bac066f2f05bb031fbbed9e3dea25d26ae4",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/brownfield-ruff.fingerprint",
+      "sha256": "9428aa211aee401b75c6824d7d3d1282297525ca17f16e696246e2e8890a98ec",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/brownfield-sgconfig.fingerprint",
+      "sha256": "34f0cecefbb6ddcec15ac3f4c562df5e74933dc6e0ee17710f7b9d6d3e3ed41a",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/greenfield.fingerprint",
+      "sha256": "57ec4b804ecef2e991ea8a2ecc6849757f13e674715070ed5b6aa03e88eedfb3",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-native/brownfield.fingerprint",
+      "sha256": "a00f931b73ef3567c340d08554230f65d626cda374857f0511642f22515e2f72",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-native/greenfield.fingerprint",
+      "sha256": "20a62e9fd942c90d0639c7cb713cf0f8ba3a8d20bb1c16c9e4ef315ec9ffb4f5",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-next/brownfield.fingerprint",
+      "sha256": "01e2fd4c41052b01431bda6f3e466ed91a235dbe2205d162b96920f31c244a2e",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-next/greenfield.fingerprint",
+      "sha256": "db24c4c8a8d234bc1bb6cc855247b63f246c6dadf42206d85f66213442291216",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-spa/brownfield.fingerprint",
+      "sha256": "c08e88b666ce0599564cc861813134899b627768248b7667262686142c8aed6c",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-spa/greenfield.fingerprint",
+      "sha256": "235190f3f464ce29f93e885b8701227223625ad3a95f24b056cfbc9642e9c042",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/ts-server/brownfield.fingerprint",
+      "sha256": "415a006a6990b285308ed68ee0991bc740c30ec1387750adef2a67bfa55bff98",
+      "sourceCandidates": []
+    },
+    {
+      "path": "tests/install-sh/baselines/ts-server/greenfield.fingerprint",
+      "sha256": "cbc0dc581a697c50660bd4f10a5a3ce9e87f236a6092a0061a012d4960ea1794",
+      "sourceCandidates": []
+    }
+  ],
+  "manifestMapping": {
+    "sha256": "f9ae8d0ecb3587cb201735ee79e591505bf63ba3aa2ed1e7d698337882bca37b",
+    "unchangedFromBase": true,
+    "sourcePathsPresent": [],
+    "normalPayloadList": [
+      "install.sh",
+      "setup",
+      "setup.d",
+      "agents",
+      "skills",
+      "templates",
+      ".agents/procedures",
+      ".agents/roles",
+      ".agents/rules",
+      ".agents/hooks",
+      ".agents/session-bootstrap.md",
+      ".agents/checks",
+      ".claude/hooks",
+      ".claude/skills",
+      ".claude/templates",
+      ".prettierrc.json",
+      "packages/core",
+      "packages/preset-next-15-canonical",
+      "packages/preset-react-spa",
+      "packages/preset-react-native",
+      "packages/runtime-bridge",
+      "scripts/check-ask-files.sh",
+      "scripts/run-local-ci-sweep.sh",
+      "scripts/check-husky-presence.sh",
+      "scripts/create-worktree.sh",
+      "scripts/worktree-node-modules.sh",
+      "scripts/link-coordination.sh",
+      "scripts/getff-work.sh",
+      "scripts/codex-hook-adapter.mjs",
+      "scripts/lib/is-main-entry.mjs",
+      "scripts/lib/codex-hooks.mjs",
+      "scripts/docs-check.mjs",
+      "scripts/render-terms-style.mjs",
+      "scripts/lib/mermaid-allowlist.mjs",
+      "scripts/snapshot-for-seat.sh",
+      "scripts/check-arch-retell.mjs",
+      "docs/site-quality",
+      "docs/site/terms.md",
+      "plugin/hooks/lib/hook-language.sh"
+    ],
+    "sourceRootIntersections": [],
+    "decision": "These12 metadata/kickoff paths enter neither npm payload nor15 installed baseline cells. No manifest write/check, snapshot capture/compare or other generation is causally required."
+  }
+}

@@ -38,7 +38,8 @@ recorded by the controller before dispatch. Reconcile actual origin/staging and 
 the pending TAK owner/driver remains a dependency, not an assumed installed runtime.
 
 Read AGENTS.md, README goal, .agents/session-bootstrap.md, CLAUDE.md, relevant canonical
-rules and S2 coordinator kickoff. L0 rigor: research-grade for protection evidence; keep
+rules and S2 coordinator kickoff.
+Rigor label (L0): `research-grade` for protection evidence; keep
 experiments proportional to this reversible two-source-file repair.
 
 ## AI traps and category challenge

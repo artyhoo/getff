@@ -98,7 +98,7 @@ weakening/restoration, self-application and limits. Commit own scope through nor
 
 ## Traps and category challenge
 
-L0: research-grade, proportional to decisions. Apply .agents/rules/ai-laziness-traps.md §2–§3:
+Rigor label (L0): `research-grade`, proportional to decisions. Apply .agents/rules/ai-laziness-traps.md §2–§3:
 **T3**, **T7**, **T10**, **T14**, **T15**, **T18**, **T19**, **T20**, **T22**. Enumerate actual
 checker/carrier/oracle boundaries and challenge which event, supported host, valid behavior,
 combined removal or new metacheck could be omitted or falsely green. Record the bounded answer.

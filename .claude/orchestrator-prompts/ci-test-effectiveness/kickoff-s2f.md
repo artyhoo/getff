@@ -68,6 +68,7 @@ scope, focused/full results, skips/failures, manifest and self-review. Normal ho
 
 ## Traps and destination verification
 
+Rigor label (L0): `research-grade` — inherited from parent kickoff-s2.md; made explicit during publication metadata closure.
 L0 proportional evidence. Apply ai-laziness-traps.md §2–§3 **T3**, **T7**, **T10**, **T14**,
 **T15**, **T18**, **T19**, **T20**, **T22**; challenge protection loss via changedN/assertions,
 false tool coverage and timeout-vs-performance claims. Two failed approaches change method;
