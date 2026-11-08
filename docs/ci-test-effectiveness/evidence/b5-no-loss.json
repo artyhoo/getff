@@ -1,0 +1,20 @@
+{
+  "inputCommit": "960e980e9a60cc5196976339eb1d3754184c8b7b",
+  "unchangedAstgrepDiagnosticAndOtherLaneTailSHA256": "02ec829f3cd07bc4ec84accf8d9f6e23ad511e6bb2902d0a90c41409ef4cb0b2",
+  "s5OutsideAvailabilityBlock": "byte-identical to input",
+  "originalHarnessAssertionsRetained": 42,
+  "originalHarnessSummary": "42 pass,0 fail; all original recorded diagnostics and expected semantic outcomes unchanged",
+  "manifest": {
+    "sameEntries": 1667,
+    "changedEntries": [
+      "packages/core/hooks/pre-push.consumer-layout.test.ts",
+      "packages/core/synthesizer/run-rule-tests-firing.sh",
+      "packages/core/synthesizer/run-rule-tests-firing.test.sh"
+    ],
+    "generator": "PATH=/workspace/getff-tools/bin:$PATH bash scripts/build-getff-dist.sh",
+    "check": "host contract archive parity1672 entries / manifest1667"
+  },
+  "fixtureChange": "sg transport answers --version ast-grep0.44.1 and scan --help0 without consuming diagnostic shots. Canonical/ruff/cargo shims retain prior semantics; no expectations weakened.",
+  "unchangedCI": "principles-meta-tests hard installs @ast-grep/cli@0.44.1 at step5 before test:hooks at17; workflow byte-identical",
+  "actualBoundary": "Actual Bash runner receives isolated consumer tree, uses fixed recorded JSON or incompatible sg stdout/status; no duplicate runner/predicate used by expected results."
+}

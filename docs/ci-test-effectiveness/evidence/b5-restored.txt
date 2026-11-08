@@ -1,0 +1,95 @@
+arm sg-a: exit 0 + warning-severity match on bad[] — must count as FIRED
+  ok: sg-a run exits 0 (sound material) (rc=0)
+  ok: sg-a bad sample read as fired RED
+  ok: sg-a good sample clean
+arm sg-b: exit 0 + warning-severity match on good[] — must count as over-fire
+  ok: sg-b run exits 1 (over-fire is broken material) (rc=1)
+  ok: sg-b bad sample fired RED
+  ok: sg-b good sample read as over-fire
+arm sg-c: exit 8 (unparseable rule YAML) — rule invalid, never fired
+  ok: sg-c run exits 1 (rule invalid is RED) (rc=1)
+  ok: sg-c verdict is rule invalid
+  ok: sg-c no sample counted as fired
+arm sg-d: exit 0 + [] — good clean, bad honestly did NOT fire
+  ok: sg-d run exits 1 (bad[] blind = broken material) (rc=1)
+  ok: sg-d good sample clean
+  ok: sg-d bad sample honestly did NOT fire
+arm sg-impostor: util-linux-like sg returns help0 but is not ast-grep
+  ok: sg-impostor exits 0 (unverified, not broken material) (rc=0)
+  ok: sg-impostor explicit absence
+  ok: sg-impostor skip is NOT green
+  ok: sg-impostor never fires
+  ok: sg-impostor never rejects rule artifact
+  ok: sg-impostor never scans samples
+  ok: sg-canonical sound material exits 0 (rc=0)
+  ok: sg-canonical bad fires
+  ok: sg-canonical good clean
+  ok: sg-canonical not degraded by wrong alias
+arm sg-alias: legitimate alias preserves structured firing and rejection outcomes
+  ok: sg-alias sound material exits 0 (rc=0)
+  ok: sg-alias warning at rc0 fires
+  ok: sg-alias good clean
+  ok: sg-alias is verified
+  ok: sg-alias blind material exits 1 (rc=1)
+  ok: sg-alias blind bad rejected
+  ok: sg-alias blind not skipped
+  ok: sg-alias over-fire exits 1 (rc=1)
+  ok: sg-alias conforming sample rejected
+  ok: sg-alias invalid rule exits 1 (rc=1)
+  ok: sg-alias invalid artifact stays RED
+  ok: sg-alias invalid artifact never fired
+  ok: sg-alias invalid artifact never skipped
+arm sg-version-error: failed capability probe leaves alias unverified
+  ok: sg-version-error exits 0 (unverified) (rc=0)
+  ok: sg-version-error explicit absence
+  ok: sg-version-error not an artifact rejection
+arm sg-help-error: failed capability probe leaves alias unverified
+  ok: sg-help-error exits 0 (unverified) (rc=0)
+  ok: sg-help-error explicit absence
+  ok: sg-help-error not an artifact rejection
+arm sg-absent: neither canonical name nor alias is installed
+  ok: sg-absent exits 0 (rc=0)
+  ok: sg-absent explicit unverified state
+  ok: sg-absent skip is NOT green
+  ok: sg-absent never fired
+arm ru-a: exit 1 + TID251 on bad[] — fired RED; good[] quiet — clean
+  ok: ru-a run exits 0 (sound material) (rc=0)
+  ok: ru-a bad sample read as fired RED
+  ok: ru-a good sample clean
+arm ru-b: exit 1 + code:null (syntax error) — sample invalid on both arms, never fired
+  ok: ru-b run exits 1 (sample invalid is RED) (rc=1)
+  ok: ru-b bad[] sample invalid
+  ok: ru-b good[] sample invalid
+  ok: ru-b no sample counted as fired
+arm ru-c: exit 2 (config error) — rule invalid, never fired
+  ok: ru-c run exits 1 (rule invalid is RED) (rc=1)
+  ok: ru-c verdict is rule invalid
+  ok: ru-c no sample counted as fired
+arm ru-d: exit 0 + [] — good clean, bad honestly did NOT fire
+  ok: ru-d run exits 1 (bad[] blind = broken material) (rc=1)
+  ok: ru-d good sample clean
+  ok: ru-d bad sample honestly did NOT fire
+arm ca-a: warning-level clippy::disallowed_methods + rc 0 — fired
+  ok: ca-a run exits 0 (sound material) (rc=0)
+  ok: ca-a bad sample read as fired RED
+  ok: ca-a good sample clean
+arm ca-b: rc≠0 + E0433 only — sample invalid on both arms, never fired
+  ok: ca-b run exits 1 (sample invalid is RED) (rc=1)
+  ok: ca-b bad[] sample invalid
+  ok: ca-b good[] sample invalid
+  ok: ca-b no sample counted as fired
+arm ca-c: dead_code-only warning + rc 0 — good clean, bad honestly did NOT fire
+  ok: ca-c run exits 1 (bad[] blind = broken material) (rc=1)
+  ok: ca-c good sample clean (dead_code is not the ban firing)
+  ok: ca-c bad sample honestly did NOT fire
+arm ca-d: heterogeneous NDJSON — noise skipped, compiler-message still read
+  ok: ca-d run exits 0 (noise tolerated, code read) (rc=0)
+  ok: ca-d bad sample fired RED despite noise lines
+  ok: ca-d good sample clean
+arm ca-e: good[] shot emits a CODELESS level:error diagnostic + rc 101 — sample invalid
+  ok: ca-e run exits 1 (sample invalid is RED) (rc=1)
+  ok: ca-e bad sample read as fired RED
+  ok: ca-e good[] sample invalid (codeless compiler error)
+  ok: ca-e uncompilable good[] NOT reported clean
+
+run-rule-tests-firing.test.sh: PASS=75 FAIL=0 (lanes exercised via shim: astgrep, ruff, cargo)
