@@ -45,6 +45,13 @@ export function checkPins(text: string): string[] {
   // One literal assignment spelling is allowed in the whole source, including examples;
   // this is a static source convention, not an attempt to interpret Bash.
   const assignments = [...text.matchAll(/(?<![A-Za-z0-9_])CORE_DEVDEPS(?:\[[^\]\n]*\])?\+?=/g)];
+  // Indexed sites can hide writes behind nested brackets or parameter expansion.
+  // Only the installer's exact read-only expansion is admitted by this static convention.
+  const indexed = [...text.matchAll(/(?<![A-Za-z0-9_])CORE_DEVDEPS\[/g)];
+  if (indexed.some(match => {
+    const i = match.index ?? -1;
+    return text.slice(i - 2, i) !== '${' || !text.startsWith('@]}', i + 'CORE_DEVDEPS['.length);
+  })) return ['F: unsupported indexed CORE_DEVDEPS site'];
   const blocks = [...text.matchAll(/^CORE_DEVDEPS=\([ \t]*\n([\s\S]*?)^\)(?:[ \t]+(?:#.*)?)?$/gm)];
   if (assignments.length !== 1 || blocks.length !== 1) return ['F: expected exactly one CORE_DEVDEPS block'];
   const errors: string[] = [];

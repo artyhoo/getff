@@ -196,3 +196,22 @@ describe('Arm F structural shell boundaries', () => {
     });
   }
 });
+
+describe('Arm F indexed source convention', () => {
+  const canonical = 'CORE_DEVDEPS=(\n  a@^1 # why: long enough explanation\n)\n';
+  for (const statement of [
+    'CORE_DEVDEPS[indices[0]]=bad@^1',
+    'CORE_DEVDEPS[levels[a[b[0]]]]=bad@^1',
+    'CORE_DEVDEPS[indices[\n0]]=bad@^1',
+    '${CORE_DEVDEPS[1]:=bad@^1}',
+    '${CORE_DEVDEPS[@]:=bad@^1}',
+  ]) {
+    it(`rejects nested indexed assignment: ${statement}`, () => {
+      expect(checkPins(canonical + statement + '\n')).not.toEqual([]);
+    });
+  }
+  it('accepts the installer read expansions and the live block', () => {
+    expect(checkPins(canonical + 'DEVDEPS=( "${CORE_DEVDEPS[@]}" )\nfor spec in "${CORE_DEVDEPS[@]}"; do :; done\n')).toEqual([]);
+    expect(checkPins(pins)).toEqual([]);
+  });
+});
