@@ -294,6 +294,7 @@ if [ "$(detect_pm)" = pnpm ] && [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
   _deps_ws_pnpm=1
 fi
 _deps_has_rn=""
+_deps_ws_requires_membership=""
 [ "$STACK" = react-native ] && _deps_has_rn=1
 _deps_workspace_specs() {
   local dir="$1" stack="$2" template=""
@@ -319,6 +320,7 @@ if [ -n "$_deps_ws_lines" ]; then
   while IFS=$'\t' read -r _deps_dir _deps_stack _deps_provenance; do
     [ -n "$_deps_dir" ] || continue
     _deps_workspace_specs "$_deps_dir" "$_deps_stack"
+    [ -z "${DEPS_WORKSPACE_SPECS[*]-}" ] || _deps_ws_requires_membership=1
     if [ "$_deps_stack" = react-native ] && [ -n "${DEPS_WORKSPACE_SPECS[*]-}" ]; then _deps_has_rn=1; fi
     if [ -z "$_deps_ws_pnpm" ]; then
       for _deps_spec in ${DEPS_WORKSPACE_SPECS[@]+"${DEPS_WORKSPACE_SPECS[@]}"}; do
@@ -479,7 +481,8 @@ if [ "$_do_dep_install" = "yes" ]; then
     _deps_pnpm_workspace_install() {
       local dir stack prov declared spec name version members real_dir
       local wanted=()
-      [ -n "$_deps_ws_lines" ] || return 0
+      # The prescan found no delivered preset that needs workspace-specific packages.
+      [ -n "$_deps_ws_requires_membership" ] || return 0
       # The generic config resolver also sees directories excluded by pnpm's
       # workspace manifest. Ask pnpm for the actual membership; an unreadable
       # or malformed answer must fail closed, never mean "no members".
