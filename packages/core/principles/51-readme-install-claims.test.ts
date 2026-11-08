@@ -122,3 +122,17 @@ describe('reviewed bypass regressions', () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+describe('extractor and list continuation parity', () => {
+  it('rejects a sole indented block opener', () => {
+    expect(checkPins('  CORE_DEVDEPS=(\n  a@^1 # why: long enough explanation\n)\n')).not.toEqual([]);
+  });
+  it('rejects a sole indented block closer', () => {
+    expect(checkPins('CORE_DEVDEPS=(\n  a@^1 # why: long enough explanation\n  )\n')).not.toEqual([]);
+  });
+  for (const arm of ['A', 'B', 'C', 'D'] as const) {
+    it(`${arm}: rejects a non-slug list continuation`, () => {
+      expect(checkClaim(arm, `${form(arm)}, \`ghost_skill\``, expected[arm])).not.toEqual([]);
+    });
+  }
+});
