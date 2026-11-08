@@ -9,11 +9,13 @@
   "finalCommit": "Controller records final commit to avoid self-reference",
   "specificationSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
   "inputSourceHashes": {
-    ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4"
+    ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+    "packages/getff/MANIFEST.sha256": "e948c9a54d6f2199f67ba01096d43b375f97da428c5caee6e06f1745e50f8d1c"
   },
   "outputSourceHashes": {
     ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
-    "packages/core/hooks/autonomy-binding-lifecycle.test.ts": "f741bbc5a5273d63cfe678c0e28d16652e6cd6a52c99f6a3d370fd17304439ef"
+    "packages/core/hooks/autonomy-binding-lifecycle.test.ts": "f741bbc5a5273d63cfe678c0e28d16652e6cd6a52c99f6a3d370fd17304439ef",
+    "packages/getff/MANIFEST.sha256": "f8c43126ffdd08ce07996216bfb9cfcc25f7acc79c9b7c465bf9348179807069"
   },
   "repair": "Native unconditional after hook closes listener and destroys accepted sockets; final aftermath preserves whole-run TCP AND HTTP assertions.",
   "protectedCases": [
@@ -63,6 +65,18 @@
       "phase": "held weakening/restoration",
       "result": "See b2-conformance.json; held final test SHA frozen",
       "raw": "b2-conformance.json"
+    },
+    {
+      "command": "bash scripts/build-getff-dist.sh",
+      "exitStatus": 0,
+      "raw": "docs/ci-test-effectiveness/evidence/b2-dist-regeneration.txt",
+      "result": "1665 payload files; check also verifies actual1670-file npm archive including metadata"
+    },
+    {
+      "command": "bash scripts/build-getff-dist.sh --check",
+      "exitStatus": 0,
+      "raw": "docs/ci-test-effectiveness/evidence/b2-dist-check.txt",
+      "result": "1665 payload files; check also verifies actual1670-file npm archive including metadata"
     }
   ],
   "recurringCost": {
@@ -83,7 +97,8 @@
     "Two harmless selections, no-match, full-run, TCP and isolated HTTP aftermath enumerated; not every possible selection or earlier assertion path enumerated.",
     "Timeout watchdog is failure/hang classification, never assertion success. Host/process/Node correctness and frozen reviewed expected statuses form finite trusted boundary.",
     "Deleting mechanism and test or changing held expectations together can yield false green; independent root review and TAK remain required.",
-    "Native full Node suite durable broad routing is D07; test:hooks carries this narrow recurring control, not the full autonomy matrix."
+    "Native full Node suite durable broad routing is D07; test:hooks carries this narrow recurring control, not the full autonomy matrix.",
+    "Build check emits existing npm gitignore-fallback warnings; package archive validation still exits0."
   ],
   "rollback": "Revert B2 commit with normal hooks; reopens D05 hangs. No product authority/schema migration.",
   "exactFiles": [
@@ -105,7 +120,10 @@
     "docs/ci-test-effectiveness/evidence/b2-restoration.txt",
     "docs/ci-test-effectiveness/evidence/b2-setup-failure.txt",
     "docs/ci-test-effectiveness/evidence/b2-socket-weakening.txt",
-    "docs/ci-test-effectiveness/evidence/b2-weakening.txt"
+    "docs/ci-test-effectiveness/evidence/b2-weakening.txt",
+    "packages/getff/MANIFEST.sha256",
+    "docs/ci-test-effectiveness/evidence/b2-dist-regeneration.txt",
+    "docs/ci-test-effectiveness/evidence/b2-dist-check.txt"
   ],
   "rawEvidenceHashes": {
     "docs/ci-test-effectiveness/evidence/b2-conformance-run.txt": "102532abd2d98d8aee0a62821f06930d31845c632e8dde61d9a91f0b2fc91899",
@@ -122,6 +140,14 @@
     "docs/ci-test-effectiveness/evidence/b2-restoration.txt": "b768120181af38e79474bdf45b0df27d3a9e3bd8bc64c843c1ce23d751777dbf",
     "docs/ci-test-effectiveness/evidence/b2-setup-failure.txt": "105519f7a6d85dd226cd0ed792695449c6cd149187580549a01265a2b956ef9d",
     "docs/ci-test-effectiveness/evidence/b2-socket-weakening.txt": "92c4d43a42021a6aaf55fbf9226b124993fd43311d6da54c77e7d08226591d28",
-    "docs/ci-test-effectiveness/evidence/b2-weakening.txt": "551998430633faf6c4b1ae56436c0958e90ff22ff1cb93746903a210678997a0"
-  }
+    "docs/ci-test-effectiveness/evidence/b2-weakening.txt": "551998430633faf6c4b1ae56436c0958e90ff22ff1cb93746903a210678997a0",
+    "docs/ci-test-effectiveness/evidence/b2-dist-regeneration.txt": "726373d6e579153076eb52ff914952dc86fcfafdc4f493c89e21652a116b3455",
+    "docs/ci-test-effectiveness/evidence/b2-dist-check.txt": "e21f2b2dfea9ded373c803dde309785ac6354069d01cb6a4fdc952a7453f412b"
+  },
+  "distributionScopeRuling": "Controller extended allowlist only packages/getff/MANIFEST.sha256: shipped-source byte closure. Generated with existing build-getff-dist; no manual hash edits.",
+  "distributionChanges": [
+    "updated autonomy-binding.test.mjs SHA256",
+    "added autonomy-binding-lifecycle.test.ts SHA256",
+    "updated preexisting stale B1 run-local-ci-sweep.sh hash as normal generated output; accepted B1 source unchanged"
+  ]
 }
