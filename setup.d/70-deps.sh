@@ -204,8 +204,8 @@ merge_canonical_scripts install
 # the newest line whose engines.node admits the node-20.19 brownfield floor (the "brownfield
 # consumers may keep an older 20.19+ .nvmrc" note below); tilde = engines-forced below registry latest.
 CORE_DEVDEPS=(
-  eslint@^9 # why: eslint-plugin-jsx-a11y 6.10.2 peers eslint only through major 9; React stacks share this array (2026-10-01)
-  typescript-eslint@^8.59 # why: current major 8 supports the eslint and TypeScript ranges used here (npm view 2026-11-08)
+  eslint@^9 # why: eslint-plugin-jsx-a11y 6.10.2 peers eslint only through major 9; React stacks share this array, measured 2026-10-01
+  typescript-eslint@^8.59 # why: current major 8 supports the eslint and TypeScript ranges used here, per npm view 2026-11-08
   @eslint/js@^9 # why: its major must match eslint; major 10 peers eslint major 10
   @typescript-eslint/utils@^8.62.0 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
   globals@^17.7.0 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19

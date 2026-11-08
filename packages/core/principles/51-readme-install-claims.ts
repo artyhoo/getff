@@ -61,6 +61,7 @@ export function checkPins(text: string): string[] {
     if (marker > 0 && !/\s/.test(line[marker - 1])) errors.push('F: # is not a shell comment boundary');
     const [code, ...commentParts] = line.split('#');
     const comment = commentParts.join('#');
+    if (marker >= 0 && /\)\s*$/.test(comment)) errors.push('F: comment ends in a closing parenthesis');
     if (/(?:@[\w.-]+\/)?[\w.-]+@[\w.*^~<>=+-]+|[\w./-]+\.(?:c|m)?js\b/.test(comment)) errors.push('F: comment contains a package spec or JS token');
     if (!code.trim()) continue;
     const specs = code.trim().split(/\s+/);

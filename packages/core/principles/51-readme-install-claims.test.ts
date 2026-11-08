@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkClaim, uncheckedCounts, checkPins } from './51-readme-install-claims';
+import { checkClaim, uncheckedCounts, checkPins } from './51-readme-install-claims.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const roster = await import(join(root, 'scripts/render-install-roster.mjs'));
@@ -18,7 +18,7 @@ const skills = roster.shippedSkills(root);
 const expected = { A: agents, B: factory, C: [...skills.core, ...skills.envContour], D: tiers.readSkillTiers(root).factory };
 const readme = readFileSync(join(root, 'README.md'), 'utf8');
 const pins = readFileSync(join(root, 'setup.d/70-deps.sh'), 'utf8');
-const form = (arm: keyof typeof expected, names = expected[arm], count = names.length) => {
+const form = (arm: keyof typeof expected, names: string[] = expected[arm], count = names.length) => {
   const list = names.map(x => `\`${x}\``).join(arm === 'B' ? ' + ' : ', ');
   return ({ A: `${count} shipped by default: ${list}`, B: `${count} more agents ship only under \`--profile factory\`: ${list}`, C: `${count} skills at the default \`env\` profile: ${list}`, D: `\`--profile factory\` adds ${count} more skills: ${list}` })[arm];
 };
@@ -213,5 +213,23 @@ describe('Arm F indexed source convention', () => {
   it('accepts the installer read expansions and the live block', () => {
     expect(checkPins(canonical + 'DEVDEPS=( "${CORE_DEVDEPS[@]}" )\nfor spec in "${CORE_DEVDEPS[@]}"; do :; done\n')).toEqual([]);
     expect(checkPins(pins)).toEqual([]);
+  });
+});
+
+describe('Arm F installer dependency-name parser boundary', () => {
+  const pin = 'a@^1 # why: the supported release line';
+  for (const line of [
+    `${pin} (verified)`,
+    `${pin} (verified)  `,
+    '# Plain comment ending in a parenthesis (verified)',
+    '# Plain comment ending in a parenthesis (verified)  ',
+  ]) {
+    it(`rejects a comment line ending in a closing parenthesis: ${line}`, () => {
+      const lines = line.startsWith('#') ? `  ${pin}\n  ${line}` : `  ${line}`;
+      expect(checkPins(`CORE_DEVDEPS=(\n${lines}\n)\n`)).not.toEqual([]);
+    });
+  }
+  it('accepts a closing parenthesis within a comment followed by text', () => {
+    expect(checkPins(`CORE_DEVDEPS=(\n  ${pin} (verified) today\n)\n`)).toEqual([]);
   });
 });
