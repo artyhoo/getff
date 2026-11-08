@@ -1,0 +1,72 @@
+markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)
+Finding: docs/meta-factory/prior-art-evaluations.md
+Linting: 1 file
+Summary: 0 issues in 0 files
+check-line-citations: 4 unresolvable citation(s) in code files not listed (--show-skips lists them).
+
+check-line-citations: resolved 7 / skipped 4 citation(s).
+[codex/ci-test-effectiveness-native 4661ac3d] fix(ci): require actual test invocations and route native suites
+ 74 files changed, 8323 insertions(+), 664 deletions(-)
+ create mode 100644 docs/ci-test-effectiveness/batches/b7.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-advisor-before.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-advisor-before.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-environment.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-eslint.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-final-source-hashes.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-conformance.py
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-dead.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-disabled-detector.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-good.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-initial.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-misleading.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-missing-script-target.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-missing-script.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-missing-sibling.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-new-population.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-population-followup.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-printed.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-quoted-env-variant.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-removed.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held-restored.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-held.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-actionlint.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-advisor.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-next-canonical.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-nonlinux-local-limit.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-principles-final.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-principles.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-reverse-coverage-final.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-reverse-coverage.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-runtime-bridge.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-source-node.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-source-python.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-sweep.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host-verify.py
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-host.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-initial-red.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-manifest-check.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-manifest-generate.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-native-list-core.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-native-list-preset-next-15-canonical.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-native-list-preset-react-native.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-native-list-preset-react-spa.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-native-list-runtime-bridge.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-native-population-match.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-native-source-hashes.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-owner-reconciliation.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-population-reconciliation.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-principles-green-attempt.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-principles-green.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-prior-art-context7.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-reverse-missing-siblings-red.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-static-population.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-sweep-after-stub.tsv
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-sweep-after.tsv
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-sweep-before-stub.tsv
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-sweep-before.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-sweep-before.tsv
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-sweep-missing-siblings.tsv
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-sweep-no-loss.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-validation-summary.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b7-windows-scope.json
+ create mode 100644 packages/core/principles/ci-test-invocations.ts
