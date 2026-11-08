@@ -71,6 +71,17 @@ members fails. A structural source match cannot establish runtime behavior. A du
 that ignores environment/source/trigger differences fails. A passing suite after a reached fault
 is a demonstrated sensitivity gap, not proof of protection. An inaccessible remote is unknown.
 
+## Native execution route selected by the operator
+
+On 2026-11-08 the operator selected “го без аиф” (proceed without AIF).
+Execute through native subagents in an isolated checkout, with the same S1→S2 and independent
+acceptance gates. Factory-only staging placement, AIF project/claim and container probes do
+not block this selected native route. Reconcile actual remote/GitHub work and TAK before
+starting; retain the agreed intent/spec authority and never claim an AIF task exists.
+The staging-before-launch paragraph below remains the factory-route contract. Normal Git/PR
+integration still applies to delivered native results. This is a transport ruling, not a
+change to scope, protection quality, evidence, metatests or stage acceptance.
+
 ## Shared authority and execution contract
 
 Feature: `ci-test-effectiveness`. Read `docs/superpowers/specs/2026-11-08-ci-test-effectiveness-design.md` in full, SHA-256 `77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a`.
