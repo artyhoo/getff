@@ -136,3 +136,16 @@ describe('extractor and list continuation parity', () => {
     });
   }
 });
+
+describe('active array and factory option bypasses', () => {
+  const canonical = 'CORE_DEVDEPS=(\n  a@^1 # why: long enough explanation\n)\n';
+  it('rejects an appended active array assignment', () => {
+    expect(checkPins(canonical + 'CORE_DEVDEPS+=(bad@^1)\n')).not.toEqual([]);
+  });
+  it('rejects a declared active array assignment', () => {
+    expect(checkPins(canonical + 'declare -a CORE_DEVDEPS=(bad@^1)\n')).not.toEqual([]);
+  });
+  it('rejects a different factory option value', () => {
+    expect(checkClaim('B', form('B').replace('factory`', 'factory-reset`'), factory)).not.toEqual([]);
+  });
+});

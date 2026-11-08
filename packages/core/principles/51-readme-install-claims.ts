@@ -19,7 +19,7 @@ export function checkClaim(arm: Arm, text: string, expected: string[]): string[]
   const errors: string[] = [];
   const tail = section(text).slice((match.index ?? 0) + match[0].length);
   if (/^\s*(?:[,;+|/]\s*|(?:and|or)\s+)?`[^`\r\n]+`/.test(tail)) errors.push(`${arm}: malformed list continuation`);
-  if (arm === 'B' && !match[2].includes('--profile factory')) errors.push('B: missing --profile factory');
+  if (arm === 'B' && !/(?:^|[\s`(])--profile[ \t]+factory(?=$|[\s`),.;:])/.test(match[2])) errors.push('B: missing --profile factory');
   if (Number(match[1]) !== names.length || names.length !== expected.length) errors.push(`${arm}: inconsistent count or list length`);
   if (new Set(names).size !== names.length) errors.push(`${arm}: duplicate names`);
   const missing = expected.filter(x => !names.includes(x));
@@ -42,7 +42,7 @@ export function uncheckedCounts(text: string, live = false): string[] {
   return errors;
 }
 export function checkPins(text: string): string[] {
-  const assignments = [...text.matchAll(/^[ \t]*CORE_DEVDEPS=\(/gm)];
+  const assignments = [...text.matchAll(/^[ \t]*(?:declare[ \t]+(?:-[A-Za-z]+[ \t]+)*)?CORE_DEVDEPS\+?=\(/gm)];
   const blocks = [...text.matchAll(/^CORE_DEVDEPS=\([ \t]*\n([\s\S]*?)^\)/gm)];
   if (assignments.length !== 1 || blocks.length !== 1) return ['F: expected exactly one CORE_DEVDEPS block'];
   const errors: string[] = [];
