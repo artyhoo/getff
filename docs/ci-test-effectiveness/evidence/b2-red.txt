@@ -1,0 +1,186 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts (5 tests | 5 failed) 40178ms
+     × releases the listener when no case matches 8043ms
+     × releases the listener with one harmless selected case 8029ms
+     × releases the listener with a distinct harmless selection 8044ms
+     × reaches the TCP prohibition and exits nonzero after assertion failure 8034ms
+     × retains the separate HTTP prohibition and cleans up its failing aftermath 8021ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > releases the listener when no case matches
+AssertionError: watchdog/spawn failure: spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT
+: expected Error: spawnSync /opt/codex/runtimes/code… { …(5) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+Error {
+  "message": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT",
+  "errno": -110,
+  "code": "ETIMEDOUT",
+  "syscall": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "spawnargs": [
+    "--test",
+    "--test-name-pattern=^B2-no-such-case$",
+    "/workspace/getff-native/.agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+  ],
+}
+
+ ❯ finished packages/core/hooks/autonomy-binding-lifecycle.test.ts:37:94
+     35|
+     36| function finished(result: ReturnType<typeof run>, expectedStatus: numb…
+     37|   expect(result.error, `watchdog/spawn failure: ${result.error?.messag…
+       |                                                                                              ^
+     38|   expect(result.signal, result.stderr).toBeNull();
+     39|   expect(result.status, result.stdout + result.stderr).toBe(expectedSt…
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:51:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > releases the listener with one harmless selected case
+AssertionError: watchdog/spawn failure: spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT
+▶ A1 composed repair
+  ✔ A1 CQ round1: pure record construction does not certify a caller-supplied home (14.019657ms)
+✔ A1 composed repair (19.829102ms)
+: expected Error: spawnSync /opt/codex/runtimes/code… { …(5) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+Error {
+  "message": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT",
+  "errno": -110,
+  "code": "ETIMEDOUT",
+  "syscall": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "spawnargs": [
+    "--test",
+    "--test-name-pattern=^A1 CQ round1: pure record construction does not certify a caller-supplied home$",
+    "/workspace/getff-native/.agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+  ],
+}
+
+ ❯ finished packages/core/hooks/autonomy-binding-lifecycle.test.ts:37:94
+     35|
+     36| function finished(result: ReturnType<typeof run>, expectedStatus: numb…
+     37|   expect(result.error, `watchdog/spawn failure: ${result.error?.messag…
+       |                                                                                              ^
+     38|   expect(result.signal, result.stderr).toBeNull();
+     39|   expect(result.status, result.stdout + result.stderr).toBe(expectedSt…
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:56:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > releases the listener with a distinct harmless selection
+AssertionError: watchdog/spawn failure: spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT
+▶ A1 composed repair
+  ✔ A1 CQ round1: malformed authority home selection provenance is rejected (5.86509ms)
+✔ A1 composed repair (9.513155ms)
+: expected Error: spawnSync /opt/codex/runtimes/code… { …(5) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+Error {
+  "message": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT",
+  "errno": -110,
+  "code": "ETIMEDOUT",
+  "syscall": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "spawnargs": [
+    "--test",
+    "--test-name-pattern=^A1 CQ round1: malformed authority home selection provenance is rejected$",
+    "/workspace/getff-native/.agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+  ],
+}
+
+ ❯ finished packages/core/hooks/autonomy-binding-lifecycle.test.ts:37:94
+     35|
+     36| function finished(result: ReturnType<typeof run>, expectedStatus: numb…
+     37|   expect(result.error, `watchdog/spawn failure: ${result.error?.messag…
+       |                                                                                              ^
+     38|   expect(result.signal, result.stderr).toBeNull();
+     39|   expect(result.status, result.stdout + result.stderr).toBe(expectedSt…
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:63:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > reaches the TCP prohibition and exits nonzero after assertion failure
+AssertionError: watchdog/spawn failure: spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT
+✖ row 13 aftermath: zero accepted connections and zero requests across the whole run, then the recorder closes (9.08267ms)
+: expected Error: spawnSync /opt/codex/runtimes/code… { …(5) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+Error {
+  "message": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT",
+  "errno": -110,
+  "code": "ETIMEDOUT",
+  "syscall": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "spawnargs": [
+    "--test",
+    "--test-name-pattern=^row 13 aftermath:",
+    "/tmp/b2-lifecycle-X8MiOT/case-6GtgCl/pipeline/helpers/autonomy-binding.test.mjs",
+  ],
+}
+
+ ❯ finished packages/core/hooks/autonomy-binding-lifecycle.test.ts:37:94
+     35|
+     36| function finished(result: ReturnType<typeof run>, expectedStatus: numb…
+     37|   expect(result.error, `watchdog/spawn failure: ${result.error?.messag…
+       |                                                                                              ^
+     38|   expect(result.signal, result.stderr).toBeNull();
+     39|   expect(result.status, result.stdout + result.stderr).toBe(expectedSt…
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:71:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > retains the separate HTTP prohibition and cleans up its failing aftermath
+AssertionError: watchdog/spawn failure: spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT
+✖ row 13 aftermath: zero accepted connections and zero requests across the whole run, then the recorder closes (14.125803ms)
+: expected Error: spawnSync /opt/codex/runtimes/code… { …(5) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+Error {
+  "message": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT",
+  "errno": -110,
+  "code": "ETIMEDOUT",
+  "syscall": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "spawnargs": [
+    "--test",
+    "--test-name-pattern=^row 13 aftermath:",
+    "/tmp/b2-lifecycle-X8MiOT/case-Vdr3D7/pipeline/helpers/autonomy-binding.test.mjs",
+  ],
+}
+
+ ❯ finished packages/core/hooks/autonomy-binding-lifecycle.test.ts:37:94
+     35|
+     36| function finished(result: ReturnType<typeof run>, expectedStatus: numb…
+     37|   expect(result.error, `watchdog/spawn failure: ${result.error?.messag…
+       |                                                                                              ^
+     38|   expect(result.signal, result.stderr).toBeNull();
+     39|   expect(result.status, result.stdout + result.stderr).toBe(expectedSt…
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:84:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  16:04:10
+   Duration  40.67s (transform 50ms, setup 41ms, import 42ms, tests 40.18s, environment 0ms)
+

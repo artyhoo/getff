@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/getff-native/docs/ci-test-effectiveness/evidence/b2-conformance.py", line 40, in <module>
+    assert result.returncode == 1 and results[-1]['reachedDisabledCleanup'] and results[-1]['sawTCPAssertion'] and results[-1]['watchdogDetected']
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

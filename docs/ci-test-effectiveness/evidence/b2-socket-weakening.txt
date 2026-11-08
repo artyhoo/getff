@@ -1,0 +1,76 @@
+
+ RUN  v4.1.8 /tmp/b2-held-afs1l1dv
+
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts (5 tests | 1 failed | 4 skipped) 8047ms
+     ↓ releases the listener when no case matches
+     ↓ releases the listener with one harmless selected case
+     ↓ releases the listener with a distinct harmless selection
+     × reaches the TCP prohibition and exits nonzero after assertion failure 8042ms
+     ↓ retains the separate HTTP prohibition and cleans up its failing aftermath
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  16:07:51
+   Duration  8.45s (transform 55ms, setup 0ms, import 84ms, tests 8.05s, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > reaches the TCP prohibition and exits nonzero after assertion failure
+AssertionError: watchdog/spawn failure: spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT
+TAP version 13
+# B2 reached disabled cleanup
+# Subtest: row 13 aftermath: zero accepted connections and zero requests across the whole run, then the recorder closes
+not ok 1 - row 13 aftermath: zero accepted connections and zero requests across the whole run, then the recorder closes
+  ---
+  duration_ms: 37.271697
+  type: 'test'
+  location: '/tmp/b2-lifecycle-i92z5g/case-mfYsst/pipeline/helpers/autonomy-binding.test.mjs:4324:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    no TCP connection may reach the recorder (1 did)
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/b2-lifecycle-i92z5g/case-mfYsst/pipeline/helpers/autonomy-binding.test.mjs:4330:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+: expected Error: spawnSync /opt/codex/runtimes/code… { …(5) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+Error {
+  "message": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT",
+  "errno": -110,
+  "code": "ETIMEDOUT",
+  "syscall": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "spawnargs": [
+    "--test",
+    "--test-reporter=tap",
+    "--test-name-pattern=^row 13 aftermath:",
+    "/tmp/b2-lifecycle-i92z5g/case-mfYsst/pipeline/helpers/autonomy-binding.test.mjs",
+  ],
+}
+
+ ❯ finished packages/core/hooks/autonomy-binding-lifecycle.test.ts:37:94
+     35|
+     36| function finished(result: ReturnType<typeof run>, expectedStatus: numb…
+     37|   expect(result.error, `watchdog/spawn failure: ${result.error?.messag…
+       |                                                                                              ^
+     38|   expect(result.signal, result.stderr).toBeNull();
+     39|   expect(result.status, result.stdout + result.stderr).toBe(expectedSt…
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:69:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

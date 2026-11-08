@@ -1,0 +1,13 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/hooks/autonomy-binding-lifecycle.test.ts (5 tests) 1657ms
+     ✓ releases the listener when no case matches  369ms
+     ✓ releases the listener with one harmless selected case  365ms
+     ✓ releases the listener with a distinct harmless selection  368ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  16:06:31
+   Duration  1.98s (transform 55ms, setup 47ms, import 28ms, tests 1.66s, environment 0ms)
+

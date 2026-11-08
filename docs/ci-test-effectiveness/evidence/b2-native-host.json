@@ -1,0 +1,11 @@
+{
+  "command": [
+    "node",
+    "--test",
+    ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs"
+  ],
+  "exitStatus": 0,
+  "seconds": 61.15100087300016,
+  "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "node": "v24.19.0"
+}

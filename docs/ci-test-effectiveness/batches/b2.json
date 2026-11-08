@@ -1,0 +1,127 @@
+{
+  "batchId": "B2",
+  "status": "DONE_WITH_CONCERNS",
+  "decisionIds": [
+    "D05",
+    "RC7"
+  ],
+  "inputSHA": "830732a7b8f50479dc69189b05456c94adb4919a",
+  "finalCommit": "Controller records final commit to avoid self-reference",
+  "specificationSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+  "inputSourceHashes": {
+    ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4"
+  },
+  "outputSourceHashes": {
+    ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+    "packages/core/hooks/autonomy-binding-lifecycle.test.ts": "f741bbc5a5273d63cfe678c0e28d16652e6cd6a52c99f6a3d370fd17304439ef"
+  },
+  "repair": "Native unconditional after hook closes listener and destroys accepted sockets; final aftermath preserves whole-run TCP AND HTTP assertions.",
+  "protectedCases": [
+    "all189 native cases with188Linuxpass/1explicitnonLinuxskip",
+    "unchanged six CLI/library modules",
+    "unchanged env outbound seams and host gate/skip contract",
+    "no match",
+    "two distinct harmless cases",
+    "TCP-only violation with open socket",
+    "isolated HTTP violation with open socket"
+  ],
+  "commands": [
+    {
+      "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/autonomy-binding-lifecycle.test.ts",
+      "phase": "RED preimage",
+      "exitStatus": 1,
+      "result": "5 hangs, 8s watchdog per case",
+      "raw": "b2-red.txt"
+    },
+    {
+      "command": "same carrier -t TCP prohibition|HTTP prohibition",
+      "phase": "stronger open-socket RED before source repair",
+      "exitStatus": 1,
+      "result": "2 hangs",
+      "raw": "b2-open-socket-red.txt"
+    },
+    {
+      "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/autonomy-binding-lifecycle.test.ts",
+      "phase": "GREEN",
+      "exitStatus": 0,
+      "result": "5 pass",
+      "raw": "b2-green.txt"
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs"
+      ],
+      "exitStatus": 0,
+      "seconds": 61.15100087300016,
+      "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+      "node": "v24.19.0"
+    },
+    {
+      "command": "python3 docs/ci-test-effectiveness/evidence/b2-conformance.py",
+      "phase": "held weakening/restoration",
+      "result": "See b2-conformance.json; held final test SHA frozen",
+      "raw": "b2-conformance.json"
+    }
+  ],
+  "recurringCost": {
+    "affectedWorkload": "5 bounded Node lifecycle subprocesses only; Vitest carrier",
+    "afterSeconds": 1.657,
+    "afterCarrierSeconds": 1.98,
+    "before": "censored at 8s/case; no fabricated baseline median",
+    "optimizationClaim": false,
+    "fullSuiteSeconds": 61.15100087300016,
+    "notes": "Repair overhead ~1.66s in isolated sample; no timing threshold or speedup claim. No repeated full suite or unrelated package run."
+  },
+  "noLoss": "b2-no-loss.json: host contract/env initializer byte-identical; six CLI/library modules unchanged. Whole-run assertions retained separately.",
+  "categoryChallenge": "Which selection, assertion path, host or control remains omitted? Earlier arbitrary assertion failures, all selection combinations, listen startup failure and real non-Linux host not separately exercised. Raw accepted sockets addressed by tracked socket destruction and reached socket-disable control. Combined test+mechanism removal or expectation corruption can false-green.",
+  "selfApplication": "Append-only seven-criterion items assess lifecycle regression and held driver; fixed literal statuses, actual module, disposable reached faults, restoration; stop at reviewed expectation/runtime boundary.",
+  "limits": [
+    "B2 D05/RC7 only; no E9, generalized TAK or independent acceptance claim.",
+    "Native Linux Node only; real non-Linux owner evidence remains required, existing skip preserved.",
+    "Two harmless selections, no-match, full-run, TCP and isolated HTTP aftermath enumerated; not every possible selection or earlier assertion path enumerated.",
+    "Timeout watchdog is failure/hang classification, never assertion success. Host/process/Node correctness and frozen reviewed expected statuses form finite trusted boundary.",
+    "Deleting mechanism and test or changing held expectations together can yield false green; independent root review and TAK remain required.",
+    "Native full Node suite durable broad routing is D07; test:hooks carries this narrow recurring control, not the full autonomy matrix."
+  ],
+  "rollback": "Revert B2 commit with normal hooks; reopens D05 hangs. No product authority/schema migration.",
+  "exactFiles": [
+    ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+    "packages/core/hooks/autonomy-binding-lifecycle.test.ts",
+    "docs/ci-test-effectiveness/batches/b2.json",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl",
+    "docs/ci-test-effectiveness/evidence/b2-conformance-run.txt",
+    "docs/ci-test-effectiveness/evidence/b2-conformance-setup-failure.txt",
+    "docs/ci-test-effectiveness/evidence/b2-conformance.json",
+    "docs/ci-test-effectiveness/evidence/b2-conformance.py",
+    "docs/ci-test-effectiveness/evidence/b2-green.txt",
+    "docs/ci-test-effectiveness/evidence/b2-native-host.json",
+    "docs/ci-test-effectiveness/evidence/b2-native-suite.txt",
+    "docs/ci-test-effectiveness/evidence/b2-no-loss.json",
+    "docs/ci-test-effectiveness/evidence/b2-open-socket-red.txt",
+    "docs/ci-test-effectiveness/evidence/b2-red.txt",
+    "docs/ci-test-effectiveness/evidence/b2-reporter-setup-failure.txt",
+    "docs/ci-test-effectiveness/evidence/b2-restoration.txt",
+    "docs/ci-test-effectiveness/evidence/b2-setup-failure.txt",
+    "docs/ci-test-effectiveness/evidence/b2-socket-weakening.txt",
+    "docs/ci-test-effectiveness/evidence/b2-weakening.txt"
+  ],
+  "rawEvidenceHashes": {
+    "docs/ci-test-effectiveness/evidence/b2-conformance-run.txt": "102532abd2d98d8aee0a62821f06930d31845c632e8dde61d9a91f0b2fc91899",
+    "docs/ci-test-effectiveness/evidence/b2-conformance-setup-failure.txt": "c191aab4cd17d6297f5cc0e3e3119999a4e5de03122d0b10972c5f0ee5bc26f1",
+    "docs/ci-test-effectiveness/evidence/b2-conformance.json": "102532abd2d98d8aee0a62821f06930d31845c632e8dde61d9a91f0b2fc91899",
+    "docs/ci-test-effectiveness/evidence/b2-conformance.py": "179ec836cb5f0e0ea08ca83eff826a18af3e463143ca907255d9651cdf7521f0",
+    "docs/ci-test-effectiveness/evidence/b2-green.txt": "8480e2d2d5dbc0fd15adfcc828ca7e9c832d67f1a6599e0a14c1e86374c4993b",
+    "docs/ci-test-effectiveness/evidence/b2-native-host.json": "204bdf1b2f1e4c7b0c7e608c2c56c287fe76dfe3479ec26e38f43296b72e957d",
+    "docs/ci-test-effectiveness/evidence/b2-native-suite.txt": "3635a5d5fa96ee13f80caf56cfb7f2c83976c656f7c8177fd8de5551e6b2e537",
+    "docs/ci-test-effectiveness/evidence/b2-no-loss.json": "f617552215912e03791c8871f763dc96ad475a6485e027ea50888241a87a5c83",
+    "docs/ci-test-effectiveness/evidence/b2-open-socket-red.txt": "eb9de2f2bccde345ee4e7a3be4444b63770c8e3fdf3c2bf8eb174a6c96e5df9c",
+    "docs/ci-test-effectiveness/evidence/b2-red.txt": "ae19440aeb25f15c9a60639ad5be82486f618145ad1bf0dfeb3122d7ea973789",
+    "docs/ci-test-effectiveness/evidence/b2-reporter-setup-failure.txt": "345f7e67d769e3ea4982b2fdd8daaed1e4bf1c9b1bd66087caee2f994dadab28",
+    "docs/ci-test-effectiveness/evidence/b2-restoration.txt": "b768120181af38e79474bdf45b0df27d3a9e3bd8bc64c843c1ce23d751777dbf",
+    "docs/ci-test-effectiveness/evidence/b2-setup-failure.txt": "105519f7a6d85dd226cd0ed792695449c6cd149187580549a01265a2b956ef9d",
+    "docs/ci-test-effectiveness/evidence/b2-socket-weakening.txt": "92c4d43a42021a6aaf55fbf9226b124993fd43311d6da54c77e7d08226591d28",
+    "docs/ci-test-effectiveness/evidence/b2-weakening.txt": "551998430633faf6c4b1ae56436c0958e90ff22ff1cb93746903a210678997a0"
+  }
+}

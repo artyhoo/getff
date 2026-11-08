@@ -1,0 +1,62 @@
+[
+  {
+    "phase": "weakening",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b2-held-afs1l1dv",
+      "--reporter=default",
+      "packages/core/hooks/autonomy-binding-lifecycle.test.ts",
+      "-t",
+      "TCP prohibition"
+    ],
+    "exitStatus": 1,
+    "seconds": 9.280349615999512,
+    "heldTestSHA256": "f741bbc5a5273d63cfe678c0e28d16652e6cd6a52c99f6a3d370fd17304439ef",
+    "sourceSHA256": "6a753165f477c2eddee2ef2394b34a1ac586e4acdb3c9f4ed2d75b131e47c4bb",
+    "reachedDisabledCleanup": true,
+    "sawTCPAssertion": true,
+    "watchdogDetected": true
+  },
+  {
+    "phase": "socket-weakening",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b2-held-afs1l1dv",
+      "--reporter=default",
+      "packages/core/hooks/autonomy-binding-lifecycle.test.ts",
+      "-t",
+      "TCP prohibition"
+    ],
+    "exitStatus": 1,
+    "seconds": 9.316530489999423,
+    "heldTestSHA256": "f741bbc5a5273d63cfe678c0e28d16652e6cd6a52c99f6a3d370fd17304439ef",
+    "sourceSHA256": "d4beda75fe7aa6d14b20a302b31ec925edd4cc8e445df6de3fbe5c57ea5bb302",
+    "reachedDisabledCleanup": true,
+    "sawTCPAssertion": true,
+    "watchdogDetected": true
+  },
+  {
+    "phase": "restoration",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b2-held-afs1l1dv",
+      "--reporter=default",
+      "packages/core/hooks/autonomy-binding-lifecycle.test.ts",
+      "-t",
+      "TCP prohibition"
+    ],
+    "exitStatus": 0,
+    "seconds": 1.4781576929999574,
+    "heldTestSHA256": "f741bbc5a5273d63cfe678c0e28d16652e6cd6a52c99f6a3d370fd17304439ef",
+    "sourceSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+    "reachedDisabledCleanup": false,
+    "sawTCPAssertion": false,
+    "watchdogDetected": false
+  }
+]
