@@ -54,14 +54,13 @@ function findRoot(start) {
 
 /** Agents shipped at the default depth: agents/*.md minus skip-list minus factory-gated. */
 function shippedAgents(root) {
-  const agentDir = join(root, 'agents');
+  const canonical = join(root, '.agents', 'roles');
+  const agentDir = existsSync(canonical) ? canonical : join(root, 'agents');
   const files = readdirSync(agentDir).filter((f) => f.endsWith('.md'));
   const script = readFileSync(join(root, 'setup.d', '20-agents.sh'), 'utf8');
   const skips = new Set();
-  let factoryGated = new Set();
+  const factoryGated = factoryGatedAgents(root);
   for (const m of script.matchAll(/^\s*([a-z0-9-]+\.md)\)\s*continue\s*;;/gm)) skips.add(m[1]);
-  const pair = script.match(/^\s*([a-z0-9-]+\.md)\|([a-z0-9-]+\.md)\)/m);
-  if (pair) factoryGated = new Set([pair[1], pair[2]]);
   // Fail-loud, never fail-open: zero skip entries means the installer was restructured and
   // these regexes no longer match its shape — rendering would silently list ALL agents as
   // shipped (silent-wrong, the exact lying-doc class this renderer exists to kill).
@@ -74,6 +73,14 @@ function shippedAgents(root) {
   return shipped;
 }
 
+/** Parse the installer factory gate; a changed case shape must fail closed. */
+function factoryGatedAgents(root) {
+  const script = readFileSync(join(root, 'setup.d', '20-agents.sh'), 'utf8');
+  const pair = script.match(/^\s*([a-z0-9-]+\.md)\|([a-z0-9-]+\.md)\)/m);
+  if (!pair) throw new Error('setup.d/20-agents.sh: factory pair parse matched 0 entries');
+  return new Set([pair[1], pair[2]]);
+}
+
 /** Skill slugs per depth, derived from the installer's own literals/constants. */
 function shippedSkills(root) {
   const tenSkills = readFileSync(join(root, 'setup.d', '10-skills.sh'), 'utf8');
@@ -84,6 +91,7 @@ function shippedSkills(root) {
   const base = [
     ...tenSkills.matchAll(/(?:cp -r|_copy_tree_with_transform) "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g),
   ].map((m) => m[1]);
+  for (const m of tenSkills.matchAll(/_copy_tree_with_transform "\$\(procedure_source ([a-z0-9-]+)\)"/g)) base.push(m[1]);
   // The tier-constant read lives in ONE module (ref-gen G12: a second JS reader of
   // GETFF_SKILLS_* is the #sync-by-copy-paste shape); this roster keeps only its own
   // 10-skills.sh literal merge.
@@ -151,4 +159,4 @@ function run(argv) {
 
 if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));
 
-export { shippedAgents, shippedSkills, renderAgentsBullet, renderSkillsBullet, SECTION_ROSTER };
+export { shippedAgents, shippedSkills, factoryGatedAgents, renderAgentsBullet, renderSkillsBullet, SECTION_ROSTER };
