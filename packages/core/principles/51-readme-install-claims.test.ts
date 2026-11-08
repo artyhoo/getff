@@ -164,8 +164,8 @@ describe('Arm F structural shell boundaries', () => {
   it('rejects an assignment after a quoted hash', () => {
     expect(checkPins(canonical + 'echo "text # still quoted"; CORE_DEVDEPS=(bad@^1)\n')).not.toEqual([]);
   });
-  it('ignores an assignment in an inline shell comment', () => {
-    expect(checkPins(canonical + 'echo done # CORE_DEVDEPS=(bad@^1)\n')).toEqual([]);
+  it('rejects an assignment literal in an inline shell comment', () => {
+    expect(checkPins(canonical + 'echo done # CORE_DEVDEPS=(bad@^1)\n')).not.toEqual([]);
   });
   it('rejects a closing parenthesis joined to another shell word', () => {
     expect(checkPins(canonical.replace(')\n', ')garbage\n'))).not.toEqual([]);
@@ -176,8 +176,23 @@ describe('Arm F structural shell boundaries', () => {
 )
 `)).not.toEqual([]);
   });
-  it('accepts the live canonical block and inert commented assignments', () => {
+  it('accepts the live block and ordinary rationale comments', () => {
     expect(checkPins(pins)).toEqual([]);
-    expect(checkPins('# typeset -a CORE_DEVDEPS=(bad@^1)\n' + canonical + '# CORE_DEVDEPS+=(bad@^1)\n')).toEqual([]);
+    expect(checkPins('# an explanatory note without an assignment\n' + canonical + '# another plain note\n')).toEqual([]);
   });
+  it('rejects assignment literals in commented examples', () => {
+    expect(checkPins('# typeset -a CORE_DEVDEPS=(bad@^1)\n' + canonical)).not.toEqual([]);
+    expect(checkPins(canonical + '# CORE_DEVDEPS+=(bad@^1)\n')).not.toEqual([]);
+  });
+  it('rejects consecutive assignment literals in one word', () => {
+    expect(checkPins(canonical + '# CORE_DEVDEPS=CORE_DEVDEPS=example\n')).not.toEqual([]);
+  });
+  it('rejects a literal assignment following a multiline quoted hash', () => {
+    expect(checkPins(canonical + 'printf "%s" "line one\n#"; CORE_DEVDEPS=(bad@^1)\n')).not.toEqual([]);
+  });
+  for (const spec of ['a@v1.2.3', 'a@=1.2.3']) {
+    it(`accepts shell-safe version spelling ${spec}`, () => {
+      expect(checkPins(`CORE_DEVDEPS=(\n  ${spec} # why: long enough explanation\n)\n`)).toEqual([]);
+    });
+  }
 });

@@ -42,23 +42,9 @@ export function uncheckedCounts(text: string, live = false): string[] {
   return errors;
 }
 export function checkPins(text: string): string[] {
-  // Reject any additional assignment on non-comment text, regardless of command spelling.
-  // This deliberately treats suspicious quoted references as assignments: it is a narrow
-  // static guard over the installer, not a Bash interpreter.
-  const active = text.split('\n').map(line => {
-    let quote = ''; let escaped = false; let boundary = true;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (escaped) { escaped = false; boundary = false; continue; }
-      if (ch === '\\' && quote !== "'") { escaped = true; boundary = false; continue; }
-      if (quote) { if (ch === quote) quote = ''; continue; }
-      if (ch === "'" || ch === '"') { quote = ch; boundary = false; continue; }
-      if (ch === '#' && boundary) return line.slice(0, i);
-      boundary = /[ \t;|&()]/.test(ch);
-    }
-    return line;
-  }).join('\n');
-  const assignments = [...active.matchAll(/(?:^|[^A-Za-z0-9_])CORE_DEVDEPS(?:\[[^\]\n]*\])?\+?=/gm)];
+  // One literal assignment spelling is allowed in the whole source, including examples;
+  // this is a static source convention, not an attempt to interpret Bash.
+  const assignments = [...text.matchAll(/(?<![A-Za-z0-9_])CORE_DEVDEPS(?:\[[^\]\n]*\])?\+?=/g)];
   const blocks = [...text.matchAll(/^CORE_DEVDEPS=\([ \t]*\n([\s\S]*?)^\)(?:[ \t]+(?:#.*)?)?$/gm)];
   if (assignments.length !== 1 || blocks.length !== 1) return ['F: expected exactly one CORE_DEVDEPS block'];
   const errors: string[] = [];
@@ -73,7 +59,7 @@ export function checkPins(text: string): string[] {
     const specs = code.trim().split(/\s+/);
     count += specs.length;
     if (specs.length !== 1) errors.push(`F: one spec per line required: ${code.trim()}`);
-    if (specs.length === 1 && !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*@(?:\^|~)?[0-9][a-zA-Z0-9.+-]*$/.test(specs[0])) errors.push(`F: unsupported shell word: ${specs[0]}`);
+    if (specs.length === 1 && !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*@(?:[=^~])?v?[0-9][a-zA-Z0-9.+-]*$/.test(specs[0])) errors.push(`F: unsupported shell word: ${specs[0]}`);
     if (!/^\s*why:\s*\S/.test(comment) || comment.replace(/^\s*why:\s*/, '').trim().length < 15) errors.push(`F: ${specs.join(' ')} needs # why: with at least 15 characters`);
   }
   if (!count) errors.push('F: CORE_DEVDEPS is empty');
