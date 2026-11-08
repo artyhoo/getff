@@ -20,7 +20,7 @@ def sha(data):
 def check(name):
     start = time.monotonic()
     result = subprocess.run(command, cwd=root, text=True, capture_output=True)
-    (evidence / f'b8-{name}.txt').write_text(result.stdout + result.stderr)
+    (evidence / f'b8-{name}.txt').write_text((result.stdout + result.stderr).rstrip() + '\n')
     return {'status': result.returncode, 'seconds': round(time.monotonic()-start, 3)}
 
 # Meaningful old-source RED: ordinary branch response has 3/6; admin read is denied.
@@ -42,7 +42,7 @@ esac
     transport.chmod(0o755)
     env = dict(os.environ, PATH=directory + ':' + os.environ['PATH'])
     result = subprocess.run(['bash','-e','-o','pipefail','-c',old_block], cwd=root, env=env, text=True, capture_output=True)
-    (evidence / 'b8-old-workflow-false-green.txt').write_text(result.stdout + result.stderr)
+    (evidence / 'b8-old-workflow-false-green.txt').write_text((result.stdout + result.stderr).rstrip() + '\n')
     results['old_actual_workflow'] = {'actualStatus': result.returncode, 'fixedExpectedMissingStatus': 1, 'falseGreenCaught': result.returncode != 1,
         'sourceCommit': 'f36264e2c379a72a0db36b54536b5f1dc37857b3', 'runBlockSha256': sha(old_block.encode()),
         'ordinaryResponse': 'protected true, known three contexts; rulesets empty; admin endpoint denied'}

@@ -162,4 +162,3 @@ AssertionError: expected +0 to be 2 // Object.is equality
     950|           if (fixture.status === 0)
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/22]⎯
-
