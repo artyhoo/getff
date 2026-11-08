@@ -1,0 +1,68 @@
+{
+  "artifacts": [
+    {
+      "display": "docs/ci-test-effectiveness/evidence/b10-default-old-basename-false-green.txt",
+      "exactRaw": "docs/ci-test-effectiveness/evidence/b10-default-old-basename-false-green.txt.gz",
+      "rawSha256": "c7a70080786ef18e152305496e5b41c0511e600383781f936a74b3f75040e982",
+      "displaySha256": "1639223718f0fdc3e6911af32a012815383689943307c17169f7d57ba00c621f",
+      "change": "Only redundant terminal newline bytes removed from display; gzip retains exact raw command output."
+    },
+    {
+      "display": "docs/ci-test-effectiveness/evidence/b10-default-restored.txt",
+      "exactRaw": "docs/ci-test-effectiveness/evidence/b10-default-restored.txt.gz",
+      "rawSha256": "494d38e878ddd8c23c25c02f509cf98a7e14b5354cf5559cb3200f4c533da792",
+      "displaySha256": "86927a99a21e8bc367a23bac2da782833051823c7524e1422772d34c23693f31",
+      "change": "Only redundant terminal newline bytes removed from display; gzip retains exact raw command output."
+    },
+    {
+      "display": "docs/ci-test-effectiveness/evidence/b10-default-unique-owned-red.txt",
+      "exactRaw": "docs/ci-test-effectiveness/evidence/b10-default-unique-owned-red.txt.gz",
+      "rawSha256": "6fec955efcfbc81b4c87596e23343529d14d9b64f6b100ebcec3ee87be62c0b9",
+      "displaySha256": "89ca0d06ac46441272222a2ca1c1a0da1b21640edca5e8a78baaf01faba27f61",
+      "change": "Only redundant terminal newline bytes removed from display; gzip retains exact raw command output."
+    },
+    {
+      "display": "docs/ci-test-effectiveness/evidence/b10-final-green.txt",
+      "exactRaw": "docs/ci-test-effectiveness/evidence/b10-final-green.txt.gz",
+      "rawSha256": "09a85c7dc8b1c94536ae8015899b35185792224529279db18ca743734615f408",
+      "displaySha256": "5125b3a7a2f957858c0044ce7a6d1ac76ee25646dac704d47da290faa827daf2",
+      "change": "Only redundant terminal newline bytes removed from display; gzip retains exact raw command output."
+    },
+    {
+      "display": "docs/ci-test-effectiveness/evidence/b10-green-initial.txt",
+      "exactRaw": "docs/ci-test-effectiveness/evidence/b10-green-initial.txt.gz",
+      "rawSha256": "c6eba86b5774a819333b524220b21d47f921ba510c192aa1f2c5460b65c28aed",
+      "displaySha256": "4b2feb16afca96be303ecfaf3a6dbd846ff8d0d7a3ada753056468eaff3464d5",
+      "change": "Only redundant terminal newline bytes removed from display; gzip retains exact raw command output."
+    },
+    {
+      "display": "docs/ci-test-effectiveness/evidence/b10-held-catalog-wiring-dropped.txt",
+      "exactRaw": "docs/ci-test-effectiveness/evidence/b10-held-catalog-wiring-dropped.txt.gz",
+      "rawSha256": "c9d0b10f1395610a7ee9d9e8da091b1866d9807061e5985004390aff203c5758",
+      "displaySha256": "f771cb4ce434207b9903fe5f5e617e87e2b136a9864d72d5873032b4050fd915",
+      "change": "Only redundant terminal newline bytes removed from display; gzip retains exact raw command output."
+    },
+    {
+      "display": "docs/ci-test-effectiveness/evidence/b10-held-guards-omitted.txt",
+      "exactRaw": "docs/ci-test-effectiveness/evidence/b10-held-guards-omitted.txt.gz",
+      "rawSha256": "c91cec8c16cf4be11720fe0c6c8fd24f9d4a3a32407ce71200fe1d606684de7f",
+      "displaySha256": "6b65e560248107e9c952e9f6caeb952ab47711960ea4c125e4a0d19f371fe5df",
+      "change": "Only redundant terminal newline bytes removed from display; gzip retains exact raw command output."
+    },
+    {
+      "display": "docs/ci-test-effectiveness/evidence/b10-restored-green.txt",
+      "exactRaw": "docs/ci-test-effectiveness/evidence/b10-restored-green.txt.gz",
+      "rawSha256": "522a5c5048105b87892f2b1b27028a2f4a850bdc17fcc03f9fa22c0b764ce2c8",
+      "displaySha256": "e6c5ad6cffd4bd9b401922e34fd1e4e08affc6a0440850a61165a223d43091cc",
+      "change": "Only redundant terminal newline bytes removed from display; gzip retains exact raw command output."
+    },
+    {
+      "display": "docs/ci-test-effectiveness/evidence/b10-tdd-red.txt",
+      "exactRaw": "docs/ci-test-effectiveness/evidence/b10-tdd-red.txt.gz",
+      "rawSha256": "9787b4371b85085eaefb6a5e8f366579efa7092a3a8569ea3231d9a67f84a9a8",
+      "displaySha256": "b857934f1e660ae8f5a91b90f999b034bf8ebf6a773be849fa48f185aa42704b",
+      "change": "Only redundant terminal newline bytes removed from display; gzip retains exact raw command output."
+    }
+  ],
+  "allExactRawPreserved": true
+}

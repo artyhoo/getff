@@ -1,0 +1,1 @@
+✓ staged packages/getff/MANIFEST.sha256 in sync with the staged payload (1670 files)

@@ -1,0 +1,63 @@
+markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)
+Finding: docs/ci-test-effectiveness/report.md packages/core/principles/__fixtures__/bundle/catalog/agents/p20-agent.md packages/core/principles/__fixtures__/bundle/catalog/skills/p20-fixture/SKILL.md
+Linting: 3 files
+Summary: 0 issues in 0 files
+[codex/ci-test-effectiveness-native 5e97276f] test(core): isolate P20 assignment catalog without losing contracts
+ 64 files changed, 1437 insertions(+), 34 deletions(-)
+ create mode 100644 docs/ci-test-effectiveness/batches/b10.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-archive-check-final.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-archive-check-final.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-archive-check.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-archive-check.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-before-output.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-changed-types-final.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-changed-types-final.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-changed-types.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-changed-types.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-citations.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-citations.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-command.py
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-default-held.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-default-held.py
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-default-old-basename-false-green.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-default-restored.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-default-restored.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-default-unique-owned-red.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-final-green.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-final-green.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-final-prime-result.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-final-prime.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-final-prime.mjs
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-final-prime.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-green-initial.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-green-initial.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-harness.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-harness.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-held-catalog-wiring-dropped.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-held-guards-omitted.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-held.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-held.py
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-installed-map.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-inventory-prefix.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-manifest-delta.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-manifest-generate-final.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-manifest-generate-final.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-manifest-generate.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-manifest-generate.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-no-loss-final-result.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-no-loss-final.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-no-loss-final.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-no-loss-result.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-no-loss.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-no-loss.mjs
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-no-loss.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-reference.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-reference.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-restored-green.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-restored-green.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-tdd-red.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-tdd-red.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-typecheck.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/b10-typecheck.txt
+ create mode 100644 packages/core/principles/__fixtures__/bundle/catalog/agents/p20-agent.md
+ create mode 100644 packages/core/principles/__fixtures__/bundle/catalog/skills/p20-fixture/SKILL.md
