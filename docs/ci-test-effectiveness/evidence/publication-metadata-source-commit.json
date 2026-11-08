@@ -1,0 +1,9 @@
+{
+  "command": "git commit (normal configured hooks)",
+  "exitCode": 0,
+  "wallSeconds": 3.478141,
+  "output": "docs/ci-test-effectiveness/evidence/publication-metadata-source-commit.txt",
+  "sourceHead": "044b65f2b7e2fc18c6bd2e59216a50298258f60c",
+  "outputSha256": "e7f8e2acb22c8d4e0f0ea85414af4dcd10b0eeae63537c6de7987640cdb5950a",
+  "normalHooks": "markdownlint0 issues for nine regular kickoff files; staged orchestrator-prompts validator ran. No bypass."
+}

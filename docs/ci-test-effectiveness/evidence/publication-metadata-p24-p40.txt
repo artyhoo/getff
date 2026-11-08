@@ -1,0 +1,16 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default principles/24-plugin-manifest-integrity.test.ts principles/40-kickoff-rigor-label.test.ts
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ✓ principles/40-kickoff-rigor-label.test.ts (8 tests) 142ms
+ ✓ principles/24-plugin-manifest-integrity.test.ts (17 tests) 1447ms
+     ✓ (j) real-tree: the source-hash manifest is fresh and complete, and the language line has one owner  359ms
+     ✓ (j) paired-negative: each way the manifest can lie is RED  528ms
+
+ Test Files  2 passed (2)
+      Tests  25 passed (25)
+   Start at  21:16:02
+   Duration  2.01s (transform 296ms, setup 67ms, import 590ms, tests 1.59s, environment 0ms)

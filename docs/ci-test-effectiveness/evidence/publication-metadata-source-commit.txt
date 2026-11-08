@@ -1,0 +1,12 @@
+markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)
+Finding: .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2a.md .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2b.md .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2c.md .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2d.md .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2e.md .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2f.md .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2g.md .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2h.md .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2i.md
+Linting: 9 files
+Summary: 0 issues in 0 files
+ℹ Validating staged orchestrator-prompts (soft-warn)...
+[codex/ci-test-effectiveness-native 044b65f2] chore(plugin): bump cache delivery version and normalize rigor labels
+ 17 files changed, 472 insertions(+), 12 deletions(-)
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-metadata-closure.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-metadata-commands.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-metadata-failed-push2.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-metadata-failed-push2.txt.gz
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-metadata-parsed-fields-and-mapping.txt

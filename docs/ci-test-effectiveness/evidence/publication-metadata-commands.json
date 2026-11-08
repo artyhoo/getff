@@ -1,5 +1,5 @@
 {
-  "baseHead": "0a6a39a105cae46095e91f5bca4e55363d13e93c",
+  "sourceHead": "044b65f2b7e2fc18c6bd2e59216a50298258f60c",
   "commands": [
     {
       "id": "parsed-fields-and-mapping",
@@ -12,8 +12,26 @@
       "wallSeconds": 0.565734,
       "output": "docs/ci-test-effectiveness/evidence/publication-metadata-parsed-fields-and-mapping.txt",
       "outputSha256": "94aa9bb31246d338e1fa584e6e1e3110279e2d5732b362087bf30817633f2785"
+    },
+    {
+      "id": "p24-p40",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/24-plugin-manifest-integrity.test.ts",
+        "principles/40-kickoff-rigor-label.test.ts"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 2.98928,
+      "output": "docs/ci-test-effectiveness/evidence/publication-metadata-p24-p40.txt",
+      "outputSha256": "65b4a05fde39275c9a4028a6332bf45ba47007e91305916d23ca2abaad207166"
     }
   ],
-  "measuredChildCommandWallSeconds": 0.565734,
-  "limit": "Metadata equivalence and focused existing checks only; no new runtime suite or savings claim. Commit hooks and failed push cost reported separately."
+  "measuredChildCommandWallSeconds": 3.555014,
+  "limit": "Only parsed metadata/identity/mapping verification plus existing P24/P40. No new test, full group, snapshot or generator. Not CPU/token/$ or savings; authoring, untimed source preparation, normal hooks and old failed push cost separate."
 }

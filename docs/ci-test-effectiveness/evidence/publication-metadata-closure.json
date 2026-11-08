@@ -1,6 +1,6 @@
 {
   "baseHead": "0a6a39a105cae46095e91f5bca4e55363d13e93c",
-  "status": "Publication metadata source closure; committed P24/P40 verification pending",
+  "status": "P24/P40 publication metadata closure verified on committed source; root normal publication/transport pending",
   "sourcePaths": [
     "plugin/.claude-plugin/plugin.json",
     ".claude-plugin/marketplace.json",
@@ -425,5 +425,30 @@
     ],
     "sourceRootIntersections": [],
     "decision": "These12 metadata/kickoff paths enter neither npm payload nor15 installed baseline cells. No manifest write/check, snapshot capture/compare or other generation is causally required."
+  },
+  "sourceCommit": "044b65f2b7e2fc18c6bd2e59216a50298258f60c",
+  "focusedExistingChecks": {
+    "id": "p24-p40",
+    "command": [
+      "npm",
+      "--prefix",
+      "packages/core",
+      "run",
+      "test",
+      "--",
+      "principles/24-plugin-manifest-integrity.test.ts",
+      "principles/40-kickoff-rigor-label.test.ts"
+    ],
+    "exitCode": 0,
+    "expectedExitCode": 0,
+    "wallSeconds": 2.98928,
+    "output": "docs/ci-test-effectiveness/evidence/publication-metadata-p24-p40.txt",
+    "outputSha256": "65b4a05fde39275c9a4028a6332bf45ba47007e91305916d23ca2abaad207166",
+    "sourceHead": "044b65f2b7e2fc18c6bd2e59216a50298258f60c",
+    "files": 2,
+    "passed": 25,
+    "skipped": 0,
+    "failed": 0,
+    "includesP24SourceHashFreshness": true
   }
 }
