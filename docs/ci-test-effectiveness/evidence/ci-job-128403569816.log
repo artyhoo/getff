@@ -1,0 +1,86 @@
+﻿2026-11-07T12:27:46.8151135Z Current runner version: '2.338.2'
+2026-11-07T12:27:46.8187791Z ##[group]Runner Image Provisioner
+2026-11-07T12:27:46.8189190Z Hosted Compute Agent
+2026-11-07T12:27:46.8190394Z Version: 20261028.624
+2026-11-07T12:27:46.8191612Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-07T12:27:46.8193008Z Build Date: 2026-10-28T21:51:42Z
+2026-11-07T12:27:46.8194511Z Worker ID: {e06c66bc-e05f-4189-a8ce-288870ca12d6}
+2026-11-07T12:27:46.8195796Z Region: centralus
+2026-11-07T12:27:46.8196947Z Cloud: Azure
+2026-11-07T12:27:46.8198257Z ##[endgroup]
+2026-11-07T12:27:46.8201147Z ##[group]Operating System
+2026-11-07T12:27:46.8202405Z Ubuntu
+2026-11-07T12:27:46.8203229Z 26.04.1
+2026-11-07T12:27:46.8203823Z LTS
+2026-11-07T12:27:46.8204368Z ##[endgroup]
+2026-11-07T12:27:46.8204971Z ##[group]Runner Image
+2026-11-07T12:27:46.8205644Z Image: ubuntu-26.04
+2026-11-07T12:27:46.8206232Z Version: 20261101.186.1
+2026-11-07T12:27:46.8207920Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-07T12:27:46.8209628Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-07T12:27:46.8210698Z ##[endgroup]
+2026-11-07T12:27:46.8211928Z ##[group]GITHUB_TOKEN Permissions
+2026-11-07T12:27:46.8214622Z Contents: read
+2026-11-07T12:27:46.8215291Z Metadata: read
+2026-11-07T12:27:46.8215925Z ##[endgroup]
+2026-11-07T12:27:46.8218282Z Secret source: Actions
+2026-11-07T12:27:46.8219352Z Cache mode: write
+2026-11-07T12:27:46.8220413Z Prepare workflow directory
+2026-11-07T12:27:46.8634138Z Prepare all required actions
+2026-11-07T12:27:46.8796728Z Complete job name: context7 — refresh library index
+2026-11-07T12:27:47.0175812Z ##[group]Run set -euo pipefail
+2026-11-07T12:27:47.0176772Z [36;1mset -euo pipefail[0m
+2026-11-07T12:27:47.0177622Z [36;1m[0m
+2026-11-07T12:27:47.0178598Z [36;1m# Fail LOUDLY, never warn-and-pass: a refresh that silently no-ops is[0m
+2026-11-07T12:27:47.0179898Z [36;1m# `#warning-nobody-reads` (.claude/rules/attention-is-not-a-mechanism.md §2). This is[0m
+2026-11-07T12:27:47.0181185Z [36;1m# safe to fail hard because the job reports on no pull request (see the marker above),[0m
+2026-11-07T12:27:47.0182413Z [36;1m# so a red run here cannot block any merge — it only reddens `staging`'s own history[0m
+2026-11-07T12:27:47.0183466Z [36;1m# until the maintainer legs below are done.[0m
+2026-11-07T12:27:47.0184189Z [36;1m#[0m
+2026-11-07T12:27:47.0185060Z [36;1m# ONE documented carve-out, matched on the exact response: the service enforces a[0m
+2026-11-07T12:27:47.0186129Z [36;1m# 10-day minimum between refreshes and answers HTTP 400 with[0m
+2026-11-07T12:27:47.0187608Z [36;1m# {"error":"too-early", ...} for the nine days after any successful refresh. That[0m
+2026-11-07T12:27:47.0189034Z [36;1m# body means the index is already fresh — a no-op, not a defect — so exactly that[0m
+2026-11-07T12:27:47.0190342Z [36;1m# error token in the body is treated as success. Everything else still exits[0m
+2026-11-07T12:27:47.0191943Z [36;1m# non-zero: an unset key (below), a 401, any other 4xx/5xx body, a network failure.[0m
+2026-11-07T12:27:47.0193866Z [36;1m# No `|| true`, no dropped `--fail-with-body`, no `continue-on-error` — those would[0m
+2026-11-07T12:27:47.0195841Z [36;1m# convert this gate into the `#warning-nobody-reads` pattern this job refuses.[0m
+2026-11-07T12:27:47.0196913Z [36;1mif [ -z "${CONTEXT7_API_KEY}" ]; then[0m
+2026-11-07T12:27:47.0199535Z [36;1m  echo "::error::CONTEXT7_API_KEY is unset. Two maintainer actions are required, in order: (1) submit ${LIBRARY_NAME} at https://context7.com/add-library so the library exists; (2) add the CONTEXT7_API_KEY repository secret from https://context7.com/dashboard. Until both are done this workflow cannot succeed."[0m
+2026-11-07T12:27:47.0201680Z [36;1m  exit 1[0m
+2026-11-07T12:27:47.0202214Z [36;1mfi[0m
+2026-11-07T12:27:47.0202799Z [36;1m[0m
+2026-11-07T12:27:47.0203387Z [36;1mrefresh_rc=0[0m
+2026-11-07T12:27:47.0204261Z [36;1mbody="$(curl --fail-with-body -sS -X POST https://context7.com/api/v1/refresh \[0m
+2026-11-07T12:27:47.0205525Z [36;1m  -H "Content-Type: application/json" \[0m
+2026-11-07T12:27:47.0206451Z [36;1m  -H "Authorization: ***" \[0m
+2026-11-07T12:27:47.0207564Z [36;1m  -d "{\"libraryName\": \"${LIBRARY_NAME}\"}")" || refresh_rc=$?[0m
+2026-11-07T12:27:47.0208370Z [36;1m[0m
+2026-11-07T12:27:47.0208946Z [36;1mecho "${body}"[0m
+2026-11-07T12:27:47.0209519Z [36;1mecho[0m
+2026-11-07T12:27:47.0210075Z [36;1mif [ "${refresh_rc}" -eq 0 ]; then[0m
+2026-11-07T12:27:47.0210900Z [36;1m  echo "Refresh requested for ${LIBRARY_NAME}."[0m
+2026-11-07T12:27:47.0211736Z [36;1m  exit 0[0m
+2026-11-07T12:27:47.0212327Z [36;1mfi[0m
+2026-11-07T12:27:47.0212852Z [36;1m[0m
+2026-11-07T12:27:47.0213583Z [36;1m# curl exit 22 = --fail-with-body tripped on an HTTP error status; the body it[0m
+2026-11-07T12:27:47.0214827Z [36;1m# printed is echoed above. Only the documented too-early body is the no-op success.[0m
+2026-11-07T12:27:47.0216040Z [36;1mif [ "${refresh_rc}" -eq 22 ] && printf '%s' "${body}" | grep -q '"error":"too-early"'; then[0m
+2026-11-07T12:27:47.0217839Z [36;1m  echo "Context7 index for ${LIBRARY_NAME} is already fresh: service answered too-early (10-day minimum between refreshes). Nothing to do — treated as success."[0m
+2026-11-07T12:27:47.0219174Z [36;1m  exit 0[0m
+2026-11-07T12:27:47.0219693Z [36;1mfi[0m
+2026-11-07T12:27:47.0220306Z [36;1m[0m
+2026-11-07T12:27:47.0221193Z [36;1mecho "::error::Context7 refresh failed for ${LIBRARY_NAME} (curl exit ${refresh_rc}; body above)."[0m
+2026-11-07T12:27:47.0222236Z [36;1mexit "${refresh_rc}"[0m
+2026-11-07T12:27:47.0854852Z shell: /usr/bin/bash -e {0}
+2026-11-07T12:27:47.0855792Z env:
+2026-11-07T12:27:47.0856542Z   CONTEXT7_API_KEY: ***
+2026-11-07T12:27:47.0857066Z   LIBRARY_NAME: /artyhoo/getff
+2026-11-07T12:27:47.0857768Z ##[endgroup]
+2026-11-07T12:27:47.6426309Z curl: (22) The requested URL returned error: 403
+2026-11-07T12:27:47.6429076Z {"error":"forbidden","message":"This library exceeds the size limit for automatic refresh. Please create a GitHub issue to request a manual refresh."}
+2026-11-07T12:27:47.6431199Z 
+2026-11-07T12:27:47.6479416Z ##[error]Context7 refresh failed for /artyhoo/getff (curl exit 22; body above).
+2026-11-07T12:27:47.6497573Z ##[error]Process completed with exit code 22.
+2026-11-07T12:27:47.6651567Z Cleaning up orphan processes
+

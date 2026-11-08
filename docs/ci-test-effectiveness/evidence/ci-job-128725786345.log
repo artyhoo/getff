@@ -1,0 +1,118 @@
+﻿2026-11-08T12:07:10.2478971Z Current runner version: '2.338.2'
+2026-11-08T12:07:10.2533462Z ##[group]Runner Image Provisioner
+2026-11-08T12:07:10.2534440Z Hosted Compute Agent
+2026-11-08T12:07:10.2535267Z Version: 20261028.624
+2026-11-08T12:07:10.2536046Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-08T12:07:10.2536812Z Build Date: 2026-10-28T21:51:42Z
+2026-11-08T12:07:10.2537613Z Worker ID: {0c45054a-4911-4987-aa9d-d00c72fcc355}
+2026-11-08T12:07:10.2538351Z Region: eastus
+2026-11-08T12:07:10.2538889Z Cloud: Azure
+2026-11-08T12:07:10.2539510Z ##[endgroup]
+2026-11-08T12:07:10.2541108Z ##[group]Operating System
+2026-11-08T12:07:10.2541902Z Ubuntu
+2026-11-08T12:07:10.2542544Z 26.04.1
+2026-11-08T12:07:10.2543060Z LTS
+2026-11-08T12:07:10.2543724Z ##[endgroup]
+2026-11-08T12:07:10.2544271Z ##[group]Runner Image
+2026-11-08T12:07:10.2545306Z Image: ubuntu-26.04
+2026-11-08T12:07:10.2545922Z Version: 20261101.186.1
+2026-11-08T12:07:10.2547324Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-08T12:07:10.2549023Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-08T12:07:10.2550105Z ##[endgroup]
+2026-11-08T12:07:10.2551257Z ##[group]GITHUB_TOKEN Permissions
+2026-11-08T12:07:10.2553598Z Contents: read
+2026-11-08T12:07:10.2554227Z Metadata: read
+2026-11-08T12:07:10.2555422Z ##[endgroup]
+2026-11-08T12:07:10.2558001Z Secret source: Actions
+2026-11-08T12:07:10.2559163Z Cache mode: write
+2026-11-08T12:07:10.2559942Z Prepare workflow directory
+2026-11-08T12:07:10.2918488Z Prepare all required actions
+2026-11-08T12:07:10.3030335Z Complete job name: ci-success required-check assertion
+2026-11-08T12:07:10.4633654Z ##[group]Run # Tri-state semantics (read the KNOWN LIMITATION above first — with GITHUB_TOKEN
+2026-11-08T12:07:10.4635333Z [36;1m# Tri-state semantics (read the KNOWN LIMITATION above first — with GITHUB_TOKEN[0m
+2026-11-08T12:07:10.4636348Z [36;1m# the third arm is the NORMAL outcome, not the exception):[0m
+2026-11-08T12:07:10.4637321Z [36;1m#   - state READABLE and includes every REQUIRED_CONTEXTS entry → pass[0m
+2026-11-08T12:07:10.4638267Z [36;1m#   - state READABLE but an entry is missing → fail (R11 violated)[0m
+2026-11-08T12:07:10.4639273Z [36;1m#   - state UNREADABLE (no admin scope) or genuinely unconfigured → warn, pass;[0m
+2026-11-08T12:07:10.4640355Z [36;1m#     these two are indistinguishable from here, so the warning says UNDETERMINED[0m
+2026-11-08T12:07:10.4641441Z [36;1m# Rationale for passing on the third arm: a repo that has not configured branch[0m
+2026-11-08T12:07:10.4642570Z [36;1m# protection must not be blocked. The cost is that R11 enforcement does NOT[0m
+2026-11-08T12:07:10.4643761Z [36;1m# "kick in automatically" once protection is configured — the API stays[0m
+2026-11-08T12:07:10.4645056Z [36;1m# unreadable to this token, so the check keeps warn-passing (measured, PR #1102).[0m
+2026-11-08T12:07:10.4646130Z [36;1m# Making it real requires an admin-scoped PAT secret (operator decision).[0m
+2026-11-08T12:07:10.4646931Z [36;1m[0m
+2026-11-08T12:07:10.4647782Z [36;1mprotection_json="$(gh api "repos/artyhoo/getff/branches/staging/protection" 2>/dev/null || echo 'null')"[0m
+2026-11-08T12:07:10.4649019Z [36;1mrulesets_json="$(gh api "repos/artyhoo/getff/rulesets" 2>/dev/null || echo '[]')"[0m
+2026-11-08T12:07:10.4649857Z [36;1m[0m
+2026-11-08T12:07:10.4650749Z [36;1mhas_protection=$(echo "$protection_json" | jq 'if . == null or (type=="object" and has("message")) then false else true end')[0m
+2026-11-08T12:07:10.4652263Z [36;1mhas_rulesets=$(echo "$rulesets_json" | jq 'if type=="array" then [.[] | select(.enforcement == "active")] | length > 0 else false end')[0m
+2026-11-08T12:07:10.4653337Z [36;1m[0m
+2026-11-08T12:07:10.4654016Z [36;1m# REQUIRED_CONTEXTS: every check whose fail-closed property rests on being a[0m
+2026-11-08T12:07:10.4655404Z [36;1m# REQUIRED status check on staging. Listing a context here does NOT make that[0m
+2026-11-08T12:07:10.4656536Z [36;1m# precondition a mechanism — with GITHUB_TOKEN this check cannot read the protection[0m
+2026-11-08T12:07:10.4658054Z [36;1m# state (KNOWN LIMITATION above), so registration remains operator-enforced[0m
+2026-11-08T12:07:10.4659121Z [36;1m# (`#hope-as-gate`) until an admin-scoped credential exists. The list is kept because[0m
+2026-11-08T12:07:10.4660038Z [36;1m# it is correct wherever the state IS readable.[0m
+2026-11-08T12:07:10.4660657Z [36;1m#[0m
+2026-11-08T12:07:10.4661354Z [36;1m# DERIVED, NOT AUTHORED. This list is NOT the source of truth and must not be edited[0m
+2026-11-08T12:07:10.4662462Z [36;1m# by hand alone: each entry is declared at its own job by a `# required-context: yes`[0m
+2026-11-08T12:07:10.4663615Z [36;1m# marker, and packages/core/principles/37-required-context-completeness.test.ts asserts[0m
+2026-11-08T12:07:10.4665026Z [36;1m# this list equals the declared set exactly (and that scripts/run-local-ci-sweep.sh's[0m
+2026-11-08T12:07:10.4666161Z [36;1m# `# REQUIRED_CONTEXTS:` block does too). Until principle 37 shipped, this comment[0m
+2026-11-08T12:07:10.4667282Z [36;1m# claimed to be "the single place recording which contexts must be registered" — it was[0m
+2026-11-08T12:07:10.4668408Z [36;1m# neither single (the sweep held a second list) nor current (`stale-revert-in-pr-diff`[0m
+2026-11-08T12:07:10.4669671Z [36;1m# had been registered on staging and was missing here). Change a job's marker or its[0m
+2026-11-08T12:07:10.4670682Z [36;1m# `name:`, run the principles suite, and update all three together.[0m
+2026-11-08T12:07:10.4671405Z [36;1m#[0m
+2026-11-08T12:07:10.4672322Z [36;1m# RENAME HAZARD: an entry is a job's `name:` verbatim. Renaming a declared-required job[0m
+2026-11-08T12:07:10.4673446Z [36;1m# keeps this gate green (marker and list move together) while branch protection still[0m
+2026-11-08T12:07:10.4674549Z [36;1m# points at the OLD string — a context that never reports, deadlocking every PR. Any[0m
+2026-11-08T12:07:10.4675797Z [36;1m# such rename must be paired with a re-registration in Settings → Branches.[0m
+2026-11-08T12:07:10.4676632Z [36;1mrequired_contexts='[[0m
+2026-11-08T12:07:10.4677285Z [36;1m  "Template render probes — P1/P4/P6 (deterministic)",[0m
+2026-11-08T12:07:10.4678180Z [36;1m  "capability PR carries Prior-art line in PR body (squash-survival)",[0m
+2026-11-08T12:07:10.4678971Z [36;1m  "ci-success",[0m
+2026-11-08T12:07:10.4679511Z [36;1m  "fidelity-verdict-in-pr-body",[0m
+2026-11-08T12:07:10.4680120Z [36;1m  "stale-revert-in-pr-diff",[0m
+2026-11-08T12:07:10.4680861Z [36;1m  "§1.7 forward+backward sections present in PR description"[0m
+2026-11-08T12:07:10.4681560Z [36;1m]'[0m
+2026-11-08T12:07:10.4682011Z [36;1m[0m
+2026-11-08T12:07:10.4682492Z [36;1mif [ "$has_protection" = "true" ]; then[0m
+2026-11-08T12:07:10.4683364Z [36;1m  missing="$(echo "$protection_json" | jq -r --argjson want "$required_contexts" \[0m
+2026-11-08T12:07:10.4684361Z [36;1m    '($want - (.required_status_checks.contexts // [])) | join(", ")')"[0m
+2026-11-08T12:07:10.4685266Z [36;1m  if [ -z "$missing" ]; then[0m
+2026-11-08T12:07:10.4686156Z [36;1m    echo "✅ required checks present on staging (classic branch protection): $required_contexts"[0m
+2026-11-08T12:07:10.4687051Z [36;1m    exit 0[0m
+2026-11-08T12:07:10.4687520Z [36;1m  fi[0m
+2026-11-08T12:07:10.4688465Z [36;1m  echo "::error::Branch protection exists on staging but these required status checks are MISSING: ${missing} (R11 violated)."[0m
+2026-11-08T12:07:10.4689809Z [36;1m  echo "::error::Settings → Branches → staging → Require status checks → add: ${missing}"[0m
+2026-11-08T12:07:10.4690656Z [36;1m  exit 1[0m
+2026-11-08T12:07:10.4691114Z [36;1mfi[0m
+2026-11-08T12:07:10.4691542Z [36;1m[0m
+2026-11-08T12:07:10.4692011Z [36;1mif [ "$has_rulesets" = "true" ]; then[0m
+2026-11-08T12:07:10.4693063Z [36;1m  echo "✅ rulesets active — manually verify ${required_contexts} in https://github.com/artyhoo/getff/settings/rules"[0m
+2026-11-08T12:07:10.4694064Z [36;1m  exit 0[0m
+2026-11-08T12:07:10.4694834Z [36;1mfi[0m
+2026-11-08T12:07:10.4695267Z [36;1m[0m
+2026-11-08T12:07:10.4695944Z [36;1m# Reaching here means the API returned nothing readable. With GITHUB_TOKEN that[0m
+2026-11-08T12:07:10.4697020Z [36;1m# is the NORMAL case even when protection exists (admin read is unavailable to[0m
+2026-11-08T12:07:10.4698047Z [36;1m# any workflow permission scope — measured PR #1102), so this must NOT claim[0m
+2026-11-08T12:07:10.4699083Z [36;1m# protection is absent: it cannot tell "absent" from "unreadable".[0m
+2026-11-08T12:07:10.4700937Z [36;1mecho "::warning::UNDETERMINED: cannot read staging branch protection with this token (admin read is not grantable to GITHUB_TOKEN), so R11 compliance is UNVERIFIED — this job's success does NOT mean the required contexts are registered."[0m
+2026-11-08T12:07:10.4703329Z [36;1mecho "::warning::Verify manually: gh api repos/<owner>/<repo>/branches/staging/protection --jq '.required_status_checks.contexts' → must contain ${required_contexts}"[0m
+2026-11-08T12:07:10.4704615Z [36;1mexit 0[0m
+2026-11-08T12:07:10.5343586Z shell: /usr/bin/bash -e {0}
+2026-11-08T12:07:10.5344920Z env:
+2026-11-08T12:07:10.5350180Z   GH_TOKEN: ***
+2026-11-08T12:07:10.5350737Z ##[endgroup]
+2026-11-08T12:07:11.0941722Z ##[warning]UNDETERMINED: cannot read staging branch protection with this token (admin read is not grantable to GITHUB_TOKEN), so R11 compliance is UNVERIFIED — this job's success does NOT mean the required contexts are registered.
+2026-11-08T12:07:11.0954581Z ##[warning]Verify manually: gh api repos/<owner>/<repo>/branches/staging/protection --jq '.required_status_checks.contexts' → must contain [
+2026-11-08T12:07:11.0958084Z   "Template render probes — P1/P4/P6 (deterministic)",
+2026-11-08T12:07:11.0959056Z   "capability PR carries Prior-art line in PR body (squash-survival)",
+2026-11-08T12:07:11.0959879Z   "ci-success",
+2026-11-08T12:07:11.0960410Z   "fidelity-verdict-in-pr-body",
+2026-11-08T12:07:11.0961025Z   "stale-revert-in-pr-diff",
+2026-11-08T12:07:11.0961849Z   "§1.7 forward+backward sections present in PR description"
+2026-11-08T12:07:11.0962585Z ]
+2026-11-08T12:07:11.1142140Z Cleaning up orphan processes
+
