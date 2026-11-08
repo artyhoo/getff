@@ -1,0 +1,54 @@
+{
+  "command": [
+    "npx",
+    "--prefix",
+    "packages/core",
+    "vitest",
+    "run",
+    "--reporter=default",
+    "packages/core/hooks/worktree-setup-hydration.test.ts"
+  ],
+  "exit": 0,
+  "seconds": 2.7940313079998305,
+  "sourceClosure": [
+    {
+      "path": "packages/core/hooks/worktree-setup-hydration.test.ts",
+      "sha256": "2529d3ae903958a17492c4009c2325189ee2c044e2ed6a4b775c9fad541b1342",
+      "sameAsB3Input": true
+    },
+    {
+      "path": "scripts/link-coordination.sh",
+      "sha256": "0e2eb8ab4ace1c0f8dee3c0e7e144ae73b902377fc5fdef614d59f2c744cad73",
+      "sameAsB3Input": true
+    },
+    {
+      "path": "scripts/create-worktree.sh",
+      "sha256": "e7f784c23d55b9e5c7aec9cd12ea12c984656b6e406e15f71abe236b4f3406ad",
+      "sameAsB3Input": true
+    },
+    {
+      "path": ".agents/hooks/worktree-setup.sh",
+      "sha256": "6e69f52409a6f18472ad263dfc01eda7a313f5de43ef7cdab0598244ebe655cd",
+      "sameAsB3Input": true
+    }
+  ],
+  "change": "Official rsync now provisioned in user-owned workspace prefix, no repo edits/system settings. Prior native full run and archived selected baseline lacked rsync.",
+  "toolProvision": {
+    "url": "https://deb.debian.org/debian/pool/main/r/rsync/rsync_3.5.0+ds1-0+deb13u1_amd64.deb",
+    "sha256": "4e7c9ceffc110e23e91177811fb02c7033b161d327f696f1b8f2f57d2edb92c5",
+    "bytes": 501964,
+    "metadata": "Package: rsync\nVersion: 3.5.0+ds1-0+deb13u1\nDepends: libacl1 (>= 2.2.23), libc6 (>= 2.38), liblz4-1 (>= 0.0~r130), libpopt0 (>= 1.14), libssl3t64 (>= 3.0.0), libxxhash0 (>= 0.8.0), libzstd1 (>= 1.5.5), zlib1g (>= 1:1.1.4)\n",
+    "prefix": "/workspace/getff-tools/rsync-3.5.0",
+    "systemConfigurationChanged": false,
+    "library": {
+      "url": "https://deb.debian.org/debian/pool/main/p/popt/libpopt0_1.19+dfsg-2_amd64.deb",
+      "sha256": "07f649b706852af937654295697dcfc7858f3295718ec18681dce1704663e4f2",
+      "bytes": 43844
+    },
+    "versionOutput": "rsync  version 3.5.0  protocol version 32\nCopyright (C) 1996-2026 by Andrew Tridgell, Wayne Davison, and others.\nWeb site: https://rsync.samba.org/\nCapabilities:\n    64-bit files, 64-bit inums, 64-bit timestamps, 64-bit long ints,\n    socketpairs, symlinks, symtimes, hardlinks, hardlink-specials,\n    hardlink-symlinks, IPv6, atimes, batchfiles, inplace, append, ACLs,\n    ACL-at, xattrs, optional secluded-args, iconv, prealloc, stop-at,\n    no crtimes\nOptimizations:\n    SIMD-roll, no asm-roll, openssl-crypto, no asm-MD5\nChecksum list:\n    xxh128 xxh3 xxh64 (xxhash) md5 md4 sha1 none\nCompress list:\n    zstd lz4 zlibx zlib none\nDaemon auth list:\n    sha512 sha256 sha1 md5 md4\n\nrsync comes with ABSOLUTELY NO WARRANTY.  This is free software, and you\nare welcome to redistribute it under certain conditions.  See the GNU\nGeneral Public Licence for details.\n",
+    "wrapperSHA256": "a54c4f243c11943d6e05526894293169b269c0d9bb6b538239f35a6db97f4dd5"
+  },
+  "output": "evidence/environment-rsync-hydration.txt",
+  "outputSHA256": "683227fc18eba50fdfbbdeaac25c88f77d7c841416c4fd0a4e5cb2f646f19a1e",
+  "classification": "Missing environment prerequisite resolved with real official tool; no repository source/test repair."
+}
