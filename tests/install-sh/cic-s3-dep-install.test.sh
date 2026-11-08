@@ -259,9 +259,8 @@ grep -q '@testing-library/user-event' "$AIF_PM_LOG" \
 # ════ Arm I (npx-float) — every `npx <tool>` in a shipped CI workflow template is covered by ════
 # the DEVDEPS arrays the installer delivers for that stack. Static grep, no install.sh execution.
 # Extraction is a per-line heuristic (second token after `npx`, including inside quoted
-# concurrently sub-commands); the arrays contain no comments inside the parens, so array-block
-# membership means the installer actually delivers the package.
-extract_array() { sed -n "/^$1=(/,/^)/p" "$REPO_ROOT/setup.d/70-deps.sh"; }
+# concurrently sub-commands); strip comments before testing array-block membership.
+extract_array() { sed -n "/^$1=(/,/^)/p" "$REPO_ROOT/setup.d/70-deps.sh" | sed 's/#.*$//'; }
 map_bin_to_pkg() {
   case "$1" in
     playwright) echo "@playwright/test" ;;      # @playwright/test ships the `playwright` bin
@@ -319,6 +318,18 @@ case "$_neg_missing" in
   *)
     bad "I neg: \`npx -y <tool>\` slips past the extractor — flag-prefixed invocations unswept" ;;
 esac
+
+# I paired-negative: a package appearing only in an array comment is not installed.
+_I_COMMENT_ROOT=$(mktemp -d)
+mkdir -p "$_I_COMMENT_ROOT/setup.d"
+printf 'CORE_DEVDEPS=(\n  real-tool@^1 # comment-only-tool\n)\n' > "$_I_COMMENT_ROOT/setup.d/70-deps.sh"
+printf 'npx comment-only-tool\n' > "$_I_COMMENT_ROOT/template.yml"
+_I_COMMENT_MISSING=$(REPO_ROOT="$_I_COMMENT_ROOT" check_template_npx "$_I_COMMENT_ROOT/template.yml" CORE_DEVDEPS)
+case "$_I_COMMENT_MISSING" in
+  *comment-only-tool*) ok "I neg: comment-only package is not counted as installed" ;;
+  *) bad "I neg: comment-only package was counted as installed" ;;
+esac
+rm -rf "$_I_COMMENT_ROOT"
 
 # ════ Parity check (P0.2) — INSTALL.md §4 pins vs setup.d/70-deps.sh arrays (two-sided) ════
 # Cheap, deterministic, no install.sh execution: neither side can drift without failing this.

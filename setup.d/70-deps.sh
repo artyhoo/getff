@@ -204,14 +204,29 @@ merge_canonical_scripts install
 # the newest line whose engines.node admits the node-20.19 brownfield floor (the "brownfield
 # consumers may keep an older 20.19+ .nvmrc" note below); tilde = engines-forced below registry latest.
 CORE_DEVDEPS=(
-  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils@^8.62.0 globals@^17.7.0
-  prettier@3.8.3 eslint-config-prettier@^10.1.8 @vitest/eslint-plugin@1.6.27
-  typescript@^5.7.0
-  vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
-  @stryker-mutator/core@^9.6.1 @stryker-mutator/vitest-runner@^9.6.1 @stryker-mutator/typescript-checker@^9.6.1
-  dependency-cruiser@~17.4.3 fast-check@^4.8.0 glob@^13.0.6 ts-morph@^28.0.0 tsx@^4.22.4
-  husky@^9.1.7 lint-staged@~16.4.0 sort-package-json@~3.7.1
-  @types/node@^22.10.0
+  eslint@^9 # why: eslint-plugin-jsx-a11y 6.10.2 peers eslint only through major 9; React stacks share this array (2026-10-01)
+  typescript-eslint@^8.59 # why: current major 8 supports the eslint and TypeScript ranges used here (npm view 2026-11-08)
+  @eslint/js@^9 # why: its major must match eslint; major 10 peers eslint major 10
+  @typescript-eslint/utils@^8.62.0 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  globals@^17.7.0 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  prettier@3.8.3 # why: exact version preserves formatter determinism across consumer installs
+  eslint-config-prettier@^10.1.8 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  @vitest/eslint-plugin@1.6.27 # why: this version accepts TypeScript 5 while the next requires TypeScript 6
+  typescript@^5.7.0 # why: stays within the supported TypeScript peer bound and matches the documented install
+  vitest@^4.1.5 # why: major 4 bounds the wildcard peer and avoids the major 5 resolver crash
+  @vitest/coverage-v8@^4.1.5 # why: coverage major 4 peers with the installed test runner major 4
+  @stryker-mutator/core@^9.6.1 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  @stryker-mutator/vitest-runner@^9.6.1 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  @stryker-mutator/typescript-checker@^9.6.1 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  dependency-cruiser@~17.4.3 # why: the newer major requires Node 22 and the tilde retains the Node 20.19 floor
+  fast-check@^4.8.0 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  glob@^13.0.6 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  ts-morph@^28.0.0 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  tsx@^4.22.4 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  husky@^9.1.7 # why: pin sweep selected the newest line compatible with existing peers and Node 20.19
+  lint-staged@~16.4.0 # why: the newer major requires Node 22 and the tilde retains the Node 20.19 floor
+  sort-package-json@~3.7.1 # why: the newer major requires Node 22 and the tilde retains the Node 20.19 floor
+  @types/node@^22.10.0 # why: Node globals are needed for TypeScript and match the documented install
 )
 # npx-float (2026-07-10): concurrently/http-server/wait-on are invoked via bare `npx` by the
 # shipped react-next CI template (packages/preset-next-15-canonical/templates/
