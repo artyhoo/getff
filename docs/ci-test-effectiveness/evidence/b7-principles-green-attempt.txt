@@ -1,0 +1,154 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ❯ packages/core/principles/41-shell-test-ci-coverage.test.ts (18 tests | 2 failed) 1957ms
+     × (a) real-tree: no tracked native source test is uninvoked 1703ms
+     × (f) wrappers require a live callback, real spawn and status assertion 67ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (a) real-tree: no tracked native source test is uninvoked
+AssertionError: Missing native invocation. Wire or explicitly justify; unsupported commands: .: while IFS= read -r f
+.: if ! bash -n "$f" 2>err.log
+.: while IFS= read -r f
+.: if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" 2>err.log
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: if grep -rn "ai-factory-RULES\.md" --include="*.md" --include="*.sh" --exclude-dir=orchestrator-prompts .
+.: if grep -rn "best-practices-sidecar\.react\.md" --include="*.md" --exclude-dir=orchestrator-prompts .
+.: exit "$fail"
+.: for rules_file in packages/preset-next-15-canonical/RULES.md packages/preset-next-15-canonical/RULES.react-next.md
+.: while IFS= read -r r
+.: if find packages/core/audit-self packages/preset-next-15-canonical/audit-self \( -name "*.sh" -o -name "*.ts" \) -print0 2>/dev/null |         xargs -0 grep -qE "$r.*manual|manual.*$r|$r.*delegated|delegated.*$r" 2>/dev/null
+.: if [ "$in_audit" -eq 0 ]
+.: if [ -f packages/core/audit-self/audit-ai-docs.test.ts ]
+.: if [ -f packages/core/audit-self/first-steps-parity.test.ts ]
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: if ! command -v jq >/dev/null 2>&1
+.: unsupported shell block (heredoc/substitution/quotes)
+.: bash scripts/run-install-sh-suite.test.sh 3>/dev/null
+.: curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
+.: echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
+.: tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP" --strip-components=1
+.: "$RUNNER_TEMP/lychee" --version
+.: if grep -qF 'SKIP: lychee not on PATH' "$RUNNER_TEMP/lychee-test.out"
+.: unsupported shell block (heredoc/substitution/quotes)
+.: npm script cycle/limit .:typecheck
+.: git fetch --no-tags --quiet origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+.: git rev-parse --verify "origin/${BASE_REF}" >/dev/null    || { echo "::error::base ref origin/${BASE_REF} not resolvable — refusing to skip the backstop"
+.: curl -sSfL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz -o "$RUNNER_TEMP/vale.tgz"
+.: echo "cc35445a45186b8f0b01e11c01359694cf941e72cf6ab0fc44774f0e54c9d5fc  $RUNNER_TEMP/vale.tgz" | sha256sum -c -
+.: mkdir -p "$RUNNER_TEMP/vale-bin"
+.: tar -xzf "$RUNNER_TEMP/vale.tgz" -C "$RUNNER_TEMP/vale-bin"
+.: "$RUNNER_TEMP/vale-bin/vale" --version
+.: curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
+.: echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
+.: mkdir -p "$RUNNER_TEMP/lychee-bin"
+.: tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP/lychee-bin" --strip-components=1
+.: "$RUNNER_TEMP/lychee-bin/lychee" --version
+.: if grep -q '⚠ arms' "$RUNNER_TEMP/docs-check-test.out"
+.: if grep -q 'SKIPPED' "$RUNNER_TEMP/render-terms-style-test.out"
+.: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+tmp/fake-consumer-ts: echo '{"name":"fake-consumer-ts","version":"0.0.0","private":true}' > package.json
+tmp/fake-consumer-ts: bash "$GITHUB_WORKSPACE/install.sh" ts-server
+.: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+tmp/fake-consumer-rn: echo '{"name":"fake-consumer-rn","version":"0.0.0","private":true}' > package.json
+tmp/fake-consumer-rn: echo 'module.exports = {};' > next.config.js
+tmp/fake-consumer-rn: bash "$GITHUB_WORKSPACE/install.sh" react-next
+.: unsupported shell block (heredoc/substitution/quotes)
+.: cd "$CONSUMER"
+.: printf 'export const answer = 42;\n' > src/index.ts
+.: cd "$CONSUMER"
+.: if [ "$STACK" = "ts-server" ]
+.: cd "$CONSUMER"
+.: test -f .gitignore || { echo "::error::.gitignore seed not delivered — issue 1528 fix missing"
+.: cd "$CONSUMER"
+.: test -x node_modules/.bin/vitest    || { echo "::error::vitest not installed — install.sh --full dep install failed; the vitest arm cannot run (false-green guard)"
+.: cd "$CONSUMER"
+.: for bin in prettier depcruise
+.: cd "$CONSUMER"
+.: cd "$CONSUMER"
+.: missing npm script .:arch:check
+.: cd "$CONSUMER"
+.: test -x node_modules/.bin/eslint    || { echo "::error::eslint not installed — install.sh --full dep install failed; the lint gate cannot run (false-green guard)"
+.: unsupported shell block (heredoc/substitution/quotes)
+.: cd "$CONSUMER"
+.: for bin in eslint depcruise
+.: cd "$CONSUMER"
+.: missing npm script .:check:globs
+.: missing npm script .:check:enforced
+.: missing npm script .:arch:check
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: if [ "$RUN_CELL" != true ]
+.: [ "$RUN_CELL" = true ] || echo "::notice::cell skipped by path-scope (install=$INSTALL); nothing below runs"
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: node scripts/check-docs-refresh.mjs "$GATE_RANGE"
+.: bash scripts/ci-success-gate.sh $RESULTS
+.: command -v jq >/dev/null || { echo '::error::jq required by kickoff hook tests'
+.: markdown=()
+.: kickoffs=()
+.: while IFS= read -r -d '' path
+.: case "$path" in *.md) markdown+=("$path")
+.: case "$path" in .claude/orchestrator-prompts/*.md) kickoffs+=("$path")
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes): expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "tests/advisor-role-reminders/test_reminders.py",
++ ]
+
+ ❯ packages/core/principles/41-shell-test-ci-coverage.test.ts:75:148
+     73| describe('Principle 41 — native source suites reach actual CI invocati…
+     74|   it('(a) real-tree: no tracked native source test is uninvoked', () =…
+     75|     expect(missing(), `Missing native invocation. Wire or explicitly j…
+       |                                                                                                                                                    ^
+     76|   });
+     77|   it('(b) non-vacuity: source and invocation populations stay real', (…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/core/principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (f) wrappers require a live callback, real spawn and status assertion
+AssertionError: expected [ Array(1) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+  [
+-   "tests/advisor-role-reminders/test_reminders.py",
+    "tests/hooks/test-enforce-husky-presence.sh",
+  ]
+
+ ❯ packages/core/principles/41-shell-test-ci-coverage.test.ts:111:30
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 31 passed (33)
+   Start at  18:27:34
+   Duration  4.36s (transform 1.04s, setup 100ms, import 3.79s, tests 2.74s, environment 1ms)
+

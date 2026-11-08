@@ -1,0 +1,121 @@
+{
+  "boundary": "Finite fixed external expectations against the actual ordinary npm principles carrier, disposable git population. No TAK runtime claim.",
+  "results": [
+    {
+      "name": "good",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 0,
+      "exit": 0,
+      "expectedDiagnostic": null,
+      "accepted": true,
+      "seconds": 11.331
+    },
+    {
+      "name": "removed",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 1,
+      "exit": 1,
+      "expectedDiagnostic": "scripts/codex-hook-compatibility.test.mjs",
+      "accepted": true,
+      "seconds": 11.293
+    },
+    {
+      "name": "printed",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 1,
+      "exit": 1,
+      "expectedDiagnostic": "scripts/codex-hook-compatibility.test.mjs",
+      "accepted": true,
+      "seconds": 11.257
+    },
+    {
+      "name": "dead",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 1,
+      "exit": 1,
+      "expectedDiagnostic": "scripts/codex-hook-compatibility.test.mjs",
+      "accepted": true,
+      "seconds": 10.148
+    },
+    {
+      "name": "misleading",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 1,
+      "exit": 1,
+      "expectedDiagnostic": "scripts/codex-hook-compatibility.test.mjs",
+      "accepted": true,
+      "seconds": 14.286
+    },
+    {
+      "name": "missing-script",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 1,
+      "exit": 1,
+      "expectedDiagnostic": ".agents/roles/dual-channel-drift-auditor/test_overlap.py",
+      "accepted": true,
+      "seconds": 18.096
+    },
+    {
+      "name": "missing-sibling",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 1,
+      "exit": 1,
+      "expectedDiagnostic": "packages/runtime-bridge/test/",
+      "accepted": true,
+      "seconds": 12.598
+    },
+    {
+      "name": "quoted-env-variant",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 0,
+      "exit": 0,
+      "expectedDiagnostic": null,
+      "accepted": true,
+      "seconds": 12.811
+    },
+    {
+      "name": "new-population",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 1,
+      "exit": 1,
+      "expectedDiagnostic": "zzz-b7-unwired.test.ts",
+      "accepted": true,
+      "seconds": 9.695
+    },
+    {
+      "name": "disabled-detector",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 1,
+      "exit": 1,
+      "expectedDiagnostic": "fixed command corpus",
+      "accepted": true,
+      "seconds": 9.401
+    },
+    {
+      "name": "restored",
+      "command": "npm --prefix packages/core run test:principles -- -t ^Principle (38|41)",
+      "expectedExit": 0,
+      "exit": 0,
+      "expectedDiagnostic": null,
+      "accepted": true,
+      "seconds": 9.743
+    }
+  ],
+  "sourceHashesBefore": {
+    ".github/workflows/audit-self.yml": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+    "packages/core/package.json": "b2a206444cf522269272794aa611a5542c3481e25e6a7cdb7f7c002572266f74",
+    "packages/core/principles/38-vitest-include-ci-coverage.test.ts": "20ad9551520c9c55988dec285e88e4056267f270342abbf154442de101ecb955",
+    "packages/core/principles/41-shell-test-ci-coverage.test.ts": "35341b0f5e4e9de9c06eb6900dbc378651ba37eea9c59666322de9ebc0ecca96",
+    "packages/core/principles/ci-test-invocations.ts": "884beec243ee469790e22b8fcb21bfb9f623d8735209846b412e09a6a65a60a6",
+    "packages/core/hooks/advisor-role-reminders.test.ts": "375968ff13eaac6cb61acee93b3de69fc2cf8ef4b2733825f7346dda4955e05b"
+  },
+  "sourceHashesAfter": {
+    ".github/workflows/audit-self.yml": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+    "packages/core/package.json": "b2a206444cf522269272794aa611a5542c3481e25e6a7cdb7f7c002572266f74",
+    "packages/core/principles/38-vitest-include-ci-coverage.test.ts": "20ad9551520c9c55988dec285e88e4056267f270342abbf154442de101ecb955",
+    "packages/core/principles/41-shell-test-ci-coverage.test.ts": "35341b0f5e4e9de9c06eb6900dbc378651ba37eea9c59666322de9ebc0ecca96",
+    "packages/core/principles/ci-test-invocations.ts": "884beec243ee469790e22b8fcb21bfb9f623d8735209846b412e09a6a65a60a6",
+    "packages/core/hooks/advisor-role-reminders.test.ts": "375968ff13eaac6cb61acee93b3de69fc2cf8ef4b2733825f7346dda4955e05b"
+  },
+  "restored": true
+}

@@ -830,5 +830,19 @@ no_file "scan failure: the runner was never called" "$RUNLOG"
 if grep -qx '\[sweep\] PASS routed' "$TMP/o62"; then echo "  ✓ scan failure: the row passed here, unlabelled"
 else echo "  ✗ scan failure: no unlabelled '[sweep] PASS routed' line"; fails=$((fails + 1)); fi
 
+# B7: supplemental triggers must not retire the pre-existing unmapped-path fallback.
+# Use actual row names/triggers with harmless commands and an unrelated old obligation.
+env -u SWEEP_GATES_FILE bash "$SWEEP" --list-gates | awk -F '\t' '
+  $2 == "vitest-runtime-bridge" || $2 == "vitest-next-canonical" || $2 == "source-node" || $2 == "source-python" {
+    print $1 "\t" $2 "\t" $3 "\ttrue"
+  }' >"$TMP/b7-rows.tsv"
+printf '1\told-obligation\told-owned/\ttrue\n' >>"$TMP/b7-rows.tsv"
+for path in packages/runtime-bridge/new.ts packages/preset-next-15-canonical/new.ts .agents/procedures/pipeline/helpers/new.mjs .agents/roles/dual-channel-drift-auditor/new.py unknown/new.bin; do
+  SWEEP_GATES_FILE="$TMP/b7-rows.tsv" SWEEP_DIFF_OVERRIDE="$path" bash "$SWEEP" >"$TMP/b7.out" 2>&1
+  check "B7 supplemental fallback: $path" 0 $?
+  grep_out "B7 old obligation retained: $path" '[sweep] PASS old-obligation' "$TMP/b7.out"
+  grep_out "B7 unknown remains full: $path" 'escalating to --full' "$TMP/b7.out"
+done
+
 # shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }

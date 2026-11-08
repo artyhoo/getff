@@ -108,6 +108,7 @@ battery_families() {
 # the workflow — a stale entry silently widens the exemption, so hygiene is asserted below.
 unreachable_allowlist() {
   printf '%s\n' \
+    ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs${TAB}Filtered HOST-01 real refusal requires actual non-Linux host; existing Windows cell owns this result, Linux full suite reports an explicit skip" \
     "packages/core/audit-self/md-line-gate.sh${TAB}CI-only \`mechanical\` job: whole-tree find scanners read gitignored files a clean CI checkout never has, so a local run false-REDs" \
     "tests/consumer-matrix/pnpm-monorepo-cell.sh${TAB}real install.sh --full into a tmp consumer plus its dependency tree: network, minutes, non-hermetic" \
     "tests/consumer-matrix/python-unfamiliar-stack-cell.sh${TAB}real install.sh --full into a tmp consumer plus its dependency tree: network, minutes, non-hermetic" \
@@ -175,7 +176,9 @@ sig_tokens() {
       --*) echo "$tok" ;;
       *=*) [ -z "$prev" ] && echo "$tok" ;;                       # leading env assignment only
       *.sh | *.ts | *.mjs) case "$tok" in */*) echo "$tok" ;; esac ;;
-      *) if [ "$prev" = "run" ] || [ "$prev" = "--" ]; then echo "$tok"; fi ;;
+      # The package operand is part of an npm invocation's identity: core's test command
+      # cannot cover runtime-bridge/Next merely because both contain --prefix (B7).
+      *) if [ "$prev" = "run" ] || [ "$prev" = "--" ] || [ "$prev" = "--prefix" ] || [ "$tok" = "test" ]; then echo "$tok"; fi ;;
     esac
     prev="$tok"
   done

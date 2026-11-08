@@ -1,0 +1,19 @@
+{
+  "pr2116": {
+    "state": "open",
+    "head": "ba4fdd70f6cd54d439129cda5ec942913e4e8640",
+    "merged": false
+  },
+  "pr2144": {
+    "state": "open",
+    "head": "7a5b63dc137648bc76a5899ecae4b279063c7e6b",
+    "merged": false
+  },
+  "pr2146": {
+    "state": "open",
+    "head": "4b59504f4bb757254ea72b1f225937b50119447d",
+    "merged": false
+  },
+  "sourceSha256": "026cd2e057a381cb735a9051cc38bf35b5c0fc341eb1ff3947c90c0f0bd4a027",
+  "reconciliation": "PR2116 ba4fdd70 adds separate Windows hooks cell and advisor POSIX-fcntl skip; neither copied. B7 existing Windows consumer cell plus bounded advisor deadlines must be preserved at effect. TAK2144 and sidecar2146 remain pending; no runtime or campaign completion claimed."
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "name": "principles",
+    "command": "npx --prefix packages/core vitest run --reporter=default packages/core/principles/36-ci-needs-completeness.test.ts packages/core/principles/37-required-context-completeness.test.ts packages/core/principles/38-vitest-include-ci-coverage.test.ts packages/core/principles/41-shell-test-ci-coverage.test.ts",
+    "exit": 1,
+    "seconds": 5.253
+  },
+  {
+    "name": "sweep",
+    "command": "bash scripts/run-local-ci-sweep.test.sh",
+    "exit": 0,
+    "seconds": 18.772
+  },
+  {
+    "name": "reverse-coverage",
+    "command": "bash scripts/run-local-ci-sweep-coverage.test.sh",
+    "exit": 1,
+    "seconds": 33.829
+  },
+  {
+    "name": "runtime-bridge",
+    "command": "npm --prefix packages/runtime-bridge test",
+    "exit": 0,
+    "seconds": 76.612
+  },
+  {
+    "name": "next-canonical",
+    "command": "npm --prefix packages/preset-next-15-canonical test",
+    "exit": 0,
+    "seconds": 2.443
+  },
+  {
+    "name": "source-node",
+    "command": "npm --prefix packages/core run test:source-node",
+    "exit": 0,
+    "seconds": 120.956
+  },
+  {
+    "name": "source-python",
+    "command": "npm --prefix packages/core run test:source-python",
+    "exit": 0,
+    "seconds": 3.197
+  },
+  {
+    "name": "advisor",
+    "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/advisor-role-reminders.test.ts",
+    "exit": 0,
+    "seconds": 7.063
+  },
+  {
+    "name": "nonlinux-local-limit",
+    "command": "node --test --test-name-pattern='HOST-01 real:' .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+    "exit": 0,
+    "seconds": 0.537
+  },
+  {
+    "name": "actionlint",
+    "command": "/workspace/getff-tools/bin/actionlint .github/workflows/audit-self.yml",
+    "exit": 0,
+    "seconds": 0.058
+  }
+]

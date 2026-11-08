@@ -1,0 +1,171 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/principles/37-required-context-completeness.test.ts (11 tests) 150ms
+ ✓ packages/core/principles/36-ci-needs-completeness.test.ts (8 tests) 348ms
+ ✓ packages/core/principles/38-vitest-include-ci-coverage.test.ts (15 tests) 983ms
+     ✓ (a) real-tree: every nonempty workspace population is invoked  301ms
+     ✓ (f) removal, data-only replacement and new runner populations are rejected  496ms
+ ❯ packages/core/principles/41-shell-test-ci-coverage.test.ts (22 tests | 2 failed) 2073ms
+     × (a) real-tree: no tracked native source test is uninvoked 1470ms
+     ✓ (b) non-vacuity: source and invocation populations stay real 142ms
+     ✓ (c) fixed command corpus: direct 1ms
+     ✓ (c) fixed command corpus: quoted 0ms
+     ✓ (c) fixed command corpus: env 0ms
+     ✓ (c) fixed command corpus: and 1ms
+     ✓ (c) fixed command corpus: cwd 0ms
+     ✓ (c) fixed command corpus: echo 0ms
+     ✓ (c) fixed command corpus: printf 0ms
+     ✓ (c) fixed command corpus: comment 0ms
+     ✓ (c) fixed command corpus: dead 0ms
+     ✓ (c) fixed command corpus: heredoc 0ms
+     ✓ (c) fixed command corpus: misleading 0ms
+     ✓ (c) fixed command corpus: wrong runner 0ms
+     ✓ (c) fixed command corpus: negated 0ms
+     ✓ (c) fixed command corpus: function body 0ms
+     ✓ (c) fixed command corpus: dynamic cwd 0ms
+     ✓ (c) fixed command corpus: unknown 0ms
+     ✓ (d) data and disabled steps do not register execution 1ms
+     ✓ (e) actual nested package scripts, Node globs and missing targets are resolved 4ms
+     × (f) wrappers require a live callback, real spawn and status assertion 201ms
+     ✓ (g) exemption hygiene remains live with an empty map 243ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (a) real-tree: no tracked native source test is uninvoked
+AssertionError: Missing native invocation. Wire or explicitly justify; unsupported commands: .: while IFS= read -r f
+.: if ! bash -n "$f" 2>err.log
+.: while IFS= read -r f
+.: if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" 2>err.log
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: if grep -rn "ai-factory-RULES\.md" --include="*.md" --include="*.sh" --exclude-dir=orchestrator-prompts .
+.: if grep -rn "best-practices-sidecar\.react\.md" --include="*.md" --exclude-dir=orchestrator-prompts .
+.: exit "$fail"
+.: for rules_file in packages/preset-next-15-canonical/RULES.md packages/preset-next-15-canonical/RULES.react-next.md
+.: while IFS= read -r r
+.: if find packages/core/audit-self packages/preset-next-15-canonical/audit-self \( -name "*.sh" -o -name "*.ts" \) -print0 2>/dev/null |         xargs -0 grep -qE "$r.*manual|manual.*$r|$r.*delegated|delegated.*$r" 2>/dev/null
+.: if [ "$in_audit" -eq 0 ]
+.: if [ -f packages/core/audit-self/audit-ai-docs.test.ts ]
+.: if [ -f packages/core/audit-self/first-steps-parity.test.ts ]
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: if ! command -v jq >/dev/null 2>&1
+.: unsupported shell block (heredoc/substitution/quotes)
+.: bash scripts/run-install-sh-suite.test.sh 3>/dev/null
+.: curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
+.: echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
+.: tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP" --strip-components=1
+.: "$RUNNER_TEMP/lychee" --version
+.: if grep -qF 'SKIP: lychee not on PATH' "$RUNNER_TEMP/lychee-test.out"
+.: unsupported shell block (heredoc/substitution/quotes)
+.: npm script cycle/limit .:typecheck
+.: git fetch --no-tags --quiet origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+.: curl -sSfL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz -o "$RUNNER_TEMP/vale.tgz"
+.: echo "cc35445a45186b8f0b01e11c01359694cf941e72cf6ab0fc44774f0e54c9d5fc  $RUNNER_TEMP/vale.tgz" | sha256sum -c -
+.: mkdir -p "$RUNNER_TEMP/vale-bin"
+.: tar -xzf "$RUNNER_TEMP/vale.tgz" -C "$RUNNER_TEMP/vale-bin"
+.: "$RUNNER_TEMP/vale-bin/vale" --version
+.: curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
+.: echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
+.: mkdir -p "$RUNNER_TEMP/lychee-bin"
+.: tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP/lychee-bin" --strip-components=1
+.: "$RUNNER_TEMP/lychee-bin/lychee" --version
+.: if grep -q '⚠ arms' "$RUNNER_TEMP/docs-check-test.out"
+.: if grep -q 'SKIPPED' "$RUNNER_TEMP/render-terms-style-test.out"
+.: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+tmp/fake-consumer-ts: echo '{"name":"fake-consumer-ts","version":"0.0.0","private":true}' > package.json
+.: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+tmp/fake-consumer-rn: echo '{"name":"fake-consumer-rn","version":"0.0.0","private":true}' > package.json
+.: unsupported shell block (heredoc/substitution/quotes)
+.: cd "$CONSUMER"
+.: cd "$CONSUMER"
+.: if [ "$STACK" = "ts-server" ]
+.: cd "$CONSUMER"
+.: cd "$CONSUMER"
+.: cd "$CONSUMER"
+.: for bin in prettier depcruise
+.: cd "$CONSUMER"
+.: cd "$CONSUMER"
+.: cd "$CONSUMER"
+.: unsupported shell block (heredoc/substitution/quotes)
+.: cd "$CONSUMER"
+.: for bin in eslint depcruise
+.: cd "$CONSUMER"
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: if [ "$RUN_CELL" != true ]
+.: [ "$RUN_CELL" = true ] || echo "::notice::cell skipped by path-scope (install=$INSTALL); nothing below runs"
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: node scripts/check-docs-refresh.mjs "$GATE_RANGE"
+.: bash scripts/ci-success-gate.sh $RESULTS
+.: command -v jq >/dev/null || { echo '::error::jq required by kickoff hook tests'
+.: markdown=()
+.: while IFS= read -r -d '' path
+.: case "$path" in *.md) markdown+=("$path")
+.: case "$path" in .claude/orchestrator-prompts/*.md) kickoffs+=("$path")
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes): expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "tests/advisor-role-reminders/test_reminders.py",
++ ]
+
+ ❯ packages/core/principles/41-shell-test-ci-coverage.test.ts:186:7
+    184|       missing(),
+    185|       `Missing native invocation. Wire or explicitly justify; unsuppor…
+    186|     ).toEqual([]);
+       |       ^
+    187|   });
+    188|   it('(b) non-vacuity: source and invocation populations stay real', (…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/core/principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (f) wrappers require a live callback, real spawn and status assertion
+AssertionError: expected [ Array(1) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+  [
+-   "tests/advisor-role-reminders/test_reminders.py",
+    "tests/hooks/test-enforce-husky-presence.sh",
+  ]
+
+ ❯ packages/core/principles/41-shell-test-ci-coverage.test.ts:263:30
+    261|   });
+    262|   it('(f) wrappers require a live callback, real spawn and status asse…
+    263|     expect(wrapperTargets()).toEqual([
+       |                              ^
+    264|       'tests/advisor-role-reminders/test_reminders.py',
+    265|       'tests/hooks/test-enforce-husky-presence.sh',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  2 failed | 54 passed (56)
+   Start at  18:29:53
+   Duration  3.69s (transform 1.21s, setup 256ms, import 2.31s, tests 3.55s, environment 0ms)
+

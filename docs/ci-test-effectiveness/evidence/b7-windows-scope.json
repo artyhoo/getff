@@ -1,0 +1,36 @@
+{
+  "hostedResult": "pending; no non-Linux result manufactured",
+  "existingSelector": "scripts/ci-path-scope.sh unchanged; actual two-parent merge refs",
+  "cases": [
+    {
+      "path": ".agents/procedures/pipeline/helpers/autonomy-binding.mjs",
+      "exit": 0,
+      "outputs": "install=true\nruntime=true\n",
+      "diagnostic": "install=true runtime=true \u2014 '.agents/procedures/pipeline/helpers/autonomy-binding.mjs' is outside the measured skip set; the install-area jobs run\n"
+    },
+    {
+      "path": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+      "exit": 0,
+      "outputs": "install=true\nruntime=true\n",
+      "diagnostic": "install=true runtime=true \u2014 '.agents/procedures/pipeline/helpers/autonomy-binding.test.mjs' is outside the measured skip set; the install-area jobs run\n"
+    },
+    {
+      "path": "package.json",
+      "exit": 0,
+      "outputs": "install=true\nruntime=true\n",
+      "diagnostic": "install=true runtime=true \u2014 'package.json' is outside the measured skip set; the install-area jobs run\n"
+    },
+    {
+      "path": "package-lock.json",
+      "exit": 0,
+      "outputs": "install=true\nruntime=true\n",
+      "diagnostic": "install=true runtime=true \u2014 'package-lock.json' is outside the measured skip set; the install-area jobs run\n"
+    },
+    {
+      "path": ".github/workflows/audit-self.yml",
+      "exit": 0,
+      "outputs": "install=true\nruntime=true\n",
+      "diagnostic": "install=true runtime=true \u2014 '.github/workflows/audit-self.yml' is outside the measured skip set; the install-area jobs run\n"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "requiredCommands": [
+    {
+      "name": "principles",
+      "exit": 0,
+      "tests": 62,
+      "evidence": "b7-host-principles-final.txt"
+    },
+    {
+      "name": "sweep",
+      "exit": 0,
+      "evidence": "b7-host-sweep.txt"
+    },
+    {
+      "name": "reverse-coverage",
+      "exit": 0,
+      "pass": 36,
+      "fail": 0,
+      "evidence": "b7-host-reverse-coverage-final.txt"
+    },
+    {
+      "name": "runtime-bridge",
+      "command": "npm --prefix packages/runtime-bridge test",
+      "exit": 0,
+      "seconds": 76.612
+    },
+    {
+      "name": "next-canonical",
+      "command": "npm --prefix packages/preset-next-15-canonical test",
+      "exit": 0,
+      "seconds": 2.443
+    },
+    {
+      "name": "source-node",
+      "command": "npm --prefix packages/core run test:source-node",
+      "exit": 0,
+      "seconds": 120.956
+    },
+    {
+      "name": "source-python",
+      "command": "npm --prefix packages/core run test:source-python",
+      "exit": 0,
+      "seconds": 3.197
+    },
+    {
+      "name": "advisor",
+      "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/advisor-role-reminders.test.ts",
+      "exit": 0,
+      "seconds": 7.063
+    },
+    {
+      "name": "nonlinux-local-limit",
+      "command": "node --test --test-name-pattern='HOST-01 real:' .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+      "exit": 0,
+      "seconds": 0.537
+    },
+    {
+      "name": "actionlint",
+      "command": "/workspace/getff-tools/bin/actionlint .github/workflows/audit-self.yml",
+      "exit": 0,
+      "seconds": 0.058
+    },
+    {
+      "name": "manifest",
+      "exit": 0,
+      "payloadFiles": 1668,
+      "packedEntries": 1673,
+      "evidence": "b7-manifest-check.txt"
+    }
+  ],
+  "initialFailures": "b7-host.json retains initial wrapper recognition/coverage-prose RED; superseded final outputs are explicitly named above.",
+  "held": "b7-held.json plus b7-held-population-followup.json; final subject hashes restored",
+  "noLoss": "b7-sweep-no-loss.json:12 frozen workloads, zero old obligation losses",
+  "nativeFiles": "b7-native-population-match.json and b7-population-reconciliation.json",
+  "optionalEslint": "Could not run: repository has no eslint.config (b7-eslint.txt); no lint-pass claim."
+}

@@ -55,6 +55,8 @@
     "test": "vitest run --reporter=default",
     "test:principles": "vitest run principles/",
     "test:canonical": "node --test ../../scripts/canonical-agents-source.test.mjs ../../scripts/canonical-native.test.mjs ../../scripts/codex-contributor.test.mjs ../../scripts/pipeline-overview.test.mjs ../../scripts/pipeline-live-signals.test.mjs ../../scripts/pipeline-status-signals.test.mjs && npm run test:canonical:contracts",
+    "test:source-node": "cd ../.. && node --test .agents/procedures/harvest/tests/health-preflight.test.mjs scripts/codex-hook-compatibility.test.mjs scripts/pipeline-saved-coordination.test.mjs tests/advisor-bridge-beta/protocol.test.mjs && node --test .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+    "test:source-python": "cd ../.. && python3 .agents/procedures/pipeline/evals/runtime-audit.test.py && python3 .agents/roles/dual-channel-drift-auditor/test_enumerate.py && python3 .agents/roles/dual-channel-drift-auditor/test_overlap.py",
     "test:hooks": "vitest run hooks/",
     "test:ir": "vitest run ir/",
     "test:backends": "vitest run backends/",

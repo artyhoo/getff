@@ -1,0 +1,356 @@
+{
+  "id": "B7-D01-D07-D11",
+  "status": "DONE_WITH_CONCERNS",
+  "inputCommit": "e38d6db0",
+  "decisionIds": [
+    "D01",
+    "D07",
+    "D11"
+  ],
+  "scope": "Actual invocation/population/delivery repair plus bounded advisor wrapper. No TAK or campaign completion.",
+  "artifacts": [
+    {
+      "id": "B7-bounded-invocations",
+      "kind": "production-checker",
+      "decisionIds": [
+        "D01",
+        "D07",
+        "D11"
+      ],
+      "sources": [
+        "packages/core/principles/ci-test-invocations.ts"
+      ],
+      "obligation": "Credit actual bounded executable commands, not path mentions.",
+      "criteria": {
+        "relevance": "P38/P41 shared source of YAML run steps, package/cwd/config identity, recursive npm scripts and literal native runner arguments.",
+        "effectiveness": "Good/quoted/env/and variants pass; print/comment/heredoc/dead/misleading-path/unknown conditions, wrong runner, restricted options and shell glob pseudo-batteries earn no coverage. Disabled detector fails held fixed expectations.",
+        "theatre": "Actual command tokens only; YAML names and data never count. Native Node name subsets, including Windows HOST-01, cannot cover an entire file.",
+        "tautology": "Fixed expected outcomes live in principles and audit-only driver; native installed enumeration is independent of static parser.",
+        "duplication": "Reuses js-yaml, picomatch and TypeScript already installed. One non-test helper shared by both principles; no .test.ts import, no generic shell analyzer, no TAK fork.",
+        "costEffectiveness": "Cheap recurring metadata checks; four-principle verification wall times retained. No full core rerun. More grammar is explicit maintenance cost, not a claimed speedup.",
+        "sufficiency": "Supports literal commands/cd/env/and lists, reviewed interpreter-availability guards, terminal tee diagnostic sink and bounded npm recursion. Unsupported shapes produce diagnostic and no credit; dynamic config/root/spreads fail closed."
+      },
+      "delivery": [
+        "Existing npm --prefix packages/core run test:principles at pre-push and required CI."
+      ],
+      "evidenceRefs": [
+        "evidence/b7-held.json",
+        "evidence/b7-held-population-followup.json",
+        "evidence/b7-host-principles-final.txt",
+        "evidence/b7-prior-art-context7.json"
+      ],
+      "limits": [
+        "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+        "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+        "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations."
+      ]
+    },
+    {
+      "id": "B7-workspace-population",
+      "kind": "regression",
+      "decisionIds": [
+        "D01",
+        "D07",
+        "D11"
+      ],
+      "sources": [
+        "packages/core/principles/38-vitest-include-ci-coverage.test.ts"
+      ],
+      "obligation": "Every nonempty tracked workspace Vitest config population must reach actual CI.",
+      "criteria": {
+        "relevance": "Closes core-only enumeration gap while preserving true substring/trailing-slash filter semantics and package/config distinction.",
+        "effectiveness": "Installed Vitest4.1.8 list oracle exactly matches all five workspace configs; removal/print/new-workspace probes fail for exact omitted paths.",
+        "theatre": "Two empty presets stay empty and are not forced into failing empty runs; native listing is file enumeration, not runtime passage.",
+        "tautology": "Independent installed list identities retained alongside static file identities; no assertions on current census counts beyond existing non-vacuity floors.",
+        "duplication": "Extends P38, preserves recurring principles channel and core canonical unit; sibling suites remain their actual original tests.",
+        "costEffectiveness": "One native list per config, no collection of whole core test bodies. No assertion of documentation Vitest5 behavior for installed4.1.8.",
+        "sufficiency": "S1 inventory340 core files→342 from preexisting autonomy-binding-lifecycle and B3 ci-checker-oracles; sibling S1 identities unchanged. Root invocation selection uses actual literal root defaults/excludes."
+      },
+      "delivery": [
+        "Recurring principles pre-push/required CI."
+      ],
+      "evidenceRefs": [
+        "evidence/b7-native-population-match.json",
+        "evidence/b7-static-population.json",
+        "evidence/b7-population-reconciliation.json",
+        "evidence/b7-held-population-followup.json"
+      ],
+      "limits": [
+        "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+        "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+        "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations."
+      ]
+    },
+    {
+      "id": "B7-native-population",
+      "kind": "regression",
+      "decisionIds": [
+        "D01",
+        "D07",
+        "D11"
+      ],
+      "sources": [
+        "packages/core/principles/41-shell-test-ci-coverage.test.ts"
+      ],
+      "obligation": "Preserve shell population and extend deterministic Node/Python/test-*.sh source coverage.",
+      "criteria": {
+        "relevance": "All prior tracked shell sources remain in population; direct Node/Python omissions and actual wrapper carriers are included.",
+        "effectiveness": "Missing workflow invocation, missing npm script target and new unwired source population fail the actual principles carrier. Advisor spawn/cwd/discovery/status and live callback are narrowly parsed.",
+        "theatre": "Six historical external receipt suites have explicit justified dispositions; fixtures/vendor/templates/distribution copies are inputs. Advisor13 and safe husky fixture are not duplicated.",
+        "tautology": "Actual native runner commands exercised unchanged; fixed bad command corpus is independent of parsed source. Wrapper false-spawn/skip/status-removal companions reject.",
+        "duplication": "Existing installer meta-all-wired retained for disk/audit-self boundary. B3 actual ci-checker-oracles manual-husky carrier credited through its existing spawn function.",
+        "costEffectiveness": "No extra advisor invocation from P41; source parsing only. No native suite callbacks or assertions changed.",
+        "sufficiency": "Bounded source-wrapper proof is deliberately only the two existing carriers. Six S1 historical-receipt files remain manual replay, not fresh native CI."
+      },
+      "delivery": [
+        "Recurring principles; native execution delivered by existing hooks/new named supplemental CI scripts."
+      ],
+      "evidenceRefs": [
+        "evidence/b7-initial-red.txt",
+        "evidence/b7-host-principles-final.txt",
+        "evidence/b7-held.json",
+        "evidence/b7-held-population-followup.json"
+      ],
+      "limits": [
+        "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+        "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+        "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations."
+      ]
+    },
+    {
+      "id": "B7-native-delivery",
+      "kind": "invocation",
+      "decisionIds": [
+        "D01",
+        "D07",
+        "D11"
+      ],
+      "sources": [
+        "packages/core/package.json",
+        ".github/workflows/audit-self.yml"
+      ],
+      "obligation": "Deliver sibling native suites and exact eight source omissions without enlarging canonical pre-push unit.",
+      "criteria": {
+        "relevance": "Runtime-bridge/Next suites and five Node/three Python source files now recur in existing required principles job after existing root npm install.",
+        "effectiveness": "Actual runtime663pass+1existing external skip, Next43pass, first four Node72pass, autonomy188pass+1Linuxskip, Python15+8+4pass. No copied assertions.",
+        "theatre": "Autonomy runs as its own Node process after the four-file Node command, with distinct native summary and timing. Full canonical script is byte-identical to base.",
+        "tautology": "Actual original test executables provide outcomes; config/command coverage gate does not replace those assertions.",
+        "duplication": "Named test:source-node/test:source-python reuse existing script machinery; no new install, job, matrix, dependency, or full core execution.",
+        "costEffectiveness": "One sequential native sample: runtime76.612s + Next2.443s + supplemental Node120.956s + Python3.197s =203.208s useful added execution. Autonomy component76.937s. These are added costs, separate from B4 forecasts.",
+        "sufficiency": "Native source correspondence and current execution verified. Required ci-success aggregation preserved; hosted execution remains pending. Existing external-AIF park live test remains skipped explicitly."
+      },
+      "delivery": [
+        "Existing principles-meta-tests required job after root workspace install.",
+        "Affected local sweep rows; canonical pre-push unchanged."
+      ],
+      "evidenceRefs": [
+        "evidence/b7-host.json",
+        "evidence/b7-host-runtime-bridge.txt",
+        "evidence/b7-host-next-canonical.txt",
+        "evidence/b7-host-source-node.txt",
+        "evidence/b7-host-source-python.txt",
+        "evidence/b7-population-reconciliation.json"
+      ],
+      "limits": [
+        "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+        "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+        "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations."
+      ]
+    },
+    {
+      "id": "B7-windows-delivery",
+      "kind": "invocation",
+      "decisionIds": [
+        "D01",
+        "D07",
+        "D11"
+      ],
+      "sources": [
+        ".github/workflows/audit-self.yml"
+      ],
+      "obligation": "Run actual HOST-01 refusal in existing getff-dist Windows cell.",
+      "criteria": {
+        "relevance": "Linux skip cannot establish non-Linux fail-closed result; existing Windows Node22 checkout already has required builtins.",
+        "effectiveness": "Actual unchanged install selector against five real two-parent merge fixtures forces install=true for affected source/test/workflow/root config/lockfile.",
+        "theatre": "Filtered native node invocation only, no platform spoof or copied skip. Local filtered run explicitly reports0pass/1Linuxskip.",
+        "tautology": "Existing selector is executed over independent Git fixtures; actual hosted Windows result remains distinct from source wiring evidence.",
+        "duplication": "Reuses exact existing RUN_CELL/Windows/getff-dist cell. Original setup/install and scope guard untouched; no new matrix/job.",
+        "costEffectiveness": "One filtered Windows correctness case uses existing cell setup; hosted runtime cost unmeasured.",
+        "sufficiency": "PR2116 owner overlaps workflow and advisor wrapper; its separate windows-hooks job and POSIX-fcntl skip were not copied. Reconcile at integration effect."
+      },
+      "delivery": [
+        "Existing consumer-matrix getff-dist Windows cell -> required ci-success."
+      ],
+      "evidenceRefs": [
+        "evidence/b7-windows-scope.json",
+        "evidence/b7-host-nonlinux-local-limit.txt",
+        "evidence/b7-owner-reconciliation.json"
+      ],
+      "limits": [
+        "Actual Windows pass remains pending.",
+        "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+        "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+        "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations."
+      ]
+    },
+    {
+      "id": "B7-sweep-selection",
+      "kind": "invocation",
+      "decisionIds": [
+        "D01",
+        "D07",
+        "D11"
+      ],
+      "sources": [
+        "scripts/run-local-ci-sweep.sh",
+        "scripts/run-local-ci-sweep.test.sh"
+      ],
+      "obligation": "Add affected supplemental obligations without suppressing prior --full fallback.",
+      "criteria": {
+        "relevance": "New Node/Python and sibling suite rows select actual source/config dependencies; Next retains broad core trigger because existing confinement guard rejected the narrower recipe-only assumption.",
+        "effectiveness": "Twelve frozen preimage workloads cover docs, sources, config/shared, rename/deletion pair and unknown path; no prior selected obligation lost and every prior full escalation preserved.",
+        "theatre": "Supplemental rows explicitly do not count as path-mapping proof. Actual harmless-command gate tables drive real sweep selector, not duplicated selector logic.",
+        "tautology": "Preimage command table and workloads frozen before edits; expected old selected sets held independently. Recurring supplemental-only fixture must still run unrelated old obligation.",
+        "duplication": "Existing gate table and fallback reused; no second selector or B4 shard/deletion assumptions.",
+        "costEffectiveness": "Docs workload deltas and every added selected row retained in no-loss evidence. Supplemental useful suite cost is reported separately; no locality speedup claim.",
+        "sufficiency": "Actual reverse coverage requires commands reach named rows. Unknown namespaces continue escalating; required CI remains the unconditional behavior backstop."
+      },
+      "delivery": [
+        "Affected local sweep; recurring sweep self-test in required CI."
+      ],
+      "evidenceRefs": [
+        "evidence/b7-sweep-before.json",
+        "evidence/b7-sweep-before.tsv",
+        "evidence/b7-sweep-no-loss.json",
+        "evidence/b7-host-sweep.txt"
+      ],
+      "limits": [
+        "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+        "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+        "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations."
+      ]
+    },
+    {
+      "id": "B7-reverse-package-identity",
+      "kind": "regression",
+      "decisionIds": [
+        "D01",
+        "D07",
+        "D11"
+      ],
+      "sources": [
+        "scripts/run-local-ci-sweep-coverage.test.sh"
+      ],
+      "obligation": "Preserve package identity in reverse coverage of named npm test commands.",
+      "criteria": {
+        "relevance": "Without --prefix operand significance, runtime/Next could falsely borrow any core npm row.",
+        "effectiveness": "Actual missing-sibling-row table rejects runtime-bridge and Next commands despite retaining core rows; final full reverse guard verifies all existing/new obligations.",
+        "theatre": "Windows filtered native refusal is explicitly unreachable locally with documented rationale; Linux whole-file suite is independently routed.",
+        "tautology": "Fixed removed-row table is independent of significant-token implementation; reported missing commands are exact native package invocations.",
+        "duplication": "Extends existing reverse guard, no duplicate framework or broad command exemption.",
+        "costEffectiveness": "Only package operand/test token classification and one Windows disposition added; bounded existing guard runs unchanged beyond this distinction.",
+        "sufficiency": "Reverse guard remains explicitly limited to atomic single-line workflow commands, with its existing batteries and source-confinement proof."
+      },
+      "delivery": [
+        "Existing sweep-ci-coverage and required CI carrier."
+      ],
+      "evidenceRefs": [
+        "evidence/b7-reverse-missing-siblings-red.txt",
+        "evidence/b7-host-reverse-coverage-final.txt"
+      ],
+      "limits": [
+        "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+        "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+        "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations."
+      ]
+    },
+    {
+      "id": "B7-advisor-bound",
+      "kind": "changed-deadline-disposition",
+      "decisionIds": [
+        "D01",
+        "D07",
+        "D11"
+      ],
+      "sources": [
+        "packages/core/hooks/advisor-role-reminders.test.ts"
+      ],
+      "obligation": "Bound existing13-case Python spawn at25s and outer correctness case at30s.",
+      "criteria": {
+        "relevance": "D11 recorded full hooks timeout at default5s; unchanged focused callback4324ms passed before repair.",
+        "effectiveness": "Focused real wrapper passes4661ms test duration/7.063s command wall. Actual Python discovery args and status assertion preserved.",
+        "theatre": "No new skip, reduced cases, mock, global budget or performance SLO; spawnSync stays real.",
+        "tautology": "Portable pre-repair diagnostic files and final actual wrapper output retained; deadline changes do not replace assertion behavior.",
+        "duplication": "Only existing wrapper bounded; P41 credits this carrier without running13Python cases twice.",
+        "costEffectiveness": "25s child deadline below30s outer failure ceiling; a failing subprocess chain may wait longer than former5s. Passing latency is not claimed improved.",
+        "sufficiency": "Full hooks prior RED must still be resolved by controller final campaign/CI full carrier; intentionally not repeated in this integration batch."
+      },
+      "delivery": [
+        "Existing core test:hooks + P41 narrow wrapper source accounting."
+      ],
+      "evidenceRefs": [
+        "evidence/b7-advisor-before.json",
+        "evidence/b7-advisor-before.txt",
+        "evidence/b7-host-advisor.txt"
+      ],
+      "limits": [
+        "Final full-hooks acceptance remains pending.",
+        "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+        "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+        "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations."
+      ]
+    },
+    {
+      "id": "B7-held-corpus",
+      "kind": "one-shot-driver",
+      "decisionIds": [
+        "D01",
+        "D07",
+        "D11"
+      ],
+      "sources": [
+        "docs/ci-test-effectiveness/evidence/b7-held-conformance.py"
+      ],
+      "obligation": "Independent fixed outcomes must reject actual invocation loss and disabled detector.",
+      "criteria": {
+        "relevance": "Exercises actual npm test:principles carrier against disposable git population and real current source files.",
+        "effectiveness": "Good, removed, printed, dead, misleading, missing script, quoted env variant, missing sibling, new source/workspace, disabled detector and restored controls retain exact statuses/diagnostics.",
+        "theatre": "Disposable source mutation only; real checkout subject hashes before/after are equal. Parser-only unit tests are not the sole oracle.",
+        "tautology": "Expected status and omitted-path diagnostics are fixed outside mutated subjects. Disabled nativeCovered=true still fails unchanged negative corpus.",
+        "duplication": "Finite audit-only driver using existing npm/Vitest/corpus boundary; pending TAK integration stays its owner’s responsibility.",
+        "costEffectiveness": "Initial ordinary carrier collected other principles but executed only P38/P41; subsequent probes exclude unrelated files to bound cost. Raw per-probe wall times retained.",
+        "sufficiency": "Final follow-up adds exact script-target removal and genuinely new workspace population; final restoration and disabled-detector checks use final source hashes. No infinite driver-of-driver."
+      },
+      "delivery": [
+        "One-shot audit driver; fixed recurring corpus lives in P38/P41."
+      ],
+      "evidenceRefs": [
+        "evidence/b7-held-initial.json",
+        "evidence/b7-held.json",
+        "evidence/b7-held-population-followup.json"
+      ],
+      "limits": [
+        "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+        "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+        "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations."
+      ]
+    }
+  ],
+  "limits": [
+    "Native Linux/Node24 evidence is not hosted Node22 or Windows acceptance.",
+    "Pending TAK2144/sidecar2146 and Windows2116 are not landed runtime; no campaign DONE claim.",
+    "Finite static grammar and fixed corpus do not certify arbitrary shell reachability, hostile source rewrites, or changing both detector and expectations.",
+    "Full hooks final carrier, hosted Node22 and actual Windows results remain controller/CI acceptance.",
+    "Optional eslint command could not run: checkout has no eslint.config; this is recorded, not a lint-pass claim."
+  ],
+  "verificationSummary": {
+    "principles": "final four-principle command plus final ordinary held restoration",
+    "sweep": "actual self-test passed; frozen12-workload no-loss",
+    "reverse": "final actual reverse guard + missing-sibling-row RED",
+    "nativePopulation": "five installed native lists exactly matched",
+    "nativeSuites": "all newly routed suites executed once; explicit existing AIF/Linux skips retained",
+    "manifest": "normal generation and actual packed archive --check",
+    "canonicalUnchanged": true
+  },
+  "ownerReconciliation": "evidence/b7-owner-reconciliation.json"
+}

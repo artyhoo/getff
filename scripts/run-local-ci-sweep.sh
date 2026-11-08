@@ -83,6 +83,8 @@
 #   `test:template-render` suite, hermetic into tmpdirs, ~5s).
 #
 # UNREACHABLE — a green sweep says NOTHING about these; verify on CI:
+#   autonomy-binding HOST-01 real non-Linux refusal: actual Windows consumer-matrix cell;
+#                         the Linux source-node suite keeps its explicit platform skip.
 #   mechanical            whole-tree `find` scanners (packages/core/audit-self/md-line-gate.sh
 #                         and its peers); locally they also read gitignored files CI's clean
 #                         checkout never has → false red (see the NOTE below).
@@ -469,6 +471,10 @@ gate_table() {
     "5${TAB}dispatcher-tests${TAB}.claude/skills/dispatcher/,tests/dispatcher/${TAB}for t in tests/dispatcher/*.test.sh; do bash \"\$t\" || exit 1; done" \
     "5${TAB}measure-scripts${TAB}scripts/measure/${TAB}bash scripts/measure/measure.test.sh" \
     "5${TAB}plugin-aifdoctor-selftests${TAB}scripts/generate-plugin-twins.sh,agents/,.claude/hooks/,plugin/,tests/plugin/,tests/aif-doctor/,scripts/aif-doctor${TAB}ts=\$(grep -vE '^[[:space:]]*#' .github/workflows/audit-self.yml | grep -oE '(tests/plugin|tests/aif-doctor)/[a-zA-Z0-9._-]+\\.test\\.sh' | sort -u); [ -n \"\$ts\" ] || { echo 'no tests/plugin or tests/aif-doctor steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
+    "6${TAB}vitest-runtime-bridge${TAB}packages/runtime-bridge/,.agents/hooks/runtime-bridge-dispatch.sh,.claude/hooks/runtime-bridge-dispatch.sh,.agents/procedures/intent/,.github/workflows/,package.json,package-lock.json,packages/core/package.json,packages/core/package-lock.json${TAB}npm --prefix packages/runtime-bridge test" \
+    "6${TAB}vitest-next-canonical${TAB}packages/preset-next-15-canonical/,packages/core/,.github/workflows/,package.json,package-lock.json,packages/core/package.json,packages/core/package-lock.json${TAB}npm --prefix packages/preset-next-15-canonical test" \
+    "6${TAB}source-node${TAB}.agents/procedures/harvest/,.agents/procedures/pipeline/,scripts/,tests/advisor-bridge-beta/,.github/workflows/,package.json,package-lock.json,packages/core/package.json,packages/core/package-lock.json${TAB}npm --prefix packages/core run test:source-node" \
+    "6${TAB}source-python${TAB}.agents/procedures/pipeline/,.agents/roles/dual-channel-drift-auditor/,.github/workflows/,package.json,package-lock.json,packages/core/package.json,packages/core/package-lock.json${TAB}npm --prefix packages/core run test:source-python" \
     "6${TAB}vitest-principles${TAB}packages/core/${TAB}npm --prefix packages/core run test:principles" \
     "6${TAB}kickoff-contracts${TAB}.claude/orchestrator-prompts/,docs/superpowers/specs/,.gitignore${TAB}npm --prefix packages/core run test:principles && npx --no-install vitest run packages/core/hooks/check-kickoff-traps.test.ts packages/core/hooks/check-worker-dispatch-channel.test.ts packages/core/hooks/host-verify.test.ts packages/core/skills/pipeline-park-contract.test.ts" \
     "6${TAB}vitest-hooks${TAB}packages/core/${TAB}npm --prefix packages/core run test:hooks" \
@@ -1057,6 +1063,9 @@ if [ "$MODE" = "diff" ] && [ -n "$CHANGED" ]; then
     while IFS="$TAB" read -r _ n trig _; do
       [ -z "${n:-}" ] && continue
       case ",$trig," in *,ALWAYS,*) continue ;; esac
+      # Supplemental suites add obligations, not proof that an otherwise unknown path is
+      # fully mapped. Preserve the existing conservative --full fallback (B7/D07).
+      case "$n" in vitest-runtime-bridge|vitest-next-canonical|source-node|source-python) continue ;; esac
       if trigger_matches "$trig" "$p"; then matched=1; break; fi
     done <<EOF
 $GATES_SNAPSHOT

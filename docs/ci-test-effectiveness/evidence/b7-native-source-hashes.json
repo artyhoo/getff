@@ -1,0 +1,222 @@
+[
+  {
+    "path": "packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts",
+    "sha256": "41bcea59d3ac9fc9fee913cd9dcead1dca1947afcec5e277ee03926f84d1d8fe",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts",
+    "sha256": "7bbd7fc4cca9c4a5262d43a97e02154b558a8e15fa9cb808157f51435ac40fa2",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts",
+    "sha256": "d724f1d469d8bf60fb6d7b1d66554c0cb8aee66db06210435eda0fc0e33d2dc3",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-active-observation.test.ts",
+    "sha256": "95119177c8bd900bea880e9aa630b7f8b1e37c2377c4f63c34ad050f41b29b00",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-answer.test.ts",
+    "sha256": "1ca2adca877dc236f7a2cc1a3aef18260f7d67ae0c4fe57f2c7809811658a893",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-backend-semantics.test.ts",
+    "sha256": "81fc6d042ed09ad32026eafea199894cf37b821655c89204181e1551c647fba3",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-claim-split.test.ts",
+    "sha256": "2d3985e02647d6e287d4f7cffbcf6a7fea1af3302eb4d0458af22f8e3cb7267b",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-dispatch-dedup.test.ts",
+    "sha256": "7561e5c31068746981c00a7a93f6452f28fe2d72ba7ae0d2c262a7fc34027f13",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-dispatch-preflight.test.ts",
+    "sha256": "760d4dfd163ec6c6eba180d5b1eb994e10a3893262884cabd73f4c27a067aebd",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-ensure-parallel.test.ts",
+    "sha256": "4ac37c55d1e3de7191532853c4324f643afb1ee9ec499c2227a62a46c761b23d",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-fire-backend.test.ts",
+    "sha256": "5ad00c3503c814488a3a66a2e17f4a1465c53099dc16a508535073e85d93fcea",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-http.test.ts",
+    "sha256": "f0c6046e80e13e90f9d33cf3983b1428f43a3063765f439b979a5edb31803950",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-park-live.test.ts",
+    "sha256": "7f64e2a262b663f891f12bdf0af6bc65081c506351792bc4c50c2fd333e3ce98",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-park.test.ts",
+    "sha256": "4615f3c8df3fc13415a7bca0f83edbce64790b11910a3f9164702553d117c213",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-questions.test.ts",
+    "sha256": "2cf4dca50d3700bdac8832c25d9d0b06f9c8137a59593d69e3f55ef6f55f3264",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-rest-dispatch.test.ts",
+    "sha256": "f060d9443e0f11967b7e4cd39a74f75e5c08d5bc21626cceed28c863e4f2917e",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-result-consumption.test.ts",
+    "sha256": "23c4d11e5a57615e7034f8f85a0b3cd5cd3450f2b0367cc0cbb7da54e5173a85",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-self-cleaning.test.ts",
+    "sha256": "7921a643996cae508675dc8093f56a16b1d00a747ece15fca3c4eac003b32139",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/aif-status-readback.test.ts",
+    "sha256": "9327e743c0a83a32baa29173cf95cc94cb5fa8e7950bc180d2dd7531f51416ad",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/await-actionable.test.ts",
+    "sha256": "6883768a0154789fcbda1a44aba7951f99a904d6a97b0641d91f16ff64717532",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/cli-entry.test.ts",
+    "sha256": "190d7c41eaf22787c1620808c05d9ce08a6fcd22f115594a3dc7fbe8ab7a9797",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/cli-symlink-entry.test.ts",
+    "sha256": "098fb0165579a6e74d6867c738add8b77dfe8274fbfc99949e411f88d7bd6dec",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/dispatch-import-no-sideeffect.test.ts",
+    "sha256": "872d09bc07df5b5d2c1f353e6baa54d26db64bc817f498954ec74abc528e5a36",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/dispatch-spec-invalid.test.ts",
+    "sha256": "e4cd0f5fc2127e7f492cd51ab5d5c2bd0832bbe5fa3ea35bb8f6f4fdeda46cf2",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/economy-build.test.ts",
+    "sha256": "8b2636839f06ba40a72880fb90059e43414976cfefc0b5efbfdcbbd95b494389",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/harvest-cli.test.ts",
+    "sha256": "47551709583051a1ee370779345db0fd433a7a437aa1943e2adb1a3a7d32ead6",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/harvest-host-repo.test.ts",
+    "sha256": "d867c0cc71c906232b2ab810999d0b97d1a38b9e90a026c61d475ade20bffd1a",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/harvest-merge-report.test.ts",
+    "sha256": "5d90b7d49ff401da9fcaf40f45b38495e2bfb205ed0161203396742e2cacceff",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/harvest.test.ts",
+    "sha256": "c43ea9e3167e4279434fa7a49ca6b9cb44cf536c76fb6fcd72d7bf8106a507dd",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/questions-cli-output.test.ts",
+    "sha256": "5376952e7fe5986551b972e304056d010ba30f31dddc71a843ab21d290ea6d19",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/result-review-effects.test.ts",
+    "sha256": "a1bafaa2d7b52e716639f4d2d9667ceabbf0ed90d5f93de97d2ab5df7c91046d",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/runtime-bridge.test.ts",
+    "sha256": "963100cc509c966cb0125b857e4575052d86a0d883a8a1d5a2ece21fb6606b6d",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/supervision.test.ts",
+    "sha256": "35c52c5cc070f2c7d41f74107efcb74c88247135f45c1b49547e1eabf1921062",
+    "identicalToBase": true
+  },
+  {
+    "path": "packages/runtime-bridge/test/vendor-hook-stderr.test.ts",
+    "sha256": "e3645c38b9279fa2136caf5691633cfbb22998b89695d210c071978a497e1671",
+    "identicalToBase": true
+  },
+  {
+    "path": ".agents/procedures/harvest/tests/health-preflight.test.mjs",
+    "sha256": "4b3dbe685b80fc8d8ad94e3a91bae05a9cbb1166622a6be518480bd91adf1be8",
+    "identicalToBase": true
+  },
+  {
+    "path": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+    "sha256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+    "identicalToBase": true
+  },
+  {
+    "path": "scripts/codex-hook-compatibility.test.mjs",
+    "sha256": "25bf7eef4c13087ed5432af728f990cf1adf08a065a827383e5b039e9ee6089b",
+    "identicalToBase": true
+  },
+  {
+    "path": "scripts/pipeline-saved-coordination.test.mjs",
+    "sha256": "3cb048fe33b66b4165fdafd0655a13d1ea107fc9e1d8aab7821b13548c092eee",
+    "identicalToBase": true
+  },
+  {
+    "path": "tests/advisor-bridge-beta/protocol.test.mjs",
+    "sha256": "77ba03d02eba4630de9c3fa5186cd22b8fb1915c57cffba5a9874d80f246c264",
+    "identicalToBase": true
+  },
+  {
+    "path": ".agents/procedures/pipeline/evals/runtime-audit.test.py",
+    "sha256": "7cb07ee88ad67a8a625d25348147a5a813801ab7027bb69c30f38d8088d3e3d1",
+    "identicalToBase": true
+  },
+  {
+    "path": ".agents/roles/dual-channel-drift-auditor/test_enumerate.py",
+    "sha256": "fb5bae69f9fa165339fd0b12436fcb1bb7d38744197b8178f1abcc464e7752aa",
+    "identicalToBase": true
+  },
+  {
+    "path": ".agents/roles/dual-channel-drift-auditor/test_overlap.py",
+    "sha256": "055a8ae8c1eed9222a452841117ae3b587c76d510aa610a905de5cbce7cfcf8f",
+    "identicalToBase": true
+  },
+  {
+    "path": "tests/advisor-role-reminders/test_reminders.py",
+    "sha256": "14f3600fdc077089a7ce278b0c9574dc1687c6a05bae6f3d6677b603e07043b9",
+    "identicalToBase": true
+  },
+  {
+    "path": "tests/hooks/test-enforce-husky-presence.sh",
+    "sha256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4",
+    "identicalToBase": true
+  }
+]

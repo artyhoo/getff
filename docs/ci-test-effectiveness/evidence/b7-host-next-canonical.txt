@@ -1,0 +1,16 @@
+
+> @rules-as-tests/preset-next-15-canonical@0.1.0 test
+> vitest run --reporter=default
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/preset-next-15-canonical
+
+ ✓ eslint-rules/require-form-safe-parse.parity.test.ts (12 tests) 166ms
+ ✓ eslint-rules/no-server-imports-in-client.test.ts (16 tests) 221ms
+ ✓ eslint-rules/require-use-server-directive.parity.test.ts (15 tests) 204ms
+
+ Test Files  3 passed (3)
+      Tests  43 passed (43)
+   Start at  18:32:07
+   Duration  1.85s (transform 156ms, setup 0ms, import 3.78s, tests 592ms, environment 5ms)
+

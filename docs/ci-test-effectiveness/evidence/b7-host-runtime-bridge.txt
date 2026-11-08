@@ -1,0 +1,32 @@
+
+> @rules-as-tests-aif/runtime-bridge@0.0.1 test
+> vitest run
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/runtime-bridge
+
+[runtime-bridge] WARN: could not ensure parallelEnabled (tasks may run in-place / risk dirty_worktree): project p not found at http://localhost:3009 (GET /projects)
+[runtime-bridge] WARN: could not ensure parallelEnabled (tasks may run in-place / risk dirty_worktree): project p not found at http://localhost:3009 (GET /projects)
+[runtime-bridge] WARN: could not ensure parallelEnabled (tasks may run in-place / risk dirty_worktree): aif-handoff rate limit (GET /projects): slow down
+[runtime-bridge] WARN: could not ensure parallelEnabled (tasks may run in-place / risk dirty_worktree): aif-handoff GET /projects unreachable: fetch failed
+[runtime-bridge] WARN: could not ensure parallelEnabled (tasks may run in-place / risk dirty_worktree): project p not found at http://localhost:3009 (GET /projects)
+[runtime-bridge/fire] dispatched session=sess-fire-001 url=https://claude.ai/sessions/sess-fire-001
+[runtime-bridge/fire] dispatched session=s url=u
+[runtime-bridge/fire] dispatch failed (network): connect ECONNREFUSED
+[runtime-bridge/fire] dispatch failed HTTP 500: Internal Server Error
+[runtime-bridge/fire] dispatch failed HTTP 500: error
+
+╔══════════════════════════════════════════════════════════════════╗
+║  runtime-bridge: ManualBackend — manual run                      ║
+╚══════════════════════════════════════════════════════════════════╝
+  Kickoff written to: /tmp/runtime-bridge-2026-11-08T18-31-05-c416030c.md
+  Open a new Claude Code window and run the task.
+  Put the report in: /tmp/runtime-bridge-2026-11-08T18-31-05-c416030c.response.md
+  Task ID: 2026-11-08T18-31-05-c416030c
+[runtime-bridge] preflight exited 7 — proceeding with dispatch anyway
+
+ Test Files  30 passed | 1 skipped (31)
+      Tests  663 passed | 1 skipped (664)
+   Start at  18:30:51
+   Duration  75.77s (transform 2.54s, setup 0ms, import 5.34s, tests 123.10s, environment 6ms)
+

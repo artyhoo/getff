@@ -1,0 +1,95 @@
+[
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-active-observation.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-answer.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-backend-semantics.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-claim-split.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-dispatch-dedup.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-dispatch-preflight.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-ensure-parallel.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-fire-backend.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-http.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-park-live.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-park.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-questions.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-rest-dispatch.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-result-consumption.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-self-cleaning.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/aif-status-readback.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/await-actionable.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/cli-entry.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/cli-symlink-entry.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/dispatch-import-no-sideeffect.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/dispatch-spec-invalid.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/economy-build.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/harvest-cli.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/harvest-host-repo.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/harvest-merge-report.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/harvest.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/questions-cli-output.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/result-review-effects.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/runtime-bridge.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/supervision.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/runtime-bridge/test/vendor-hook-stderr.test.ts"
+  }
+]

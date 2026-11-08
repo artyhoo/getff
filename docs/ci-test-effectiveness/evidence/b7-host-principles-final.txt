@@ -1,0 +1,15 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/principles/36-ci-needs-completeness.test.ts (8 tests) 347ms
+ ✓ packages/core/principles/38-vitest-include-ci-coverage.test.ts (18 tests) 606ms
+     ✓ (f) removal, data-only replacement and new runner populations are rejected  307ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts (11 tests) 232ms
+ ✓ packages/core/principles/41-shell-test-ci-coverage.test.ts (25 tests) 1713ms
+     ✓ (a) real-tree: no tracked native source test is uninvoked  1181ms
+
+ Test Files  4 passed (4)
+      Tests  62 passed (62)
+   Start at  18:45:12
+   Duration  3.32s (transform 918ms, setup 104ms, import 2.43s, tests 2.90s, environment 1ms)
+

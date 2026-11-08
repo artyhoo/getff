@@ -1,0 +1,11 @@
+{
+  "packages/core/principles/38-vitest-include-ci-coverage.test.ts": "918e00b5926aaa1f62568747ffcfe845fed4e03f1113b626333da9ff06feef67",
+  "packages/core/principles/41-shell-test-ci-coverage.test.ts": "24cf90704df714f8d01952dc229c8e7527bfbb36036d36c122efb670f58f2709",
+  "packages/core/principles/ci-test-invocations.ts": "042f88e9b07edb9aaca14c179a6e48eee251620f1f805639e4532886e326ee85",
+  "packages/core/package.json": "b2a206444cf522269272794aa611a5542c3481e25e6a7cdb7f7c002572266f74",
+  "packages/core/hooks/advisor-role-reminders.test.ts": "375968ff13eaac6cb61acee93b3de69fc2cf8ef4b2733825f7346dda4955e05b",
+  ".github/workflows/audit-self.yml": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+  "scripts/run-local-ci-sweep.sh": "4d456dd8bf5916fd8e45f52fc5a880db1debfe687bca1a0246308cb000a1ce88",
+  "scripts/run-local-ci-sweep.test.sh": "9961a7a51c66c4e28c0f638d16f83d9387cd2cf35f6080b6ea3a9cc094c2a037",
+  "scripts/run-local-ci-sweep-coverage.test.sh": "2cc5bd1715e2f7755f4cbf3ad67f3db35a638d4a6c89d4bfcdc1a14ec7f5d4b1"
+}

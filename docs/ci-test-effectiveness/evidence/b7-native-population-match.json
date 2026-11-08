@@ -1,0 +1,52 @@
+[
+  {
+    "cwd": "packages/core",
+    "command": "npx vitest list --filesOnly --json --passWithNoTests",
+    "exit": 0,
+    "seconds": 1.498,
+    "staticCount": 342,
+    "nativeCount": 342,
+    "missingNative": [],
+    "unexpectedNative": []
+  },
+  {
+    "cwd": "packages/preset-next-15-canonical",
+    "command": "npx vitest list --filesOnly --json --passWithNoTests",
+    "exit": 0,
+    "seconds": 1.083,
+    "staticCount": 3,
+    "nativeCount": 3,
+    "missingNative": [],
+    "unexpectedNative": []
+  },
+  {
+    "cwd": "packages/preset-react-native",
+    "command": "npx vitest list --filesOnly --json --passWithNoTests",
+    "exit": 0,
+    "seconds": 3.453,
+    "staticCount": 0,
+    "nativeCount": 0,
+    "missingNative": [],
+    "unexpectedNative": []
+  },
+  {
+    "cwd": "packages/preset-react-spa",
+    "command": "npx vitest list --filesOnly --json --passWithNoTests",
+    "exit": 0,
+    "seconds": 1.333,
+    "staticCount": 0,
+    "nativeCount": 0,
+    "missingNative": [],
+    "unexpectedNative": []
+  },
+  {
+    "cwd": "packages/runtime-bridge",
+    "command": "npx vitest list --filesOnly --json --passWithNoTests",
+    "exit": 0,
+    "seconds": 3.238,
+    "staticCount": 31,
+    "nativeCount": 31,
+    "missingNative": [],
+    "unexpectedNative": []
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "paths": "README.md",
+    "status": 0,
+    "output": "[sweep] PASS md-ci-only\n[sweep] PASS face-facts-check\n[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\nSWEEP: 7 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.9nZWB3\n"
+  },
+  {
+    "paths": "docs/ci-test-effectiveness/batches/b7.json",
+    "status": 0,
+    "output": "[sweep] PASS face-facts-check\n[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS audit-ai-docs\nSWEEP: 7 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.Ljs7eF\n"
+  },
+  {
+    "paths": "packages/core/hooks/advisor-role-reminders.test.ts",
+    "status": 0,
+    "output": "[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS getff-dist-canonical-links\n[sweep] PASS getff-dist-manifest\n[sweep] PASS pipefail-early-exit\n[sweep] PASS shipped-rules-drift\n[sweep] PASS typecheck\n[sweep] PASS byte-identical\n[sweep] PASS runtime-bundles-drift\n[sweep] PASS synth-bundle-drift\n[sweep] PASS agnosticism\n[sweep] PASS hook-tests\n[sweep] PASS audit-ai-docs\n[sweep] PASS canonical-regen\n[sweep] PASS template-render\n[sweep] PASS vitest-backends\n[sweep] PASS vitest-composition\n[sweep] PASS vitest-hooks\n[sweep] PASS vitest-install-wire\n[sweep] PASS vitest-ir\n[sweep] PASS vitest-principles\n[sweep] PASS vitest-render\n[sweep] PASS vitest-skills\n[sweep] PASS vitest-spec-validation\n[sweep] PASS vitest-synthesizer\n[sweep] PASS vitest-units\nSWEEP: 29 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.mtXEhi\n"
+  },
+  {
+    "paths": "packages/runtime-bridge/src/index.ts",
+    "status": 0,
+    "output": "[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS getff-dist-canonical-links\n[sweep] PASS getff-dist-manifest\n[sweep] PASS shipped-rules-drift\n[sweep] PASS typecheck\n[sweep] PASS byte-identical\n[sweep] PASS canonical-regen\nSWEEP: 11 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.BwZ2yd\n"
+  },
+  {
+    "paths": "packages/preset-next-15-canonical/eslint-rules/x.ts",
+    "status": 0,
+    "output": "[sweep] PASS format-check\n[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS getff-dist-canonical-links\n[sweep] PASS getff-dist-manifest\n[sweep] PASS shipped-rules-drift\n[sweep] PASS typecheck\n[sweep] PASS byte-identical\n[sweep] PASS canonical-regen\nSWEEP: 12 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.zvtAba\n"
+  },
+  {
+    "paths": ".agents/procedures/pipeline/helpers/autonomy-binding.mjs",
+    "status": 0,
+    "output": "[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS getff-dist-canonical-links\n[sweep] PASS getff-dist-manifest\n[sweep] PASS byte-identical\nSWEEP: 8 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.ibhPqI\n"
+  },
+  {
+    "paths": ".agents/roles/dual-channel-drift-auditor/test_overlap.py",
+    "status": 0,
+    "output": "[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS getff-dist-canonical-links\n[sweep] PASS getff-dist-manifest\n[sweep] PASS byte-identical\nSWEEP: 8 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.Djh1lv\n"
+  },
+  {
+    "paths": "package.json",
+    "status": 0,
+    "output": "[sweep] PASS reference-check\n[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS runtime-bundles-drift\n[sweep] PASS synth-bundle-drift\nSWEEP: 8 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.d84nGq\n"
+  },
+  {
+    "paths": "package-lock.json",
+    "status": 0,
+    "output": "[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS runtime-bundles-drift\n[sweep] PASS synth-bundle-drift\nSWEEP: 7 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.3PpTva\n"
+  },
+  {
+    "paths": ".github/workflows/audit-self.yml",
+    "status": 0,
+    "output": "[sweep] PASS actionlint\n[sweep] PASS enforce-husky-presence\n[sweep] PASS meta-all-wired\n[sweep] PASS sweep-ci-coverage\n[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\nSWEEP: 9 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.5IxcwQ\n"
+  },
+  {
+    "paths": "scripts/removed.test.mjs\nscripts/renamed.test.mjs",
+    "status": 0,
+    "output": "[sweep] PASS reference-check\n[sweep] PASS script-selftests\n[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS pipefail-early-exit\n[sweep] PASS shellcheck\nSWEEP: 9 gate(s) passed (mode=diff)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.sZki4x\n"
+  },
+  {
+    "paths": "unknown/new.bin",
+    "status": 0,
+    "output": "[sweep] unmapped path 'unknown/new.bin' \u2192 escalating to --full\n[sweep] PASS actionlint\n[sweep] PASS alwayson-budget\n[sweep] PASS claude-dir-ci-only\n[sweep] PASS enforce-husky-presence\n[sweep] PASS md-ci-only\n[sweep] PASS meta-all-wired\n[sweep] PASS sweep-ci-coverage\n[sweep] PASS docs-quality-strict\n[sweep] PASS face-facts-check\n[sweep] PASS format-check\n[sweep] PASS install-roster-check\n[sweep] PASS presets-check\n[sweep] PASS reference-check\n[sweep] PASS render-check\n[sweep] PASS rule-index-check\n[sweep] PASS script-selftests\n[sweep] PASS terms-style-check\n[sweep] PASS arch-retell-corpus\n[sweep] PASS audit-ai-docs-live\n[sweep] PASS bash32\n[sweep] PASS canonical-source\n[sweep] PASS citation-fullsweep\n[sweep] PASS docs-refresh\n[sweep] PASS getff-dist-canonical-links\n[sweep] PASS getff-dist-manifest\n[sweep] PASS pipefail-early-exit\n[sweep] PASS shellcheck\n[sweep] PASS shipped-rules-drift\n[sweep] PASS ships-manifest\n[sweep] PASS typecheck\n[sweep] PASS byte-identical\n[sweep] PASS runtime-bundles-drift\n[sweep] PASS synth-bundle-drift\n[sweep] PASS agnosticism\n[sweep] PASS dispatcher-tests\n[sweep] PASS hook-tests\n[sweep] PASS install-sh-suite\n[sweep] PASS measure-scripts\n[sweep] PASS mutation-runner-selftest\n[sweep] PASS plugin-aifdoctor-selftests\n[sweep] PASS premerge-carrier-selftest\n[sweep] PASS audit-ai-docs\n[sweep] PASS canonical-regen\n[sweep] PASS first-steps-parity\n[sweep] PASS kickoff-contracts\n[sweep] PASS template-render\n[sweep] PASS vitest-backends\n[sweep] PASS vitest-composition\n[sweep] PASS vitest-hooks\n[sweep] PASS vitest-install-wire\n[sweep] PASS vitest-ir\n[sweep] PASS vitest-principles\n[sweep] PASS vitest-render\n[sweep] PASS vitest-skills\n[sweep] PASS vitest-spec-validation\n[sweep] PASS vitest-synthesizer\n[sweep] PASS vitest-units\nSWEEP: 57 gate(s) passed (mode=full)\nSWEEP: gate logs in /tmp/run-local-ci-sweep.2FgNh9\n"
+  }
+]

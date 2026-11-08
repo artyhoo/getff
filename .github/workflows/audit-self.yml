@@ -301,6 +301,14 @@ jobs:
             packages/core/package-lock.json
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
+      - name: Run runtime-bridge native suites
+        run: npm --prefix packages/runtime-bridge test
+      - name: Run Next canonical native suites
+        run: npm --prefix packages/preset-next-15-canonical test
+      - name: Run supplemental Node source suites (autonomy separately reported)
+        run: npm --prefix packages/core run test:source-node
+      - name: Run supplemental Python source suites
+        run: npm --prefix packages/core run test:source-python
       - name: Render & diff
         run: npx tsx packages/core/render/render-rules.ts --check
       # CTX Stage 1: .claude/rules/00-rule-index.md + the AGENTS.md `rule-index` fenced
@@ -2549,6 +2557,9 @@ jobs:
           console.log(line);
           if (spelled.trim() === native.trim()) { console.log('::error::TEMP has one spelling on this runner: the short-name case was not exercised'); process.exit(1); }
           JS
+      - name: Verify actual non-Linux autonomy refusal
+        if: env.RUN_CELL == 'true' && matrix.cell == 'getff-dist' && runner.os == 'Windows'
+        run: node --test --test-name-pattern='HOST-01 real:' .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs
       - name: Run the consumer-matrix getff-dist cell
         if: env.RUN_CELL == 'true' && matrix.cell == 'getff-dist'
         run: bash tests/consumer-matrix/getff-dist-cell.sh
