@@ -1,0 +1,59 @@
+{
+  "ciFullRunSource": "346e3daf3255a431100c6fa2298727cca36e3bc7",
+  "runIds": [
+    42372587424,
+    42372579925
+  ],
+  "checks": [
+    {
+      "path": ".github/workflows/audit-self.yml",
+      "ciBaseSHA256": "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7",
+      "auditSHA256": "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7",
+      "equal": true
+    },
+    {
+      "path": "packages/core/audit-self/audit-ai-docs.test.ts",
+      "ciBaseSHA256": "296cb2035258b98e4f0f0a0758659ebd467ef966a40a1ff85d2c393b33a7c2d1",
+      "auditSHA256": "296cb2035258b98e4f0f0a0758659ebd467ef966a40a1ff85d2c393b33a7c2d1",
+      "equal": true
+    },
+    {
+      "path": "vitest.config.ts",
+      "ciBaseSHA256": "435fec04768c888772e88b2ef4d4357f0f0b5db5c62367951209f43c052a7164",
+      "auditSHA256": "435fec04768c888772e88b2ef4d4357f0f0b5db5c62367951209f43c052a7164",
+      "equal": true
+    },
+    {
+      "path": "packages/core/vitest.setup.ts",
+      "ciBaseSHA256": "dda4a4a8cf5ab15602457d5184634247f9217437458cb3c4cadf4872918f2893",
+      "auditSHA256": "dda4a4a8cf5ab15602457d5184634247f9217437458cb3c4cadf4872918f2893",
+      "equal": true
+    },
+    {
+      "path": "tests/install-sh/synth-wire-consumer-config.test.sh",
+      "ciBaseSHA256": "7f3a57241137822161d0fe9d442f40a4c5bb96c2b60482467ac8e4e046b1e1ef",
+      "auditSHA256": "7f3a57241137822161d0fe9d442f40a4c5bb96c2b60482467ac8e4e046b1e1ef",
+      "equal": true
+    },
+    {
+      "path": "tests/install-sh/first-commit-passable.test.sh",
+      "ciBaseSHA256": "d8012b6e0e32f53984f703e279067a9e47f5f4c4918cf497c8b6ab13774aea46",
+      "auditSHA256": "d8012b6e0e32f53984f703e279067a9e47f5f4c4918cf497c8b6ab13774aea46",
+      "equal": true
+    },
+    {
+      "path": "tests/install-sh/r2-glob-reach.test.sh",
+      "ciBaseSHA256": "7f67d48039ae78d7ed691102dc0caa4f97df87d4b58271cb3322a2810c0480d6",
+      "auditSHA256": "7f67d48039ae78d7ed691102dc0caa4f97df87d4b58271cb3322a2810c0480d6",
+      "equal": true
+    },
+    {
+      "path": "tests/install-sh/r2-auto-wire.test.sh",
+      "ciBaseSHA256": "dd04f83baf8712abcf721ccb4fcb60e06a2c279b1bf347efac443f781d345692",
+      "auditSHA256": "dd04f83baf8712abcf721ccb4fcb60e06a2c279b1bf347efac443f781d345692",
+      "equal": true
+    }
+  ],
+  "remoteFinal": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+  "remoteDelta": "M\t.claude/orchestrator-prompts/readme-install-claims/kickoff.md\n"
+}

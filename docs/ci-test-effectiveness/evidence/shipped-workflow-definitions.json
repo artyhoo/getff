@@ -1,0 +1,1604 @@
+[
+  {
+    "path": "packages/core/templates/cargo/github-actions-ci.yml",
+    "definition": {
+      "name": "getff Rust enforcement",
+      "on": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        }
+      },
+      "concurrency": {
+        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.ref != 'refs/heads/main' }}"
+      },
+      "permissions": {
+        "contents": "read"
+      },
+      "jobs": {
+        "getff-clippy": {
+          "name": "clippy bans (getff)",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "name": "Add clippy component",
+              "run": "rustup component add clippy"
+            },
+            {
+              "name": "cargo clippy (getff bans)",
+              "run": "cargo clippy --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_types -D clippy::disallowed_macros"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "path": "packages/core/templates/go/github-actions-ci.yml",
+    "definition": {
+      "name": "getff Go enforcement",
+      "on": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        }
+      },
+      "concurrency": {
+        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.ref != 'refs/heads/main' }}"
+      },
+      "permissions": {
+        "contents": "read"
+      },
+      "jobs": {
+        "getff-golangci": {
+          "name": "golangci-lint bans (getff)",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "name": "Set up Go",
+              "uses": "actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b",
+              "with": {
+                "go-version": "1.22.0",
+                "cache": "false"
+              }
+            },
+            {
+              "name": "Install pinned golangci-lint",
+              "run": "go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2"
+            },
+            {
+              "name": "golangci-lint run (getff bans)",
+              "run": "set -euo pipefail\nif [ -f getff-golangci.yml ]; then\n  echo \"\u2139 REFUSE cell: your .golangci.yml is untouched; the getff bans live in getff-golangci.yml\"\n  golangci-lint run --enable forbidigo --config getff-golangci.yml ./...\nelif [ -f .golangci.yml ]; then\n  golangci-lint run --enable forbidigo --config .golangci.yml ./...\nelse\n  echo \"\u26a0 no getff go config found \u2014 skip (run 'install.sh go' to deliver)\"\n  exit 0\nfi\n"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "path": "packages/core/templates/python/github-actions-ci.yml",
+    "definition": {
+      "name": "getff Python enforcement",
+      "on": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        }
+      },
+      "concurrency": {
+        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.ref != 'refs/heads/main' }}"
+      },
+      "permissions": {
+        "contents": "read"
+      },
+      "jobs": {
+        "getff-astgrep": {
+          "name": "ast-grep structural rules (getff)",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version": "22"
+              }
+            },
+            {
+              "name": "Install ast-grep (pinned)",
+              "run": "npm install -g @ast-grep/cli@0.44.1"
+            },
+            {
+              "name": "ast-grep scan (getff rules)",
+              "run": "bash scripts/run-armed.sh ast-grep scan"
+            }
+          ]
+        },
+        "getff-ruff": {
+          "name": "ruff fast-path lint (getff)",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55",
+              "with": {
+                "python-version": "3.12"
+              }
+            },
+            {
+              "name": "Install ruff (pinned)",
+              "run": "pip install ruff==0.15.21"
+            },
+            {
+              "name": "ruff check (discovered config)",
+              "run": "bash scripts/run-armed.sh ruff check ."
+            },
+            {
+              "name": "ruff check (getff bans \u2014 isolated --config)",
+              "run": "bash scripts/run-armed.sh ruff check . --config .getff/ruff-bans.toml --no-cache"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "path": "packages/core/templates/shared/getff-rules-generic.yml",
+    "definition": {
+      "name": "getff-rules",
+      "on": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        }
+      },
+      "concurrency": {
+        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.ref != 'refs/heads/main' }}"
+      },
+      "permissions": {
+        "contents": "read"
+      },
+      "jobs": {
+        "rules": {
+          "name": "getff rule checks (armed project checks via run-armed)",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc"
+              }
+            },
+            {
+              "name": "Install dependencies (own package manager \u2014 literal detect_pm ladder below)",
+              "run": "set -e\n# ownPM selection \u2014 the detect_pm ladder verbatim (lib.sh:2460-2474, sha 3ce99cf9\u2026).\n# Workflow cwd is GITHUB_WORKSPACE = repo root = the $PROJECT_ROOT detect_pm reads.\nif [ -f pnpm-lock.yaml ] || [ -f pnpm-workspace.yaml ]; then PM=pnpm\nelif [ -f yarn.lock ] || [ -f .yarnrc.yml ]; then PM=yarn\nelse PM=npm\nfi\nif command -v node >/dev/null 2>&1 && [ -f package.json ]; then\n  field=$(AIF_PJ=package.json node -e 'try{const m=(JSON.parse(require(\"fs\").readFileSync(process.env.AIF_PJ,\"utf8\")).packageManager||\"\").split(\"@\")[0];if([\"npm\",\"pnpm\",\"yarn\"].includes(m))process.stdout.write(m)}catch{}' 2>/dev/null || true)\n  [ -n \"$field\" ] && PM=\"$field\"\nfi\necho \"getff: own package manager selected: $PM\"\n# Install with the SELECTED own PM only \u2014 its own lock/no-lock policy. NO cross-PM\n# fallback anywhere: an unavailable tool fails this step loudly (set -e), it never\n# silently installs via another manager.\ncase \"$PM\" in\n  pnpm)\n    corepack enable\n    if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else pnpm install; fi ;;\n  yarn)\n    corepack enable\n    # Modern Yarn defaults immutable=TRUE under CI (yarnpkg.com/cli/install) and then\n    # aborts when resolution must create a lockfile. No-lock installs therefore carry\n    # an EXPLICIT non-immutable flag (the negation of that same documented setting);\n    # lock-present installs stay immutable via the --frozen-lockfile alias.\n    if [ -f yarn.lock ]; then yarn install --frozen-lockfile; else yarn install --no-immutable; fi ;;\n  npm)\n    if [ -f package-lock.json ]; then npm ci --prefer-offline; else npm install --no-audit --no-fund; fi ;;\nesac\n"
+            },
+            {
+              "name": "getff rule checks (runs the project's armed own lint; arms a green not-armed one)",
+              "run": "bash scripts/run-armed.sh validate"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "path": "packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml",
+    "definition": {
+      "name": "CI (UI)",
+      "on": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        }
+      },
+      "concurrency": {
+        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.ref != 'refs/heads/main' }}"
+      },
+      "permissions": {
+        "contents": "read"
+      },
+      "jobs": {
+        "lint": {
+          "name": "Lint & Format",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run lint"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run format:check"
+            },
+            {
+              "name": "Rule-glob liveness (custom ESLint rules must not be silently inert)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-rule-globs.sh"
+            },
+            {
+              "name": "Rule actually applied (R2 binds to boundary files, not just glob-matched)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-rule-enforced.sh"
+            },
+            {
+              "name": "lint-staged config resolves (binaries reachable before first commit)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-lintstaged-resolves.sh"
+            },
+            {
+              "name": "getff's ESLint fences fire on known-bad input",
+              "run": "bash scripts/run-armed.sh bash scripts/check-fences-fire.sh"
+            },
+            {
+              "name": "tool installs in .github/workflows pin a version",
+              "run": "bash scripts/run-armed.sh bash scripts/check-ci-pins.sh"
+            },
+            {
+              "name": "generated rules survive their mutation pass",
+              "run": "bash scripts/run-armed.sh bash scripts/run-generated-rule-mutation.sh"
+            }
+          ]
+        },
+        "typecheck": {
+          "name": "TypeScript",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run typecheck"
+            }
+          ]
+        },
+        "architecture": {
+          "name": "Architecture rules",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run arch:check"
+            },
+            {
+              "name": "Architecture boundary liveness (monorepo packages\u219bapps rule must not be silently absent)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-arch-boundaries.sh"
+            }
+          ]
+        },
+        "test-unit": {
+          "name": "Unit & component tests",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck"
+          ],
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh --if-armed 'npm test' npm run test:coverage",
+              "env": {
+                "CI": "true"
+              }
+            },
+            {
+              "uses": "codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac",
+              "if": "always()",
+              "with": {
+                "token": "${{ secrets.CODECOV_TOKEN }}",
+                "files": "./coverage/lcov.info"
+              }
+            }
+          ]
+        },
+        "build": {
+          "name": "Build",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck"
+          ],
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "npm run build"
+            },
+            {
+              "name": "Cache build",
+              "uses": "actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830",
+              "with": {
+                "path": ".next\n!.next/cache\n",
+                "key": "next-build-${{ github.sha }}"
+              }
+            }
+          ]
+        },
+        "test-storybook": {
+          "name": "Storybook test runner",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck"
+          ],
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "npx playwright install --with-deps chromium"
+            },
+            {
+              "run": "npm run build-storybook --quiet"
+            },
+            {
+              "name": "Run Storybook tests",
+              "run": "npx concurrently -k -s first -n \"SB,TEST\" \\\n  \"npx http-server storybook-static --port 6006 --silent\" \\\n  \"npx wait-on tcp:6006 && npm run test-storybook\"\n"
+            }
+          ]
+        },
+        "test-e2e": {
+          "name": "E2E tests",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "build"
+          ],
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "npx playwright install --with-deps"
+            },
+            {
+              "uses": "actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830",
+              "with": {
+                "path": ".next\n!.next/cache\n",
+                "key": "next-build-${{ github.sha }}"
+              }
+            },
+            {
+              "run": "npx playwright test"
+            },
+            {
+              "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "if": "failure()",
+              "with": {
+                "name": "playwright-report",
+                "path": "playwright-report/",
+                "retention-days": "7"
+              }
+            }
+          ]
+        },
+        "mutation": {
+          "name": "Mutation testing (incremental)",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "test-unit"
+          ],
+          "if": "github.event_name == 'pull_request'",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "fetch-depth": "0",
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "uses": "actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830",
+              "with": {
+                "path": "reports/stryker-incremental.json",
+                "key": "stryker-${{ github.base_ref }}-${{ github.sha }}",
+                "restore-keys": "stryker-${{ github.base_ref }}-\nstryker-\n"
+              }
+            },
+            {
+              "name": "Stryker on diff only",
+              "run": "CHANGED=$(git diff --name-only \"origin/$GITHUB_BASE_REF...HEAD\" \\\n  | grep -E '^src/.+\\.(ts|tsx)$' \\\n  | grep -v -E '\\.(unit|integration|audit|e2e|test|spec|stories)\\.(ts|tsx)$' \\\n  | tr '\\n' ',' || true)\nif [ -n \"$CHANGED\" ]; then\n  npx stryker run --mutate \"$CHANGED\" --incremental\nelse\n  echo \"No src/ changes \u2014 skipping Stryker\"\nfi\n"
+            },
+            {
+              "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "if": "always()",
+              "with": {
+                "name": "mutation-${{ github.sha }}",
+                "path": "reports/mutation/",
+                "retention-days": "14"
+              }
+            }
+          ]
+        },
+        "security": {
+          "name": "Security audit",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "npm audit --audit-level=high"
+            },
+            {
+              "uses": "gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7",
+              "env": {
+                "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+              }
+            }
+          ]
+        },
+        "audit-ai-docs": {
+          "name": "AI documentation audit",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "name": "Run audit-ai-docs.sh",
+              "run": "if [ -x \"scripts/audit-ai-docs.sh\" ]; then\n  bash scripts/run-armed.sh bash scripts/audit-ai-docs.sh\nfi\nif [ -x \"scripts/audit-ai-docs.react-next.sh\" ]; then\n  ./scripts/audit-ai-docs.react-next.sh\nfi\n"
+            }
+          ]
+        },
+        "ci-success": {
+          "name": "CI passed",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck",
+            "architecture",
+            "test-unit",
+            "test-storybook",
+            "test-e2e",
+            "build",
+            "security",
+            "audit-ai-docs"
+          ],
+          "if": "always()",
+          "steps": [
+            {
+              "run": "for r in \"${{ needs.lint.result }}\" \\\n        \"${{ needs.typecheck.result }}\" \\\n        \"${{ needs.architecture.result }}\" \\\n        \"${{ needs.test-unit.result }}\" \\\n        \"${{ needs.test-storybook.result }}\" \\\n        \"${{ needs.test-e2e.result }}\" \\\n        \"${{ needs.build.result }}\" \\\n        \"${{ needs.security.result }}\" \\\n        \"${{ needs.audit-ai-docs.result }}\"; do\n  [ \"$r\" = \"success\" ] || { echo \"Failed job: $r\"; exit 1; }\ndone\necho \"All checks passed.\"\n"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "path": "packages/preset-react-native/templates/github-actions-ci-ui.yml",
+    "definition": {
+      "name": "CI (React Native)",
+      "on": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        }
+      },
+      "concurrency": {
+        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.ref != 'refs/heads/main' }}"
+      },
+      "permissions": {
+        "contents": "read"
+      },
+      "jobs": {
+        "lint": {
+          "name": "Lint",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run lint"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run format:check"
+            },
+            {
+              "name": "Rule-glob liveness (custom ESLint rules must not be silently inert)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-rule-globs.sh"
+            },
+            {
+              "name": "Rule actually applied (R2 binds to boundary files, not just glob-matched)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-rule-enforced.sh"
+            },
+            {
+              "name": "lint-staged config resolves (binaries reachable before first commit)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-lintstaged-resolves.sh"
+            },
+            {
+              "name": "getff's ESLint fences fire on known-bad input",
+              "run": "bash scripts/run-armed.sh bash scripts/check-fences-fire.sh"
+            },
+            {
+              "name": "tool installs in .github/workflows pin a version",
+              "run": "bash scripts/run-armed.sh bash scripts/check-ci-pins.sh"
+            },
+            {
+              "name": "generated rules survive their mutation pass",
+              "run": "bash scripts/run-armed.sh bash scripts/run-generated-rule-mutation.sh"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run arch:check"
+            },
+            {
+              "name": "Architecture boundary liveness (monorepo packages\u219bapps rule must not be silently absent)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-arch-boundaries.sh"
+            }
+          ]
+        },
+        "typecheck": {
+          "name": "TypeScript",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run typecheck"
+            }
+          ]
+        },
+        "test-unit": {
+          "name": "Unit tests",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck"
+          ],
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm test",
+              "env": {
+                "CI": "true"
+              }
+            }
+          ]
+        },
+        "security": {
+          "name": "Security audit",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "npm audit --audit-level=high"
+            },
+            {
+              "uses": "gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7",
+              "env": {
+                "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+              }
+            }
+          ]
+        },
+        "audit-ai-docs": {
+          "name": "AI documentation audit",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "name": "Run audit-ai-docs.react-native.sh",
+              "run": "if [ -x \"scripts/audit-ai-docs.sh\" ]; then\n  bash scripts/run-armed.sh bash scripts/audit-ai-docs.sh\nfi\nif [ -x \"audit-self/audit-ai-docs.react-native.sh\" ]; then\n  bash audit-self/audit-ai-docs.react-native.sh\nfi\n"
+            }
+          ]
+        },
+        "ci-success": {
+          "name": "CI passed",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck",
+            "test-unit",
+            "security",
+            "audit-ai-docs"
+          ],
+          "if": "always()",
+          "steps": [
+            {
+              "run": "for r in \"${{ needs.lint.result }}\" \\\n        \"${{ needs.typecheck.result }}\" \\\n        \"${{ needs.test-unit.result }}\" \\\n        \"${{ needs.security.result }}\" \\\n        \"${{ needs.audit-ai-docs.result }}\"; do\n  [ \"$r\" = \"success\" ] || { echo \"Failed job: $r\"; exit 1; }\ndone\necho \"All checks passed.\"\n"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "path": "packages/preset-react-spa/templates/github-actions-ci-ui.yml",
+    "definition": {
+      "name": "CI (UI \u2014 React SPA)",
+      "on": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        }
+      },
+      "concurrency": {
+        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.ref != 'refs/heads/main' }}"
+      },
+      "permissions": {
+        "contents": "read"
+      },
+      "jobs": {
+        "lint": {
+          "name": "Lint & Format",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run lint"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run format:check"
+            },
+            {
+              "name": "Rule-glob liveness (custom ESLint rules must not be silently inert)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-rule-globs.sh"
+            },
+            {
+              "name": "Rule actually applied (R2 binds to boundary files, not just glob-matched)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-rule-enforced.sh"
+            },
+            {
+              "name": "lint-staged config resolves (binaries reachable before first commit)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-lintstaged-resolves.sh"
+            },
+            {
+              "name": "getff's ESLint fences fire on known-bad input",
+              "run": "bash scripts/run-armed.sh bash scripts/check-fences-fire.sh"
+            },
+            {
+              "name": "tool installs in .github/workflows pin a version",
+              "run": "bash scripts/run-armed.sh bash scripts/check-ci-pins.sh"
+            },
+            {
+              "name": "generated rules survive their mutation pass",
+              "run": "bash scripts/run-armed.sh bash scripts/run-generated-rule-mutation.sh"
+            }
+          ]
+        },
+        "typecheck": {
+          "name": "TypeScript",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run typecheck"
+            }
+          ]
+        },
+        "architecture": {
+          "name": "Architecture rules",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run arch:check"
+            },
+            {
+              "name": "Architecture boundary liveness (monorepo packages\u219bapps rule must not be silently absent)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-arch-boundaries.sh"
+            }
+          ]
+        },
+        "test-unit": {
+          "name": "Unit & component tests",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck"
+          ],
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh --if-armed 'npm test' npm run test:coverage",
+              "env": {
+                "CI": "true"
+              }
+            },
+            {
+              "uses": "codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac",
+              "if": "always()",
+              "with": {
+                "token": "${{ secrets.CODECOV_TOKEN }}",
+                "files": "./coverage/lcov.info"
+              }
+            }
+          ]
+        },
+        "build": {
+          "name": "Build",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck"
+          ],
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "npm run build"
+            },
+            {
+              "name": "Cache build",
+              "uses": "actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830",
+              "with": {
+                "path": "dist",
+                "key": "vite-build-${{ github.sha }}"
+              }
+            }
+          ]
+        },
+        "test-e2e": {
+          "name": "E2E tests",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "build"
+          ],
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "npx playwright install --with-deps"
+            },
+            {
+              "uses": "actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830",
+              "with": {
+                "path": "dist",
+                "key": "vite-build-${{ github.sha }}"
+              }
+            },
+            {
+              "run": "npx playwright test"
+            },
+            {
+              "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "if": "failure()",
+              "with": {
+                "name": "playwright-report",
+                "path": "playwright-report/",
+                "retention-days": "7"
+              }
+            }
+          ]
+        },
+        "mutation": {
+          "name": "Mutation testing (incremental)",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "test-unit"
+          ],
+          "if": "github.event_name == 'pull_request'",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "fetch-depth": "0",
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "uses": "actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830",
+              "with": {
+                "path": "reports/stryker-incremental.json",
+                "key": "stryker-${{ github.base_ref }}-${{ github.sha }}",
+                "restore-keys": "stryker-${{ github.base_ref }}-\nstryker-\n"
+              }
+            },
+            {
+              "name": "Stryker on diff only",
+              "run": "CHANGED=$(git diff --name-only \"origin/$GITHUB_BASE_REF...HEAD\" \\\n  | grep -E '^src/.+\\.(ts|tsx)$' \\\n  | grep -v -E '\\.(unit|integration|audit|e2e|test|spec|stories)\\.(ts|tsx)$' \\\n  | tr '\\n' ',' || true)\nif [ -n \"$CHANGED\" ]; then\n  npx stryker run --mutate \"$CHANGED\" --incremental\nelse\n  echo \"No src/ changes \u2014 skipping Stryker\"\nfi\n"
+            },
+            {
+              "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "if": "always()",
+              "with": {
+                "name": "mutation-${{ github.sha }}",
+                "path": "reports/mutation/",
+                "retention-days": "14"
+              }
+            }
+          ]
+        },
+        "security": {
+          "name": "Security audit",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "npm audit --audit-level=high"
+            },
+            {
+              "uses": "gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7",
+              "env": {
+                "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+              }
+            }
+          ]
+        },
+        "audit-ai-docs": {
+          "name": "AI documentation audit",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "name": "Run audit-ai-docs.sh",
+              "run": "if [ -x \"scripts/audit-ai-docs.sh\" ]; then\n  bash scripts/run-armed.sh bash scripts/audit-ai-docs.sh\nfi\nif [ -x \"scripts/audit-ai-docs.react-spa.sh\" ]; then\n  ./scripts/audit-ai-docs.react-spa.sh\nfi\n"
+            }
+          ]
+        },
+        "ci-success": {
+          "name": "CI passed",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck",
+            "architecture",
+            "test-unit",
+            "test-e2e",
+            "build",
+            "security",
+            "audit-ai-docs"
+          ],
+          "if": "always()",
+          "steps": [
+            {
+              "run": "for r in \"${{ needs.lint.result }}\" \\\n        \"${{ needs.typecheck.result }}\" \\\n        \"${{ needs.architecture.result }}\" \\\n        \"${{ needs.test-unit.result }}\" \\\n        \"${{ needs.test-e2e.result }}\" \\\n        \"${{ needs.build.result }}\" \\\n        \"${{ needs.security.result }}\" \\\n        \"${{ needs.audit-ai-docs.result }}\"; do\n  [ \"$r\" = \"success\" ] || { echo \"Failed job: $r\"; exit 1; }\ndone\necho \"All checks passed.\"\n"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "path": "templates/ts-server/github-actions-ci.yml",
+    "definition": {
+      "name": "CI",
+      "on": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        }
+      },
+      "concurrency": {
+        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.ref != 'refs/heads/main' }}"
+      },
+      "permissions": {
+        "contents": "read"
+      },
+      "jobs": {
+        "lint": {
+          "name": "Lint & Format",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run lint"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run format:check"
+            },
+            {
+              "name": "Rule-glob liveness (custom ESLint rules must not be silently inert)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-rule-globs.sh"
+            },
+            {
+              "name": "Rule actually applied (R2 binds to boundary files, not just glob-matched)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-rule-enforced.sh"
+            },
+            {
+              "name": "lint-staged config resolves (binaries reachable before first commit)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-lintstaged-resolves.sh"
+            },
+            {
+              "name": "getff's ESLint fences fire on known-bad input",
+              "run": "bash scripts/run-armed.sh bash scripts/check-fences-fire.sh"
+            },
+            {
+              "name": "tool installs in .github/workflows pin a version",
+              "run": "bash scripts/run-armed.sh bash scripts/check-ci-pins.sh"
+            },
+            {
+              "name": "generated rules survive their mutation pass",
+              "run": "bash scripts/run-armed.sh bash scripts/run-generated-rule-mutation.sh"
+            }
+          ]
+        },
+        "typecheck": {
+          "name": "TypeScript",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run typecheck"
+            }
+          ]
+        },
+        "architecture": {
+          "name": "Architecture rules",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh npm run arch:check"
+            },
+            {
+              "name": "Architecture boundary liveness (monorepo packages\u219bapps rule must not be silently absent)",
+              "run": "bash scripts/run-armed.sh bash scripts/check-arch-boundaries.sh"
+            }
+          ]
+        },
+        "test": {
+          "name": "Tests",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck"
+          ],
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "run": "bash scripts/run-armed.sh --if-armed 'npm test' npm run test:coverage",
+              "env": {
+                "CI": "true"
+              }
+            },
+            {
+              "name": "Upload coverage to Codecov",
+              "if": "always()",
+              "uses": "codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac",
+              "with": {
+                "token": "${{ secrets.CODECOV_TOKEN }}",
+                "files": "./coverage/lcov.info",
+                "fail_ci_if_error": "true"
+              }
+            },
+            {
+              "name": "Save coverage artifact",
+              "if": "always()",
+              "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "with": {
+                "name": "coverage-${{ github.sha }}",
+                "path": "coverage/",
+                "retention-days": "7"
+              }
+            }
+          ]
+        },
+        "mutation": {
+          "name": "Mutation testing (incremental)",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "test"
+          ],
+          "if": "github.event_name == 'pull_request'",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "fetch-depth": "0",
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "name": "Cache Stryker incremental report",
+              "uses": "actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830",
+              "with": {
+                "path": "reports/stryker-incremental.json",
+                "key": "stryker-${{ github.base_ref }}-${{ github.sha }}",
+                "restore-keys": "stryker-${{ github.base_ref }}-\nstryker-\n"
+              }
+            },
+            {
+              "name": "Stryker on diff only",
+              "run": "CHANGED=$(git diff --name-only \"origin/$GITHUB_BASE_REF...HEAD\" \\\n  | grep -E '^src/.+\\.(ts|tsx)$' \\\n  | grep -v -E '\\.(test|spec|stories)\\.(ts|tsx)$' \\\n  | tr '\\n' ',' || true)\nif [ -n \"$CHANGED\" ]; then\n  npx stryker run --mutate \"$CHANGED\" --incremental\nelse\n  echo \"No src/ changes \u2014 skipping Stryker\"\nfi\n"
+            },
+            {
+              "name": "Upload mutation HTML report",
+              "if": "always()",
+              "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "with": {
+                "name": "mutation-${{ github.sha }}",
+                "path": "reports/mutation/",
+                "retention-days": "14"
+              }
+            }
+          ]
+        },
+        "security": {
+          "name": "Security audit",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "name": "npm audit (high+)",
+              "run": "npm audit --audit-level=high"
+            },
+            {
+              "name": "gitleaks (secrets scan)",
+              "uses": "gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7",
+              "env": {
+                "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+              }
+            }
+          ]
+        },
+        "audit-ai-docs": {
+          "name": "AI documentation audit",
+          "runs-on": "ubuntu-latest",
+          "steps": [
+            {
+              "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+              "with": {
+                "persist-credentials": "false"
+              }
+            },
+            {
+              "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "with": {
+                "node-version-file": ".nvmrc",
+                "cache": "npm"
+              }
+            },
+            {
+              "run": "npm ci --prefer-offline"
+            },
+            {
+              "name": "Run audit-ai-docs.sh",
+              "run": "if [ -x \"scripts/audit-ai-docs.sh\" ]; then\n  bash scripts/run-armed.sh bash scripts/audit-ai-docs.sh\nelse\n  echo \"::warning::scripts/audit-ai-docs.sh not found \u2014 skipping\"\nfi\n"
+            }
+          ]
+        },
+        "ci-success": {
+          "name": "CI passed",
+          "runs-on": "ubuntu-latest",
+          "needs": [
+            "lint",
+            "typecheck",
+            "architecture",
+            "test",
+            "security",
+            "audit-ai-docs"
+          ],
+          "if": "always()",
+          "steps": [
+            {
+              "run": "for r in \"${{ needs.lint.result }}\" \\\n        \"${{ needs.typecheck.result }}\" \\\n        \"${{ needs.architecture.result }}\" \\\n        \"${{ needs.test.result }}\" \\\n        \"${{ needs.security.result }}\" \\\n        \"${{ needs.audit-ai-docs.result }}\"; do\n  [ \"$r\" = \"success\" ] || { echo \"Failed job: $r\"; exit 1; }\ndone\necho \"All checks passed.\"\n"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "path": "templates/ts-server/github-actions-workflow-integrity.yml",
+    "definition": {
+      "name": "workflow-integrity",
+      "on": {
+        "pull_request": {
+          "paths": [
+            ".github/workflows/**"
+          ]
+        },
+        "push": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            ".github/workflows/**"
+          ]
+        }
+      },
+      "permissions": {
+        "contents": "read"
+      },
+      "jobs": {
+        "branch-protection-assertion": {
+          "name": "ci-success required-check assertion",
+          "if": "github.event_name == 'pull_request'",
+          "runs-on": "ubuntu-latest",
+          "permissions": {
+            "contents": "read"
+          },
+          "steps": [
+            {
+              "name": "Assert ci-success is a required status check on the default branch",
+              "env": {
+                "GH_TOKEN": "${{ secrets.GITHUB_TOKEN }}",
+                "DEFAULT_BRANCH": "${{ github.event.repository.default_branch }}"
+              },
+              "run": "# Tri-state semantics:\n#   - protection or rulesets configured AND include ci-success \u2192 pass\n#   - protection or rulesets configured but ci-success missing \u2192 fail (R11 violated)\n#   - no protection AND no rulesets \u2192 warn, pass (not yet adopted, OR permanently\n#     unavailable on a GitHub Free private repo \u2014 protection/rulesets need GitHub Pro)\n# Rationale: don't block PRs in repos that haven't yet configured branch\n# protection. Once configured, R11 enforcement kicks in automatically.\n\nprotection_json=\"$(gh api \"repos/${{ github.repository }}/branches/${DEFAULT_BRANCH}/protection\" 2>/dev/null || echo 'null')\"\nrulesets_json=\"$(gh api \"repos/${{ github.repository }}/rulesets\" 2>/dev/null || echo '[]')\"\n\nhas_protection=$(echo \"$protection_json\" | jq 'if . == null or (type==\"object\" and has(\"message\")) then false else true end')\nhas_rulesets=$(echo \"$rulesets_json\" | jq 'if type==\"array\" then [.[] | select(.enforcement == \"active\")] | length > 0 else false end')\n\nif [ \"$has_protection\" = \"true\" ]; then\n  if echo \"$protection_json\" | jq -e '.required_status_checks.contexts | contains([\"ci-success\"])' > /dev/null; then\n    echo \"\u2705 ci-success is required on ${DEFAULT_BRANCH} (classic branch protection)\"\n    exit 0\n  fi\n  echo \"::error::Branch protection exists on ${DEFAULT_BRANCH} but ci-success is NOT in required status checks (R11 violated).\"\n  echo \"::error::Settings \u2192 Branches \u2192 ${DEFAULT_BRANCH} \u2192 Require status checks \u2192 ci-success\"\n  exit 1\nfi\n\nif [ \"$has_rulesets\" = \"true\" ]; then\n  echo \"\u2705 rulesets active \u2014 manually verify ci-success in https://github.com/${{ github.repository }}/settings/rules\"\n  exit 0\nfi\n\necho \"::warning::No branch protection or active rulesets on ${DEFAULT_BRANCH}. R11 branch-protection is not active \u2014 either not yet adopted, or unavailable on a GitHub Free private repo (classic protection and rulesets require GitHub Pro, or a public repo).\"\necho \"::warning::To enable (needs a public repo, or GitHub Pro/Team for private): Settings \u2192 Branches \u2192 ${DEFAULT_BRANCH} \u2192 Require status checks \u2192 ci-success\"\nexit 0\n"
+            }
+          ]
+        }
+      }
+    }
+  }
+]

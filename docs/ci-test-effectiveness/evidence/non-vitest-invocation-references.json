@@ -1,0 +1,598 @@
+[
+  {
+    "path": ".agents/procedures/harvest/tests/health-preflight.test.mjs",
+    "references": []
+  },
+  {
+    "path": ".agents/procedures/pipeline/evals/runtime-audit.test.py",
+    "references": []
+  },
+  {
+    "path": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+    "references": []
+  },
+  {
+    "path": ".agents/roles/dual-channel-drift-auditor/test_enumerate.py",
+    "references": []
+  },
+  {
+    "path": ".agents/roles/dual-channel-drift-auditor/test_overlap.py",
+    "references": []
+  },
+  {
+    "path": "scripts/arch-resource-closure.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/canonical-agents-source.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          57
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/canonical-native.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          57
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/codex-contributor.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/hooks/pre-push.consumer-layout.test.ts",
+        "lines": [
+          78
+        ]
+      },
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          57
+        ]
+      },
+      {
+        "path": "scripts/canonical-native.test.mjs",
+        "lines": [
+          16
+        ]
+      },
+      {
+        "path": "tests/reviewer-runtime-audit/receipts/runs.json",
+        "lines": [
+          824,
+          899,
+          915,
+          982,
+          1049,
+          1116,
+          1175,
+          1242,
+          1308
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/codex-hook-compatibility.test.mjs",
+    "references": []
+  },
+  {
+    "path": "scripts/consumer-resource-closure.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/docplan-auditor-runtime-audit.test.mjs",
+    "references": []
+  },
+  {
+    "path": "scripts/docs-author-runtime.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/dot-relay/bridge-runner.test.mjs",
+    "references": [
+      {
+        "path": ".github/workflows/audit-self.yml",
+        "lines": [
+          3065
+        ]
+      },
+      {
+        "path": "scripts/dot-relay/cli.test.mjs",
+        "lines": [
+          2865
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/dot-relay/cli.test.mjs",
+    "references": [
+      {
+        "path": ".github/workflows/audit-self.yml",
+        "lines": [
+          2872,
+          3039,
+          3064
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/dot-relay/contract.test.mjs",
+    "references": [
+      {
+        "path": ".github/workflows/audit-self.yml",
+        "lines": [
+          3061
+        ]
+      },
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      },
+      {
+        "path": "scripts/dot-relay/cli.test.mjs",
+        "lines": [
+          2817
+        ]
+      },
+      {
+        "path": "scripts/dot-relay/fixtures/solution.json",
+        "lines": [
+          37,
+          48
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/dot-relay/executor.test.mjs",
+    "references": [
+      {
+        "path": ".github/workflows/audit-self.yml",
+        "lines": [
+          3063
+        ]
+      },
+      {
+        "path": "scripts/dot-relay/cli.test.mjs",
+        "lines": [
+          2850
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/dot-relay/ledger.test.mjs",
+    "references": [
+      {
+        "path": ".github/workflows/audit-self.yml",
+        "lines": [
+          3062
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/dot-relay/native-source.test.mjs",
+    "references": [
+      {
+        "path": ".github/workflows/audit-self.yml",
+        "lines": [
+          3066
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/getff-runtime-entry.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/manual-rule-liveness-prober.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-cache.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          88
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-final-report-runtime.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-helper-readonly.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-input-readonly.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-installed-root.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-live-signals.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          57
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-overview-runtime.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-overview.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          57
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-population-readonly.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-priority-readonly.test.mjs",
+    "references": [
+      {
+        "path": ".agents/procedures/pipeline/helpers/priority-score.sh",
+        "lines": [
+          161,
+          236
+        ]
+      },
+      {
+        "path": ".claude/skills/pipeline/helpers/priority-score.sh",
+        "lines": [
+          161,
+          236
+        ]
+      },
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/pipeline-saved-coordination.test.mjs",
+    "references": []
+  },
+  {
+    "path": "scripts/pipeline-status-signals.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          57
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/plugin-native-binding.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/python-sidecar-standing.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/review-sidecar-contract.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/reviewer-discipline-runtime.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/rule-tests-runtime-audit.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/self-reflection-runtime.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/story-runtime.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/template-audit-installed-root.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "scripts/template-audit-runtime-receipts.test.mjs",
+    "references": []
+  },
+  {
+    "path": "tests/advisor-bridge-beta/protocol.test.mjs",
+    "references": []
+  },
+  {
+    "path": "tests/advisor-role-reminders/test_reminders.py",
+    "references": []
+  },
+  {
+    "path": "tests/aif-init/runtime-output.test.mjs",
+    "references": []
+  },
+  {
+    "path": "tests/living-docs-auditor/runtime.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87,
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "tests/native-entry/rule-test-author-runtime.test.py",
+    "references": []
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts.test.mjs",
+    "references": []
+  },
+  {
+    "path": "tests/roles/adapter-jig-reviewer.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "tests/roles/docs-form-auditor/report.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "tests/roles/getff-cold-run-prober.test.py",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "tests/roles/orchestrator-worker-discipline.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "tests/roles/rule-researcher-integration.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          87
+        ]
+      }
+    ]
+  },
+  {
+    "path": "tests/runtime/fidelity-auditor-receipt.test.mjs",
+    "references": []
+  },
+  {
+    "path": "tests/runtime/shipped-agent-liveness-prober.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "tests/runtime/shipped-agent-liveness-trace.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  },
+  {
+    "path": "tests/skills/installing-enforcement-runtime.test.mjs",
+    "references": [
+      {
+        "path": "packages/core/package.json",
+        "lines": [
+          89
+        ]
+      }
+    ]
+  }
+]

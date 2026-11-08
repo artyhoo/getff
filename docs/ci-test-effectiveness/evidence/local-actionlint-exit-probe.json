@@ -1,0 +1,50 @@
+[
+  {
+    "injectedToolExit": 0,
+    "runnerExit": 0,
+    "stdout": "[sweep] PASS actionlint\nSWEEP: 1 gate(s) passed (mode=full)\nSWEEP: gate logs in /tmp/cte-s1/actionlint/logs-0\n",
+    "stderr": "",
+    "argv": [
+      "bash",
+      "scripts/run-local-ci-sweep.sh",
+      "--full"
+    ],
+    "gate": "1\tactionlint\t.github/workflows/\t{ command -v actionlint >/dev/null 2>&1 && actionlint .github/workflows/*.yml; } || echo '[sweep] WARN-skip actionlint absent'",
+    "toolOutput": {
+      "01-actionlint.log": "CONTROLLED_ACTIONLINT_EXIT_0\n"
+    },
+    "controlledToolSource": "#!/bin/sh\necho \"CONTROLLED_ACTIONLINT_EXIT_0\"\nexit 0\n"
+  },
+  {
+    "injectedToolExit": 1,
+    "runnerExit": 0,
+    "stdout": "[sweep] WARN-SKIP actionlint \u2014 degraded, NOT a real run\nSWEEP: 1 gate(s) passed (mode=full)\nSWEEP: gate logs in /tmp/cte-s1/actionlint/logs-1\n",
+    "stderr": "",
+    "argv": [
+      "bash",
+      "scripts/run-local-ci-sweep.sh",
+      "--full"
+    ],
+    "gate": "1\tactionlint\t.github/workflows/\t{ command -v actionlint >/dev/null 2>&1 && actionlint .github/workflows/*.yml; } || echo '[sweep] WARN-skip actionlint absent'",
+    "toolOutput": {
+      "01-actionlint.log": "CONTROLLED_ACTIONLINT_EXIT_1\n[sweep] WARN-skip actionlint absent\n"
+    },
+    "controlledToolSource": "#!/bin/sh\necho \"CONTROLLED_ACTIONLINT_EXIT_1\"\nexit 1\n"
+  },
+  {
+    "injectedToolExit": 0,
+    "runnerExit": 0,
+    "stdout": "[sweep] PASS actionlint\nSWEEP: 1 gate(s) passed (mode=full)\nSWEEP: gate logs in /tmp/cte-s1/actionlint/logs-2\n",
+    "stderr": "",
+    "argv": [
+      "bash",
+      "scripts/run-local-ci-sweep.sh",
+      "--full"
+    ],
+    "gate": "1\tactionlint\t.github/workflows/\t{ command -v actionlint >/dev/null 2>&1 && actionlint .github/workflows/*.yml; } || echo '[sweep] WARN-skip actionlint absent'",
+    "toolOutput": {
+      "01-actionlint.log": "CONTROLLED_ACTIONLINT_EXIT_0\n"
+    },
+    "controlledToolSource": "#!/bin/sh\necho \"CONTROLLED_ACTIONLINT_EXIT_0\"\nexit 0\n"
+  }
+]

@@ -1,0 +1,27 @@
+[
+  {
+    "path": ".github/workflows/audit-self.yml",
+    "basis": "runner import/declaration or embedded generated tests",
+    "example": "- name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)"
+  },
+  {
+    "path": "packages/core/synthesizer/pilot/no-only-test-focus.bad.ts",
+    "basis": "runner import/declaration or embedded generated tests",
+    "example": "it('should also run', () => {"
+  },
+  {
+    "path": "packages/core/synthesizer/pilot/no-only-test-focus.good.ts",
+    "basis": "runner import/declaration or embedded generated tests",
+    "example": "it('should compute sum', () => {"
+  },
+  {
+    "path": "packages/preset-next-15-canonical/templates/tests-setup.ts",
+    "basis": "runner import/declaration or embedded generated tests",
+    "example": "// Vitest setup \u2014 required by vitest.config.ts (setupFiles)."
+  },
+  {
+    "path": "packages/preset-react-spa/templates/tests-setup.ts",
+    "basis": "runner import/declaration or embedded generated tests",
+    "example": "// Vitest setup \u2014 required by vitest.config.ts (setupFiles)."
+  }
+]

@@ -1,0 +1,93 @@
+[
+  {
+    "id": "W-doc-publication",
+    "kind": "local+CI",
+    "sourceRange": "346e3daf3255a431100c6fa2298727cca36e3bc7..01b25d78",
+    "paths": "Approved campaign handoff/spec/snapshots, stage-only .gitignore exception, generated docs/site/face-facts.json",
+    "commands": [
+      "normal .husky/pre-push with existing supported runner adapter",
+      "scripts/ci-path-scope.sh actual PR merge-ref semantics"
+    ],
+    "baseline": "Controller observed repeated docs/producers and canonical timeout120s; supported PREPUSH_HEAVY_RUNNER=/usr/bin/env rerun uses600s. Observation only, no measured local duration trial.",
+    "costSeconds": null,
+    "matchContract": "Exact changed source set, Node/deps and cold/warm classification; producer drift is real required work. New docs/ci-test-effectiveness paths are unknown to skip list and remain full by construction."
+  },
+  {
+    "id": "W-installer-CI",
+    "kind": "hosted Linux Node22",
+    "runIds": [
+      42372587424,
+      42372579925
+    ],
+    "commands": [
+      "install-sh-a",
+      "install-sh-b",
+      "install-sh-c"
+    ],
+    "baseline": "evidence/installer-rebalance-projection.json",
+    "matchContract": "Same event/scope, supported job tools, every case unchanged, cache/network state recorded, local parallel runner not substituted for3isolated GitHub runners.",
+    "coldWarm": "Actual CI setup recorded; cache-hit/miss not controlled, cannot label all cold or warm."
+  },
+  {
+    "id": "W-core-rule",
+    "kind": "source-defined deterministic local/CI",
+    "paths": [
+      "packages/core/eslint-rules/**",
+      "packages/core/manifest/**",
+      "packages/core/principles/**"
+    ],
+    "commands": [
+      "owned rule fixtures",
+      "existing pre-push principle/guard channels",
+      "required CI"
+    ],
+    "baselineTiming": null,
+    "matchContract": "Small owned rule change and its generated output; preserve valid/invalid rule oracle. Native current timing not needed for any S1 removal decision."
+  },
+  {
+    "id": "W-shared-kernel",
+    "kind": "broad input dependency",
+    "paths": [
+      "package-lock.json",
+      "packages/core/package-lock.json",
+      "packages/core/vitest.config.ts",
+      "packages/core/vitest.setup.ts",
+      "scripts/test-assurance/** (in-flight only)"
+    ],
+    "commands": [
+      "existing full fallback",
+      "future accepted TAK verify carrier"
+    ],
+    "baselineTiming": null,
+    "matchContract": "Shared locks/runner/detector inputs trigger affected broad population. No docs-shaped shortcut on unknown inputs."
+  },
+  {
+    "id": "W-missing-carriers",
+    "kind": "scoped new recurrence",
+    "paths": [
+      "packages/runtime-bridge/src/**",
+      "packages/preset-next-15-canonical/eslint-rules/**",
+      ".agents/procedures/pipeline/helpers/**",
+      ".agents/roles/dual-channel-drift-auditor/**",
+      "scripts/advisor-bridge-beta/**"
+    ],
+    "commands": [
+      "named package/test commands in inventory",
+      "D07 exact Node/Python suites"
+    ],
+    "baselineTiming": null,
+    "matchContract": "Current routes absent, so cannot claim prior execution cost0. Freeze exact source/import/config/fixture closure before introducing safe scope; preserve real non-Linux responsibility."
+  },
+  {
+    "id": "W-metacheck",
+    "kind": "bounded controls",
+    "commands": [
+      "P41 exact native invocation",
+      "actual sweep actionlint row",
+      "exact discipline production+sanity YAML bodies",
+      "Node recorder filtered invocation"
+    ],
+    "baseline": "evidence/probe-ledger.json",
+    "matchContract": "Held tests/fixtures and independent expected verdict; no repair to subject during S1 baseline. Diagnostic duration is not performance benchmarking."
+  }
+]

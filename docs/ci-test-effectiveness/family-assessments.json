@@ -1,0 +1,1298 @@
+[
+  {
+    "id": "core-audit",
+    "contract": "Repository documentation checks must distinguish normative prose/code, resolve paths and enforce installed/framework documentation conventions.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Repository documentation checks must distinguish normative prose/code, resolve paths and enforce installed/framework documentation conventions."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "AST/prose extractors, temporary repository fixtures, exit status plus diagnostics, template-render allowed/denied examples and retained source checks."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "A format/prose match establishes the parser contract, not the truth of a human or agent claim. Bash/TS adapters and root/core configs remain separate witnesses."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Expected prose and path outcomes are fixture constants; generated render pairs require positive/negative checks, not merely equal generator output."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Standalone template render overlaps test:units but trigger/config differences preclude wholesale job deletion."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain tests/live checks. Remove only two proven same-root self-install repeats under D02; shared CI steps give group cost, not per-case timing."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "A format/prose match establishes the parser contract, not the truth of a human or agent claim. Bash/TS adapters and root/core configs remain separate witnesses."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-backends",
+    "contract": "IR must emit valid enforcement configurations across ESLint, ast-grep, ruff, cargo/clippy and Go supported lanes, with unsupported nodes explicitly refused.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "IR must emit valid enforcement configurations across ESLint, ast-grep, ruff, cargo/clippy and Go supported lanes, with unsupported nodes explicitly refused."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Renderer unit expectations plus tool-driven valid/violating fixtures; backend emit/read/diagnostic arms keep schema and real tool behavior separate."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Mocks prove adapter logic; actual compiler/linter arms prove pinned-tool compatibility. Missing tools skip selected native cases and are not passes. CI pins supported tools; macOS/Windows remain separate."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Fixed expected diagnostics and fixtures are independent of emitters; round-trip/equality properties alone cover only stability, accompanied by live-fire arms."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Shared IR tests protect normalization; backend tests protect different emitter syntax/tools. Neither substitutes for end-to-end consumer installation."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain; tool installation/setup is material but deleting real-tool arms loses compatibility witness. No same-quality cheaper surrogate is established."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Mocks prove adapter logic; actual compiler/linter arms prove pinned-tool compatibility. Missing tools skip selected native cases and are not passes. CI pins supported tools; macOS/Windows remain separate."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-composition",
+    "contract": "Composition must wire IR, backend render outcomes, paths and documentation into a coherent delivered artifact.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Composition must wire IR, backend render outcomes, paths and documentation into a coherent delivered artifact."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Cross-module fixtures compare composed output, conflicts and refusal diagnostics; explicit allowed/unsupported nodes."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Composition fixtures cover declared finite stacks and error paths; they do not establish future unknown backends."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Fixed fixture intent and diagnostic expectations are external to composed implementation; generated-byte equality is drift evidence only."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Integration catches producer/consumer disagreements not visible to either isolated unit."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain cross-module boundary despite unit overlap; group timing available in principles job, individual allocation unavailable."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Composition fixtures cover declared finite stacks and error paths; they do not establish future unknown backends."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-detector",
+    "contract": "Detect real package/layout inputs and applicable rules without treating absent, malformed or ambiguous input as affirmative evidence.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Detect real package/layout inputs and applicable rules without treating absent, malformed or ambiguous input as affirmative evidence."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Fixture repositories/package files drive detector CLI and library; expected stack/rules and diagnostics checked."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Fixture detection is finite compatibility evidence; old detector-v0 consumer path stays distinct from current detector until callers are removed."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Input fixtures and expected stack/rule selections are explicit. Self-detect frozen outputs additionally detect drift, not source-of-truth correctness alone."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "v0 and current detector have separate callers, so similar names do not establish redundancy."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain; deterministic filesystem cases cheaper than live install and cover failure classification."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Fixture detection is finite compatibility evidence; old detector-v0 consumer path stays distinct from current detector until callers are removed."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-diagnostics-diff",
+    "contract": "Diagnostics and change classification must preserve codes, severity, paths and scoped change meanings consumed by gates.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Diagnostics and change classification must preserve codes, severity, paths and scoped change meanings consumed by gates."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Pure-function cases with literal expected records and boundary values."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Schema/format tests establish machine-consumer contracts, not whether every possible defect is diagnosed."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Expected literals/fixtures independently specify stable codes and scope edges."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Distinct from CLI exit propagation and live corpus checks."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain small deterministic unit layer; no cost evidence supports removing useful cases."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Schema/format tests establish machine-consumer contracts, not whether every possible defect is diagnosed."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-docs-engine",
+    "contract": "Document plans resolve owned sources and render traceable output without path escapes, missing sources or implicit substitutions.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Document plans resolve owned sources and render traceable output without path escapes, missing sources or implicit substitutions."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Resolver fixtures and expectErr helper assert errors as well as resolved bytes, with provenance and boundary arms."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Delegated expectErr callbacks are real assertions; absence of a direct expect call is not vacuity. Resolution checks cannot grade editorial truth."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Fixed fixture sources and named error codes serve as independent oracle; equal producer output alone is not used to certify semantic claims."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Separate from docs-refresh citation freshness and markdown formatting."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain; source scanner no-assert candidates here were helper delegation, not deletion candidates."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Delegated expectErr callbacks are real assertions; absence of a direct expect call is not vacuity. Resolution checks cannot grade editorial truth."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "eslint-rules",
+    "contract": "Codified syntactic bans must accept allowed source and report rejected source with stable rule diagnostics.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Codified syntactic bans must accept allowed source and report rejected source with stable rule diagnostics."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "RuleTester valid/invalid matrices and explicit diagnostic counts/messages on parser inputs."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Finite syntactic class coverage; a rule cannot prove arbitrary runtime semantics. TypeScript parser and preset-specific selectors remain applicable separately."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Valid/invalid examples and expected diagnostics are declared apart from the visitor; generated stubs alone would not satisfy this oracle."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Core and canonical-next rule sets have different selectors/configs. Generated consumer live-fire proves delivery, not every parser edge."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain inexpensive deterministic matrices; mutation remains targeted/session-bound, not blanket recurring full mutation."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Finite syntactic class coverage; a rule cannot prove arbitrary runtime semantics. TypeScript parser and preset-specific selectors remain applicable separately."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-hooks",
+    "contract": "Pre-push checks and native hook adapters must preserve admission/refusal, path binding, exit status, payload and event behavior at their actual channel.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Pre-push checks and native hook adapters must preserve admission/refusal, path binding, exit status, payload and event behavior at their actual channel."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Temporary Git repositories, child-process hooks, source-contract assertions and selected runtime seams; per-member record distinguishes structural and subprocess observations."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Source marker/ordering checks are only structural witnesses. Unit hooks do not prove installed delivery or non-Linux host behavior. Consumer layout/bundle and integration suites stay."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Fixture exit/diagnostic/bytes expectations are fixed. Source parity tests are intended byte-authority contracts, not independent behavior proof; pair with exercised adapters."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Shell fallback, TS source, bundled runtime and host/harness twins cover distinct capability routes. Root/core environment scrub intentionally guards both invocation contexts."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain; cost is material for repeated local pre-push, but broad path-scoping requires a proven input graph. No speculative removal based on slowness."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Source marker/ordering checks are only structural witnesses. Unit hooks do not prove installed delivery or non-Linux host behavior. Consumer layout/bundle and integration suites stay."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-install",
+    "contract": "Generated rules and snippets must enter the consumer-owned configuration without clobbering foreign content or creating unusable paths.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Generated rules and snippets must enter the consumer-owned configuration without clobbering foreign content or creating unusable paths."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Temp consumer configs, ESLint/wiring execution and literal expected imports/markers, idempotence and failure fixtures."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Library wiring tests do not replace actual installer, tarball, junction or first-push probes."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Preserved consumer bytes and expected executable violation are external constraints; idempotence alone is deliberately insufficient."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "wire-eslint Windows path-spelling arms and Ubuntu root/core runs are different environments."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain; existing pipeline already repeats some members across root and core. Only exact D02 repeats qualify for removal; no general overlap deletion."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Library wiring tests do not replace actual installer, tarball, junction or first-push probes."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-installer",
+    "contract": "Synthesized reports must be written with correct file ownership, rollback/refusal and reproducible installed shape.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Synthesized reports must be written with correct file ownership, rollback/refusal and reproducible installed shape."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Fixture reports and temp targets exercise installer CLI/library, output shape and error paths."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Installed shape is a data/ownership contract; it is not proof each generated lint rule fires."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Expected file/report values are frozen fixtures; snapshots require live refusal and planted violation corroboration downstream."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Different from top-level install.sh ecosystem setup."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain deterministic layer plus end-to-end framework-self-install-validated/consumer tests."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Installed shape is a data/ownership contract; it is not proof each generated lint rule fires."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-ir",
+    "contract": "Convention IR must validate schema, variants, diagnostics and normalization before backend emission.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Convention IR must validate schema, variants, diagnostics and normalization before backend emission."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Schema-validation and normalization unit cases with accepted/rejected literal objects."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Schema validation proves representability and structural refusal; not behavioral correctness of emitters."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Independent schema/fixture expectations; no claim that implementation-derived snapshots alone prove intended semantics."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Shared validation is complementary to backend-specific supported/unsupported arms."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain fast common input boundary; cheaper than repeating all invalid inputs through every backend."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Schema validation proves representability and structural refusal; not behavioral correctness of emitters."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "principles",
+    "contract": "Every declared discipline needs the structural, authority, delivery or execution evidence named by its individual principle contract.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Every declared discipline needs the structural, authority, delivery or execution evidence named by its individual principle contract."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Each source has an individual principle review in principle-assessments.json; seeded adverse/positive fixtures and live-tree assertions where present."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Most principles are structural contract gates. Their green result is not semantic test-quality certification. P41 has a reached-fault gap (D01); P37 marker checks do not certify live branch protection (D04)."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Fixed constants/fixture expectations establish contracts; source registry comparisons establish consistency only. Independent negative conformance must catch detector disablement."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "P36 jobs, P38 Vitest includes, P41 shell names, local sweep coverage and install-only all-wired have different populations/boundaries. Joint deletion is prohibited without a surviving stronger witness."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain distinct structural obligations; P43 live corpus work can be costly but host-contract omission has real consequences. E9 extends TAK rather than introducing universal semantic claims."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Most principles are structural contract gates. Their green result is not semantic test-quality certification. P41 has a reached-fault gap (D01); P37 marker checks do not certify live branch protection (D04)."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-render",
+    "contract": "Generated enforcement/docs templates must remain deterministic and equal their authoritative source after rendering.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Generated enforcement/docs templates must remain deterministic and equal their authoritative source after rendering."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Golden snapshots, byte drift checks and paired templates; python starter material is separately rendered and validated."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Equality is an appropriate drift oracle, not proof source policy is good or target runtime works."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Snapshot expected bytes intentionally share source authority; classify as drift protection, not circular semantic proof."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Source tests versus committed generated artifacts catch different omissions."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain cheap drift gates and representative runtime consumers; no legitimate simplification identified beyond repeated exact invocations."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Equality is an appropriate drift oracle, not proof source policy is good or target runtime works."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-research",
+    "contract": "Research ingestion must preserve trust boundaries, allowed provenance, cache behavior and explicit unknowns before synthesis.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Research ingestion must preserve trust boundaries, allowed provenance, cache behavior and explicit unknowns before synthesis."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Controlled source/cache fixtures, URL/host checks, parser and resolver expectations; no paid LLM in deterministic CI."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Cached fixture behavior does not certify live external availability or quality of arbitrary research text."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Expected allowed/refused sources and error codes are independent policy fixtures; self-derived output only measures reproducibility."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Self-research snapshot/own-source drift job complements isolated trust/parser cases."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain trust/error boundaries; external calls are not added to routine audit."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Cached fixture behavior does not certify live external availability or quality of arbitrary research text."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-scenario",
+    "contract": "Generated rule scenarios must have reproducible positive/negative structure and meaningful expected outcomes.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Generated rule scenarios must have reproducible positive/negative structure and meaningful expected outcomes."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Scenario generator fixtures inspect outputs and CLI behavior."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Generation shape is not sensitivity; actual rule-firing and targeted mutation remain separate obligations."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "A scenario generator cannot certify its own tests solely through equal output; existing consumers execute generated materials against expected diagnostics."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Generated examples and verifier probes protect separate stages."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain generation unit layer plus firing/mutation wrappers; no additional semantic scanner recommended."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Generation shape is not sensitivity; actual rule-firing and targeted mutation remain separate obligations."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-skills",
+    "contract": "Shipped skill contracts, helper commands and enforcement-bearing workflows must remain callable, internally consistent and refuse invalid inputs.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Shipped skill contracts, helper commands and enforcement-bearing workflows must remain callable, internally consistent and refuse invalid inputs."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Skill-source conditions plus subprocess/fixture tests of helper entrypoints; exact member oracle expressions identify the boundary."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Text requirements prove delivered instructions exist, not that a model follows them. Historical native receipts and deterministic helper tests have separate scopes."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Byte/source parity is valid authority evidence, but not independent workflow execution; fixed CLI fixture expectations carry behavior claims."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Canonical loaders, generated plugin copies, installed-root checks and native replay each protect a distinct delivery/authority seam."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain structural and helper tests. Do not add paid/native model calls to every PR to manufacture a universal claim."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Text requirements prove delivered instructions exist, not that a model follows them. Historical native receipts and deterministic helper tests have separate scopes."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-spec",
+    "contract": "Batch specifications must satisfy required evidence/authority fields and reject malformed or misleading launch metadata.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Batch specifications must satisfy required evidence/authority fields and reject malformed or misleading launch metadata."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Positive/negative markdown fixtures and validator diagnostics."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Mechanical validation cannot establish an approval occurred or an actual task exists. Native routing override remains human authority input."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Explicit accepted/rejected documents define external grammar; presence markers alone do not prove fulfillment."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "P43/44 cover population/placement; validator covers individual document grammar."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain small deterministic validator; changed-document CI invocation remains separate from full corpus principles."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Mechanical validation cannot establish an approval occurred or an actual task exists. Native routing override remains human authority input."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-synth",
+    "contract": "Trusted research and IR must produce deterministic rule code, provenance, wiring and mutation/firing inputs with fail-closed unsupported paths.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Trusted research and IR must produce deterministic rule code, provenance, wiring and mutation/firing inputs with fail-closed unsupported paths."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Fixture research, expected rule material, executable generated rules, wrapper exit/diagnostic tests and hand-edit refusal."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Output bytes alone do not prove firing. CLI/package-root/mutation runner tests keep environment/setup failure distinct from killed mutants."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Frozen expected material and explicit violations ground semantics; provenance hash equality only proves unmodified origin, not rule correctness."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Unit generators, self-synth frozen snapshots, compiled drift and consumer install test different stages."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain; targeted mutation is local/session-bound, not mandatory all-suite CI. Real generated-rule firing has useful marginal protection."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Output bytes alone do not prove firing. CLI/package-root/mutation runner tests keep environment/setup failure distinct from killed mutants."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-validator",
+    "contract": "Validation must classify synthesized material and aggregate diagnostics correctly rather than treat tool errors as valid source.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Validation must classify synthesized material and aggregate diagnostics correctly rather than treat tool errors as valid source."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Temp projects, controlled CLI outputs and actual linter fixtures; diagnostic schema/status/error distinctions."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Mocked tool cases prove error handling, actual-tool cases prove compatibility. Neither validates arbitrary model-generated intent."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Fixed expected errors and valid/invalid input pairs are external oracles; copied output comparisons remain drift only."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Self-validate end-to-end snapshot is integration; per-error unit cases protect distinctions snapshots may miss."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain deterministic failures and supported-tool cases; no deletion justified by aggregate pass count."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Mocked tool cases prove error handling, actual-tool cases prove compatibility. Neither validates arbitrary model-generated intent."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "core-acceptance",
+    "contract": "Canonical regeneration must preserve the documented output similarity and accepted framework contract.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Canonical regeneration must preserve the documented output similarity and accepted framework contract."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Frozen canonical sources and acceptance thresholds exercise the connected regeneration path."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Similarity is a bounded regression threshold, not proof of semantic equivalence for arbitrary edits."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Frozen snapshot threshold independent of new output; source change review still needed when intentionally refreshing baseline."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Overlaps component functions but observes their composition and known corpus."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain distinct integrated witness; avoid promoting threshold into test-effectiveness certification."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Similarity is a bounded regression threshold, not proof of semantic equivalence for arbitrary edits."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "runtime-bridge",
+    "contract": "Runtime bridge CLI/state/adapters must preserve task admission, park/continue, transition identity and no unintended effects.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Runtime bridge CLI/state/adapters must preserve task admission, park/continue, transition identity and no unintended effects."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Unit/CLI fixture and mock-server tests with exact status/state/diagnostics; conditional real-AIF park probe is explicitly separate."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Local mocks are not active AIF runtime proof. Live probe creates/deletes a task and requires explicit owner/project/env; not executed by this read-only native audit."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Explicit expected transition/error objects and recorded seam effects independent of bridge implementation; real-AIF contract separately conditional."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Source runtime, bundled delivery and installed/adapted CLI tests have distinct paths."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain finite deterministic battery; no live AIF setup solely for audit. Live host gap is a scope limit, not an empty pass."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Local mocks are not active AIF runtime proof. Live probe creates/deletes a task and requires explicit owner/project/env; not executed by this read-only native audit."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "shell-install",
+    "contract": "Installer and refresh must preserve consumer ownership, select supported ecosystems, ship executable bindings and fail visibly on failed operations.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Installer and refresh must preserve consumer ownership, select supported ecosystems, ship executable bindings and fail visibly on failed operations."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Shell fixture consumers with assertions on files, bytes, exits, generated commands and real planted violations; exact case labels retained."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Many source assertions intentionally protect shell wiring/portability only; real tool and multi-platform consumer cells cover actual execution. Fingerprints are broad drift witnesses, not semantic certification."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Fixed expected bytes/codes and planted violations are independent; snapshot generation is not the oracle acceptance action. Do not approve baseline refresh solely because fresh fingerprints match."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Greenfield/brownfield, refresh/first-install, shell versions, framework source/tarball and harness channels are not interchangeable."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain useful cases; D03 rebalances slow real consumers without deleting them. Fresh isolated npm/tool setup dominates some suites. Future reuse must preserve cold install contract."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Many source assertions intentionally protect shell wiring/portability only; real tool and multi-platform consumer cells cover actual execution. Fingerprints are broad drift witnesses, not semantic certification."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "shell-plugin",
+    "contract": "Plugin generators and native adapters must preserve authority bytes, registration paths, no clobbering and actual hook delivery across supported harnesses.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Plugin generators and native adapters must preserve authority bytes, registration paths, no clobbering and actual hook delivery across supported harnesses."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Temp plugin targets, generated twin comparisons and event-driven hook processes with expected payload/noop/refusal outcomes."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Identity generation proves source parity; hook-live tests supply separate firing evidence. Platform-specific loaders remain separately qualified."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Canonical source bytes are the deliberate parity oracle; independent fixture events establish adapter behavior."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Byte-identical twins alone do not make both native delivery invocations redundant."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain; generator/twin/runtime layers are complementary, not indiscriminate repeats."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Identity generation proves source parity; hook-live tests supply separate firing evidence. Platform-specific loaders remain separately qualified."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "shell-hooks",
+    "contract": "Pre-push history/range/trailer and dispatcher logic must operate on the pushed worktree/commit and preserve refusal across TS and shell fallback.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Pre-push history/range/trailer and dispatcher logic must operate on the pushed worktree/commit and preserve refusal across TS and shell fallback."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Temporary Git histories, stdin ref fixtures, foreign-checkout probes and positive/negative trailer bodies."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Cannot substitute commit trailer validation for PR body squash-preview checks; upstream merge and baseline contexts are distinct."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Explicit histories/expected accepted or rejected ranges are independent of parser output."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Fallback and TS paths run under different capability conditions; deleting either witness loses a supported environment."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain targeted regression fixtures; earliest local protection remains valuable despite CI backstop."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Cannot substitute commit trailer validation for PR body squash-preview checks; upstream merge and baseline contexts are distinct."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "shell-scripts",
+    "contract": "Repository maintenance checks and their runners must preserve scope, exit code, diagnostics and generated-source contracts.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Repository maintenance checks and their runners must preserve scope, exit code, diagnostics and generated-source contracts."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Paired fixtures invoke real shell/Node scripts; source-contract assertions retained where command grammar is the obligation."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Gate-table coverage is reachability evidence only. D06 demonstrates installed actionlint failure swallowed by a degrade branch; green wrapper self-tests did not cover this real row."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Literal expected errors/files and controlled exit statuses are independent; registry-to-registry equality alone is consistency, not actual enforcement."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Local sweep and CI protect different timing; build/source/delivery checks protect different artifacts."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain regressions; repair D06 with an existing bounded test. No new recurring analyzer required."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Gate-table coverage is reachability evidence only. D06 demonstrates installed actionlint failure swallowed by a degrade branch; green wrapper self-tests did not cover this real row."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "dot-review",
+    "contract": "Review gate must validate artifact/policy/admission binding, consume only authorized verdicts and preserve fail-closed read/write boundaries.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Review gate must validate artifact/policy/admission binding, consume only authorized verdicts and preserve fail-closed read/write boundaries."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Finite JSON schemas, temp repository state and adversarial shell command executions; malformed/foreign/missing artifacts refused."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Schema-valid verdict is not a correct review. Tests establish custody and launch boundaries, not reviewer judgment."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Frozen policy/input expectations and observable refusal/side effects ground behavior; generated fixture helper is data creation, not independent verdict."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Native-entry and simulated fixture arms exercise different contracts."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain deterministic security/admission boundaries; no real external reviewer invoked during CI."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Schema-valid verdict is not a correct review. Tests establish custody and launch boundaries, not reviewer judgment."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "dot-relay",
+    "contract": "Relay must bind requests/results to authorized sources, state and identities without granting authority from untrusted task output.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Relay must bind requests/results to authorized sources, state and identities without granting authority from untrusted task output."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Node temp ledgers, CLI/process adapters and fixed contract fixtures with explicit denied cases."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Fake bridge and ledger fixtures prove protocol, not availability or correctness of an external model service."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Expected state/receipt/refusal assertions independent of relay logic; serializer self-roundtrips remain limited stability properties."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Separate from dot-review admission; matching JSON shape does not establish identical control ownership."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain cheap local protocol suite and source-binding checks."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Fake bridge and ledger fixtures prove protocol, not availability or correctness of an external model service."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "node-canonical",
+    "contract": "Canonical owner documents and native/installed helpers must preserve source authority, complete resource closure and faithful scoped runtime entry behavior.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Canonical owner documents and native/installed helpers must preserve source authority, complete resource closure and faithful scoped runtime entry behavior."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Node tests inspect owner references and execute helper commands in temporary/nested consumer repositories; finite native receipts used only where explicitly identified."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Source/read-only closure checks do not prove a model followed instructions. Historical receipts are replay evidence on their recorded host, not current native certification."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Frozen owner bytes and adversarial path/argument fixtures are valid external constraints; source grammar consistency alone is not semantic workflow completion."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Canonical source and installed-root tests cover different resolution layouts; distinct native launchers remain separate."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain; recurrent test:canonical chain is material local cost. Missing deterministic Node wiring is assessed separately under D07."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Source/read-only closure checks do not prove a model followed instructions. Historical receipts are replay evidence on their recorded host, not current native certification."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "node-autonomy",
+    "contract": "Autonomy binding must enforce authority/custody transitions, concurrency, crash recovery, locks and prohibited external effects.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Autonomy binding must enforce authority/custody transitions, concurrency, crash recovery, locks and prohibited external effects."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Real local one-shot CLI subprocesses plus explicitly labelled library arms and loopback effect recorder; Linux/non-Linux arms declared separately."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "No external AIF/PR operations are executed. D05 cleanup depends on test selection. No recurring CI/package invocation located for this file; D07 adds explicit delivery requirement."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Explicit state/error/custody invariants independent of subject; global recorder serves an additional no-effects oracle and must not be deleted."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Unit platform seams are not a real non-Linux CLI witness; preserve native-host responsibility."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain valuable adversarial matrix; fix lifecycle before routing. Scope costly process cases to real subject inputs without losing shared-dependency coverage."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "No external AIF/PR operations are executed. D05 cleanup depends on test selection. No recurring CI/package invocation located for this file; D07 adds explicit delivery requirement."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "python",
+    "contract": "Python helper tests must preserve exact population accounting, binding, reminder delivery and shell-runtime refusal semantics.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Python helper tests must preserve exact population accounting, binding, reminder delivery and shell-runtime refusal semantics."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "unittest cases use temp repositories, CLI processes and explicit JSON/status/byte expectations; native discovery lists54cases."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Advisor13cases are called through a Vitest wrapper; absence of a literal filename in workflows does not mean unwired. Other helpers need explicit route/owner classification."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Fixed fixtures/error contracts independently constrain helper results. A subprocess exit-only wrapper derives value from detailed child assertions, not exit alone."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Python runtime binding and TS wrapper are complementary: wrapper ensures recurring invocation, Python holds detailed assertions."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain; do not discard error-path cases because they are outside the main language runner."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Advisor13cases are called through a Vitest wrapper; absence of a literal filename in workflows does not mean unwired. Other helpers need explicit route/owner classification."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "historical-receipt",
+    "contract": "Preserved native runs and challenge fixtures must remain replayable, hash-bound and honestly distinguish success, failure and unavailable tooling.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Preserved native runs and challenge fixtures must remain replayable, hash-bound and honestly distinguish success, failure and unavailable tooling."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Recorded stream hashes, parsed citations/statuses and checker self-tests; explicit external corpus arguments where required."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Replaying a past stream cannot certify current model/tool behavior. Files requiring native-corpus argv are manual validators, not ordinary no-argument CI tests."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Frozen raw transcript and independently specified acceptance checks provide replay oracle. Hand-authored success summaries alone do not."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Receipt checker regression tests and original native runs are separate evidence; repeated raw streams can be compressed without changing identity."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain bounded evidence/checkers as historical validation; compress streams and avoid rerunning models on unrelated PRs."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Replaying a past stream cannot certify current model/tool behavior. Files requiring native-corpus argv are manual validators, not ordinary no-argument CI tests."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "agnosticism",
+    "contract": "Framework claims must remain portable across harnesses, tool brands, payment boundaries and declared enforcement channels.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Framework claims must remain portable across harnesses, tool brands, payment boundaries and declared enforcement channels."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Tracked source scans with explicit supported-token/policy constraints and harness-absent probes."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Lexical scans prove stated syntactic restrictions only; absence of a brand token is not operational portability."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Forbidden-token/required-channel policy external to scanned implementation; golden count alone would be insufficient."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Each probe targets a different agnosticism axis; shared source census is setup, not identical protection."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain narrow architectural tripwires; supported-host and consumer delivery probes supply runtime corroboration."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Lexical scans prove stated syntactic restrictions only; absence of a brand token is not operational portability."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "consumer-matrix",
+    "contract": "Fresh consumers must install, package and run shipped enforcement in supported package-manager, stack and OS layouts.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Fresh consumers must install, package and run shipped enforcement in supported package-manager, stack and OS layouts."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Actual npm/pnpm/package tarball/getff init, planted violation rejection and clean counterpart in disposable consumers; matrix axes preserved."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Native Linux authoring cannot certify Windows junction/CRLF or macOS BSD tools. Hosted matrix jobs retain actual axis identities."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Actual downstream rejection plus conforming code is independent of installer success text; fixed consumer-owned configuration must survive."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Node18/20/22, OS differences and source/tarball installations represent unique compatibility witnesses."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain cold end-to-end cells despite expense; source-only/mocked alternatives lose delivered protection. D03 does not remove any cell."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Native Linux authoring cannot certify Windows junction/CRLF or macOS BSD tools. Hosted matrix jobs retain actual axis identities."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "manual-live",
+    "contract": "Optional live probes verify a bound installed consumer or native environment outside deterministic recurring CI.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Optional live probes verify a bound installed consumer or native environment outside deterministic recurring CI."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Operator-supplied target/source, explicit host/environment prerequisites and observed installed effects."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "No supplied external target means not executed, not passed; this is intentional delivery classification, not fabricated empty coverage."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Concrete external effects are oracle; self-reported status alone is insufficient."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Mock/fixture counterparts cannot replace live binding or real service contract."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain session-bound probes; do not create mutable external targets merely for census."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "No supplied external target means not executed, not passed; this is intentional delivery classification, not fabricated empty coverage."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "test-support",
+    "contract": "Fixtures, snapshots, generators and assertion helpers support named tests but are not independent passing tests.",
+    "applicability": "Member source path, imported subjects, declared cases and oracle expressions are recorded individually. This family conclusion applies only to those observable contracts; exceptions and invocation gaps override it.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful",
+        "reason": "Fixtures, snapshots, generators and assertion helpers support named tests but are not independent passing tests."
+      },
+      "effectiveness": {
+        "conclusion": "bounded source-supported witness",
+        "reason": "Consumers parse fixed fixtures or call helpers; hashes/member paths preserved."
+      },
+      "theatre": {
+        "conclusion": "claim boundary restricted",
+        "reason": "Support artifact presence is not an execution result. Historical vacuous/noassertion fixtures are intentional faults, never current suite protection."
+      },
+      "tautology": {
+        "conclusion": "oracle independence assessed at stated boundary",
+        "reason": "Generated fixture/snapshot is an input. Expected values must be approved against contract; regenerating both sides is not validation."
+      },
+      "duplication": {
+        "conclusion": "retain distinct evidence unless an explicit decision removes it",
+        "reason": "Source aliases and generated shipped copies inherit one owner but distinct delivery uses; do not count them as independent behavioral witnesses."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain",
+        "reason": "Retain inputs required by surviving tests; compress duplicated audit evidence. No delete based only on unused-looking name without consumer analysis."
+      },
+      "sufficiency": {
+        "conclusion": "partial layer of required protection, not whole-system certification",
+        "reason": "Support artifact presence is not an execution result. Historical vacuous/noassertion fixtures are intentional faults, never current suite protection."
+      }
+    },
+    "executionClaim": "No blanket fresh dynamic pass. Existing actual CI steps and narrow experiment receipts are distinguished from source-level assessment."
+  },
+  {
+    "id": "shipped-ci",
+    "contract": "Installed consumers receive appropriate supported-stack validation, armed-state handling, diagnostic failures and aggregate results.",
+    "applicability": "Each template job/step below preserves exact command, condition, event, runner and needs; these are prospective consumer invocations, not active framework workflow runs.",
+    "criteria": {
+      "relevance": {
+        "conclusion": "useful delivered protection",
+        "reason": "Consumer lint/typecheck/test/architecture/security/docs and optional e2e/mutation have distinct artifact contracts."
+      },
+      "effectiveness": {
+        "conclusion": "source plus installed-fixture evidence",
+        "reason": "Actual template commands are parsed and exercised by installer/workflow/consumer tests. Static syntax and armed-state tests do not certify a future consumer test suite."
+      },
+      "theatre": {
+        "conclusion": "bounded claims",
+        "reason": "Armed checks reflect recorded consumer capability; skips are not passed tests. Optional Storybook/e2e/mutation conditions and CI-success needs are retained exactly."
+      },
+      "tautology": {
+        "conclusion": "separate template and consumer oracle",
+        "reason": "Byte-delivery parity is authority evidence. Independent planted consumer violations supply behavior; executing npm test cannot guarantee consumer-authored tests are good."
+      },
+      "duplication": {
+        "conclusion": "retain supported stack differences",
+        "reason": "TS server, React/Next, SPA, RN, Python, cargo and Go command/tool differences preclude collapsing by similar YAML alone."
+      },
+      "costEffectiveness": {
+        "conclusion": "retain bounded required and optional lanes",
+        "reason": "No actual installed-consumer hosted history is available; do not replace that missing measurement with framework job timings. Diff mutation/conditional optional tools already constrain recurring expense."
+      },
+      "sufficiency": {
+        "conclusion": "finite delivered contract, consumer-dependent",
+        "reason": "Framework cannot certify arbitrary downstream test populations or repo branch settings. Known-rot signatures remain explicit and bounded; successful framework install is not all downstream green."
+      }
+    },
+    "executionClaim": "No external consumer workflows launched. Source/fixture evidence only; actual supported host CI evidence is separate."
+  }
+]

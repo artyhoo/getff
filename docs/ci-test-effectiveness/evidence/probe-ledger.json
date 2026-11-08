@@ -1,0 +1,57 @@
+{
+  "sourceHead": "01b25d78b11083fb6e463fdf9de61299aff8972a",
+  "scratch": "git archive of audited HEAD; initialized index for tracked-population probes; shared verified node_modules read by runners; no baseline subject edits",
+  "records": [
+    {
+      "id": "P41",
+      "expectedOracle": "Echoing a test pathname does not execute it; a wiring detector must reject that workflow.",
+      "command": "node /workspace/getff/node_modules/vitest/vitest.mjs run packages/core/principles/41-shell-test-ci-coverage.test.ts --reporter=json (cwd disposable source root)",
+      "testSHA256": "f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e",
+      "workflowTripletSHA256": [
+        "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7",
+        "d1255ec5df91f37c46f4761c58507da9f8bd6fe1bbb3c8550dc8f0db9521a268",
+        "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7"
+      ],
+      "observed": "baseline8pass/exit0; mutant8pass/exit0; restoration8pass/exit0",
+      "classification": "reached invocation fault survives actual detector, not environment failure",
+      "evidenceRefs": [
+        "evidence/p41-baseline.json",
+        "evidence/p41-mutant.json",
+        "evidence/p41-restoration.json",
+        "evidence/p41-workflow-mutant.patch"
+      ]
+    },
+    {
+      "id": "actionlint",
+      "expectedOracle": "Real installed actionlint rejection must propagate through actual sweep gate row.",
+      "observed": "Valid0\u2192invalid1\u2192restored0 from direct pinned tool; actual sweep0\u21920\u21920. Controlled exit0/1/0 also propagates0/0/0 with tool marker preserved.",
+      "classification": "intended diagnostic observed by tool, swallowed by wrapper",
+      "evidenceRefs": [
+        "evidence/local-actionlint-real-fault.json",
+        "evidence/local-actionlint-exit-probe.json"
+      ]
+    },
+    {
+      "id": "discipline",
+      "expectedOracle": "Held positive/adverse fixtures must observe a change in production body checker.",
+      "observed": "Frozen invalid body production1\u2192bypass0\u2192restored1; frozen valid body0throughout; both held sanity snippets0throughout. Hashes show sanity bodies unchanged.",
+      "classification": "detached copied predicate; production fault reached, independent fixtures fixed",
+      "evidenceRefs": [
+        "evidence/discipline-detached-oracle-probe.json"
+      ]
+    },
+    {
+      "id": "node-recorder",
+      "expectedOracle": "Filtering ordinary tests must not leave fixture listener preventing process termination.",
+      "observed": "Cleanup-selected exit0; all-filtered hangs beyond15s. Initial51-file no-body import stopped recorder child at310s; other import error was required external corpus argv, not a semantic test failure.",
+      "classification": "resource lifecycle timeout, not fake failed assertion; no external service called",
+      "cleanup": "Auditor terminated only owned recorder children after timeout. No artifact or listener left in baseline.",
+      "evidenceRefs": [
+        "evidence/node-recorder-probe.json",
+        "evidence/node-discovery.json",
+        "evidence/node-discovery.tap"
+      ]
+    }
+  ],
+  "timingPolicy": "Diagnostic elapsed values are not performance comparisons. No new performance timing series needed; actual CI history supplies scheduling baseline."
+}

@@ -1,0 +1,98 @@
+[
+  {
+    "runId": 42372587424,
+    "durationSeconds": {
+      "A": 4100.0,
+      "B": 10236.0,
+      "C": 2847.0
+    },
+    "moves": [
+      {
+        "source": "B",
+        "destination": "A",
+        "test": "tests/install-sh/synth-wire-consumer-config.test.sh",
+        "stepName": "install-sh \u2014 synth-wire adds getff's block to a consumer's own eslint config by insertions only, original kept (Q4.7; getff's own config still wired)",
+        "seconds": 1472.0
+      },
+      {
+        "source": "B",
+        "destination": "A",
+        "test": "tests/install-sh/first-commit-passable.test.sh",
+        "stepName": "install-sh \u2014 first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)",
+        "seconds": 647.0
+      },
+      {
+        "source": "B",
+        "destination": "C",
+        "test": "tests/install-sh/r2-glob-reach.test.sh",
+        "stepName": "Run install-sh R2 glob-reach test \u2014 CI-orphan WARN + per-package shadow + globals (GH",
+        "seconds": 1472.0
+      },
+      {
+        "source": "B",
+        "destination": "C",
+        "test": "tests/install-sh/r2-auto-wire.test.sh",
+        "stepName": "install-sh \u2014 r2-auto-wire (GH",
+        "seconds": 959.0
+      }
+    ],
+    "projectedSeconds": {
+      "A": 6219.0,
+      "B": 5686.0,
+      "C": 5278.0
+    },
+    "assumptions": [
+      "Same durations after relocation (not established empirically); setup retained on3jobs",
+      "No assertion/trigger/host/tool/version change",
+      "No total-compute savings claimed; queue/network/cache may alter wall benefit"
+    ]
+  },
+  {
+    "runId": 42372579925,
+    "durationSeconds": {
+      "A": 4714.0,
+      "B": 9866.0,
+      "C": 3247.0
+    },
+    "moves": [
+      {
+        "source": "B",
+        "destination": "A",
+        "test": "tests/install-sh/synth-wire-consumer-config.test.sh",
+        "stepName": "install-sh \u2014 synth-wire adds getff's block to a consumer's own eslint config by insertions only, original kept (Q4.7; getff's own config still wired)",
+        "seconds": 1460.0
+      },
+      {
+        "source": "B",
+        "destination": "A",
+        "test": "tests/install-sh/first-commit-passable.test.sh",
+        "stepName": "install-sh \u2014 first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)",
+        "seconds": 615.0
+      },
+      {
+        "source": "B",
+        "destination": "C",
+        "test": "tests/install-sh/r2-glob-reach.test.sh",
+        "stepName": "Run install-sh R2 glob-reach test \u2014 CI-orphan WARN + per-package shadow + globals (GH",
+        "seconds": 1416.0
+      },
+      {
+        "source": "B",
+        "destination": "C",
+        "test": "tests/install-sh/r2-auto-wire.test.sh",
+        "stepName": "install-sh \u2014 r2-auto-wire (GH",
+        "seconds": 911.0
+      }
+    ],
+    "projectedSeconds": {
+      "A": 6789.0,
+      "B": 5464.0,
+      "C": 5574.0
+    },
+    "assumptions": [
+      "Same durations after relocation (not established empirically); setup retained on3jobs",
+      "No assertion/trigger/host/tool/version change",
+      "No total-compute savings claimed; queue/network/cache may alter wall benefit"
+    ]
+  }
+]

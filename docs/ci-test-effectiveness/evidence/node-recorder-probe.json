@@ -1,0 +1,30 @@
+[
+  {
+    "label": "cleanup-selected",
+    "exit": 0,
+    "stdout": "\u2714 row 13 aftermath: zero accepted connections and zero requests across the whole run, then the recorder closes (6.811741ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 264.129017\n",
+    "stderr": "",
+    "timeout": false,
+    "argv": [
+      "node",
+      "--test",
+      "--test-name-pattern=row 13 aftermath",
+      ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs"
+    ],
+    "elapsedSeconds": 0.384231009999894
+  },
+  {
+    "label": "no-cases-selected",
+    "exit": null,
+    "stdout": "",
+    "stderr": "",
+    "timeout": true,
+    "argv": [
+      "node",
+      "--test",
+      "--test-name-pattern=a^",
+      ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs"
+    ],
+    "elapsedSeconds": 15.101751259000594
+  }
+]

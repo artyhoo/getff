@@ -1,0 +1,56 @@
+{
+  "observedAt": "2026-11-08T14:59:49.096268+00:00",
+  "landed": {
+    "auditedHead": "01b25d78",
+    "surface": "docs/test-assurance-kernel/s0 historical evidence only; no scripts/test-assurance directory or principles51\u201353 on baseline",
+    "historicalSource": "6bd07187e57",
+    "historicalHost": "Darwin; see frozen S0 host/version receipts",
+    "protection": "Q1literal-only and Q2no-effective-assertion had no repo-test channel; Q3copied predicate/Q4ignored exit/Q5self-source/Q6disconnected delivery partial at that historical source"
+  },
+  "inFlight": {
+    "pr": 2144,
+    "url": "https://github.com/artyhoo/getff/pull/2144",
+    "head": "7a5b63dc137648bc76a5899ecae4b279063c7e6b",
+    "state": "OPEN",
+    "surfaces": [
+      "51-test-quality-corpus-conformance",
+      "52-subprocess-status-conformance",
+      "53-delivery-discovery-conformance",
+      "scripts/test-assurance/verify.mjs",
+      "scripts/test-assurance/s3.mjs",
+      "guard-liveness test-quality integration",
+      "scope/custody activation ledgers"
+    ],
+    "claims": "PR body reports Darwin S2verification9steps, S3companion70, guard48, principles766+1skip and prepush success. Self-reported receipts, not independently accepted by this S1; hosted exact-head checkbox not checked."
+  },
+  "ownership": [
+    {
+      "owner": "TAK existing Root/feature owner, PR2144",
+      "responsibility": "Principles51\u201353/Q1\u2013Q6 corpus, verify engine, S2/S3 frozen ledgers, native Darwin acceptance and authoritative activation. Do not fork or silently amend frozen files."
+    },
+    {
+      "owner": "CI-test-effectiveness controller after S1 acceptance",
+      "responsibility": "Review D01\u2013D08, reconcile exact accepted TAK head, choose S2 batches and no-loss proof; extend existing mechanisms without competing kernel."
+    },
+    {
+      "owner": "Repository administrator/operator",
+      "responsibility": "Actual required-context settings D04; source-only work cannot substitute for authorized registration. No settings changed in S1."
+    },
+    {
+      "owner": "Portable autonomy maintainer",
+      "responsibility": "D05 lifecycle and D07 Linux/non-Linux host contract; coordinate current landed work, preserve freeze/authority contracts."
+    },
+    {
+      "owner": "Landing/Context7 service owners",
+      "responsibility": "Resolve sampled manifest404/size-limit403; CI remains honest red. Not a flaky-test quarantine."
+    }
+  ],
+  "nativeRoute": "No active AIF project/container/task owner observed. Explicit native route is authorized; absent factory context does not block read-only S1. No AIF task invented.",
+  "e9Boundary": "Extend accepted TAK independent finite corpus/real invocation controls. One held oracle layer tests detector bypass/misrouting/exit loss; no endless metatest chain.",
+  "evidenceRefs": [
+    "evidence/tak-pr-2144.json",
+    "evidence/tak-pr-2144-files.json.gz",
+    "evidence/tak-pr-2144-fresh.json",
+    "docs/test-assurance-kernel/s0/kernel-baseline.md"
+  ]
+}

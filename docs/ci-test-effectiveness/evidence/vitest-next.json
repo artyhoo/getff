@@ -1,0 +1,174 @@
+[
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > no FormData parameter — rule does not apply",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > FormData + safeParse — OK",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > FormData under different name + safeParse — OK",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > globalThis.FormData qualified + safeParse — OK",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > arrow function with FormData + safeParse — OK",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > safeParse in helper inside body — OK",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > audit:exempt on FormData param — SUPPRESSED (former GAP, now closed)",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: INVALID fixtures → ≥1 violation > named async FormData param, no safeParse",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: INVALID fixtures → ≥1 violation > arrow FormData param, no safeParse",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: INVALID fixtures → ≥1 violation > sync FormData param, no safeParse",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > PARITY: INVALID fixtures → ≥1 violation > multiple params incl FormData, no safeParse",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-form-safe-parse declarative parity — exempt-aware wrapper (R14) > audit:exempt suppresses the report (wrapper parity with handwritten — GAP closed)",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > no async export — rule does not apply",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > 'use server' present + async export — OK",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > double-quoted directive — OK",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > default async export with directive — OK",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > multiple async exports with directive — OK",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > only synchronous export named — does not apply",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > audit:exempt on async export line — SUPPRESSED (former GAP, now closed)",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: VALID fixtures → 0 violations (incl. audit:exempt — GAP CLOSED) > async non-exported function — does not apply",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: INVALID fixtures → ≥1 violation > named async export, no directive",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: INVALID fixtures → ≥1 violation > import + named async export, no directive",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: INVALID fixtures → ≥1 violation > directive not first statement — does not count",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: INVALID fixtures → ≥1 violation > non-string-literal first statement",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > PARITY: INVALID fixtures → ≥1 violation > default async export, no directive",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > multiple async exports without directive → one violation per export (parity)",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "require-use-server-directive declarative parity — exempt-aware wrapper (R20) > // audit:exempt suppresses the report (wrapper parity with handwritten — GAP closed)",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > valid > import fs from 'fs';\nexport function x() {}",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > valid > import { db } from '@/infrastructure/db';\nexport const y = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > valid > 'use client';\nimport { useState } from 'react';\nexport function C() { return null; }",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > valid > \"use client\";\nimport { z } from 'zod';\nexport const s = z.string();",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > valid > 'use client';\nimport fs from 'fs'; // audit:exempt\nexport const x = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > valid > const x = 1;\n'use client';\nimport fs from 'fs';\nexport const y = 2;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > valid > import './side-effect';\n'use client';\nimport fs from 'fs';\nexport const y = 2;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > valid > 'use client';\nimport { x } from './infrastructureless-helper';\nexport const x2 = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > invalid > // header\n// header\n// header\n'use client';\nimport fs from 'fs';\nexport const x = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > invalid > /* license */\n'use client';\nimport { db } from '@/infrastructure/db';\nexport const x = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > invalid > 'use client';\nimport fs from 'fs';\nexport const x = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > invalid > \"use client\";\nimport { readFile } from 'node:fs';\nexport const y = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > invalid > 'use client';\nimport { hash } from 'node:crypto';\nexport const z = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > invalid > 'use client';\nimport { db } from '@/infrastructure/db';\nexport const a = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > invalid > 'use client';\nimport { repo } from '../../infrastructure/repo';\nexport const b = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "name": "no-server-imports-in-client > invalid > 'use client';\nimport { env } from '@/config/env';\nexport const c = 1;",
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  }
+]

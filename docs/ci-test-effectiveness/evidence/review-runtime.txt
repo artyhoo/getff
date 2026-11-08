@@ -1,0 +1,1006 @@
+FILE packages/runtime-bridge/test/aif-active-observation.test.ts
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import type { Socket } from 'node:net';
+import { resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { awaitTaskDone, describeAifTask, type WebSocketConstructor } from '../src/aifWsStatus.js';
+import { getJson } from '../src/cli/aifHttp.js';
+
+const task = { id: 'active-task', title: 'Current result', status: 'done', commitSha: 'a'.repeat(40), paused: false };
+const tick = () => new Promise<void>((done) => setTimeout(done, 0));
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
+
+function sockets() {
+  const all: FakeSocket[] = [];
+  class FakeSocket {
+    onopen: (() => void) | null = null;
+    onmessage: ((e: { data: string }) => void) | null = null;
+    onclose: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    closed = 0;
+    constructor() { all.push(this); }
+    close() { this.closed++; }
+    signal(status = 'done') { this.onmessage?.({ data: JSON.stringify({ type: 'task:updated', payload: { id: task.id, title: task.title, status } }) }); }
+  }
+  return { all, Ctor: FakeSocket as unknown as WebSocketConstructor };
+}
+CASES ["describe('active authoritative observation (events are invalidations, never results)', () => {", "it('subscribes before initial read and consumes completion before attachment without another event', async () => {", "it('completion between subscription and snapshot invalidates the older observation', async () => {", "it('ignores obsolete socket messages/closes/errors and its pending snapshot after reconnect', async () => {", "it('reconciles completion during disconnection on the next open without a frame', async () => {", "it('duplicate signals settle once from detail; malformed payloads cannot settle', async () => {", "it('stale terminal hints do not end rework; deadline retains its validated generation', async () => {", "it('observation abort cancels queued reconnect without cancelling the task', async () => {", "it('successful opens do not reset the total reconnect budget', async () => {", "it('omitted timeout is bounded and invalid explicit durations open no connection', async () => {", "describe('actual HTTP, WebSocket and subprocess reader boundaries', () => {", "it('HTTP deadline includes a stalled response body and restores a valid control', async () => {", "it('real CLI reads an already-finished task then explicit resume reconciles a new generation, with zero effects', async () => {"]
+ASSERTIONS [{'line': 44, 'text': 'expect(fetch).not.toHaveBeenCalled();'}, {'line': 46, 'text': 'expect(await result).toMatchObject({ success: true, meta: { resultGeneration: describeAifTask(task, task.id).meta.resultGeneration } });'}, {'line': 47, 'text': 'expect(all[0]!.closed).toBe(1);'}, {'line': 58, 'text': "expect(await result).toMatchObject({ meta: { candidate: { commitSha: 'b'.repeat(40) } } });"}, {'line': 78, 'text': 'expect(settled).toBe(false);'}, {'line': 79, 'text': 'expect(fetch.mock.calls.length).toBe(reads);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-answer.test.ts
+/**
+ * Paired-positive/negative tests for the answer-pusher (cli/answer.ts).
+ *
+ * Contract under test (kickoff §4.2 + S1-verified sequence):
+ *   POSITIVE — request_changes: a comment with { message } is POSTed FIRST, then
+ *              the request_changes event → done→implementing rework path. ✓
+ *   POSITIVE — approve: a single approve_done event, NO comment. ✓
+ *   POSITIVE — retry: a single retry_from_blocked event, NO comment. ✓
+ *   NEGATIVE — request_changes with no --answer → validation error, NO fetch. ✓
+ *   NEGATIVE — invalid --decision → validation error (not silently defaulted). ✓
+ *   ERROR    — a non-ok REST status → BackendError with the mapped code. ✓
+ *
+ * Mocking strategy: vi.spyOn(globalThis, 'fetch') returning a Response, exactly
+ *   like aif-questions.test.ts. main() is entrypoint-guarded, so importing the
+ *   module is a clean no-op (no live aif-handoff server needed — §2 only gates
+ *   the live E2E, not these unit tests).
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { BackendError } from '../src/backend.js';
+import {
+  parseAnswerArgs,
+  validateAnswerArgs,
+  resolveStep,
+  postComment,
+  postEvent,
+  pushAnswer,
+  formatResult,
+  VALID_DECISIONS,
+  appendAnswerToPlan,
+  reviewEventUnreachableReason,
+  MERGE_RE
+CASES ["describe('resolveStep maps each decision to its verified aif-handoff event', () => {", "it('request_changes → request_changes event, needs a comment', () => {", "it('approve → approve_done event, no comment', () => {", "it('retry → retry_from_blocked event, no comment', () => {", "describe('review-state decisions release a manual-review park (2026-09-09)', () => {", "it('complete_review → complete_review event, no comment (review→done)', () => {", "it('request_review_changes → request_review_changes event, needs a comment (review→implementing)', () => {", "it('both are offered by VALID_DECISIONS, so --decision accepts them', () => {", "it('request_review_changes without --answer is rejected — rework needs feedback to rework against', () => {", "it('complete_review needs no --answer — nothing is being handed back', () => {", "it('POSITIVE — request_review_changes POSTs the comment before the event', async () => {", "it('POSITIVE — complete_review sends exactly one event and no comment', async () => {", "describe('POSITIVE — request_changes attaches the answer as a comment then re-opens', () => {", "it('POSTs /comments { message } before /events { event: request_changes }', async () => {"]
+ASSERTIONS [{'line': 53, 'text': "expect(resolveStep('request_changes')).toEqual({ event: 'request_changes', needsComment: true });"}, {'line': 56, 'text': "expect(resolveStep('approve')).toEqual({ event: 'approve_done', needsComment: false });"}, {'line': 59, 'text': "expect(resolveStep('retry')).toEqual({ event: 'retry_from_blocked', needsComment: false });"}, {'line': 73, 'text': "expect(resolveStep('complete_review')).toEqual({ event: 'complete_review', needsComment: false });"}, {'line': 77, 'text': "expect(resolveStep('request_review_changes')).toEqual({"}, {'line': 84, 'text': "expect(VALID_DECISIONS).toContain('complete_review');"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-backend-semantics.test.ts
+/**
+ * Backend semantics the #1597 review ledger found broken (A5-1, A5-2, E-3).
+ *
+ * A5-1 — `cancel` deletes the ROW, it does not stop the WORKER. aif-handoff's
+ *   DELETE /tasks/:id removes the record and broadcasts `task:deleted`, and
+ *   nothing outside the web UI consumes that event: the coordinator re-reads the
+ *   row only at stage boundaries, so an in-flight stage keeps running headless.
+ *   Measured live during the beta night run 2026-09-02 — the container kept
+ *   working, the lane stayed blocked, and `tokens=0` on the deleted record proved
+ *   nothing. aif-handoff exposes NO stop/kill surface for a running task
+ *   (packages/shared/src/types.ts TASK_EVENTS has no stop/abort/cancel member;
+ *   packages/api/src/routes/tasks.ts has no such route — checked 2026-09-05), so
+ *   the only honest answer is to REFUSE, never a silent DELETE.
+ *
+ * A5-2 — the profile hint was resolved against GET /runtime-profiles with no
+ *   query at all. aif applies no project filter when projectId is absent and
+ *   defaults enabledOnly=false, so the candidate set was every project's profiles
+ *   plus disabled ones: a name unique in THIS project collides with another
+ *   project's and hard-aborts, or a disabled profile's id is written onto the task.
+ *
+ * E-3 — a missing RUNTIME_BR
+CASES ["if (method === 'GET' && /\\/tasks\\/[^/]+$/.test(url)) {", "describe('A5-1 — cancelClaim refuses to delete a task that is not a paused claim', () => {", 'it(\'the refusal says the backend cannot stop a worker — not "delete failed"\', async () => {', "it('boolean cancelClaim() reports the same refusal as false', async () => {", "it('CONTROL: a paused claim (the /pipeline RED branch) IS deleted', async () => {", "it('a 404 on the pre-check means the claim is already gone — success, no DELETE', async () => {", "it('an unreadable task state refuses rather than guessing (cannot prove idle)', async () => {", 'it(\'a response with no status field is unverifiable too — not "safe to delete"\', async () => {', "it('a real DELETE failure on a paused claim is still reported as not-cancelled', async () => {", "it('dispatch() rollback still deletes its own half-created task with NO pre-check', async () => {", "if (method === 'GET' && /\\/tasks\\/task-123$/.test(url)) {", "const taskGets = calls.filter((c) => c.method === 'GET' && /\\/tasks\\/task-123$/.test(c.url));", "describe('A5-2 — profile resolution is scoped by projectId and to enabled profiles', () => {", "it('sends projectId + enabledOnly on GET /runtime-profiles', async () => {"]
+ASSERTIONS [{'line': 120, 'text': "expect(outcome).toMatchObject({ cancelled: false, reason: 'running' });"}, {'line': 123, 'text': 'expect(deletes(calls)).toHaveLength(0);'}, {'line': 125, 'text': 'expect((outcome as { detail: string }).detail).toContain(status);'}, {'line': 131, 'text': 'expect(outcome.cancelled).toBe(false);'}, {'line': 132, 'text': "expect(outcome.reason).toBe('running');"}, {'line': 138, 'text': "await expect(backend().cancelClaim(handleFromTaskId('task-123'))).resolves.toBe(false);"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-claim-split.test.ts
+/**
+ * Two-phase dispatch — claim / release / cancelClaim (spec §5.3, D-H5/P-5).
+ *
+ * The load-bearing assertion here is the SEAM, not the HTTP verbs: after claim()
+ * returns, the task must exist and still be paused. If claim() ever unpauses, the
+ * Phase -1 window closes again and the whole split buys nothing — the observable
+ * marker would once more appear only after the work had started.
+ *
+ * The second load-bearing pair is the rollback split: release() leaves a failed claim
+ * standing (the caller owns the decision), while dispatch() still cancels it — the
+ * pre-split behaviour that aif-rest-dispatch.test.ts pins.
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { AifHandoffBackend } from '../src/AifHandoffBackend.js';
+import { ManualBackend } from '../src/ManualBackend.js';
+import { supportsClaims } from '../src/backend.js';
+import {
+  parseClaimArgs,
+  requireClaimBackend,
+  handleFromTaskId,
+} from '../src/cli/claim.js';
+import type { KickoffSpec } from '../src/types.js';
+
+const KICKOFF: KickoffSpec = {
+  filePath: '/repo/.claude/orchestrator-prompts/demo-umbrella/kickoff.md',
+  content: '# Demo kickoff\nDo the thing.\n',
+  umbrellaName: 'demo-umbrella',
+  contentHash: 'abc123',
+};
+
+interface Call {
+  url: string;
+  method: string;
+
+CASES ["if (method === 'GET' && /\\/tasks\\/[^/]+$/.test(url)) {", "describe('claim() — phase 1 creates a paused task and stops', () => {", "it('POSTs the task with paused:true and issues NO unpause PUT', async () => {", "it('budgets review iterations explicitly — the container default of 1 parks on the first rework', async () => {", "it('titles the claim with the umbrella slug — that is what makes it probe-findable', async () => {", "it('a failed create leaves nothing to roll back (no DELETE fired)', async () => {", "it('throws before any fetch when projectId is unset', async () => {", "describe('release() / cancelClaim() — phase 2 and the RED branch', () => {", "it('release() clears paused on the claimed task', async () => {", "it('a failed release leaves the claim STANDING — the caller owns the rollback', async () => {", "it('cancelClaim() DELETEs the task — the Phase -1 RED branch', async () => {", "it('cancelClaim() is best-effort — a failing DELETE resolves, it does not throw', async () => {", "it('cancelClaim() treats 404 as success — cancelling twice is not a failure', async () => {", "it('cancelClaim() still reports a REAL failure (500) as not-cancelled', async () => {"]
+ASSERTIONS [{'line': 111, 'text': "expect(handle.taskId).toBe('task-123');"}, {'line': 112, 'text': "expect(handle.backend).toBe('aif-handoff');"}, {'line': 117, 'text': 'expect(post?.body).toMatchObject({'}, {'line': 124, 'text': 'expect('}, {'line': 140, 'text': "expect(post?.body?.['maxReviewIterations']).toBe(4);"}, {'line': 150, 'text': "expect(post?.body?.['title']).toBe('demo-umbrella');"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-dispatch-dedup.test.ts
+// packages/runtime-bridge/test/aif-dispatch-dedup.test.ts
+// Finding B (qloop-ux-probe 2026-06-01): a dispatch that fell back to ManualBackend
+// still recorded a dedup entry, blocking a legitimate real retry for the 24h TTL with
+// no --force escape. These guards cover the two pure decisions that fix it.
+import { describe, it, expect } from 'vitest';
+import { dispatchUsesForce, resolveKickoffPath, shouldRecordDedup } from '../src/cli/dispatch.js';
+
+describe('dispatchUsesForce', () => {
+  it('true when --force is present (anywhere in argv)', () => {
+    expect(dispatchUsesForce(['k.md', '--force'])).toBe(true);
+    expect(dispatchUsesForce(['--force', 'k.md'])).toBe(true);
+  });
+  it('false when --force is absent', () => {
+    expect(dispatchUsesForce(['k.md'])).toBe(false);
+  });
+});
+
+describe('resolveKickoffPath', () => {
+  it('returns the first non-flag token regardless of --force position', () => {
+    expect(resolveKickoffPath(['path/to/kickoff.md', '--force'])).toBe('path/to/kickoff.md');
+    expect(resolveKickoffPath(['--force', 'path/to/kickoff.md'])).toBe('path/to/kickoff.md');
+  });
+  it('returns undefined when only flags are present', () => {
+    expect(resolveKickoffPath(['--force'])).toBeUndefined();
+  });
+});
+
+describe('shouldRecordDedup — the Finding B fix', () =>
+CASES ["describe('dispatchUsesForce', () => {", "it('true when --force is present (anywhere in argv)', () => {", "it('false when --force is absent', () => {", "describe('resolveKickoffPath', () => {", "it('returns the first non-flag token regardless of --force position', () => {", "it('returns undefined when only flags are present', () => {", "describe('shouldRecordDedup — the Finding B fix', () => {", "it('records for a real backend success (aif-handoff)', () => {", "it('does NOT record for a ManualBackend fallback (would block a legit retry)', () => {", "it('GUARD: a manual fallback must NOT be treated as recordable', () => {"]
+ASSERTIONS [{'line': 10, 'text': "expect(dispatchUsesForce(['k.md', '--force'])).toBe(true);"}, {'line': 11, 'text': "expect(dispatchUsesForce(['--force', 'k.md'])).toBe(true);"}, {'line': 14, 'text': "expect(dispatchUsesForce(['k.md'])).toBe(false);"}, {'line': 20, 'text': "expect(resolveKickoffPath(['path/to/kickoff.md', '--force'])).toBe('path/to/kickoff.md');"}, {'line': 21, 'text': "expect(resolveKickoffPath(['--force', 'path/to/kickoff.md'])).toBe('path/to/kickoff.md');"}, {'line': 24, 'text': "expect(resolveKickoffPath(['--force'])).toBeUndefined();"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-dispatch-preflight.test.ts
+// packages/runtime-bridge/test/aif-dispatch-preflight.test.ts
+// "The dispatcher calls the doctor; the doctor heals." runPreflight is the env-gated,
+// ship-safe, non-blocking seam dispatch.ts uses to invoke the aif-doctor heal entrypoint
+// before a real dispatch (stale container base → false-`done` garbage; aif-doctor §3.4).
+import { describe, it, expect, afterEach } from 'vitest';
+import { existsSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { runPreflight } from '../src/cli/dispatch.js';
+
+const marker = join(tmpdir(), `aif-preflight-marker-${process.pid}.txt`);
+afterEach(() => {
+  if (existsSync(marker)) rmSync(marker);
+});
+
+describe('runPreflight — the doctor-heal seam', () => {
+  it('NO-OP when RUNTIME_BRIDGE_PREFLIGHT is unset (ship-safe for consumers)', () => {
+    runPreflight({});
+
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it('runs the configured preflight command when the env var is set', () => {
+    runPreflight({ RUNTIME_BRIDGE_PREFLIGHT: `touch '${marker}'` });
+
+    expect(existsSync(marker)).toBe(true);
+  });
+
+  it('non-blocking: a failing preflight does NOT throw (dispatch must proceed)', () => {
+    expect(() => runPreflight({ RUNTIME_BRIDGE_PREFLIGHT: 'exit 7' })).not.toThrow();
+  });
+
+  // N
+CASES ["describe('runPreflight — the doctor-heal seam', () => {", "it('NO-OP when RUNTIME_BRIDGE_PREFLIGHT is unset (ship-safe for consumers)', () => {", "it('runs the configured preflight command when the env var is set', () => {", "it('non-blocking: a failing preflight does NOT throw (dispatch must proceed)', () => {", "it('GUARD: unset env must NOT execute anything (no marker created)', () => {"]
+ASSERTIONS [{'line': 20, 'text': 'expect(existsSync(marker)).toBe(false);'}, {'line': 26, 'text': 'expect(existsSync(marker)).toBe(true);'}, {'line': 30, 'text': "expect(() => runPreflight({ RUNTIME_BRIDGE_PREFLIGHT: 'exit 7' })).not.toThrow();"}, {'line': 38, 'text': 'expect(existsSync(marker)).not.toBe(true);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-ensure-parallel.test.ts
+// packages/runtime-bridge/test/aif-ensure-parallel.test.ts
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { ensureParallelEnabled, buildParallelEnablePut } from '../src/cli/ensure-parallel.js';
+import type { AifProjectFull } from '../src/cli/aifHttp.js';
+
+afterEach(() => vi.restoreAllMocks());
+
+const PID = '441c1c0c-b633-4612-a34c-2cc0c4d0eaf2';
+
+function project(overrides: Partial<AifProjectFull> = {}): AifProjectFull {
+  return { id: PID, name: 'rules-as-tests-aif', rootPath: '/home/www/x', parallelEnabled: false, ...overrides };
+}
+
+function okResponse(body: unknown = {}, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+// Finding A self-heal (research-patch 2026-06-01-aif-task-isolation.md §2.2): aif creates
+// per-task worktrees only when project.parallelEnabled=1 (gate 2 of 3). A freshly-provisioned
+// instance has it 0 → tasks run in-place → dirty_worktree 409. This guard re-applies it.
+describe('ensureParallelEnabled', () => {
+  it('no-op when parallelEnabled is already true (GET only, NO PUT)', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse([project({ parallelEnabled: true })]));
+    const r = await ensureParallelEnabled('h
+CASES ["describe('ensureParallelEnabled', () => {", "it('no-op when parallelEnabled is already true (GET only, NO PUT)', async () => {", "it('GETs /projects then PUTs parallelEnabled:true when disabled', async () => {", "it('GUARD: preserves a UI-set budget in the PUT body (does NOT clobber it to null)', async () => {", "it('throws when the project id is not in the list', async () => {", "describe('buildParallelEnablePut — pure body builder', () => {", "it('flips parallelEnabled true and omits null budgets (schema budgets are .optional, not nullable)', () => {", "it('CONTROL: carries a numeric budget through verbatim', () => {"]
+ASSERTIONS [{'line': 26, 'text': "expect(r).toMatchObject({ changed: false, reason: 'already-enabled', parallelEnabled: true });"}, {'line': 27, 'text': 'expect(spy.mock.calls).toHaveLength(1); // only the GET /projects'}, {'line': 28, 'text': "expect((spy.mock.calls[0][1] as RequestInit).method).toBe('GET');"}, {'line': 37, 'text': "expect(r).toMatchObject({ changed: true, reason: 'enabled-now', parallelEnabled: true });"}, {'line': 39, 'text': "expect(put.method).toBe('PUT');"}, {'line': 40, 'text': 'expect(JSON.parse(put.body as string).parallelEnabled).toBe(true);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-fire-backend.test.ts
+/**
+ * Paired-negative tests for AifFireBackend — honest dispatch-only `/fire` backend.
+ *
+ * Contract under test (per kickoff §Hard-constraints and §4c):
+ *   1. does-not-hang (MANDATORY): awaitDone resolves immediately (<1s) with
+ *      { success:false, finalStatus:'dispatched_no_readback' } and meta.sessionUrl. ✓
+ *   2. T-Fire-A guard: awaitDone calls fetch ZERO times (no session_url scraping). ✓
+ *   3. getStatus honest: returns { status:'running', rawStatus:'dispatched_no_readback' };
+ *      never returns 'done'; idempotent across calls. ✓
+ *   4. available() false when unconfigured; true when both routineId+token present. ✓
+ *   5. dispatch POST shape: correct URL, headers, body; handle shape. ✓
+ *   6. dispatch error mapping: 429→quota_exceeded; missing config→dispatch_failed;
+ *      ECONNREFUSED→unavailable. ✓
+ *
+ * T3 compliance: each assertion names the source file:line it targets.
+ * T-Fire-A compliance: fetch is spied and asserted to NOT be called in awaitDone/getStatus.
+ * Type-decision (b): shared TaskStatus.status/RuntimeBackend.name/TaskHandle.backend
+ *   unions are NOT extended — AifFireBackend uses a local AifFireHandle type.
+ */
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { BackendError } from '../src/backend.js';
+
+// ── Module-lev
+CASES ["describe('Test 1 — awaitDone: does NOT hang (resolves immediately)', () => {", "it('awaitDone resolves in well under 1 000 ms with dispatched_no_readback', async () => {", "it('awaitDone result contains sessionId in meta', async () => {", "it('NEGATIVE: awaitDone does NOT return success:true', async () => {", "describe('Test 2 — T-Fire-A guard: awaitDone calls fetch ZERO times', () => {", "it('fetch is not called inside awaitDone (no session_url scraping)', async () => {", "it('NEGATIVE: awaitDone does NOT contain any network attempt (abort/timeout would be observable)', async () => {", "describe('Test 3 — getStatus: returns honest dispatched_no_readback', () => {", 'it(\'returns { status:"running", rawStatus:"dispatched_no_readback" }\', async () => {', 'it(\'NEGATIVE: getStatus does NOT return status:"done" (would be a lie)\', async () => {', "it('getStatus is idempotent — repeated calls return the same shape', async () => {", "it('getStatus calls fetch ZERO times (no network, per T-Fire-A)', async () => {", "describe('Test 4 — available(): false when unconfigured, true when routineId+token present', () => {", "it('available() → false when neither routineId nor token provided', async () => {"]
+ASSERTIONS [{'line': 59, 'text': 'expect(elapsed).toBeLessThan(1000);'}, {'line': 60, 'text': 'expect(result.success).toBe(false);'}, {'line': 61, 'text': "expect(result.finalStatus).toBe('dispatched_no_readback');"}, {'line': 62, 'text': 'expect(result.meta?.sessionUrl).toBe(handle.sessionUrl);'}, {'line': 71, 'text': "expect(result.meta?.sessionId).toBe('sess-meta-test');"}, {'line': 80, 'text': 'expect(result.success).not.toBe(true);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-http.test.ts
+// packages/runtime-bridge/test/aif-http.test.ts
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { BackendError } from '../src/backend.js';
+import { getTask, putTask, postJson, getJson, aifRequest, DEFAULT_HTTP_TIMEOUT_MS } from '../src/cli/aifHttp.js';
+
+function okResponse(body: unknown = {}, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+afterEach(() => vi.restoreAllMocks());
+
+describe('getTask', () => {
+  it('GETs /tasks/:id and returns the parsed task', async () => {
+    const task = { id: 't-1', title: 'x', status: 'implementing', plan: 'P', paused: false, blockedReason: null };
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse(task));
+    const got = await getTask('http://localhost:3009', 't-1');
+    expect(spy.mock.calls[0][0]).toBe('http://localhost:3009/tasks/t-1');
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe('GET');
+    expect(got).toEqual(task);
+  });
+  it('maps a non-ok status to a dispatch_failed BackendError', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse({ error: 'nope' }, 404));
+    await expect(getTask('http://localhost:3009', 't-x')).rejects.toMatchObject({ code: 'dispatch_failed' }
+CASES ["describe('getTask', () => {", "it('GETs /tasks/:id and returns the parsed task', async () => {", "it('maps a non-ok status to a dispatch_failed BackendError', async () => {", "describe('putTask', () => {", "it('PUTs /tasks/:id with the JSON body', async () => {", "it('maps connection refusal to an unavailable BackendError', async () => {", "describe('postJson — the shared POST half (S-4)', () => {", "it('POSTs the JSON body and returns the parsed response', async () => {", "it('maps 429 to quota_exceeded (the mapping the CLIs share)', async () => {", "it('maps connection refusal to unavailable', async () => {", "describe('request timeout — no CLI hangs forever on a wedged API (R-7)', () => {", "it('aborts after timeoutMs and reports unavailable', async () => {", "it('every request carries a default timeout (the CLIs used to have none at all)', () => {", "it('a 404 maps to the caller-chosen code (getTaskStatus keeps its unavailable contract)', async () => {"]
+ASSERTIONS [{'line': 17, 'text': "expect(spy.mock.calls[0][0]).toBe('http://localhost:3009/tasks/t-1');"}, {'line': 18, 'text': "expect((spy.mock.calls[0][1] as RequestInit).method).toBe('GET');"}, {'line': 19, 'text': 'expect(got).toEqual(task);'}, {'line': 23, 'text': "await expect(getTask('http://localhost:3009', 't-x')).rejects.toMatchObject({ code: 'dispatch_failed' });"}, {'line': 31, 'text': "expect(spy.mock.calls[0][0]).toBe('http://localhost:3009/tasks/t-1');"}, {'line': 33, 'text': "expect(init.method).toBe('PUT');"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-park-live.test.ts
+// packages/runtime-bridge/test/aif-park-live.test.ts
+import { describe, it, expect } from 'vitest';
+import { getTask, putTask } from '../src/cli/aifHttp.js';
+
+const LIVE = process.env.RUNTIME_BRIDGE_LIVE_AIF === '1';
+const BASE = process.env.RUNTIME_BRIDGE_AIF_URL || 'http://localhost:3009';
+const PID = process.env.RUNTIME_BRIDGE_AIF_PROJECT_ID;
+
+describe.runIf(LIVE && !!PID)('LIVE contract: a paused task is not advanced by the coordinator (F10)', () => {
+  it('creates a task, pauses it, and confirms it does not advance over a poll window', async () => {
+    const created = await (await fetch(`${BASE}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId: PID, title: 'PARK-LIVE-PROBE-delete-me', description: 'guard', autoMode: false }),
+    })).json() as { id: string };
+    const id = created.id;
+    try {
+      await putTask(BASE, id, { paused: true, blockedReason: 'PARK-LIVE-PROBE' });
+      const before = await getTask(BASE, id);
+      await new Promise((r) => setTimeout(r, 15_000)); // > coordinator poll interval
+      const after = await getTask(BASE, id);
+      expect(after.paused).toBe(true);
+      expect(after.blockedReason).toBe('PARK-LIVE-PROBE'); // not clobbered by the watchdog (F4)
+      expect(
+CASES ["it('creates a task, pauses it, and confirms it does not advance over a poll window', async () => {"]
+ASSERTIONS [{'line': 22, 'text': 'expect(after.paused).toBe(true);'}, {'line': 23, 'text': "expect(after.blockedReason).toBe('PARK-LIVE-PROBE'); // not clobbered by the watchdog (F4)"}, {'line': 24, 'text': 'expect(after.status).toBe(before.status); // did not advance while paused'}]
+SKIPS [{'line': 9, 'text': "describe.runIf(LIVE && !!PID)('LIVE contract: a paused task is not advanced by the coordinator (F10)', () => {"}]
+FILE packages/runtime-bridge/test/aif-park.test.ts
+// packages/runtime-bridge/test/aif-park.test.ts
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import {
+  parseParkArgs,
+  validateParkArgs,
+  buildOpenQuestionPlan,
+  resolveAifBaseUrl,
+  candidateBaseUrls,
+  resolveReachableBaseUrl,
+} from '../src/cli/park.js';
+import { parkTask } from '../src/cli/park.js';
+
+afterEach(() => vi.restoreAllMocks());
+
+// Finding C-2 (qloop-ux-probe live re-run): the aif agent runs park.ts in a Bash-tool
+// subprocess whose env is SCRUBBED of API_BASE_URL, so reading env alone falls back to an
+// unreachable localhost inside the container. park probes candidates and uses the first
+// reachable one, so it works from both the agent container and the host orchestrator.
+describe('candidateBaseUrls — ordered, de-duplicated probe list', () => {
+  it('puts env vars first, then docker service, then localhost', () => {
+    expect(candidateBaseUrls({ RUNTIME_BRIDGE_AIF_URL: 'http://x:1' })).toEqual([
+      'http://x:1',
+      'http://api:3009',
+      'http://localhost:3009',
+    ]);
+  });
+  it('with NO env (the scrubbed agent case) still offers api:3009 before localhost', () => {
+    expect(candidateBaseUrls({})).toEqual(['http://api:3009', 'http://localhost:3009']);
+  });
+  it('de-duplicates when an env var equals a default', () => {
+    expe
+CASES ["describe('candidateBaseUrls — ordered, de-duplicated probe list', () => {", "it('puts env vars first, then docker service, then localhost', () => {", "it('with NO env (the scrubbed agent case) still offers api:3009 before localhost', () => {", "it('de-duplicates when an env var equals a default', () => {", "describe('resolveReachableBaseUrl — first reachable candidate wins', () => {", "it('returns api:3009 when localhost is refused and api is reachable (the agent container)', async () => {", "it('returns localhost when set first and reachable (the host orchestrator)', async () => {", "it('GUARD: does NOT return an unreachable candidate when a later one is reachable', async () => {", "describe('resolveAifBaseUrl — container-aware base URL precedence', () => {", "it('prefers RUNTIME_BRIDGE_AIF_URL when set (explicit override wins)', () => {", "it('falls back to API_BASE_URL when RUNTIME_BRIDGE_AIF_URL is unset (the container case — Finding C fix)', () => {", "it('falls back to http://localhost:3009 when neither is set (host orchestrator default)', () => {", "it('GUARD: does NOT fall through to localhost while API_BASE_URL is set', () => {", "describe('parseParkArgs', () => {"]
+ASSERTIONS [{'line': 21, 'text': "expect(candidateBaseUrls({ RUNTIME_BRIDGE_AIF_URL: 'http://x:1' })).toEqual(["}, {'line': 28, 'text': "expect(candidateBaseUrls({})).toEqual(['http://api:3009', 'http://localhost:3009']);"}, {'line': 31, 'text': "expect(candidateBaseUrls({ API_BASE_URL: 'http://localhost:3009' })).toEqual(["}, {'line': 45, 'text': "expect(got).toBe('http://api:3009');"}, {'line': 50, 'text': "expect(got).toBe('http://localhost:3009');"}, {'line': 61, 'text': "expect(got).not.toBe('http://localhost:3009');"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-questions.test.ts
+/**
+ * Paired-positive/negative tests for the parked-question collector (cli/questions.ts).
+ *
+ * Contract under test (kickoff §10 acceptance criteria):
+ *   POSITIVE — a list with one manualReviewRequired:true task → it is selected
+ *              and printed in the human format. ✓
+ *   NEGATIVE — a list where every task is done with no block flags →
+ *              selected set empty → "No parked questions." ✓
+ *   FILTER   — projectId mismatch → excluded. ✓
+ *
+ * Mocking strategy: vi.spyOn(globalThis, 'fetch') returning a Response, exactly
+ *   like aif-rest-dispatch.test.ts / aif-status-readback.test.ts. The CLI's
+ *   main() is entrypoint-guarded, so importing the module is a clean no-op.
+ */
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import {
+  fetchTasks,
+  selectParked,
+  isParked,
+  parkedReason,
+  extractOpenQuestion,
+  formatHuman,
+  parseQuestionsArgs,
+} from '../src/cli/questions.js';
+import { OPEN_QUESTION_ANCHOR } from '../src/cli/openQuestion.js';
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+// ── POSITIVE ─────────────────────────────────────────────────────────
+CASES ["describe('POSITIVE — a manualReviewRequired task is selected and printed', () => {", "it('fetchTasks + selectParked picks the parked task; formatHuman prints it', async () => {", "it('isParked is true for blocked_external and for a non-empty blockedReason', () => {", "it('parkedReason falls back to a trimmed reviewComments excerpt when blockedReason is absent', () => {", "describe('extractOpenQuestion — recover the question text from the plan anchor', () => {", 'it(\'returns the text after the anchor line (dropping the " (awaiting operator)" suffix)\', () => {', "it('returns the LAST anchor block when several are present (most recent park)', () => {", "it('returns null when the plan has no anchor or no body', () => {", 'describe(\'parkedReason — Finding E: mid-flight park surfaces the question, not "(no reason recorded)"\', () => {', "it('recovers the question from the plan when blockedReason is empty', () => {", 'it(\'GUARD: a mid-flight park does NOT render "(no reason recorded)"\', () => {', "describe('NEGATIVE — all tasks done with no block flags → No parked questions.', () => {", "it('selectParked is empty and formatHuman returns the empty sentinel', async () => {", "it('NEGATIVE: an empty blockedReason string does NOT count as parked', () => {"]
+ASSERTIONS [{'line': 58, 'text': 'expect(fetchSpy).toHaveBeenCalledWith('}, {'line': 64, 'text': 'expect(parked).toHaveLength(1);'}, {'line': 65, 'text': "expect(parked[0].id).toBe('t-2');"}, {'line': 68, 'text': "expect(out).toContain('id:     t-2');"}, {'line': 69, 'text': "expect(out).toContain('Needs a human');"}, {'line': 70, 'text': "expect(out).toContain('Option A → X / Option B → Y');"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-rest-dispatch.test.ts
+/**
+ * Tests for AifHandoffBackend.dispatch() over REST (:3009).
+ *
+ * Verdict source: docs/meta-factory/research-patches/2026-05-31-runtime-bridge-mcp-dispatch-fix.md
+ * (REST-now + MCP-target). These tests assert the 4-step planner-skip REST
+ * sequence + BackendError mapping. Live HTTP mechanics were verified against a
+ * running instance in the R-phase; these unit tests lock the contract.
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { AifHandoffBackend } from '../src/AifHandoffBackend.js';
+import { BackendError } from '../src/backend.js';
+import type { KickoffSpec } from '../src/types.js';
+
+const KICKOFF: KickoffSpec = {
+  filePath: '/repo/.claude/orchestrator-prompts/demo-meta-launch/kickoff.md',
+  content: '# Demo kickoff\nDo the thing.\n',
+  umbrellaName: 'demo-meta-launch',
+  contentHash: 'abc123',
+};
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
+
+describe('AifHandoffBackend.dispatch() — REST 4-step sequence', () => {
+  it('
+CASES ["describe('AifHandoffBackend.dispatch() — REST 4-step sequence', () => {", "it('creates the task with the kickoff as DESCRIPTION (planner input), then unpauses — NO accept_existing_plan, NO plan push', async () => {", "it('throws spec_invalid (no fetch) when projectId is unset — E-3, an operator-fixable spec defect', async () => {", "it('throws dispatch_failed when POST /tasks returns no id', async () => {", "it('maps a 4xx on the unpause step to dispatch_failed AND rolls back (DELETE) the half-created task', async () => {", "it('maps HTTP 429 to quota_exceeded', async () => {", "it('maps a connection failure to unavailable', async () => {", "it('REST dispatch targets baseUrl and never the (reserved) mcpUrl', async () => {", "it('defaults mcpUrl to :3100 when not configured', () => {", "describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {", "it('single case-insensitive substring match → runtimeProfileId included in POST /tasks body', async () => {", "it('no profileHint → GET /runtime-profiles is never called, no runtimeProfileId in POST body (regression guard)', async () => {", "it('zero matches → spec_invalid, loud, naming the empty candidate outcome (no silent fallback)', async () => {", "it('ambiguous (>1) matches → spec_invalid naming BOTH candidates (no guessing)', async () => {"]
+ASSERTIONS [{'line': 5, 'text': '* (REST-now + MCP-target). These tests assert the 4-step planner-skip REST'}, {'line': 68, 'text': "expect(handle.backend).toBe('aif-handoff');"}, {'line': 69, 'text': "expect(handle.taskId).toBe('task-123');"}, {'line': 74, 'text': 'expect(post?.body).toMatchObject({'}, {'line': 86, 'text': 'expect(putPaused).toBeDefined();'}, {'line': 89, 'text': "expect(calls.some((c) => (c.body as { event?: string } | undefined)?.event === 'accept_existing_plan')).toBe(false);"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-result-consumption.test.ts
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createServer } from 'node:http';
+import { spawn, execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { AifHandoffBackend } from '../src/AifHandoffBackend.js';
+import { harvestTask, type HarvestDeps } from '../src/harvest.js';
+import { pushAnswer } from '../src/cli/answer.js';
+import type { WebSocketConstructor } from '../src/aifWsStatus.js';
+
+// Exercise the actual producer, subprocess reader, delivery guard and repair consumer.
+// Transport is local and publication effects are recording boundaries, never live work.
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const tsx = join(root, 'node_modules/.bin/tsx');
+const owner = 'codex:s3-result-consumer';
+const baseTask = {
+  id: 's3-task', title: 'Bounded result', status: 'done', branchName: 'candidate',
+  paused: false, manualReviewRequired: false, blockedReason: null,
+  executionOwner: 'ai' as const, ownershipRevision: 1,
+  description: 'An ordinary unscoped assignment', plan: 'Known source and generated 
+CASES ["if (req.method === 'POST' && /^\\/tasks\\/s3-task\\/(comments|events)$/.test(req.url!)) {", 'if (/^(GIT_|AIF_|RUNTIME_BRIDGE_|CLAUDE_|CODEX_|GETFF_|NODE_OPTIONS$)/.test(key)) delete result[key];', "it('unchanged observation retains generation; candidate and result changes invalidate it', async () => {", "it('missing candidate or explicit reader identity stays unknown and unbound', async () => {", "it('an admitted repair in progress is not blocked by its previous review advisory', async () => {", "it('harvest rejects a detail response for another task before any external effect', async () => {", "it('unavailable detail retains explicitly unbound pending custody', async () => {", "it('validated detail preserves ordinary fallback with uncertain delivery outcome', async () => {", "it('held validated detail never exposes fallback after an input error', async () => {", "it('ordinary specified repair reaches the existing comment then event consumer', async () => {", "it('real scratch Git inputs still reach normal publication dependencies when unheld', async () => {", "it('actual factory installer delivers the actionable reader and preserves the stub and effect guards', async () => {"]
+ASSERTIONS [{'line': 109, 'text': 'expect(r.code, r.stderr).toBe(1);'}, {'line': 111, 'text': "expect(status.status).toBe('error');"}, {'line': 112, 'text': "expect(status.rawStatus).toBe('done');"}, {'line': 113, 'text': "expect(status.meta).toMatchObject({ taskId: 's3-task', acceptance: 'unverified', nextAction: { ownerReference: owner, state: 'pending' } });"}, {'line': 116, 'text': 'expect(h.code, h.stderr).toBe(2);'}, {'line': 117, 'text': "expect(JSON.parse(h.stdout)).toMatchObject({ pushed: false, pendingAction: { ownerReference: owner, state: 'pending' } });"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-self-cleaning.test.ts
+// packages/runtime-bridge/test/aif-self-cleaning.test.ts
+// Self-cleaning junk producers (2026-06-01): junk must NOT accumulate, and must NOT
+// require an AI/manual sweep each session. These cover the two pure cores:
+//   - idempotency.pruneStaleEntries: dedup log self-prunes on every write (bounded +
+//     stale-manual entries auto-expire → Finding B never recurs after TTL).
+//   - ManualBackend.isStaleArtifact: /tmp kickoffs self-prune on the next dispatch.
+import { describe, it, expect, vi } from 'vitest';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { parseEntries, pruneStaleEntries, resolveDedupPath } from '../src/idempotency.js';
+import { isStaleArtifact, manualInstructions } from '../src/ManualBackend.js';
+import type { TaskHandle } from '../src/types.js';
+
+const HANDLE: TaskHandle = { backend: 'manual', taskId: 't', dispatchedAt: '2026-06-01T00:00:00.000Z' };
+const at = (iso: string) => ({ hash: 'h', taskHandle: HANDLE, timestamp: iso });
+const DAY = 24 * 60 * 60 * 1000;
+
+describe('pruneStaleEntries — dedup log self-prunes by TTL', () => {
+  const now = Date.parse('2026-06-02T00:00:00.000Z');
+  it('keeps entries within the 24h TTL', () => {
+    const fresh = at('2026-06-01T12:00:00
+CASES ["describe('pruneStaleEntries — dedup log self-prunes by TTL', () => {", "it('keeps entries within the 24h TTL', () => {", "it('drops entries older than the TTL (a stale manual fallback expires on its own)', () => {", "it('keeps the exact-boundary entry (age == TTL is not yet stale)', () => {", "it('GUARD: a 48h-old entry must NOT survive the prune', () => {", "describe('parseEntries — tolerant JSONL parse', () => {", "it('parses valid lines and skips malformed ones', () => {", "describe('isStaleArtifact — /tmp kickoff self-prune predicate', () => {", "it('flags an old runtime-bridge kickoff as stale', () => {", "it('does NOT flag a fresh kickoff', () => {", "it('does NOT touch unrelated files even when old (scope safety)', () => {", "it('GUARD: an unrelated old .md must NOT be considered a prunable artefact', () => {", "describe('resolveDedupPath — the per-project dedup log (A5-3 / E-1)', () => {", "it('POSITIVE: the env var wins — this is the knob the vendor README documents', () => {"]
+ASSERTIONS [{'line': 23, 'text': 'expect(pruneStaleEntries([fresh], now, DAY)).toEqual([fresh]);'}, {'line': 27, 'text': 'expect(pruneStaleEntries([stale], now, DAY)).toEqual([]);'}, {'line': 31, 'text': 'expect(pruneStaleEntries([edge], now, DAY)).toEqual([edge]);'}, {'line': 36, 'text': "expect(pruneStaleEntries([at('2026-05-30T00:00:00.000Z')], now, DAY)).not.toContainEqual("}, {'line': 45, 'text': 'expect(parseEntries(jsonl)).toHaveLength(1);'}, {'line': 53, 'text': "expect(isStaleArtifact('runtime-bridge-2026-05-01.md', now - 30 * DAY, now, SEVEN_D)).toBe(true);"}]
+SKIPS []
+FILE packages/runtime-bridge/test/aif-status-readback.test.ts
+/**
+ * Paired-negative tests for SW-C: aif-handoff WebSocket status read-back.
+ *
+ * Contract under test:
+ *   1. Events for OUR taskId → status transitions correctly + state-file appended ✓
+ *   2. Events for OTHER taskIds → ignored (no state change, no state-file write) ✓
+ *   3. WS disconnect mid-task → awaitDone rejects with BackendError code 'unavailable'
+ *      AND state.md notes the disconnection (event=ws_disconnected) — not a silent drop ✓
+ *   4. State-file unset → status processing clean no-op (no crash) ✓
+ *   5. Bridge-discipline: AifHandoffBackend.awaitDone surfaces WS drop as BackendError('unavailable') ✓
+ *   6. getStatus returns mapped TaskStatus from REST snapshot ✓
+ *   7. getStatus throws BackendError('unavailable') on 404 ✓
+ *   8. blocked_external → awaitDone resolves { success: false } (not throw) ✓
+ *
+ * T3 compliance: each assertion names the source file:line it targets.
+ * Mocking strategy: inject fake WebSocket constructor (DI) — vi.stubGlobal
+ *   cannot intercept named imports from node:http (T-SWC-2 countermeasure).
+ */
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import {
+  mkdtempSync,
+  rmSync,
+  readFileSync,
+  existsSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import {
+  awaitTaskD
+CASES ["describe('mapAifStatusToTaskStatus — status enum mapping', () => {", "it('backlog/planning map to pending', () => {", "it('plan_ready/implementing/review map to running', () => {", "it('done/verified map to done', () => {", "it('blocked_external maps to error', () => {", "it('unknown future status defaults to running (non-terminal assumption)', () => {", "describe('isTerminal — terminal status detection', () => {", "it('done and verified are terminal', () => {", "it('blocked_external is terminal', () => {", "it('non-terminal statuses return false', () => {", "describe('Test 1 — events for our taskId resolve with correct status + state-file appended', () => {", "it('task:updated with our taskId reaching done → resolves success:true', async () => {", "it('task:updated with our taskId reaching verified → resolves success:true', async () => {", "describe('Test 2 — events for OTHER taskIds are ignored', () => {"]
+ASSERTIONS [{'line': 84, 'text': "if (['task:updated', 'task:moved'].includes(frame.type) && frame.payload.id === requestedTask) authoritativeStatus = frame.payload.status;"}, {'line': 112, 'text': "expect(mapAifStatusToTaskStatus('backlog')).toBe('pending');"}, {'line': 113, 'text': "expect(mapAifStatusToTaskStatus('planning')).toBe('pending');"}, {'line': 117, 'text': "expect(mapAifStatusToTaskStatus('plan_ready')).toBe('running');"}, {'line': 118, 'text': "expect(mapAifStatusToTaskStatus('implementing')).toBe('running');"}, {'line': 119, 'text': "expect(mapAifStatusToTaskStatus('review')).toBe('running');"}]
+SKIPS []
+FILE packages/runtime-bridge/test/await-actionable.test.ts
+import { createServer, type Server } from 'node:http';
+import { once } from 'node:events';
+import { afterEach, describe, expect, it } from 'vitest';
+import { awaitActionable, parseAwaitArgs } from '../src/cli/await.js';
+import { describeAifTask } from '../src/aifWsStatus.js';
+import { OPEN_QUESTION_ANCHOR } from '../src/cli/openQuestion.js';
+
+const servers: Server[] = [];
+afterEach(async () => {
+  await Promise.all(
+    servers.splice(0).map(
+      (server) =>
+        new Promise<void>((resolve) => {
+          server.closeAllConnections();
+          server.close(() => resolve());
+        }),
+    ),
+  );
+});
+
+async function fixture(responses: Array<Record<string, unknown> | number>) {
+  const paths: string[] = [];
+  const methods: string[] = [];
+  const server = createServer((req, res) => {
+    paths.push(req.url ?? '');
+    methods.push(req.method ?? '');
+    const response =
+      responses[Math.min(paths.length - 1, responses.length - 1)];
+    if (typeof response === 'number' && response <= -400) {
+      res.writeHead(-response, { 'Content-Type': 'application/json' });
+      res.write('{');
+      return;
+    }
+    if (response === 0) {
+      req.socket.destroy();
+      return;
+    }
+    if (response === -1) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+   
+CASES ["describe('actionable wait over the real HTTP read path', () => {", "it('is delivered in the consumer vendor copy with its import closure', async () => {", "it('absorbs healthy polls and a transient outage, returning only the final event', async () => {", "it('surfaces an ordinary pause without interpreting it as authority to resume', async () => {", "it('stops after repeated transport failures without mutating the task', async () => {", "it('does not repeatedly probe a quota response', async () => {", "it('returns an observation deadline, not a fabricated worker failure', async () => {", "it('bounds a response whose headers arrive but whose body never completes', async () => {", "describe('await CLI arguments', () => {", "it('keeps flag values out of the task id', () => {", "describe('actionable S3 metadata and uncertainty controls', () => {", "it('uses the canonical generation without exposing full content', async () => {", "it('holds adverse advisory before done and bounds the compact prerequisite', async () => {", "it('keeps pause subordinate to a park and never treats metadata as approval', async () => {"]
+ASSERTIONS [{'line': 72, 'text': 'expect('}, {'line': 90, 'text': "expect(result.kind).toBe('parked');"}, {'line': 91, 'text': "expect(result.taskId).toBe('t1');"}, {'line': 92, 'text': "expect(http.methods).toEqual(['GET']);"}, {'line': 108, 'text': "expect(result).toMatchObject({ kind: 'done', status: 'verified' });"}, {'line': 109, 'text': "expect(http.paths).toEqual(Array(4).fill('/tasks/t1'));"}]
+SKIPS []
+FILE packages/runtime-bridge/test/cli-entry.test.ts
+// packages/runtime-bridge/test/cli-entry.test.ts
+/**
+ * Paired tests for src/cli/cliEntry.ts — the shared CLI entrypoint plumbing that
+ * replaces the copy-pasted main-module guard (A6-1 / R-6) and the hand-rolled
+ * `--flag <value>` lookup (A6-4 / A6-7 / R-6) in every runtime-bridge CLI.
+ *
+ * T3 compliance: each assertion names the defect it closes.
+ */
+import { describe, it, expect } from 'vitest';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { isMain, parseCliArgs, CliArgError } from '../src/cli/cliEntry.js';
+
+const HERE = fileURLToPath(import.meta.url);
+
+describe('isMain — realpath on BOTH sides (A6-1)', () => {
+  it('true when argv[1] is a SYMLINK to the module file (the npx/bin/.bin case)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cli-entry-'));
+    try {
+      const target = join(dir, 'real-cli.ts');
+      writeFileSync(target, '// target\n');
+      const link = join(dir, 'linked-cli');
+      symlinkSync(target, link);
+
+      // Pre-fix this was FALSE: fileURLToPath(import.meta.url) is the RESOLVED
+      // target while argv[1] is the LINK → guard false → CLI exits 0 doing nothing.
+      expect(isMain
+CASES ["describe('isMain — realpath on BOTH sides (A6-1)', () => {", "it('true when argv[1] is a SYMLINK to the module file (the npx/bin/.bin case)', () => {", "it('true when argv[1] is the module file itself (the plain `tsx park.ts` case)', () => {", "it('false for an unrelated argv[1] (importing the module must stay side-effect-free)', () => {", "it('false — never throws — when argv[1] is absent (node -e, some embedders)', () => {", "describe('parseCliArgs — rejects the argv shapes the hand-rolled lookup accepted', () => {", "it('accepts the normal shape', () => {", "it('accepts --flag=value', () => {", "it('A6-7: a flag whose value is the NEXT FLAG is an error, not a value', () => {", "it('A6-4: a value-taking flag BEFORE a positional does not swallow the positional', () => {", "it('rejects a trailing value-taking flag with no value at all', () => {", "it('rejects an EMPTY --flag= value rather than silently taking the empty string', () => {", "it('rejects an unknown flag instead of silently ignoring it', () => {", "it('rejects positional junk beyond the declared maximum', () => {"]
+ASSERTIONS [{'line': 29, 'text': 'expect(isMain(pathToFileURL(target).href, link)).toBe(true);'}, {'line': 36, 'text': 'expect(isMain(pathToFileURL(HERE).href, HERE)).toBe(true);'}, {'line': 40, 'text': "expect(isMain(pathToFileURL(HERE).href, join(tmpdir(), 'somewhere-else.ts'))).toBe(false);"}, {'line': 44, 'text': 'expect(isMain(pathToFileURL(HERE).href, undefined)).toBe(false);'}, {'line': 60, 'text': "expect(got.values).toEqual({ task: 't1', question: 'Fork?', json: true });"}, {'line': 61, 'text': 'expect(got.positionals).toEqual([]);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/cli-symlink-entry.test.ts
+// packages/runtime-bridge/test/cli-symlink-entry.test.ts
+/**
+ * A6-1 (#1597 ledger): four CLIs gated main() on a naive
+ * `fileURLToPath(import.meta.url) === process.argv[1]` compare. Invoked through ANY
+ * symlinked path — a `bin/` shim, `node_modules/.bin`, an absolute path under macOS
+ * /tmp → /private/tmp — the compare is false, so the CLI exited 0 having done nothing,
+ * printing nothing. Silent no-op, not an error.
+ *
+ * Each case below runs the real CLI through a real symlink with an invocation that
+ * needs NO network (a missing required flag / an unknown flag) and asserts the CLI
+ * actually ran: exit 1 + its own diagnostic. Pre-fix all four are RED (exit 0, empty
+ * stderr). The shared guard is src/cli/cliEntry.ts `isMain`.
+ */
+import { describe, it, expect, afterAll } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(HERE, '../../..');
+const TSX = resolve(REPO_ROOT, 'node_modules/.bin/tsx');
+
+// Shell spawn of tsx cold-compiles the CLI; slow shells need headroom
+// (SLOW_SHELL_MS precedent,
+CASES ["describe('CLIs invoked through a symlink still run (A6-1)', () => {", 'it(', 'it(', 'it(', 'it(']
+ASSERTIONS [{'line': 54, 'text': "expect(r.stderr).toContain('missing required --task');"}, {'line': 55, 'text': 'expect(r.status).toBe(1);'}, {'line': 64, 'text': "expect(r.stderr).toContain('missing required --task');"}, {'line': 65, 'text': 'expect(r.status).toBe(1);'}, {'line': 74, 'text': 'expect(r.stderr).toMatch(/unknown option/i);'}, {'line': 75, 'text': 'expect(r.status).toBe(1);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/dispatch-import-no-sideeffect.test.ts
+/**
+ * Paired tests for the dispatch.ts entrypoint guard (isDirectCliInvocation).
+ *
+ * Contract under test:
+ *   1. Importing src/cli/dispatch.js for its named exports is side-effect-free:
+ *      main() must NOT run, process.exit must NOT be called. Pre-guard this was
+ *      RED — the top-level main().catch() ran on import, hit process.exit(0)
+ *      (dispatch.ts:96), and vitest surfaced it as 2 unhandled rejections,
+ *      failing `npm run test` locally with 174/174 tests green.
+ *   2. Positive control: executing dispatch.ts directly as a script still runs
+ *      main() — no args → exit 1 + "no kickoff path provided" on stderr. A path
+ *      the CLI cannot READ is not a dispatch outcome the exit-0 injection contract
+ *      covers; it is a caller defect (/dispatcher, /pipeline, an operator typo),
+ *      and exit 0 made a wrapper checking $? record the stage as dispatched
+ *      (#1597 ledger A6-2). The HOOK is unaffected: it captures stdout in a command
+ *      substitution, never inspects the status, and exits 0 unconditionally.
+ *
+ * The same pair is asserted for src/cli/claim.ts (the two-phase claim entrypoint,
+ * spec §5.3): it carries the identical isDirectCliInvocation guard, so it can regress
+ * the identical way. Its exit contract deliberately DIFFERS from disp
+CASES ["describe('dispatch.ts entrypoint guard (dispatch.ts isDirectCliInvocation)', () => {", "it('importing the module does NOT run main(): process.exit never called', async () => {", 'it(', 'it(', "describe('claim.ts entrypoint guard (claim.ts isDirectCliInvocation)', () => {", "it('importing the module does NOT run main(): process.exit never called', async () => {", 'it(', 'it(']
+ASSERTIONS [{'line': 57, 'text': 'expect(exitSpy).not.toHaveBeenCalled();'}, {'line': 59, 'text': "expect(typeof mod.runPreflight).toBe('function');"}, {'line': 60, 'text': "expect(typeof mod.resolveKickoffPath).toBe('function');"}, {'line': 61, 'text': "expect(typeof mod.dispatchUsesForce).toBe('function');"}, {'line': 74, 'text': 'expect(r.status).toBe(1);'}, {'line': 75, 'text': "expect(r.stderr).toContain('no kickoff path provided');"}]
+SKIPS []
+FILE packages/runtime-bridge/test/dispatch-spec-invalid.test.ts
+/**
+ * The ManualBackend fallback must NOT swallow an invalid kickoff spec.
+ *
+ * Incident 2026-09-02 (beta-docs-showcase BS0): a kickoff whose header named the
+ * `bridge-profile` token produced a garbage profile hint; `_resolveProfileId`
+ * threw; `cli/dispatch.ts` caught it under its blanket `BackendError ->
+ * ManualBackend` rule, wrote /tmp/runtime-bridge-<id>.md and exited 0. The
+ * operator saw a successful-looking dispatch and no aif task existed.
+ *
+ * The fallback answers "the runtime is unreachable / metered out / busy" — the
+ * operator is stuck through no fault of the kickoff, so copy-paste is a genuine
+ * escape. It does NOT answer "the kickoff names a runtime profile that does not
+ * exist": that is an authoring defect in the INPUT, no backend can satisfy it,
+ * and degrading silently routes the work to a seat the marker explicitly did not
+ * ask for. Same judgment the repo already made for cli/claim.ts ("a claim that
+ * silently failed is worse than no claim" — dispatch-import-no-sideeffect.test.ts).
+ *
+ * Paired arms below: the spec_invalid class must abort (exit 2, no /tmp artefact),
+ * and every environmental class must STILL fall back (exit 0, /tmp artefact written).
+ *
+ * Harness note: the aif stub runs in its OWN process. `spawnSync` blocks this
+ * process's
+CASES ["describe('isFallbackEligible — which BackendError classes may degrade to ManualBackend', () => {", 'it(\'environmental classes stay fallback-eligible (the "never leave the operator stuck" contract)\', () => {', "it('spec_invalid is NOT fallback-eligible: no backend can satisfy a broken kickoff', () => {", "describe('cli/dispatch.ts — an unresolvable bridge-profile marker aborts instead of degrading', () => {", 'it(', 'it(', 'it(', 'it(', "describe('E-3 — a missing RUNTIME_BRIDGE_AIF_PROJECT_ID aborts, it does not degrade', () => {", 'it(', "describe('A5-4 — an unexpected (non-BackendError) failure is reported, not swallowed', () => {", 'it(', 'it(']
+ASSERTIONS [{'line': 183, 'text': "expect(isFallbackEligible('unavailable')).toBe(true);"}, {'line': 184, 'text': "expect(isFallbackEligible('quota_exceeded')).toBe(true);"}, {'line': 185, 'text': "expect(isFallbackEligible('timeout')).toBe(true);"}, {'line': 186, 'text': "expect(isFallbackEligible('dispatch_failed')).toBe(true);"}, {'line': 190, 'text': "expect(isFallbackEligible('spec_invalid')).toBe(false);"}, {'line': 207, 'text': 'expect(r.status).toBe(2);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/economy-build.test.ts
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createServer } from 'node:http';
+import { spawn, spawnSync } from 'node:child_process';
+import {
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir, userInfo } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const bridge = join(root, 'packages/runtime-bridge');
+const emitter = join(bridge, 'scripts/emit-economy.mjs');
+const expected = [
+  'AifHandoffBackend.js',
+  'ManualBackend.js',
+  'aifWsStatus.js',
+  'backend.js',
+  'cli/aifHttp.js',
+  'cli/await.js',
+  'cli/cliEntry.js',
+  'cli/ensure-parallel.js',
+  'cli/openQuestion.js',
+  'cli/park.js',
+  'cli/questions.js',
+  'cli/supervision.js',
+  'package.json',
+  'resolver.js',
+  'resultReview.js',
+  'types.js',
+];
+const hash = (x: string | Buffer) =>
+  createHash('sha256').update(x).digest('hex');
+let scratch: string;
+const build = () => join(scratch, 'build');
+CASES ["it('emits the complete fifteen-module closure reproducibly with exact package metadata', () => {", "it('imports both CLIs without executing main or writing observation state', () => {", "it('refuses stable output, its ancestors, descendants and symlink aliases before writing', () => {", "it('refuses a missing source module and leaves no partial output', () => {", "it('cannot redirect stable-target protection by changing HOME', () => {", "it('rejects unadmitted imports and compiler diagnostics before output creation', () => {", "it('writes no unexpected or pre-existing member', () => {", "it('actual emitted CLI preserves held exits, metadata, compact output and direct AIF actionable routing', async () => {"]
+ASSERTIONS [{'line': 79, 'text': 'expect(first.status, first.stderr).toBe(0);'}, {'line': 81, 'text': 'expect(receipt).toMatchObject({'}, {'line': 85, 'text': 'expect(receipt.inputs).toHaveLength(15);'}, {'line': 86, 'text': 'expect(receipt.outputs).toHaveLength(16);'}, {'line': 87, 'text': 'expect(members(build())).toEqual(expected);'}, {'line': 88, 'text': "expect(readFileSync(join(build(), 'package.json'), 'utf8')).toBe("}]
+SKIPS []
+FILE packages/runtime-bridge/test/harvest-cli.test.ts
+// packages/runtime-bridge/test/harvest-cli.test.ts
+/**
+ * #1597 review ledger, harvest CLI entrypoint:
+ *   - A6-4 / D-4: parseArgs took the FIRST non-`--` token as the taskId, so a
+ *     value-taking flag placed before the id swallowed its value as the id
+ *     (`--base staging f1010da4` → taskId 'staging' → GET /tasks/staging → 404).
+ *   - A6-7 / R-6: the `--flag <value>` lookup returned the NEXT TOKEN even when
+ *     that token was itself a flag, and harvest's copy had additionally dropped
+ *     the truthiness guard (`--base ""` → base '').
+ *   - A5-7 / A6-5: getTask() and the --body-file read ran BEFORE the try that owns
+ *     the `[harvest] FAILED:` line and the Channel-A fallback, so an unreachable
+ *     aif, an unknown taskId or a mistyped --body-file surfaced as a raw
+ *     unhandled-rejection stack instead of the documented graceful degradation.
+ *   - A6-3: the container checkout defaulted to the FRAMEWORK's own mount and the
+ *     three HOLD re-run hints named the framework's own file path — both wrong in
+ *     the vendored copy every `--profile factory` consumer receives.
+ */
+import { describe, it, expect, afterEach } from 'vitest';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { mkdirSync, mkdtempSync, writeFileSync } fr
+CASES ["describe('harvest.ts entrypoint guard (A6-1 / R-6)', () => {", 'it(', "describe('harvest parseArgs — argv shapes that used to hijack the taskId', () => {", "it('A6-4: a flag value placed BEFORE the task id does not become the task id', () => {", "it('A6-4: --host-repo <path> before the id likewise leaves the id intact', () => {", "it('A6-7: a flag whose value is the NEXT FLAG is an error, not a value', () => {", "it('R-6: an EMPTY --base is an error, not a silent empty base branch', () => {", "it('rejects an unknown flag rather than ignoring it', () => {", "it('rejects a second positional (a mistyped flag value is not a task id)', () => {", "it('CONTROL: the documented invocation still parses, defaults intact', () => {", "describe('harvest CLI — every failure mode goes through the classified exit path (A5-7)', () => {", 'it(', 'it(', "describe('resolveRepoPath — ask aif which checkout is this project (A6-3)', () => {"]
+ASSERTIONS [{'line': 57, 'text': "expect(r.stdout).toContain('IMPORTED:function');"}, {'line': 58, 'text': "expect(r.stderr).not.toContain('[harvest]');"}, {'line': 59, 'text': 'expect(r.status).toBe(0);'}, {'line': 67, 'text': "expect(parseArgs(['--base', 'staging', 'f1010da4'])).toMatchObject({"}, {'line': 74, 'text': "expect(parseArgs(['--host-repo', '/x', 'f1010da4'])).toMatchObject({"}, {'line': 82, 'text': "expect(() => parseArgs(['f1010da4', '--base', '--no-auto-merge'])).toThrow(CliArgError);"}]
+SKIPS []
+FILE packages/runtime-bridge/test/harvest-host-repo.test.ts
+// packages/runtime-bridge/test/harvest-host-repo.test.ts
+/**
+ * resolveHostRepo — the host clone Channel A fetches the task bundle into and pushes from.
+ *
+ * Without `--host-repo` it defaulted to the cwd's git toplevel. From a scratch consumer repo
+ * the shell had cd'd into, harvest fetched the task branch INTO that repo and pushed it to
+ * that repo's origin — the wrong-target class of getff#1967 (backward sweep, 2026-09-30).
+ *
+ * The default now has to be a checkout of the repository harvest.ts itself lives in (same
+ * git common dir). In a consumer install the vendored copy sits inside the consumer's repo
+ * (`.claude/vendor/runtime-bridge/`), so it keeps serving the consumer.
+ *
+ *   (h1) FOREIGN CWD: refused, and the error names the --host-repo escape
+ *   (h2) OWN CHECKOUT subdir as cwd: its toplevel (unchanged)
+ *   (h3) OWN LINKED WORKTREE as cwd: that worktree (unchanged — its pre-push runs)
+ *   (h4) an explicit host repo still wins, whatever the cwd
+ *   (h5) harvest.ts outside any checkout: the cwd toplevel (unchanged)
+ *   (h6) cwd outside any checkout: the pre-existing "not a git checkout" error
+ *   (h7) CLI from a foreign cwd: refused before any container (docker) call
+ */
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { execSync,
+CASES ["describe('resolveHostRepo — the default host clone must be a checkout of harvest’s own repo', () => {", "it('(h1) FOREIGN CWD: refused, naming the --host-repo escape', () => {", "it('(h2) OWN CHECKOUT subdir as cwd: its toplevel', () => {", "it('(h3) OWN LINKED WORKTREE as cwd: that worktree', () => {", "it('(h4) an explicit host repo wins, whatever the cwd', () => {", "it('(h5) harvest.ts outside any checkout: the cwd toplevel', () => {", 'it(\'(h6) cwd outside any checkout: the "not a git checkout" error\', () => {', "describe('harvest CLI — a foreign cwd is refused before the container is touched', () => {", 'it(']
+ASSERTIONS [{'line': 59, 'text': 'expect(() => resolveHostRepo(undefined, foreign, selfIn(own))).toThrow(/not a checkout of[\\s\\S]*--host-repo/);'}, {'line': 65, 'text': 'expect(resolveHostRepo(undefined, sub, selfIn(own))).toBe(own);'}, {'line': 71, 'text': 'expect(resolveHostRepo(undefined, wt, selfIn(own))).toBe(wt);'}, {'line': 75, 'text': "expect(resolveHostRepo('/explicit/host', foreign, selfIn(own))).toBe('/explicit/host');"}, {'line': 81, 'text': 'expect(resolveHostRepo(undefined, foreign, selfIn(loose))).toBe(foreign);'}, {'line': 87, 'text': 'expect(() => resolveHostRepo(undefined, plain, selfIn(own))).toThrow(/not a git checkout/);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/harvest-merge-report.test.ts
+/**
+ * Tests for the aif RETURN CHANNEL (cli/harvest.ts → reportMergeToAif / closeMergedTasks).
+ *
+ * History: harvest was one-way (2026-09-09: four shipped tasks still parked in `review`); the
+ * first return channel (#1694) stopped at `done` and left `approve_done` to a human. Operator
+ * directive 2026-09-28 retired that manual step — two tasks sat at `done` a day after their
+ * PRs merged (514693af → #1858, 71ad40d7 → #1859). The channel now closes the task through the
+ * same route the web UI's Approve button uses: `POST /tasks/:id/events {event:"approve_done"}`
+ * (aif `packages/api/src/routes/tasks.ts:922`, state machine `done → verified`).
+ *
+ * Contract (asserted against a stubbed aif API — an in-memory task store behind `fetch`):
+ *   PR not merged                 → NO writes at all; the task stays where it is.
+ *   merged + `done`               → comment naming the PR, THEN approve_done → `verified`.
+ *   merged + already `verified`   → no-op: no comment, no event.
+ *   merged + `review`             → complete_review (participants mode on) → approve_done.
+ *   merged + legacy-mode manual-review park (human-owned, manualReviewRequired)
+ *                                 → complete_review (the legacy exit) → approve_done.
+ *   merged + legacy-mode `review`, not a park → 
+CASES ["describe('reportMergeToAif — merged PR closes the task through the UI Approve route', () => {", "it('merged + done → comment naming the PR, THEN approve_done (commit flow OFF) → verified', async () => {", "it('not merged → refuses: NO writes at all, the task stays done', async () => {", "it('already verified → no-op: no comment, no event', async () => {", "it('a second run after a close changes nothing (idempotent end to end)', async () => {", "it('a comment already naming the PR is not repeated (a close refused earlier, retried now)', async () => {", "it('merged + a non-closable status → comment only, never forced, reason names the status', async () => {", "it('a concurrent close between read and write is the idempotent outcome, not a failure', async () => {", 'describe("reportMergeToAif — the PR must be THIS task\'s current work", () => {', "it('a merged PR that does not map to the task (other head, no marker) → refuses, NO writes', async () => {", "it('the exact aif-task body line maps a PR from any head branch', async () => {", 'it("a merge older than the task\'s last agent activity (a rework round) → refuses, NO writes", async () => {', "it('activity that ENDED before the merge does not block the close', async () => {", "it('lastAgentActivityAt picks the latest stamp and ignores updatedAt', () => {"]
+ASSERTIONS [{'line': 163, 'text': 'expect(aif.writes()).toEqual(['}, {'line': 171, 'text': "expect(aif.status('t-done')).toBe('verified');"}, {'line': 172, 'text': "expect(report).toMatchObject({ merged: true, commented: true, approved: true, finalStatus: 'verified' });"}, {'line': 173, 'text': "expect(aif.comments('t-done')[0].message).toContain('c7b912c232ad5cf276c31b67f9a376a84d3e008d');"}, {'line': 181, 'text': 'expect(aif.calls).toEqual([]);'}, {'line': 182, 'text': "expect(aif.status('t-open')).toBe('done');"}]
+SKIPS []
+FILE packages/runtime-bridge/test/harvest.test.ts
+// packages/runtime-bridge/test/harvest.test.ts
+import { describe, it, expect, vi } from 'vitest';
+import { harvestTask, scanParkSignals, extractAffectedFiles, parseTrackedDirtyFiles, parseWorktreeList, resolveWorkDir, bundleFileName, channelAFallbackCommands, shellQuote } from '../src/harvest.js';
+import { extractAffectedFiles as extractVendorAffectedFiles, harvestTask as harvestVendorTask } from '../vendor/src/harvest.js';
+import type { ChannelAContext, HarvestDeps } from '../src/harvest.js';
+
+/** A deps double that records call order; each fn resolves successfully by default.
+ *  Default `hasUncommittedChanges` → false (the normal approve_done path, where
+ *  aif already committed) so existing positive tests stay no-op on the rework leg. */
+function makeDeps(over: Partial<HarvestDeps> = {}): { deps: HarvestDeps; calls: string[] } {
+  const calls: string[] = [];
+  const deps: HarvestDeps = {
+    hasUncommittedChanges: vi.fn(async (b: string) => {
+      calls.push(`dirty?:${b}`);
+      return false;
+    }),
+    // Default: no tracked-file modifications (untracked-only dirt) — the routine container
+    // residue. Only consulted on the dirty + ≥1-ahead leg; tests exercising the D12 guard
+    // override this to a non-empty list.
+    trackedDirtyFiles: vi.fn(async (b: string) => {
+CASES ["describe('harvestTask — positive', () => {", "it('pushes branch, opens PR vs base, enables auto-merge, returns PR url (in order)', async () => {", "it('verified status is also harvestable (terminal)', async () => {", "it('autoMerge:false skips enableAutoMerge', async () => {", "describe('harvestTask — rework-commit gap (dirty tree disambiguated by commits-ahead)', () => {", "it('dirty tree + 0 commits ahead (true rework) + confirmRework → commits (templated, no LLM) BEFORE push; committed:true', async () => {", "it('dirty tree (untracked-only) + ≥1 commit ahead (stale residue) → does NOT commit; pushes the existing commit only; dirtyTreeLeftBehind:true', async () => {", "it('D12 guard: TRACKED files modified + ≥1 commit ahead → HOLDs (needsResidueConfirm), nothing pushed', async () => {", "it('D12 guard escape: confirmDirtyResidue ships the commits and leaves the tracked modifications behind', async () => {", "it('clean tree → no ahead-check, no commit (commitsAhead + commitAll never called)', async () => {", "it('commit failure on true rework → does NOT push or PR (fail-fast, operator gets the fallback)', async () => {", "describe('harvestTask — paired-negative (must NOT push/PR on bad input)', () => {", "it('throws on non-terminal status and does NOT push (nothing to harvest yet)', async () => {", "it('throws on missing branchName AFTER status ok, and does NOT open a PR', async () => {"]
+ASSERTIONS [{'line': 62, 'text': "expect(res).toMatchObject({ prUrl: 'https://github.com/x/y/pull/42', branch: 'feature/thing-abc', pushed: true, autoMerge: true, committed: false, dirtyTreeLeftBehind: false, result: { taskId: DONE_TASK.id, acceptance: 'unverified' } });"}, {'line': 65, 'text': "expect(calls).toEqual(['dirty?:feature/thing-abc', 'push:feature/thing-abc', 'pr:feature/thing-abc->staging', 'automerge:https://github.com/x/y/pull/42']);"}, {'line': 71, 'text': 'expect(res.pushed).toBe(true);'}, {'line': 77, 'text': 'expect(deps.enableAutoMerge).not.toHaveBeenCalled();'}, {'line': 99, 'text': 'expect(res.committed).toBe(true);'}, {'line': 100, 'text': 'expect(res.dirtyTreeLeftBehind).toBe(false);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/questions-cli-output.test.ts
+import { test, beforeAll, afterAll } from 'vitest';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
+import { spawn } from 'node:child_process';
+import { resolve, join } from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { build } from 'esbuild';
+
+const repo = resolve(import.meta.dirname, '../../..');
+const cli = resolve(repo, 'packages/runtime-bridge/src/cli/questions.ts');
+const vendorCli = resolve(
+  repo,
+  'packages/runtime-bridge/vendor/src/cli/questions.ts',
+);
+const compiled = new Map<string, string>();
+let scratch: string;
+
+// Use the declared build tool and real CLI entrypoints, not an undeclared TS loader.
+beforeAll(async () => {
+  scratch = mkdtempSync(join(tmpdir(), 'questions output with spaces-'));
+  for (const [entry, name] of [
+    [cli, 'source'],
+    [vendorCli, 'vendor'],
+  ]) {
+    const outfile = join(scratch, `${name}-questions.mjs`);
+    await build({
+      entryPoints: [entry],
+      bundle: true,
+      platform: 'node',
+      format: 'esm',
+      target: 'node22',
+      outfile,
+    });
+    compiled.set(entry, outfile);
+  }
+});
+afterAll(() => {
+  if (scratch) rmSync(scratch, { recursive: true, force: true });
+});
+
+async function ru
+CASES ["test('questions JSON drains a large selected population through a real stdout pipe', async () => {", "test('questions human output preserves the tail after a large blocked reason', async () => {", "test('questions fetch failure stays nonzero and never emits successful JSON', async () => {", "test('factory-delivered questions CLI drains large selected JSON through the same pipe contract', async () => {"]
+ASSERTIONS [{'line': 2, 'text': "import assert from 'node:assert/strict';"}, {'line': 50, 'text': "assert.equal(req.method, 'GET');"}, {'line': 51, 'text': "assert.equal(req.url, '/tasks');"}, {'line': 59, 'text': "assert.ok(address && typeof address === 'object');"}, {'line': 66, 'text': 'assert.ok(executable);'}, {'line': 111, 'text': 'assert.ok(expected.length > 1000000);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/result-review-effects.test.ts
+/**
+ * intent-first-result S1 Task 5 — EFFECT negatives at the real seams (kickoff §4 Task 2,
+ * review-focus items 1/2/5, T-INTENT-B).
+ *
+ * The helper suite (packages/core/skills/intent-result-review.test.ts) pins the validator's
+ * record semantics in isolation. THIS suite pins the wire: a failed scope/review validation
+ * must produce ZERO effect at each continuation seam —
+ *   no POST /tasks, no POST /fire, no unpause PUT, no manual packet, no dedup success,
+ *   no plan-changing answer write — while unscoped work keeps today's behaviour exactly.
+ *
+ * T22 (single flipping production change per arm, named in the `it` title):
+ *   CLI arms   → the scope check in cli/dispatch.ts (placed BEFORE checkDedup, NOT bypassed
+ *                by --force) and claim()'s scoped autoMode:false branch.
+ *   Backend    → the guard at the top of AifHandoffBackend.claim / release, ManualBackend.dispatch
+ *                and AifFireBackend.dispatch converting helper failures to spec_invalid.
+ *   Release    → release()'s persisted-description re-read (a bare task id does not erase scope;
+ *                malformed declared scope never becomes ordinary scope; a stale review holds a
+ *                paused claim paused).
+ *   Answer     → pushAnswer's scoped-decision guard (plan-changing/re
+CASES ["describe('intent continuity — repair references the historical failed attempt', () => {", "it('allows scoped repair of a recorded mismatch without pretending it is a current match', () => {", "describe('intent continuity — independently selected authority at an effect', () => {", "it('holds an unchanged adopted payload after current PRD supersession before effect', () => {", "it('holds an unchanged adopted payload after agreed spec supersession before effect', () => {", "it('accepts the same adopted payload while both current decisions match', () => {", "it('an adopted expansion needs a current observed revision and cannot reuse a stale match', () => {", "it('rejects a newly authored kickoff whose scope marker was removed before dispatch', () => {", "it('uses the configured external orchestration home for admission and holds a missing selector', async () => {", "it('admission preserves configured cross-root authority but explicit roots stay authoritative', () => {", "it('admission never widens a configured root or an explicitly empty root list', () => {", "it('claim and release preserve configured external roots, while revoking one holds before unpause', async () => {", "it('direct AIF claim refuses marker removal before any network effect', async () => {", "it('manual packet and /fire refuse an unknown kickoff with its adopted scope removed', async () => {"]
+ASSERTIONS [{'line': 198, 'text': 'expect('}, {'line': 230, 'text': 'expect(() =>'}, {'line': 242, 'text': 'expect(() =>'}, {'line': 254, 'text': 'expect('}, {'line': 278, 'text': 'expect(() =>'}, {'line': 285, 'text': 'expect(() =>'}]
+SKIPS []
+FILE packages/runtime-bridge/test/runtime-bridge.test.ts
+/**
+ * Paired-negative tests for runtime-bridge SW-B.
+ *
+ * Contract under test:
+ *   1. Hook glob fires on *-meta-launch/kickoff.md writes ✓ (positive)
+ *   2. Hook glob does NOT fire on arbitrary src/foo.ts writes ✗ (negative)
+ *   3. aif-handoff unreachable → resolver falls back to ManualBackend ✓
+ *   4. RUNTIME_BRIDGE_MODE=manual → ManualBackend even when aif-handoff available ✓
+ *   5. <!-- bridge: skip --> first-line → buildKickoffSpec returns null ✓
+ *
+ * Pattern: vitest + spawnSync + mkdtempSync (per deps-hash-check.test.ts in
+ * packages/core/hooks/). Tests 1-2 test the bash hook; tests 3-5 test TS modules.
+ *
+ * T3 compliance: each assertion names the source file:line it targets.
+ * T11: Vitest pattern matched from packages/core/vitest.config.ts (not training data).
+ */
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import {
+  mkdtempSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync,
+  existsSync,
+} from 'node:fs';
+import { resolve, join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(HERE, '../../..');
+const HOOK = resolve(REPO_ROOT, '.claude/hooks/runtime-bridge-dispatch.sh'
+CASES ["describe('Test 1 — hook glob matches *-meta-launch/kickoff.md', () => {", "it('Write to *-meta-launch/kickoff.md → hook proceeds past path filter', () => {", "describe('Test 2 — hook glob does NOT match src/foo.ts', () => {", "it('Write to src/foo.ts → hook exits 0 silently (path filter rejects)', () => {", "it('Write to packages/core/foo.ts → hook exits 0 silently', () => {", "it('Edit event on non-kickoff path → hook exits 0 silently', () => {", "describe('Test 3 — aif-handoff unavailable → falls back to ManualBackend', () => {", "it('resolveBackend in auto mode returns ManualBackend when aif-handoff fetch fails', async () => {", "describe('Test 4 — RUNTIME_BRIDGE_MODE=manual forces ManualBackend', () => {", "it('resolver returns ManualBackend when mode=manual, even if aif-handoff is reachable', async () => {", "describe('Test 5 — buildKickoffSpec opt-in marker contract (kickoff §7)', () => {", "it('(a) unmarked kickoff → null under the default (opt-in paired-negative)', async () => {", "it('(b) <!-- bridge: auto --> first line → valid spec under the default', async () => {", "it('(c) <!-- bridge: skip --> → null on every path, nothing overrides it', async () => {"]
+ASSERTIONS [{'line': 114, 'text': 'expect(r.status).toBe(0);'}, {'line': 118, 'text': "expect(r.stderr).not.toContain('unbound variable');"}, {'line': 119, 'text': "expect(r.stderr).not.toContain('syntax error');"}, {'line': 131, 'text': 'expect(status).toBe(0);'}, {'line': 133, 'text': "expect(stdout).toBe('');"}, {'line': 139, 'text': 'expect(status).toBe(0);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/supervision.test.ts
+import { createServer, type Server } from 'node:http';
+import { once } from 'node:events';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { afterEach, describe, expect, it } from 'vitest';
+import { OPEN_QUESTION_ANCHOR } from '../src/cli/openQuestion.js';
+import {
+  claimEvent,
+  compactSnapshot,
+  recordEvent,
+  snapshotSupervision,
+} from '../src/cli/supervision.js';
+
+const roots: string[] = [];
+const servers: Server[] = [];
+afterEach(async () => {
+  await Promise.all(
+    servers.splice(0).map(
+      (s) =>
+        new Promise<void>((resolve) => {
+          s.closeAllConnections();
+          s.close(() => resolve());
+        }),
+    ),
+  );
+  await Promise.all(
+    roots.splice(0).map((p) => rm(p, { recursive: true, force: true })),
+  );
+});
+
+async function setup(
+  receipt: Record<string, unknown> | null,
+  task?: Record<string, unknown> | number,
+) {
+  const root = await mkdtemp(join(tmpdir(), 'supervision-'));
+  roots.push(root);
+  await mkdir(join(root, 'owners'));
+  const threadId = 'owner-1';
+  const inventoryPath = join(root, 'state.json');
+  const statePath = join(root, 'observation-state.json');
+  await writeFile(
+    inventoryPath,
+ 
+CASES ["describe('compact supervision', () => {", "it('keeps actionable unchanged events visible without repeating unchanged owner detail', async () => {", "it('keeps a healthy long AIF wait quiet and reads only the bound task', async () => {", "it('routes paused question anchors before optimistic completion', async () => {", "it('asks for pause ownership when there is no parked question', async () => {", "it('routes result readiness to the umbrella owner without accepting it', async () => {", "it('requires per-task acceptance evidence even when owner prose mentions CI', async () => {", "it('shows a dead GLM claim with a surviving AIF task as a reconciliation, not redispatch', async () => {", "it('reports missing receipt and failed source reads as unknown', async () => {", "it('does not call an unfamiliar AIF status healthy waiting', async () => {", "it('does not turn an acknowledged quota or advisor wait into a restart', async () => {", "it('carries process identity evidence without declaring PID liveness', async () => {", "it('uses an explicit checkpoint deadline, not elapsed silence, to flag an overdue wait', async () => {", "describe('one durable intervention disposition for native event and sweep', () => {"]
+ASSERTIONS [{'line': 98, 'text': 'expect(compact.changedOwners).toEqual([]);'}, {'line': 99, 'text': 'expect(compact.events).toEqual(['}, {'line': 102, 'text': 'expect(compact.coverage.owners).toBe(1);'}, {'line': 108, 'text': 'expect(snap.owners[0]).toMatchObject({'}, {'line': 115, 'text': 'expect(snap.owners[0].receiptModifiedAt).toEqual(expect.any(String));'}, {'line': 116, 'text': 'expect(snap.events).toHaveLength(0);'}]
+SKIPS []
+FILE packages/runtime-bridge/test/vendor-hook-stderr.test.ts
+/**
+ * A5-5 (#1597 ledger) — the consumer-shipped PostToolUse hook redirected the
+ * dispatcher's ENTIRE stderr to a fixed, predictable, world-writable path:
+ * `/tmp/runtime-bridge-dispatch-stderr.txt`, truncating it on every kickoff Write
+ * and never reading it back. Two defects in one line:
+ *
+ *  - a symlink/clobber target on any shared host (another user pre-creates the
+ *    path as a symlink to a file the operator owns and it is truncated for them),
+ *    and a clobber race between concurrent CC sessions on a single-user box;
+ *  - `#warning-nobody-reads` (.claude/rules/attention-is-not-a-mechanism.md §2):
+ *    the ManualBackend-fallback and abort diagnostics are the ONLY signal those
+ *    paths emit, and this line was where they went to die.
+ *
+ * The fix is a per-invocation `mktemp` file that is removed on exit, plus actually
+ * forwarding what the CLI wrote so the diagnostics reach a channel with a reader.
+ */
+import { describe, it, expect, afterEach } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const HER
+CASES ["describe('A5-5 — the vendored dispatch hook does not write a fixed /tmp stderr file', () => {", "it('leaves a pre-existing /tmp/runtime-bridge-dispatch-stderr.txt untouched', () => {", "it('creates no file at the fixed path when none existed', () => {", "it('forwards the CLI diagnostics instead of dropping them in an unread file', () => {", "it('still forwards the CLI stdout as additionalContext (unchanged contract)', () => {", "it('leaves no per-run temp file behind', () => {"]
+ASSERTIONS [{'line': 99, 'text': 'expect(r.status).toBe(0); // injection, never a gate — unchanged'}, {'line': 102, 'text': "expect(readFileSync(FIXED_PATH, 'utf8')).toBe(sentinel);"}, {'line': 109, 'text': 'expect(existsSync(FIXED_PATH)).toBe(false);'}, {'line': 120, 'text': "expect(r.stderr).toContain('aif-handoff dispatch failed (unavailable)');"}, {'line': 129, 'text': "expect(r.stdout).toContain('additionalContext');"}, {'line': 130, 'text': 'expect(r.status).toBe(0);'}]
+SKIPS []

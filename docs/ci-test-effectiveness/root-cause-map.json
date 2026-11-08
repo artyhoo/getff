@@ -1,0 +1,131 @@
+[
+  {
+    "id": "RC1",
+    "decisionIds": [
+      "D01",
+      "D07"
+    ],
+    "rootCause": "A declaration or path mention is mistaken for a reachable test invocation; population stops at one runner/package.",
+    "principle": "Every useful regression contract has a real invocation at its required channel; exceptions name environment and ownership.",
+    "detectorPlan": "Extend existing P38/P41 population/command resolvers and reconcile with in-flight TAK P53 delivery-discovery. Enumerate supported package, Node and Python carriers; explicit known command grammar refuses ambiguous wiring. No new competing registry. Include nonstandard test-*.sh manual regressions with explicit disposition.",
+    "legitimateCounterexamples": [
+      "Historical fault fixtures",
+      "External native-corpus validators",
+      "Explicit local-only mutation and opt-in AIF live probe",
+      "Helper-delegated Python tests reached through Vitest",
+      "Conditional non-Linux arms"
+    ],
+    "prospectiveInvocation": "Existing principles at pre-push and required CI; local sweep coverage; TAKE9 conformance on detector change.",
+    "independentConformanceBoundary": "Frozen executable vs echo/comment/noninvoked script pairs; missing whole package or language; wrong import/root and detector disabled must fail through actual future carrier. External permissions/timeouts classify as infrastructure, not caught faults.",
+    "costControl": "Fast source/native metadata reconciliation normally; bounded actual fault only on changed detector/runner; no complete mutation on unrelated docs.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC2",
+    "decisionIds": [
+      "D06"
+    ],
+    "rootCause": "A broad availability/degrade branch swallows a real checker rejection.",
+    "principle": "A command that ran and rejected must propagate failure; unavailable tools have a separate explicit state.",
+    "detectorPlan": "Extend existing local-sweep fixtures using the real actionlint row; integrate TAK Q4/P52 subprocess-status conformance rather than a standalone ignored-exit platform.",
+    "legitimateCounterexamples": [
+      "Intentionally advisory absent-tool branch with explicit UNVERIFIED",
+      "Expected nonzero negative fixture followed by exact diagnostic assertion",
+      "Optional collection failure recorded separately from quality gate"
+    ],
+    "prospectiveInvocation": "Actual sweep gate-table row and inherited required actionlint CI.",
+    "independentConformanceBoundary": "Pinned actionlint valid/invalid workflow/restored; stub exit0/1/42 to assert propagation; wrapper bypass must fail held conformance.",
+    "costControl": "Milliseconds synthetic controls plus one actual tool fixture on related changes; existing runner reused.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC3",
+    "decisionIds": [
+      "D08"
+    ],
+    "rootCause": "A metatest recomputes the production predicate and never calls production.",
+    "principle": "Expected outcomes stay fixed while tests execute the actual checker and entrypoint.",
+    "detectorPlan": "Reuse/extract existing discipline body checker and move positive/adverse fixtures onto it. Extend TAK Q3/51 finite corpus and executable counterfactual layer. The existing husky-presence manual simulator has the same source-supported detached-predicate pattern and needs disposable hooks before routing.",
+    "legitimateCounterexamples": [
+      "Intentional byte/source parity test with separately named behavior witness",
+      "Fixed schema or snapshot contract",
+      "Helper assertions and delegated child tests"
+    ],
+    "prospectiveInvocation": "Existing named PR-body job plus owned deterministic suite; independent TAK verification for checker/fixture changes.",
+    "independentConformanceBoundary": "Production success stub passes formerly-invalid body, but held conformance must fail; valid/skip/main cases retained; no deriving expected verdict from checker.",
+    "costControl": "Consolidate two detached jobs after replacement; reuse Bash/Node runner. No new semantic prose judge.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC4",
+    "decisionIds": [
+      "D04"
+    ],
+    "rootCause": "Declared required status is not registered in live enforcement, while an unreadable admin endpoint green-warns.",
+    "principle": "A prevention claim identifies an actually enforced status and event, not a source declaration.",
+    "detectorPlan": "Read ordinary branch metadata and supported ruleset details with explicit tri-state. Preserve required-context declaration consistency. Administrative registration is a separately owned effect; source-only detector improves visibility but does not itself register anything.",
+    "legitimateCounterexamples": [
+      "Unprotected fork with intentionally different owner policy",
+      "Main promotion has its own required contexts",
+      "Public branch metadata unavailable: explicit unknown, never registered-pass"
+    ],
+    "prospectiveInvocation": "Existing workflow-integrity observation, existing P37 declarations, actual owner verification after authorized registration.",
+    "independentConformanceBoundary": "Fixtures readable complete/missing, unreadable, active-but-uninspected rulesets; held live snapshot and exact context names. Verify actual workflow-token endpoint access before relying on it.",
+    "costControl": "One bounded read-only API call when policy/CI changes. No long-lived admin PAT added solely for audit.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC5",
+    "decisionIds": [
+      "D02"
+    ],
+    "rootCause": "Same subject/config/oracle is rerun after an unrelated consumer install and labelled as consumer coverage.",
+    "principle": "Keep each unique subject\u00d7environment\u00d7event\u00d7timing witness; remove exact zero-marginal repetitions only against survivors.",
+    "detectorPlan": "Document D02 retained root invocation plus installed consumer tests; existing population/invocation map suffices. No permanent duplication scanner.",
+    "legitimateCounterexamples": [
+      "Same suite on Windows vs Linux",
+      "Root vs core config difference",
+      "Installed/tarball subject vs source",
+      "Earlier local check vs before-merge CI"
+    ],
+    "prospectiveInvocation": "Surviving probe-tests root command; each actual installer smoke.",
+    "independentConformanceBoundary": "Remove both designated repetitions jointly while retaining root224cases and consumer install failures; root/source mutation still caught.",
+    "costControl": "Observed6/7/6step-seconds only; no fabricated setup or compute savings.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC6",
+    "decisionIds": [
+      "D03"
+    ],
+    "rootCause": "Useful work is concentrated in one of three otherwise equivalent serial jobs.",
+    "principle": "Optimize latency without losing cases, environments, trigger coverage or isolation.",
+    "detectorPlan": "Use existing job/step history for balanced assignment; preserve static needs and suite membership. No recurring profiler or optimization service.",
+    "legitimateCounterexamples": [
+      "Slow unique compatibility test",
+      "Cold installation contract that cannot reuse a warm consumer",
+      "Local shared-tree quarantine not equivalent to separate CI runners"
+    ],
+    "prospectiveInvocation": "Same three installer jobs before ci-success and unchanged local suite runner.",
+    "independentConformanceBoundary": "Exact moved four command identities, same tool prerequisites, independent temp fixtures; S2 compare actual before/after required run.",
+    "costControl": "Two real historical forecasts31\u201339%installer critical-path reduction; not new timing experiment. If new timings needed,3matched trials (+at most2noise retries).",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC7",
+    "decisionIds": [
+      "D05"
+    ],
+    "rootCause": "Resource cleanup is coupled to an ordinary case selected by the user and assertions precede cleanup.",
+    "principle": "Fixture lifecycle must close resources regardless of test selection or assertion outcome.",
+    "detectorPlan": "Use native test teardown/finally with existing aftermath oracle; add bounded filtered invocation regression in current test harness. Incorporate into TAK runner-soundness conformance only where supported.",
+    "legitimateCounterexamples": [
+      "A final assertion aggregating whole-run effects is useful",
+      "A deliberately live external process with explicit owner/cancellation contract"
+    ],
+    "prospectiveInvocation": "Node --test normal/filtered invocation, then D07 durable carrier.",
+    "independentConformanceBoundary": "No-selected-case and selected-case finish; forced aftermath failure still closes; prohibition counters preserved; independent watchdog distinguishes hang from semantic red.",
+    "costControl": "Subsecond normal control; short bounded timeout only on changed lifecycle/runner. No global full-suite setup.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  }
+]

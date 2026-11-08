@@ -1,0 +1,43 @@
+{
+  "argv": [
+    "actionlint",
+    ".github/workflows/audit-self.yml"
+  ],
+  "mutant": "Append unsupported workflow root key unexpected-audit-key: true",
+  "results": [
+    {
+      "label": "baseline",
+      "subjectSHA256": "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7",
+      "directToolExit": 0,
+      "directOutput": "",
+      "sweepExit": 0,
+      "sweepOutput": "[sweep] PASS actionlint\nSWEEP: 1 gate(s) passed (mode=full)\nSWEEP: gate logs in /tmp/cte-s1/actionlint/real-baseline\n",
+      "toolOutput": {
+        "01-actionlint.log": "\n"
+      }
+    },
+    {
+      "label": "mutant",
+      "subjectSHA256": "e67314a3f20d0b2d81ca644d2083a032f88375d533fe05dace27d936011d63f9",
+      "directToolExit": 1,
+      "directOutput": ".github/workflows/audit-self.yml:3111:1: unexpected key \"unexpected-audit-key\" for \"workflow\" section. expected one of \"concurrency\", \"defaults\", \"env\", \"jobs\", \"name\", \"on\", \"permissions\", \"run-name\" [syntax-check]\n     |\n3111 | unexpected-audit-key: true\n     | ^~~~~~~~~~~~~~~~~~~~~\n",
+      "sweepExit": 0,
+      "sweepOutput": "[sweep] WARN-SKIP actionlint \u2014 degraded, NOT a real run\nSWEEP: 1 gate(s) passed (mode=full)\nSWEEP: gate logs in /tmp/cte-s1/actionlint/real-mutant\n",
+      "toolOutput": {
+        "01-actionlint.log": ".github/workflows/audit-self.yml:3111:1: unexpected key \"unexpected-audit-key\" for \"workflow\" section. expected one of \"concurrency\", \"defaults\", \"env\", \"jobs\", \"name\", \"on\", \"permissions\", \"run-name\" [syntax-check]\n     |\n3111 | unexpected-audit-key: true\n     | ^~~~~~~~~~~~~~~~~~~~~\n[sweep] WARN-skip actionlint absent\n"
+      }
+    },
+    {
+      "label": "restored",
+      "subjectSHA256": "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7",
+      "directToolExit": 0,
+      "directOutput": "",
+      "sweepExit": 0,
+      "sweepOutput": "[sweep] PASS actionlint\nSWEEP: 1 gate(s) passed (mode=full)\nSWEEP: gate logs in /tmp/cte-s1/actionlint/real-restored\n",
+      "toolOutput": {
+        "01-actionlint.log": "\n"
+      }
+    }
+  ],
+  "restoredSHA256": "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7"
+}

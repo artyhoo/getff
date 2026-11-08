@@ -1,0 +1,92 @@
+[
+  {
+    "path": ".agents/procedures/pipeline/evals/runtime-audit.test.py",
+    "cases": [
+      "runtime-audit.test.PipelineRuntime.test_failed_questions_cli_stdout_does_not_establish_empty",
+      "runtime-audit.test.PipelineRuntime.test_integer_guard_does_not_depend_on_grep_or_temp_files",
+      "runtime-audit.test.PipelineRuntime.test_integer_name_collision_refuses",
+      "runtime-audit.test.PipelineRuntime.test_invalid_mode_override_is_not_no_override",
+      "runtime-audit.test.PipelineRuntime.test_invocation_fence_preserves_invalid_override",
+      "runtime-audit.test.PipelineRuntime.test_list_cannot_skip_integer_collision_preflight",
+      "runtime-audit.test.PipelineRuntime.test_missing_jq_is_a_probe_failure_not_empty_presets",
+      "runtime-audit.test.PipelineRuntime.test_noninteger_umbrella_allowed",
+      "runtime-audit.test.PipelineRuntime.test_presets_in_directory_with_spaces",
+      "runtime-audit.test.PipelineRuntime.test_status_rejects_failed_probe_even_with_valid_stdout",
+      "runtime-audit.test.PipelineRuntime.test_status_rejects_object_instead_of_pr_array",
+      "runtime-audit.test.PipelineRuntime.test_status_valid_empty_pr_array",
+      "runtime-audit.test.PipelineRuntime.test_status_valid_pr_and_inspection_suggestion",
+      "runtime-audit.test.PipelineRuntime.test_successful_questions_cli_empty_is_known",
+      "runtime-audit.test.PipelineRuntime.test_wrapper_preserves_helper_failure_and_end"
+    ],
+    "loaderErrors": []
+  },
+  {
+    "path": ".agents/roles/dual-channel-drift-auditor/test_enumerate.py",
+    "cases": [
+      "test_enumerate.EnumerationTest.test_binary_member_is_unknown_coverage",
+      "test_enumerate.EnumerationTest.test_canonical_and_legacy_alias_count_once_from_nested_cwd",
+      "test_enumerate.EnumerationTest.test_exact_token_and_untracked_excluded",
+      "test_enumerate.EnumerationTest.test_external_symlink_fails_closed",
+      "test_enumerate.EnumerationTest.test_invalid_input_is_not_regex",
+      "test_enumerate.EnumerationTest.test_legacy_checkout_and_sweep",
+      "test_enumerate.EnumerationTest.test_missing_tracked_member_fails_closed",
+      "test_enumerate.EnumerationTest.test_non_repository_is_failure_not_empty_population"
+    ],
+    "loaderErrors": []
+  },
+  {
+    "path": ".agents/roles/dual-channel-drift-auditor/test_overlap.py",
+    "cases": [
+      "test_overlap.OverlapTest.test_identity_is_not_non_boilerplate_overlap",
+      "test_overlap.OverlapTest.test_raw_divergence_and_substantive_comments_are_retained",
+      "test_overlap.OverlapTest.test_removed_lines_cannot_stitch_original_runs",
+      "test_overlap.OverlapTest.test_unreadable_member_fails_not_zero_overlap"
+    ],
+    "loaderErrors": []
+  },
+  {
+    "path": "tests/advisor-role-reminders/test_reminders.py",
+    "cases": [
+      "test_reminders.Reminders.test_compaction_rehydrates_fallback_when_native_operation_is_disarmed",
+      "test_reminders.Reminders.test_confirmed_compaction_and_fresh_epoch_reset_but_resume_does_not",
+      "test_reminders.Reminders.test_duplicate_across_operations_same_phase_and_native_channel",
+      "test_reminders.Reminders.test_failed_payload_read_does_not_spend_delivery",
+      "test_reminders.Reminders.test_foreign_sender_wrong_role_and_unknown_session_cannot_consume",
+      "test_reminders.Reminders.test_four_role_phase_cases_and_verbatim_payload",
+      "test_reminders.Reminders.test_malformed_binding_and_state_never_grant_authority",
+      "test_reminders.Reminders.test_missing_binding_is_silent_natively_but_explicit_error_in_fallback",
+      "test_reminders.Reminders.test_native_consumption_uses_bound_source_and_ignores_payload_role_claims",
+      "test_reminders.Reminders.test_non_bridge_operations_and_unknown_native_sessions_are_silent",
+      "test_reminders.Reminders.test_parallel_polling_delivers_once",
+      "test_reminders.Reminders.test_unrelated_prompt_does_not_spend_bound_operation_delivery",
+      "test_reminders.Reminders.test_version_change_rehydrates_without_changing_payload"
+    ],
+    "loaderErrors": []
+  },
+  {
+    "path": "tests/native-entry/rule-test-author-runtime.test.py",
+    "cases": [
+      "rule-test-author-runtime.test.RuntimeMaterialTests.test_fresh_checkout_native_repair_fires_every_sample",
+      "rule-test-author-runtime.test.RuntimeMaterialTests.test_installed_consumer_native_repair_fires_every_sample",
+      "rule-test-author-runtime.test.RuntimeMaterialTests.test_inverted_material_reproduces_both_failures"
+    ],
+    "loaderErrors": []
+  },
+  {
+    "path": "tests/roles/getff-cold-run-prober.test.py",
+    "cases": [
+      "getff-cold-run-prober.test.ColdStartTests.test_added_scan_rule_refuses",
+      "getff-cold-run-prober.test.ColdStartTests.test_changed_installed_rule_refuses",
+      "getff-cold-run-prober.test.ColdStartTests.test_changed_ruff_ban_refuses",
+      "getff-cold-run-prober.test.ColdStartTests.test_dangling_origin_head_refuses",
+      "getff-cold-run-prober.test.ColdStartTests.test_empty_dependencies_refuse",
+      "getff-cold-run-prober.test.ColdStartTests.test_existing_researched_rule_refuses",
+      "getff-cold-run-prober.test.ColdStartTests.test_installed_payload_is_ready_without_config_yaml",
+      "getff-cold-run-prober.test.ColdStartTests.test_interpreter_failure_keeps_actual_exit_status",
+      "getff-cold-run-prober.test.ColdStartTests.test_invalid_baseline_refuses",
+      "getff-cold-run-prober.test.ColdStartTests.test_missing_metadata_refuses",
+      "getff-cold-run-prober.test.ColdStartTests.test_missing_required_surface_refuses"
+    ],
+    "loaderErrors": []
+  }
+]
