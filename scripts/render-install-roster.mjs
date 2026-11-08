@@ -31,7 +31,7 @@
  *
  * Logging: [render-install-roster] stderr traces per source read and gate verdict.
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { findRegions, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
 import { readSkillTiers } from './lib/skill-tiers.mjs';
@@ -55,7 +55,7 @@ function findRoot(start) {
 /** Agents shipped at the default depth: agents/*.md minus skip-list minus factory-gated. */
 function shippedAgents(root) {
   const canonical = join(root, '.agents', 'roles');
-  const agentDir = existsSync(canonical) ? canonical : join(root, 'agents');
+  const agentDir = existsSync(canonical) && statSync(canonical).isDirectory() ? canonical : join(root, 'agents');
   const files = readdirSync(agentDir).filter((f) => f.endsWith('.md'));
   const script = readFileSync(join(root, 'setup.d', '20-agents.sh'), 'utf8');
   const skips = new Set();
@@ -84,14 +84,15 @@ function factoryGatedAgents(root) {
 /** Skill slugs per depth, derived from the installer's own literals/constants. */
 function shippedSkills(root) {
   const tenSkills = readFileSync(join(root, 'setup.d', '10-skills.sh'), 'utf8');
+  const activeSkills = tenSkills.split('\n').map((line) => line.replace(/^\s*#.*$/, '').replace(/\s+#.*$/, '')).join('\n');
   // The delivery verb changed when the seven copies of the wipe/copy/transform loop were
   // collapsed onto _copy_tree_with_transform (ledger S-7), so match on the SOURCE literal and
   // accept either verb in front of it. Anchoring on `cp -r` alone made this roster silently
   // render an empty base set the moment the installer stopped open-coding the copy.
   const base = [
-    ...tenSkills.matchAll(/(?:cp -r|_copy_tree_with_transform) "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g),
+    ...activeSkills.matchAll(/(?:cp -r|_copy_tree_with_transform) "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g),
   ].map((m) => m[1]);
-  for (const m of tenSkills.matchAll(/_copy_tree_with_transform "\$\(procedure_source ([a-z0-9-]+)\)"/g)) base.push(m[1]);
+  for (const m of activeSkills.matchAll(/_copy_tree_with_transform "\$\(procedure_source ([a-z0-9-]+)\)"/g)) base.push(m[1]);
   // The tier-constant read lives in ONE module (ref-gen G12: a second JS reader of
   // GETFF_SKILLS_* is the #sync-by-copy-paste shape); this roster keeps only its own
   // 10-skills.sh literal merge.

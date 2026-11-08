@@ -82,3 +82,43 @@ describe('shared installer roster readers', () => {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+describe('reviewed bypass regressions', () => {
+  for (const arm of ['A', 'B', 'C', 'D'] as const) {
+    it(`${arm}: rejects a noncanonical list continuation`, () => {
+      expect(checkClaim(arm, `${form(arm)},  \`unlisted\``, expected[arm])).not.toEqual([]);
+    });
+  }
+  it('F: rejects an additional one-line active assignment', () => {
+    expect(checkPins('CORE_DEVDEPS=(\n  a@^1 # why: long enough explanation\n)\nCORE_DEVDEPS=(b@^1)\n')).not.toEqual([]);
+  });
+  it('F: rejects an additional indented assignment', () => {
+    expect(checkPins('CORE_DEVDEPS=(\n  a@^1 # why: long enough explanation\n)\n  CORE_DEVDEPS=(b@^1)\n')).not.toEqual([]);
+  });
+  it('F: requires whitespace before the shell comment marker', () => {
+    expect(checkPins('CORE_DEVDEPS=(\n  a@^1# why: long enough explanation\n)\n')).not.toEqual([]);
+  });
+  it('ignores commented-out base copy calls', async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(join(tmpdir(), 'p51-commented-'));
+    try {
+      mkdirSync(join(dir, 'setup.d'));
+      writeFileSync(join(dir, 'setup.d/lib.sh'), 'GETFF_SKILLS_CORE="core"\nGETFF_SKILLS_ENV="env"\nGETFF_SKILLS_FACTORY="factory"\n');
+      writeFileSync(join(dir, 'setup.d/10-skills.sh'), '# cp -r "$PKG_ROOT/skills/fake-literal" "$dst"\n# _copy_tree_with_transform "$(procedure_source fake-procedure)" "$dst"\n_copy_tree_with_transform "$(procedure_source getff)" "$dst"\n');
+      expect(roster.shippedSkills(dir).core).toEqual(['core', 'getff']);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  it('falls back when the canonical roles path is a file', async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(join(tmpdir(), 'p51-nondir-'));
+    try {
+      mkdirSync(join(dir, 'setup.d')); mkdirSync(join(dir, 'agents')); mkdirSync(join(dir, '.agents'));
+      writeFileSync(join(dir, '.agents/roles'), 'not a directory');
+      writeFileSync(join(dir, 'agents/legacy.md'), '');
+      writeFileSync(join(dir, 'setup.d/20-agents.sh'), '  skip.md) continue ;;\n  first.md|second.md)\n');
+      expect(roster.shippedAgents(dir)).toEqual(['legacy.md']);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
