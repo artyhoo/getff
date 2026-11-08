@@ -1,0 +1,24 @@
+{
+  "originalReadOnlyHead": "acdc333110b396c72545546f5305e8b25fc5c00d",
+  "raw": {
+    "focused-default": {
+      "originalPath": "/workspace/scratch/p20-diagnosis-focused-default.log",
+      "rawSha256": "ab2bac9cb639f0f07a64efdef240280eab53db2400a2e1d24ed183a9c7cc300f",
+      "portable": "b10-audit-focused-default.txt.gz",
+      "gzipSha256": "8a9177bae73ec36ccc0ec0ad2a52538dab0147d75a331f5f5417adb12a819c49"
+    },
+    "focused-fixture": {
+      "originalPath": "/workspace/scratch/p20-diagnosis-focused-fixture.log",
+      "rawSha256": "eeab17f0fab907c338e586b0403d1271937a5cd041579671ebb36dd02c0bb65a",
+      "portable": "b10-audit-focused-fixture.txt.gz",
+      "gzipSha256": "841b3fba856cd518253e6e84e0f81856d5bd3f845feb10187ecce39a2c99f91c"
+    },
+    "failed-push3": {
+      "originalPath": "/workspace/scratch/ci-test-effectiveness-final-push-3.txt",
+      "rawSha256": "0b2ecdc407de607ac5fd8d96b6a0f64459efb6ce81f84534b0c33aa3574e214e",
+      "portable": "b10-audit-failed-push3.txt.gz",
+      "gzipSha256": "a780592482e6926830805eaa73b519e428cb0339889f782900123768fb155ddf"
+    }
+  },
+  "pathMapping": "Original /workspace/scratch/p20-diagnosis-* refs map to corresponding b10-audit-* artifacts; report/driver copied verbatim. Runner imports actual unchanged source, no copied subject. Frozen input expectations precede product effects; final catalog differs meaningfully from two-entry diagnostic prototype, no exact final speed claim yet."
+}

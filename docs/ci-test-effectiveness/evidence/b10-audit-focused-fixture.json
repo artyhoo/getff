@@ -1,0 +1,12 @@
+{
+  "command": "npx vitest run principles/20-bundle-classification.test.ts principles/20-bundle-classification.paired-negative.test.ts skills/assign-skill.test.ts",
+  "cwd": "/workspace/getff-native/packages/core",
+  "exitCode": 0,
+  "wallSeconds": 4.602,
+  "envOverride": {
+    "MO_SKILLS_DIR": "/workspace/scratch/p20-catalog/skills",
+    "MO_AGENTS_DIR": "/workspace/scratch/p20-catalog/agents",
+    "MO_SKILLS_GLOBAL": "0"
+  },
+  "log": "/workspace/scratch/p20-diagnosis-focused-fixture.log"
+}

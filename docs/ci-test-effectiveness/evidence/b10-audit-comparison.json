@@ -1,0 +1,71 @@
+{
+  "defaultMs": 14140.242333,
+  "fixtureMs": 1627.708625,
+  "reductionPct": 88.49,
+  "primed": [
+    3,
+    3
+  ],
+  "fixtures": {
+    "backlog-1-clean.txt": {
+      "allColumnsExceptAssignmentIdentical": true,
+      "rowCount": 5,
+      "defaultAssigned": [
+        "skill:ai-doc",
+        "skill:self-reflection",
+        "skill:ai-doc",
+        "skill:rule-tests",
+        "agent:agents/capability-reuse-auditor.md"
+      ],
+      "fixtureAssigned": [
+        "skill:p20-fixture",
+        "skill:p20-fixture",
+        "skill:p20-fixture",
+        "skill:p20-fixture",
+        "skill:p20-fixture"
+      ]
+    },
+    "backlog-2-mixed.txt": {
+      "allColumnsExceptAssignmentIdentical": true,
+      "rowCount": 8,
+      "defaultAssigned": [
+        "skill:self-reflection",
+        "\u2014",
+        "skill:ai-doc",
+        "\u2014",
+        "skill:ai-doc",
+        "skill:ai-doc",
+        "skill:getff-experience",
+        "skill:ai-doc"
+      ],
+      "fixtureAssigned": [
+        "skill:p20-fixture",
+        "\u2014",
+        "skill:p20-fixture",
+        "\u2014",
+        "skill:p20-fixture",
+        "skill:p20-fixture",
+        "skill:p20-fixture",
+        "skill:p20-fixture"
+      ]
+    },
+    "backlog-3-overlap.txt": {
+      "allColumnsExceptAssignmentIdentical": true,
+      "rowCount": 5,
+      "defaultAssigned": [
+        "agent:agents/capability-reuse-auditor.md",
+        "skill:self-reflection",
+        "agent:agents/capability-reuse-auditor.md",
+        "skill:rule-tests",
+        "agent:agents/capability-reuse-auditor.md"
+      ],
+      "fixtureAssigned": [
+        "skill:p20-fixture",
+        "skill:p20-fixture",
+        "skill:p20-fixture",
+        "skill:p20-fixture",
+        "skill:p20-fixture"
+      ]
+    }
+  }
+}
