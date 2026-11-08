@@ -1,0 +1,28 @@
+## Fidelity verdict
+FIDELITY: GO
+Basis: controlled-corpus
+Round: 1
+Audited-SHA: 3617339f2e5dda1f2eac7a887efe3aaeabdccf05
+Evidence: .github/workflows/checks.yml:1
+
+## Test-Quality Review
+```protection-review
+{
+  "version": 1,
+  "base": "7b2618ae240219967100069a66ece83381f5e23b",
+  "head": "3617339f2e5dda1f2eac7a887efe3aaeabdccf05",
+  "scope": [
+    ".github/workflows/checks.yml"
+  ],
+  "reviewer": "native_b9_semantics",
+  "report": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/phase1/c3-review.md#sha256=c1fa4067a12776ef98009fbb5d389c9b3c94908bda4a77d2826e70a68ceb84b1",
+  "consumedBy": "root controller; actual original report read",
+  "basis": "Fixed independently frozen synthetic contract and original cold report. Controlled finite transport experiment; GO text below is a negative-control template, not project approval.",
+  "history": {
+    "status": "unavailable",
+    "reason": "Synthetic premise summaries only; no actual project CI traces in fixture.",
+    "ownerDecision": "Controller accepts this finite offline transport exercise only; no host or arbitrary semantic certification."
+  },
+  "findings": []
+}
+```

@@ -1,5 +1,5 @@
 {
-  "status": "PARTIAL: implementation + finite transport controls; controller semantic and hosted acceptance pending",
+  "status": "Source + bounded semantic/transport conformance accepted; hosted/admin final acceptance pending",
   "authority": "Approved design \u00a77.1\u20137.2, accepted S1 RC1\u2013RC7; current map only, frozen S1 unchanged",
   "map": [
     {
@@ -19,7 +19,7 @@
         "relevance": "A declaration or path mention is mistaken for a reachable test invocation; population stops at one runner/package.",
         "effectiveness": "printed/dead/misleading/wrong-cwd/missing-workspace or invocation has no coverage; quoted/env/and real calls, valid same-cwd config, empty presets and explicit owner exceptions",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
-        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 semantic expected classes are controller-owned and pending.",
+        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
         "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
         "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately.",
         "sufficiency": "B7 finite grammar does not certify arbitrary shell/JS semantics; no owner TAK runtime imported"
@@ -46,7 +46,7 @@
         "relevance": "A broad availability/degrade branch swallows a real checker rejection.",
         "effectiveness": "installed checker rejects1/42 or actual invalid workflow -> failure, not availability warning; installed0 passes; unavailable tool remains explicit WARN-SKIP",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
-        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 semantic expected classes are controller-owned and pending.",
+        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
         "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
         "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately.",
         "sufficiency": "Absent tools are not executed or certified; hosted acceptance separate"
@@ -76,7 +76,7 @@
         "relevance": "A metatest recomputes the production predicate and never calls production.",
         "effectiveness": "invalid PR grammar/husky structure and wrong ast-grep alias identity cannot earn positive protection; valid helper grammar, real ast-grep identity/scan prerequisites, explicit unavailable state",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
-        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 semantic expected classes are controller-owned and pending.",
+        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
         "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
         "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately.",
         "sufficiency": "Header-only B9 closure preserves helper body bytes; native actual ast-grep absent at B5, no hosted execution claim"
@@ -104,7 +104,7 @@
         "relevance": "Declared required status is not registered in live enforcement, while an unreadable admin endpoint green-warns.",
         "effectiveness": "known missing exact three=1; HTTP/schema/rules ambiguity=2; actual invocation omission detected; complete classic contexts/checks=0; sufficient classic witness queries only branch; four workflow status boundaries",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
-        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 semantic expected classes are controller-owned and pending.",
+        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
         "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
         "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately.",
         "sufficiency": "Live missing-three remains unresolved; native CLI is not hosted token evidence or admin registration"
@@ -133,20 +133,23 @@
       "invocation": "Same cold Test-Quality Review -> controller dispositions -> existing required fidelity context, edited/synchronize events",
       "fault": "missing/stale/duplicate/unresolved record and disabled trigger/binding/consumer fail actual CLI/workflow",
       "validCompanion": "docs-only, zero findings with basis, retained unique OS/source-vs-installed witnesses, honest owner deferral",
-      "boundedClaim": "Semantic duplication/tautology judgments await controller cold-seat conformance; parser structure is not truth",
+      "boundedClaim": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured.",
       "criteria": {
         "relevance": "Same subject/config/oracle is rerun after an unrelated consumer install and labelled as consumer coverage.",
         "effectiveness": "missing/stale/duplicate/unresolved record and disabled trigger/binding/consumer fail actual CLI/workflow; docs-only, zero findings with basis, retained unique OS/source-vs-installed witnesses, honest owner deferral",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
-        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 semantic expected classes are controller-owned and pending.",
+        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
         "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
         "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately.",
-        "sufficiency": "Semantic duplication/tautology judgments await controller cold-seat conformance; parser structure is not truth"
+        "sufficiency": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured."
       },
       "evidence": [
         "evidence/b9-d12-before-effects.json",
         "evidence/b9-held.json",
-        "evidence/b9-held-final.json"
+        "evidence/b9-held-final.json",
+        "evidence/b9-semantic-controller-assessment.json",
+        "evidence/b9-semantic-manifest.json",
+        "acceptance/b9.json"
       ],
       "TAKowner": "TAK2144 open7a5b63dc remains external/unaccepted; reconcile design \u00a74 on actual accepted runtime, no second TAK"
     },
@@ -163,21 +166,24 @@
       "invocation": "Same existing cold review and consumed record on actual scheduling/runner/check changes",
       "fault": "imbalanced equivalent workloads require evidence-backed review and disposition; unresolved blocks",
       "validCompanion": "justified slow unique contract; matched history unavailable with bounded owner decision; no global SLO",
-      "boundedClaim": "Mechanical transport cannot detect imbalance itself; controller semantic result pending, B4 forecast is not after-run measurement",
+      "boundedClaim": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured.",
       "criteria": {
         "relevance": "Useful work is concentrated in one of three otherwise equivalent serial jobs.",
         "effectiveness": "imbalanced equivalent workloads require evidence-backed review and disposition; unresolved blocks; justified slow unique contract; matched history unavailable with bounded owner decision; no global SLO",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
-        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 semantic expected classes are controller-owned and pending.",
+        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
         "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
         "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately.",
-        "sufficiency": "Mechanical transport cannot detect imbalance itself; controller semantic result pending, B4 forecast is not after-run measurement"
+        "sufficiency": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured."
       },
       "evidence": [
         "evidence/b4-no-loss.json",
         "evidence/b4-timing-forecast.json",
         "evidence/b9-held.json",
-        "evidence/b9-held-final.json"
+        "evidence/b9-held-final.json",
+        "evidence/b9-semantic-controller-assessment.json",
+        "evidence/b9-semantic-manifest.json",
+        "acceptance/b9.json"
       ],
       "TAKowner": "TAK2144 open7a5b63dc remains external/unaccepted; reconcile design \u00a74 on actual accepted runtime, no second TAK"
     },
@@ -197,7 +203,7 @@
         "relevance": "Resource cleanup is coupled to an ordinary case selected by the user and assertions precede cleanup.",
         "effectiveness": "zero/selected cases and TCP/HTTP assertion failure must close sockets and terminate; normal full-run aftermath assertions stay meaningful; Linux/nonLinux distinction preserved",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
-        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 semantic expected classes are controller-owned and pending.",
+        "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
         "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
         "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately.",
         "sufficiency": "B9 closes stale installed hashes only; no rerun of unchanged native189-case workload; Windows owner evidence remains external"

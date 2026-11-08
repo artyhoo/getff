@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-11-08T20:17:51.706626+00:00",
+  "command": "GH_REPO=artyhoo/getff bash scripts/check-required-contexts.sh <exact workflow required_contexts JSON>",
+  "requiredContexts": [
+    "Template render probes \u2014 P1/P4/P6 (deterministic)",
+    "capability PR carries Prior-art line in PR body (squash-survival)",
+    "ci-success",
+    "fidelity-verdict-in-pr-body",
+    "stale-revert-in-pr-diff",
+    "\u00a71.7 forward+backward sections present in PR description"
+  ],
+  "exitCode": 1,
+  "wallSeconds": 1.147,
+  "log": "final-live-policy.txt",
+  "meaning": "known missing contexts=1, unknown access/schema=2, satisfied=0; read-only, no settings write",
+  "priorControllerMistake": "final-live-policy-controller-missing-arg.json explicitly retained; missing argument refused before any API request, not policy evidence."
+}

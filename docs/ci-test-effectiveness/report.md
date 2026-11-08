@@ -1,0 +1,78 @@
+# CI/test effectiveness — implementation and acceptance report
+
+> **Authoritative for:** campaign decisions, accepted changes, evidence and explicit remaining limits.
+> **Not authoritative for:** universal bug absence, a mathematical minimum, or undelivered TAK work.
+
+Status: **PARTIAL — source implementation and local evidence complete; final whole-branch review, hosted final-head checks and three administrator registrations remain pending.** Repository: artyhoo/getff; integration: staging. User authorized native execution without AIF. Final published head, live CI runs and any later registration evidence are recorded in [PR 2150](https://github.com/artyhoo/getff/pull/2150), outside Git, to avoid repeatedly committing a report about its own commit and relaunching the installer battery.
+
+The target is minimal sufficient protection: remove established zero-marginal work; redesign useful expensive work when a supported cheaper equivalent exists; preserve behavior, environment/event coverage and detection timing. Fewer tests or seconds alone is not success. Costs of this campaign and its new controls count too.
+
+## Scope and assessment
+
+The immutable [design](../superpowers/specs/2026-11-08-ci-test-effectiveness-design.md), [S1 report](stage-1.md), [independent S1 acceptance](acceptance/s1.json), frozen inventory and S2 supplement separate assessment from implementation. Every original item has seven-criterion source/contract assessment and applicability, with bounded dynamic evidence. This is not a claim to have dynamically certified every assertion.
+
+[Final population reconciliation](evidence/final-population-reconciliation.json) retains the original 2121 logical records, including overlapping views. All 736 original source candidates remain: 722 test/probe files and 14 support files. Fourteen changed sources map to S2 decisions; 722 unchanged sources inherit the accepted S1 assessment. Two meaningful regression files were added, giving 724 test/probe source candidates. Four new non-test production helpers have their S2 assessment. Forty-three supplemental rows describe changes, conformance drivers and delivery; they are not 41 disjoint added tests.
+
+The current repository has 15 workflows, 54 jobs and 490 steps, compared with S1's 15/56/486. Only the two detached discipline sanity jobs were removed; no jobs were added. Step counts include setup and control flow and say nothing by themselves about quality or cost. Shipped CI templates retain their separately assessed S1 population. Native Vitest discovery remains core342, runtime-bridge31, Next3, two empty presets0; B8/B9 changed existing files only. The bridge's opt-in live-AIF source remains explicit: 30 bridge and three Next sources executed deterministically, with one additional external-AIF conditional source skipped. Declared callbacks, native cases, files, workflow steps and matrix executions are different denominators.
+
+## Decisions and actual changes
+
+| Decision / batch | Result and preserved protection | Independent acceptance |
+|---|---|---|
+| D06 / B1 | Real actionlint rejection now fails the local sweep; tool absence is separate. Controls reach the actual gate-table row. | [B1](acceptance/b1.json) |
+| D05 / B2 | Recorder teardown runs despite filtering or assertion failure; listeners and owned sockets close. Whole-run zero-network checks remain. | [B2](acceptance/b2.json) |
+| D08 / B3 | Discipline and husky tests invoke actual production checkers; two detached predicate-copy jobs removed. Both real hook identities covered without mutating live hooks. | [B3](acceptance/b3.json) |
+| D02/D03 / B4 | Remove two equivalent root-auditor repeats. Preserve the root224-case witness and distinct installed-consumer probes. Move four unchanged suites among equivalent existing shards. | [B4](acceptance/b4.json) |
+| D09 / B5 | Reject util-linux sg despite help exit0; retain real ast-grep selection and explicit absence. Canonical tool-selection behavior is unchanged. | [B5](acceptance/b5.json) |
+| D10 / B6 | Three concurrency cases use the existing30s shell-test budget, preserving N10, isolation and assertions. This is a failure deadline, not a runtime reduction. | [B6](acceptance/b6.json) |
+| D01/D07/D11 / B7 | Real invocation analysis covers workspace discovery, npm/cwd/runner semantics and supported wrappers. Missing bridge/Next/Node/Python families reach existing CI/local channels; Windows HOST-01 uses the existing real Windows cell. Advisor subprocess25s/outer30s replace accidental5s cutoff, preserving all13 cases. Canonical pre-push source suite unchanged. | [B7](acceptance/b7.json) |
+| D04 / B8 | Readable ordinary branch metadata distinguishes missing required contexts from unreadable/ambiguous policy. No more administrator-endpoint denial becoming a green warning. Registration is a separate actual effect. | [B8](acceptance/b8.json) |
+| RC1–RC7 / D12 / B9 | Existing role/AIF binding, harvest and required fidelity consumer apply the same seven criteria to checks and metachecks. Actual diff/base/head/scope binds consumed findings; unresolved or unaccepted dispositions fail. Redundant P37 wrapper copies consolidated into four distinct transport boundaries; complete helper schema coverage retained. | [B9](acceptance/b9.json) |
+
+No simplification removes a unique required witness. Expensive unique cold-before-merge or OS behavior is retained when no cheaper equivalent is established. Unsupported shell forms fail conservatively; this is a bounded invocation grammar, not a general shell interpreter. In particular the pending Windows-owner advisor prelude must be reconciled when that owner change lands.
+
+## General prevention and finite self-application
+
+[prevention.json](prevention.json) maps each root cause to its authoritative principle, actual recurring channel, good/bad/variant/disable/restoration evidence, limitations and TAK owner. Existing P38/P41 protect real delivery; existing actionlint/checker/lifecycle controls protect status, oracle and teardown failures. The current canonical review separates tautology from redundancy and recognizes that TypeScript types do not establish external runtime values. Boundary-case demands follow the actual risk and contract, rather than a quota per function or touched file.
+
+For semantic duplication/cost decisions, the same existing cold review produces original findings. The controller consumes each finding before fidelity; one `protection-review` record binds the actual Git range and complete changed-path set. New tests execute the real CLI and extracted workflow, including missing/stale/duplicate records, unresolved findings, disabled trigger/binding/disposition/consumer, meaningful companions and restoration. The parser validates structure and binding. A fabricated plausible record can pass its schema: reviewer competence and truthful controller disposition remain explicit trusted boundaries.
+
+[Independent semantic conformance](evidence/b9-semantic-controller-assessment.json) used six neutral synthetic inputs and prepared real Git diffs, frozen before role implementation. Expected classes were withheld from the cold reviewer and implementer; original reports were sealed before controller comparison. Actual review surfaced both duplicate forms and the scheduling imbalance, retained unique Windows and cold contracts, and recognized meaningful bounded runtime presence checks. It also caught a wrong controller premise: `toBeDefined()` does not reject an empty object. Original input/report remain intact; only that false alternative was removed and the same reviewer confirmed the narrow correction against the unchanged expected class.
+
+Actual production CLI rejected all three unresolved original findings. The controller made real private-fixture commits, and the same cold seat verified duplicate-only removal / lossless redistribution. The CLI then accepted the three fixed heads; useful companions passed. Original records, reports, fix diffs, receipts and fixture Git bundles are [preserved with hashes](evidence/b9-semantic-manifest.json). These are controlled synthetic contracts/cost premises, not actual getff hosted timings, executed fixture suites or a universal semantic accuracy score.
+
+New controls and audit-only drivers have their own seven-criterion assessments. The recursion terminates at independently fixed expectations, actual runner/host semantics and honest source/review evidence. No new assurance platform, competing TAK/OCR, paid model CI, permanent census job or infinite driver hierarchy was added.
+
+## Costs and measurable benefit
+
+Three same-suite **BEFORE** traces support a31–39percent forecast for the longest installer shard after redistribution. The latest run42489342075 had A/B/C3951/8495/2241s; unchanged-work projection is5725/4751/4211s. Aggregate work remains14687s. A shorter longest job is neither less compute nor a measured developer-wait reduction. Removing two root-auditor repeats saves their several-second repeated steps, not entire jobs/setup. Actual hosted AFTER evidence belongs to PR2150 once available.
+
+Useful repairs add execution. B2 lifecycle controls cost about1.66s in one native sample. B5 runner corpus observed5.127s before and7.893s after, with33 added assertions/nine calls: no speed claim. B7 newly routed bridge/Next/Node/Python work measured203.208s in aggregate command wall time. This restores protection; it is not optimization savings and was not appended to the canonical120s pre-push suite.
+
+B9 final fidelity tests pass116; native command duration22.63s includes bounded real subprocesses. P37 retains distinct helper schema cases and four thin workflow outcomes, removing18 zero-marginal wrapper copies and one redundant sufficient-policy variant. The old22 wrapper cases totaled about0.73s in rounded samples; no large speedup is claimed. Nine audit-only original/fixed semantic CLI processes took9.349s total under then-current load; cold semantic/model cost is not available as token/$ accounting. Expanded role4550 UTF-8 bytes and AIF binding4166 bytes add context in the existing review; native pointer/cards add19 bytes each, not an inline role body.
+
+Normal installed closure required all15 capture/compare cells:404.938s capture plus509.160s comparison, with exact causal path/hash mapping including earlier accepted B2/B5 stale hashes. This is normal installed-output verification, not the150-suite installer battery. Final archive/manifest check7.977s passed1668 manifest entries. One-shot fault probes, generators, installed closure and recurring controls are separated in [B9 cost receipts](evidence/b9-cost.json), rather than counted as runtime savings.
+
+S1 portable evidence is about12.3MB; the finite semantic package adds about144KB. Kickoff71b62d92 was authored2026-11-08T14:06:34Z. Elapsed campaign wall time includes parallel work and waiting and is not person-hours, CPU usage or billing. Token/$, maintenance cost and actual developer wait are unavailable: no financial payback claim. Intermediate commits were deliberately not pushed through the full installer CI. This audit is not a proposed recurring whole-repository ritual; future reviews reuse affected obligations and existing channels.
+
+## Verification, freshness and outstanding effects
+
+The full hook carrier's red history is preserved. B3's171.84s run failed on wrong sg identity, missing rsync and a concurrency deadline. Real private Debian rsync fixed hydration5/5 with unchanged source; B5 repaired sg identity. B6's159.61s run retained one advisor-wrapper timeout. B7 repaired its actual subprocess/outer budgets. The final combined run on10bb7294 passed **98 files,2344 tests,3 explicit skips in166.031s** ([receipt](evidence/final-hooks.json), [raw output](evidence/final-hooks.txt)). Diagnostic fixture/WARN output remains; this is not a pristine-output claim.
+
+Native Linux/Node24 evidence is not hosted Node22 or Windows execution. B7's Linux HOST-01 skip is not a Windows pass. Required final published CI and actual after timings remain to be observed on PR2150. Initial01b25d78 checks apply only to the initial docs commit. Normal15-cell installed capture/compare and actual npm archive establish delivery bytes, not all native-host semantics.
+
+[Freshness evidence](evidence/final-freshness.json) records actual fetch: origin/staging5fc5f74c. TAK2144 head7a5b63dc, OCR2146 head4b59504f and Windows2116 headba4fdd70 remain open/unchanged/unmerged. Only accepted TAK S0 is treated as landed. Prospective TAK53 owns emitted-ESLint/corpus/include liveness, not our bounded CI command analysis. OCR's proposed card helper is test-only command-prefix/loader conformance, not a delivered economics parser; its native producer is absent at this baseline. No parallel kernel or speculative owner implementation was copied. Future actual accepted owner integration revalidates affected interfaces only.
+
+[Actual ordinary policy observation](evidence/final-live-policy.json) and administrator endpoint receipt distinguish source visibility from registration. Staging currently declares six required contexts but registers three; inherited rulesets were empty. Missing:
+
+- `Template render probes — P1/P4/P6 (deterministic)`
+- `capability PR carries Prior-art line in PR body (squash-survival)`
+- `§1.7 forward+backward sections present in PR description`
+
+An administrator must add these exact three in Settings → Branches → staging → Require status checks, retaining the existing three contexts, app bindings and other policy. Actual administrator endpoint access returns403 `Resource not accessible by integration`; no setting was written. Do not reduce the declared six or add a privileged token to make CI green. The observer is nonrequired and its success is not policy registration. After the action, the same exact-context observer must report complete. Its hosted GITHUB_TOKEN evidence is separate from native CLI auth.
+
+## Rulings and final acceptance
+
+[Coordinator rulings](evidence/final-coordinator-rulings.md) preserve the actual decisions, reasons and stated consequences. Rejected hypotheses remain visible: hydration ownership was not the cause; missing rsync was. A B5 reviewer claim about changing canonical tool selection was withdrawn after exact immutable-object comparison; it produced no false repair. B7's actual config/cwd, Node argv and dead-wrapper false coverage was reproduced and fixed. The controller's c5 premise error was corrected openly without changing expected outcomes.
+
+Final independent whole-branch review, final published CI and actual required-context registration determine campaign completion. Confirmed unfixed essential risks or missing host/enforcement evidence mean PARTIAL/BLOCKED. Source implementation, smaller counts and locally green focused tests cannot alone establish DONE.

@@ -1,6 +1,6 @@
 {
   "id": "B9-RC1-RC7-E9",
-  "status": "PARTIAL: implemented and local conformance/normal closure PASS; controller semantic, task-review and hosted acceptance pending",
+  "status": "ACCEPTED_FOR_INTEGRATION: independent task review + bounded original semantic/fix/actualCLI conformance + fullhooks pass; hosted/admin pending",
   "inputCommit": "4ad4540fee94c23e063b1982a2511baeb2a58d23",
   "authority": {
     "specSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
@@ -95,9 +95,10 @@
     "P37": "evidence/b9-p37-held.json"
   },
   "semantic": {
-    "status": "PENDING_CONTROLLER",
-    "observedSemanticPass": false,
-    "boundary": "Schema tests transport synthetic dispositions only. Controller independently runs sealed updated actual role on frozen neutral inputs, saves ORIGINAL reports, makes honest source repairs and verifies actual finalhead before accepting fixed. No expected-controller file read or semantic reviewer spawned by implementer."
+    "status": "Finite controller conformance observed; original/corrected inputs and original reports preserved",
+    "assessment": "evidence/b9-semantic-controller-assessment.json",
+    "manifest": "evidence/b9-semantic-manifest.json",
+    "trustedBoundary": "Independent frozen expected contract/classes, competent cold review, truthful controller and actual Git/CLI behavior; no arbitrary semantic guarantee."
   },
   "futurePath": [
     "Existing cold review sidecar and native AIF mirror; harvest/controller consumes original findings before fidelity",
@@ -174,5 +175,6 @@
     "finalFidelity": "evidence/b9-host-1-final.txt",
     "finalHeld": "evidence/b9-held-final.json",
     "cost": "evidence/b9-cost.json"
-  }
+  },
+  "controllerAcceptance": "acceptance/b9.json"
 }

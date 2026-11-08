@@ -1,0 +1,44 @@
+[
+  {
+    "case": "c1",
+    "base": "f053bc8db6c4ec640d9f01bef3997c04adc91cf4",
+    "originalHead": "788a5d512b543ad561998a6ec2ad6c6c3f31eda3",
+    "fixedHead": "f82d2209b1b8344908102403610bd20233349b3d",
+    "scope": [
+      ".github/workflows/checks.yml"
+    ],
+    "finding": "C1-TQ-01",
+    "fixDiff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/consumed/c1-actual-fix.diff",
+    "fixDiffSHA256": "7131acf61333d031d69befa0f5bd4cb660030b72a78b3041555a1ab55373e02b",
+    "fullDiff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/consumed/c1-fixed-full.diff",
+    "fixtureExecution": "Not run; source/schedule-only synthetic contract; same cold reviewer must verify actual repair before fixed disposition."
+  },
+  {
+    "case": "c0",
+    "base": "189acb04ed37c339a4e2970a8bf033fd69b65f5a",
+    "originalHead": "e3a397d668a2df8f8385d21bf0cc940ea31b46ed",
+    "fixedHead": "ebab6d29765a7ed564f29461366f6a327dc00401",
+    "scope": [
+      ".github/workflows/checks.yml"
+    ],
+    "finding": "C0-TQ-01",
+    "fixDiff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/consumed/c0-actual-fix.diff",
+    "fixDiffSHA256": "b854fc989f198557fc81cad08db11650d3a62a1aed97272d132f157debf1ef84",
+    "fullDiff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/consumed/c0-fixed-full.diff",
+    "fixtureExecution": "Not run; source/schedule-only synthetic contract; same cold reviewer must verify actual repair before fixed disposition."
+  },
+  {
+    "case": "c2",
+    "base": "c09dbae702a5f653f2839511aa7a40c199060d4c",
+    "originalHead": "24b59f7599d2ab7f291de08320449fdd8ed641af",
+    "fixedHead": "7dcfd7a204312282b9c9a1adb3652dffeb73c3e4",
+    "scope": [
+      ".github/workflows/checks.yml"
+    ],
+    "finding": "C2-TQ-01",
+    "fixDiff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/consumed/c2-actual-fix.diff",
+    "fixDiffSHA256": "bedf562e4bcf14301bc037a1f3789eda06f7ff4cfc59f0161dd005fabccc1093",
+    "fullDiff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/consumed/c2-fixed-full.diff",
+    "fixtureExecution": "Not run; source/schedule-only synthetic contract; same cold reviewer must verify actual repair before fixed disposition."
+  }
+]

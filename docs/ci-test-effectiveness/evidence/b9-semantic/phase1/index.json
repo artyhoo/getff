@@ -1,0 +1,150 @@
+{
+  "kind": "cold-semantic-review-original-index/v1",
+  "reviewer": "native_b9_semantics",
+  "phase": "phase1",
+  "protocol": {
+    "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/protocol-277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc.md",
+    "sha256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc"
+  },
+  "inputIndex": {
+    "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/review-inputs.json",
+    "sha256": "be52354c7bf7529f02fb691bd1dab421965c96e801f13ae292449f1dd5c077da"
+  },
+  "frozenManifestSHA256FromInputIndex": "5c0b819fbb64acf34d640339a6572f550e71168682086d2f6cb4dcc5de1fcb53",
+  "method": "Read canonical protocol, then input index and six facts/prepared-diff pairs in listed order; static review only; no subject inspection, fixture execution, external API, controller expected-result access, or code/Git mutation.",
+  "scopeLimit": "Synthetic partial material fixtures; supplied contract/cost/unchanged-subject facts treated as fixed premises. No project/host acceptance, source fix, consumed disposition or owner-accepted deferral claimed.",
+  "cases": [
+    {
+      "caseId": "c4",
+      "base": "425ab2880f4282ce7a4be1c665a7e2050ea74f0a",
+      "head": "8eb048c67a28f463e3a100ad558bc85797a9d111",
+      "scope": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c4.md",
+        "sha256": "f19390fe09c5a78064ca558fa73448b64372f1b279edb5d8d08826851f34b01e"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c4.diff",
+        "sha256": "22dc5b547129380c848763823c5f62c7f182f266883fbd3715376bef3728bf7c"
+      },
+      "report": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/phase1/c4-review.md",
+      "reportSHA256": "8a3aa57e9fbc32f3d09cd67922846ccad978e4220627c86db2c13091c5bef1ee",
+      "result": "scoped-no-material-finding",
+      "findingIds": [],
+      "findingDisposition": null
+    },
+    {
+      "caseId": "c1",
+      "base": "f053bc8db6c4ec640d9f01bef3997c04adc91cf4",
+      "head": "788a5d512b543ad561998a6ec2ad6c6c3f31eda3",
+      "scope": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c1.md",
+        "sha256": "edc338019b604a0e3514e911d66d8e2718863976582126440d7e23731002c55d"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c1.diff",
+        "sha256": "26005f9991dddd0385bf22ba42b83d02658d5392ac85aef3bb348a5a4435271e"
+      },
+      "report": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/phase1/c1-review.md",
+      "reportSHA256": "eb0053441e583f29a185d3c1e84c6f7c6a810e40f9c4f1681324c1ad65f379b4",
+      "result": "material-findings",
+      "findingIds": [
+        "C1-TQ-01"
+      ],
+      "findingDisposition": "unresolved"
+    },
+    {
+      "caseId": "c5",
+      "base": "610c1291c375dd56f9f29ad602087fcfee8d1352",
+      "head": "a065cc4fbb977186f57a31b28a67a458c0652359",
+      "scope": [
+        "src/token.test.ts"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c5.md",
+        "sha256": "36c436c476ec15af7625bec7eebef7a6b2ba6b6f2f02cceeddab69a1dda390fa"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c5.diff",
+        "sha256": "5076a2d507ce0b095a256d6053360c5b4d35d700e42a66ffcacb40ed99230668"
+      },
+      "report": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/phase1/c5-review.md",
+      "reportSHA256": "e32a25b3cdb8b0d4a147bc0ac0cf1d072ebe28a5e5bda3b8bb5b2f3d1f33f388",
+      "result": "scoped-no-material-finding",
+      "findingIds": [],
+      "findingDisposition": null
+    },
+    {
+      "caseId": "c0",
+      "base": "189acb04ed37c339a4e2970a8bf033fd69b65f5a",
+      "head": "e3a397d668a2df8f8385d21bf0cc940ea31b46ed",
+      "scope": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c0.md",
+        "sha256": "a2a685b2a4d83c6af13e2402c6b327fc95d98ebfd89aac8f046533fdf0f761a5"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c0.diff",
+        "sha256": "11cff54c7c303bf8ef28c1a11b6cba2cafe67e4fa0441ebf38d7caceb6463f4d"
+      },
+      "report": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/phase1/c0-review.md",
+      "reportSHA256": "75840e4b3238f9bc4127dbc9c690222979ce5d7c4d2684cc79fd17ff4cdee39d",
+      "result": "material-findings",
+      "findingIds": [
+        "C0-TQ-01"
+      ],
+      "findingDisposition": "unresolved"
+    },
+    {
+      "caseId": "c3",
+      "base": "7b2618ae240219967100069a66ece83381f5e23b",
+      "head": "3617339f2e5dda1f2eac7a887efe3aaeabdccf05",
+      "scope": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c3.md",
+        "sha256": "459f3cf82445def8704592c44eccb86300e38430d789c540f728fab34edfaf02"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c3.diff",
+        "sha256": "eecfe30755c1227ecef6d6fb8cc90c442932cf93a55688555b7c46c7d1025819"
+      },
+      "report": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/phase1/c3-review.md",
+      "reportSHA256": "c1fa4067a12776ef98009fbb5d389c9b3c94908bda4a77d2826e70a68ceb84b1",
+      "result": "scoped-no-material-finding",
+      "findingIds": [],
+      "findingDisposition": null
+    },
+    {
+      "caseId": "c2",
+      "base": "c09dbae702a5f653f2839511aa7a40c199060d4c",
+      "head": "24b59f7599d2ab7f291de08320449fdd8ed641af",
+      "scope": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c2.md",
+        "sha256": "c3d31f5dafbaeb64e4b8e43b50921b836274ab023e5d0a046b2ec887d9e14dea"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c2.diff",
+        "sha256": "1ab490b5f6c0144e7d5b5632dbe4bb1d5bdc7355f47e9ea20809808d2ad5db10"
+      },
+      "report": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/phase1/c2-review.md",
+      "reportSHA256": "3312aff68d5a129009fa8455053223e79f891f46c0e0f3db76fc30b61588e71d",
+      "result": "material-findings",
+      "findingIds": [
+        "C2-TQ-01"
+      ],
+      "findingDisposition": "unresolved"
+    }
+  ]
+}

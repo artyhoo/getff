@@ -1,0 +1,14 @@
+diff --git a/.github/workflows/checks.yml b/.github/workflows/checks.yml
+index feb5a8d..1ab433e 100644
+--- a/.github/workflows/checks.yml
++++ b/.github/workflows/checks.yml
+@@ -4,8 +4,9 @@ jobs:
+   root-audit:
+     runs-on: ubuntu-latest
+     steps:
+       - run: npx --prefix packages/core vitest run packages/core/audit-self/audit-ai-docs.test.ts
+   self-install:
+     runs-on: ubuntu-latest
+     steps:
+       - run: bash tests/consumer-matrix/installed-violation-probe.sh
++      - run: npx --prefix packages/core vitest run packages/core/audit-self/audit-ai-docs.test.ts

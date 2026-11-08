@@ -1,0 +1,19 @@
+diff --git a/.github/workflows/checks.yml b/.github/workflows/checks.yml
+index 1dd76a7..0d119bf 100644
+--- a/.github/workflows/checks.yml
++++ b/.github/workflows/checks.yml
+@@ -1,12 +1,12 @@
+ name: checks
+ on: pull_request
+ jobs:
+   release-index:
+     runs-on: ubuntu-latest
+     steps:
+       - run: node --test scripts/release-index.test.mjs
+   site-metadata:
+     runs-on: ubuntu-latest
+     steps:
+-      - run: node scripts/render-site-index.mjs --check
+-      - run: npm --prefix packages/core run test:release-index
++      - name: Site metadata witness
++        run: node scripts/render-site-index.mjs --check

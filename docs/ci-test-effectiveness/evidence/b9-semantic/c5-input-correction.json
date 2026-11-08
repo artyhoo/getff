@@ -1,0 +1,12 @@
+{
+  "kind": "controller-input-erratum",
+  "case": "c5",
+  "reason": "Cold reviewer detected a false empty-object example: toBeDefined rejects undefined, not a defined object. Correct only that clause; retain original facts/reports/diff/expected bytes.",
+  "originalFactsSHA256": "36c436c476ec15af7625bec7eebef7a6b2ba6b6f2f02cceeddab69a1dda390fa",
+  "correctedFactsSHA256": "39d0c967f009724bb05135c4abb3b4aef0e37ce7fcc493a28609bcda2de98ee4",
+  "expectedUnchangedSHA256": "6bc746b663bccd7fb8489c335f1102f308ce5e18aaf35a3f37b4dfeb3cc3c789",
+  "phase1OriginalReportSHA256": "e32a25b3cdb8b0d4a147bc0ac0cf1d072ebe28a5e5bda3b8bb5b2f3d1f33f388",
+  "productionRoleUnchangedSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+  "newManifestSHA256": "9db759b4f27293c4f656d7f0e09f2fa6945ba6ee08da08452d6b337a175f2fbc",
+  "scope": "Only false alternative removed. No expected-class/diff/source change, no six-case rerun. Same cold seat confirms narrow correction."
+}

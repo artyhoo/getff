@@ -1,0 +1,27 @@
+const fs=require('fs'),cp=require('child_process'),crypto=require('crypto'),yaml=require('js-yaml');
+const dir='docs/ci-test-effectiveness', base='9098d3c5abc5409de0f138fcf5d0b8375fed3b68';
+const git=(...a)=>cp.execFileSync('git',a,{encoding:'utf8'}).trim();
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const inv=fs.readFileSync(dir+'/inventory.jsonl','utf8').trim().split('\n').map(JSON.parse);
+const sup=fs.readFileSync(dir+'/inventory-s2.jsonl','utf8').trim().split('\n').map(JSON.parse);
+const batches=Array.from({length:9},(_,i)=>({id:'b'+(i+1),v:JSON.parse(fs.readFileSync(`${dir}/batches/b${i+1}.json`))}));
+const refs=p=>batches.filter(b=>JSON.stringify(b.v).includes(p)).map(b=>`batches/${b.id}.json`);
+const rows=inv.filter(x=>['test-source-or-probe','support-source'].includes(x.kind)).map(x=>{
+ const exists=fs.existsSync(x.path), now=exists?hash(x.path):null;
+ return {id:x.id,path:x.path,kind:x.kind,beforeSHA256:x.sha256,currentSHA256:now,disposition:!exists?'removed':now===x.sha256?'inherit-accepted-S1-assessment':'changed-assessment-in-S2',batchRefs:now===x.sha256?[]:refs(x.path)};
+});
+const missing=rows.filter(x=>x.disposition!=='inherit-accepted-S1-assessment'&&!x.batchRefs.length);if(missing.length)throw Error(JSON.stringify(missing));
+const additions=git('diff','--name-only','--diff-filter=A',base,'HEAD').split('\n').filter(p=>!p.startsWith('docs/')&&!p.startsWith('.claude/orchestrator-prompts/'));
+const newTests=additions.filter(p=>/\.(?:test|spec)\.[^/]+$/.test(p));
+const flows=git('ls-files','.github/workflows/*.yml','.github/workflows/*.yaml').split('\n').filter(Boolean).map(path=>{
+ const d=yaml.load(fs.readFileSync(path,'utf8'));return {path,jobs:Object.entries(d.jobs||{}).map(([id,j])=>({id,steps:(j.steps||[]).length})),batchRefs:refs(path)};
+});
+const oldJobs=inv.filter(x=>x.kind==='ci-job').map(x=>({id:x.id,path:x.path,job:x.job}));
+const currentJobs=new Set(flows.flatMap(f=>f.jobs.map(j=>`ci:${f.path}#${j.id}`)));
+const removedJobs=oldJobs.filter(x=>!currentJobs.has(x.id));
+const oldIds=new Set(oldJobs.map(x=>x.id));const addedJobs=[...currentJobs].filter(x=>!oldIds.has(x));
+const oldTestSet=new Set(rows.filter(x=>x.kind==='test-source-or-probe').map(x=>x.path));
+const s2criteria=sup.map(x=>({id:x.id,criterionNames:Object.keys(x.criteria||{}),allSevenPresent:Object.keys(x.criteria||{}).length===7}));if(s2criteria.some(x=>!x.allSevenPresent))throw Error('Missing seven criteria');
+const data={status:'Source/population reconciliation; bounded evidence views remain distinct',sourceHead:git('rev-parse','HEAD'),acceptedS1Head:base,originalLogicalRecords:inv.length,s2SupplementRecords:sup.length,logicalCountWarning:'Supplement rows describe changes and drivers, not extra disjoint tests. Do not sum into a native test count.',originalSourceCandidateCount:rows.length,originalTestSourceCount:oldTestSet.size,originalSupportSourceCount:rows.length-oldTestSet.size,currentOriginalSources:rows.filter(x=>x.disposition!=='removed').length,unchangedOriginalSources:rows.filter(x=>x.disposition==='inherit-accepted-S1-assessment').length,changedOriginalSources:rows.filter(x=>x.disposition==='changed-assessment-in-S2').length,removedOriginalSources:rows.filter(x=>x.disposition==='removed'),newTestSourcePaths:newTests,currentTestSourceCount:oldTestSet.size+newTests.filter(x=>!oldTestSet.has(x)).length,newProductionPaths:additions,ci:{workflows:flows.length,jobs:currentJobs.size,steps:flows.reduce((n,f)=>n+f.jobs.reduce((n,j)=>n+j.steps,0),0),removedJobs,addedJobs,workflowsByPath:flows},nativePopulation:{reused:'evidence/b7-population-reconciliation.json + b7-native-population-match.json',basis:'Only B8/B9 changes after B7 are within existing files, no test-source additions/deletions or Vitest include changes.',core:342,runtimeBridge:31,next:3,reactNative:0,reactSpa:0,explicitExternalAifSkip:'aif-park-live remains opt-in; native thirty bridge sources + three Next deterministic execution, not thirty-four passed sources.'},sourceRows:rows,s2Criteria:s2criteria,oneShotDriverAssessment:{relevance:'Prevent omission and accidental denominators/delivery claims in final campaign report.',effectiveness:'Actual Git paths/hashes, YAML jobs/steps and independently accepted S1 identities compared; unknown changed source lacks batch reference => refusal.',theatre:'Not test execution or semantic certification; source inheritance only. Batches/reviews/native receipts carry behavior evidence.',tautology:'Raw current Git/YAML compared with frozen pre-repair inventory and native B7 source identities; no expected total hardcoded as pass.',duplication:'One final offline reconciliation reuses prior native runner output, no second scanner or recurring census.',costEffectiveness:'Offline small-file parse only; no CI job, host suite, model or API call.',sufficiency:'Finite independent accepted inventory and actual Git remain trusted; new report/docs do not alter native source membership.'}};
+fs.writeFileSync(dir+'/evidence/final-population-reconciliation.json',JSON.stringify(data,null,2)+'\n');
+console.log(JSON.stringify({...data,sourceRows:undefined,s2Criteria:undefined,ci:{...data.ci,workflowsByPath:undefined}},null,2));

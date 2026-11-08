@@ -1,0 +1,2 @@
+::error::pr-body-fidelity: PR body fails the acceptance-contour fidelity gate (spec D3)
+::error::  - protection-review: unresolved or invalid disposition blocks acceptance

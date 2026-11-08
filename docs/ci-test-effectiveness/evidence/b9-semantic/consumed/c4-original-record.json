@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "base": "425ab2880f4282ce7a4be1c665a7e2050ea74f0a",
+  "head": "8eb048c67a28f463e3a100ad558bc85797a9d111",
+  "scope": [
+    ".github/workflows/checks.yml"
+  ],
+  "reviewer": "native_b9_semantics",
+  "report": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/phase1/c4-review.md#sha256=8a3aa57e9fbc32f3d09cd67922846ccad978e4220627c86db2c13091c5bef1ee",
+  "consumedBy": "root controller; actual original report read",
+  "basis": "Fixed independently frozen synthetic contract and original cold report. Controlled finite transport experiment; GO text below is a negative-control template, not project approval.",
+  "history": {
+    "status": "unavailable",
+    "reason": "Synthetic premise summaries only; no actual project CI traces in fixture.",
+    "ownerDecision": "Controller accepts this finite offline transport exercise only; no host or arbitrary semantic certification."
+  },
+  "findings": []
+}

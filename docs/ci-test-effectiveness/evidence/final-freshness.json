@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-11-08 20:17:04 UTC",
+  "originStaging": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+  "method": "actual git fetch origin staging + connected GitHub API PR reads",
+  "pullRequests": [
+    {
+      "number": 2144,
+      "state": "open",
+      "head": "7a5b63dc137648bc76a5899ecae4b279063c7e6b",
+      "base": "617dea75f6f95292c8dffda8baae262b4af42032",
+      "merged": false
+    },
+    {
+      "number": 2146,
+      "state": "open",
+      "head": "4b59504f4bb757254ea72b1f225937b50119447d",
+      "base": "b714f7c1a6e40488e8f016665d7fffc0cd513a3d",
+      "merged": false
+    },
+    {
+      "number": 2116,
+      "state": "open",
+      "head": "ba4fdd70f6cd54d439129cda5ec942913e4e8640",
+      "base": "bc8e758d2863aabbaa1062492a142662bdaa11d8",
+      "merged": false
+    },
+    {
+      "number": 2150,
+      "state": "open",
+      "head": "01b25d78b11083fb6e463fdf9de61299aff8972a",
+      "base": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+      "merged": false
+    }
+  ],
+  "conclusion": "Three owner PRs remain open/unchanged/unmerged; no accepted runtime imported. Our published PR still initial docs until coherent final publication. This record is not hosted final-head acceptance."
+}

@@ -1,0 +1,10 @@
+{
+  "at": "2026-11-08T19:59:11.915834+00:00",
+  "source": "/workspace/getff-native/.agents/roles/review-sidecar.md",
+  "sourceSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+  "immutableProtocolArtifact": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/protocol-277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc.md",
+  "inputIndex": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/review-inputs.json",
+  "frozenInputManifestSHA256": "5c0b819fbb64acf34d640339a6572f550e71168682086d2f6cb4dcc5de1fcb53",
+  "status": "phase1-ready; compare exact role hash with final committed B9 source before acceptance",
+  "nature": "Audit-only exact canonical text artifact, not a forked reviewer or semantic approval"
+}

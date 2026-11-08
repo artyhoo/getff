@@ -1,0 +1,21 @@
+diff --git a/.github/workflows/checks.yml b/.github/workflows/checks.yml
+index bb4582e..29cef39 100644
+--- a/.github/workflows/checks.yml
++++ b/.github/workflows/checks.yml
+@@ -4,12 +4,16 @@ jobs:
+   shardA:
+     runs-on: ubuntu-latest
+     steps:
+       - run: bash tests/install-sh/a-base.test.sh
+   shardB:
+     runs-on: ubuntu-latest
+     steps:
+       - run: bash tests/install-sh/b-base.test.sh
++      - run: bash tests/install-sh/suite-1.test.sh
++      - run: bash tests/install-sh/suite-2.test.sh
++      - run: bash tests/install-sh/suite-3.test.sh
++      - run: bash tests/install-sh/suite-4.test.sh
+   shardC:
+     runs-on: ubuntu-latest
+     steps:
+       - run: bash tests/install-sh/c-base.test.sh
