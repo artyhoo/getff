@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "check": "presentation",
+  "featureId": "ci-test-effectiveness",
+  "revision": 1,
+  "attemptId": "1689a1d729b4ae2ef730a94f22ae8f712ec35cb07d01bb117678e58f3c8938af",
+  "prdSha256": "d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117",
+  "specSha256": "7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf"
+}

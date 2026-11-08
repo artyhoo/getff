@@ -1,0 +1,11 @@
+{
+  "featureId": "ci-test-effectiveness",
+  "expectedRevision": 1,
+  "status": "pending-exact-content-approval",
+  "snapshotRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4.md",
+    "sha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4"
+  },
+  "gitBlob": "28e297ade4f59407419c1c64990ad5894c870033",
+  "change": "E9: generalized executable prevention and recursive self-application; operator requirements C5-C6."
+}

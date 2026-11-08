@@ -1,0 +1,313 @@
+{
+  "version": 1,
+  "kind": "spec-review",
+  "featureId": "ci-test-effectiveness",
+  "prdRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4.md",
+    "sha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4"
+  },
+  "specRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a.md",
+    "sha256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a"
+  },
+  "approvalRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-revision-2-approval-2026-11-08.json",
+    "sha256": "8bba9f28f8ee8ffec73a432b766fc841523ad59835a3790527822bf6fa6024ba"
+  },
+  "reviewer": {
+    "independence": "Fresh artifact-only reviewer, continuing the same unpublished review after a bounded candidate revision. I did not author either candidate and did not read authoring dialogue or other reviewers' reports. No expected verdict was supplied; the reported change was independently checked against both exact candidate artifacts.",
+    "context": "Complete semantic design-preservation review of E1–E9 and recorded clarifications C1–C6 against the final candidate. Initial analysis of unchanged artifact content was retained after a complete byte-level text diff established that only the TAK conformance dependency paragraph in §7.2 changed. The affected E6/E9 reasoning was reassessed, and all nine promises and citations were checked against the final candidate. PRD, approval and recorded-decision digests were reverified. This is neither observed implementation validation nor operator specification agreement; no audit, tests, publication, external calls or dispatch were performed.",
+    "documents": [
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4.md",
+        "sha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-revision-2-approval-2026-11-08.json",
+        "sha256": "8bba9f28f8ee8ffec73a432b766fc841523ad59835a3790527822bf6fa6024ba"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/operator-clarifications-2026-11-08.md",
+        "sha256": "ecda6ec3b7250b9d4b32d0aee7fa829314a2ee49dcc9a822c8e1b40ecaf38bcf"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/operator-meta-enforcement-2026-11-08.md",
+        "sha256": "0fe5da7633af2ced27ffc8555a9bcb21e2c41554e9732c980728a86d8461df2f"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-07d2a2c2df12c1417dd5c5cda523a066c76ee94545bce666558f5d2ce1c3d97e.md",
+        "sha256": "07d2a2c2df12c1417dd5c5cda523a066c76ee94545bce666558f5d2ce1c3d97e"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/review-inputs-07d2a2c2df12.json",
+        "sha256": "cfa6a2bff124eaace48d5e54441d6b7b8a70c0b148f63d099f31037cb2deaffa"
+      },
+      {
+        "path": ".agents/procedures/intent/references/spec-review.md",
+        "sha256": "9d5a03afad43f10a8452d6d7e57662d178b104002748de8eeb8bea0804dc2aca"
+      },
+      {
+        "path": ".agents/procedures/intent/helpers/publish-spec-review.mjs",
+        "sha256": "3971596ecf0bec4f4de5f5be24a4e73239610fa7f2611540bf38bd2b5424d93a"
+      },
+      {
+        "path": ".agents/procedures/intent/helpers/check-result-review.mjs",
+        "sha256": "959223659d6d9119e877b85935ad5f1151e95d67168199ead4e5a2760fe1357c"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a.md",
+        "sha256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/review-inputs-77e669ad6113.json",
+        "sha256": "f83f0b95482d217c6d37a0724e0af6c00a049f38d9a135112cc68c7f5f42380d"
+      }
+    ]
+  },
+  "promises": [
+    {
+      "id": "E1",
+      "comparison": "supported",
+      "reason": "The design reconciles sources, runner discovery and actual invocation, retains explicit family membership and exceptions, and requires all seven criteria for each item. Unknown and unexecuted behavior cannot become passing assessments. This preserves complete scope without requiring identical experiments for every test.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "All CI checks and tests appear in a reconciled inventory; every item is covered by the seven criteria, individually or through an explicitly justified family assessment.",
+          "location": "Essential promises, E1"
+        },
+        {
+          "source": "spec",
+          "quote": "Enumerate tracked test sources and declared entrypoints, then reconcile against available native runner discovery and workflow/job/step invocation.",
+          "location": "§5, opening paragraph"
+        },
+        {
+          "source": "spec",
+          "quote": "All seven assessments must be present for every item, either directly or through a justified family record with explicit item-level applicability.",
+          "location": "§5, final paragraph"
+        },
+        {
+          "source": "spec",
+          "quote": "“Unknown” is visible incomplete work, not a passing assessment.",
+          "location": "§5, final paragraph"
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "comparison": "supported",
+      "reason": "The item/invocation/evidence/decision records connect risk, protection, cost, alternatives and uncertainty to each disposition. Required detection timing and blocking consequences are fixed before optimization. C1 and C2 are preserved: known loss cannot buy speed, and useful but expensive protection is considered for economical redesign rather than retained solely because it is useful.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "For each retain, improve, combine, relocate or remove decision, the report identifies the risk, incremental value, evidence, cost and consequences.",
+          "location": "Essential promises, E2"
+        },
+        {
+          "source": "spec",
+          "quote": "**Decision:** affected IDs, action and rationale, retained protection, alternatives considered, evidence and unresolved questions, implementation batch, verification and rollback.",
+          "location": "§5, logical records"
+        },
+        {
+          "source": "spec",
+          "quote": "The loss constraint is strict: no known loss of the defined protection quality may be traded for speed.",
+          "location": "§3, loss constraint"
+        },
+        {
+          "source": "spec",
+          "quote": "**Useful protection at disproportionate cost:** redesign its implementation or invocation to deliver the same protection more economically.",
+          "location": "§3, disposition 2"
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "comparison": "supported",
+      "reason": "The design measures system-wide setup, execution, waiting, retry and maintenance costs rather than test durations alone. It separates failure categories and hosted/local contexts, requires sample provenance, and tests joint removals against retained witnesses. Missing or noisy data remains uncertainty.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "The audit examines repeated work, setup, critical-path delay, queueing and false alarms as well as the value of individual checks.",
+          "location": "Essential promises, E3"
+        },
+        {
+          "source": "spec",
+          "quote": "Measure total cost where a decision depends on it: runner/compute use, setup/download/build time, execution, queueing, developer wall-time, repeated attempts and diagnosis/maintenance work.",
+          "location": "§6, total cost paragraph"
+        },
+        {
+          "source": "spec",
+          "quote": "A failing run is not automatically a false positive; classify product defects, test defects, environmental failures and genuinely flaky results separately.",
+          "location": "§6, total cost paragraph"
+        },
+        {
+          "source": "spec",
+          "quote": "Do not invent a monetary ROI or infer maintenance cost from line counts alone.",
+          "location": "§6, total cost paragraph"
+        }
+      ]
+    },
+    {
+      "id": "E4",
+      "comparison": "supported",
+      "reason": "The two stages remain explicit; unsupported repairs cannot replace completed discovery. Stage 2 implements supported changes, repairs missing protection and removes proven unnecessary work. C1 removal is mandatory when justified. Dependencies and incomplete decisions are kept open, and acceptance cannot count unimplemented supported work as delivered.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "A second execution stage applies supported changes and repairs in-scope defects, with traceability back to the audit.",
+          "location": "Essential promises, E4"
+        },
+        {
+          "source": "spec",
+          "quote": "There are two execution stages: evidence-backed audit and decisions, then changes based on those decisions.",
+          "location": "§1, context"
+        },
+        {
+          "source": "spec",
+          "quote": "Remove proven unnecessary work rather than leaving it as a permanent recommendation.",
+          "location": "§7, implementation batches"
+        },
+        {
+          "source": "spec",
+          "quote": "Missing essential assessment, confirmed unfixed gaps, unimplemented supported removals or unresolved quality loss mean PARTIAL/BLOCKED, not DONE.",
+          "location": "§8, Honest completion"
+        }
+      ]
+    },
+    {
+      "id": "E5",
+      "comparison": "supported",
+      "reason": "Acceptance binds comparable cost evidence to retained relevant protection, including passing and violating cases, combined removal effects and required timing. Claims cannot be rescued by arbitrary failures, changed expected outcomes or green status. C1 no-loss protection and C2 economical redesign appear as separate acceptance requirements; no deletion or speedup quota is imposed.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "The final result shows what burden changed and whether the relevant protection still works, including legitimate passing cases and material failure cases where applicable.",
+          "location": "Essential promises, E5"
+        },
+        {
+          "source": "spec",
+          "quote": "Prefer the existing real entrypoint with a compliant case and a representative violating case; verify the intended diagnostic/status rather than counting any failure as success.",
+          "location": "§6, runtime experiments"
+        },
+        {
+          "source": "spec",
+          "quote": "Comparable before/after evidence separates repair overhead from optimization gains and shows the final campaign result, including regressions or uncertainty.",
+          "location": "§8, Cost result"
+        },
+        {
+          "source": "spec",
+          "quote": "Revert or revise a proposed optimization if a counterexample shows quality or required timing loss.",
+          "location": "§7, batch verification"
+        }
+      ]
+    },
+    {
+      "id": "E6",
+      "comparison": "supported",
+      "reason": "Execution establishes actual TAK status and applicability, maps remaining responsibilities and retains all seven criteria for TAK items. Existing conformance mechanisms and evidence are reused conditionally. Conflicts and active dependencies must be reconciled before affected changes, preserving C3 metatest scope without a competing assurance system. The revised §7.2 now conditions driver reuse on actual delivery and applicability and routes a pending driver through §4 dependency resolution; it no longer assumes that TAK runtime already exists. This strengthens the planned/landed/verified distinction without creating competing enforcement.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "The executor establishes which TAK requirements and implementations are planned, in flight, landed and actually verified, reuses applicable evidence, and still assesses every check against all seven criteria.",
+          "location": "Essential promises, E6"
+        },
+        {
+          "source": "spec",
+          "quote": "Determine what is planned, running, landed and verified from actual source, task/PR state and evidence, not the document's status sentence.",
+          "location": "§4, TAK baseline"
+        },
+        {
+          "source": "spec",
+          "quote": "All TAK-covered items still receive the seven criteria.",
+          "location": "§4, responsibility map"
+        },
+        {
+          "source": "spec",
+          "quote": "Follow TAK's independent conformance contract: reuse its actual driver when delivered and applicable; if it is still pending, resolve that dependency under §4 rather than claiming an existing runtime or building a competing mechanism.",
+          "location": "§7.2, independent conformance paragraph"
+        }
+      ]
+    },
+    {
+      "id": "E7",
+      "comparison": "supported",
+      "reason": "The baseline records repository, revisions, environment and observation time; live branch/open-work evidence is distinguished from stale tracking refs. Before each repair batch and final acceptance the design requires focused reconciliation, revalidating affected claims while retaining unaffected provenance. Unavailable freshness evidence limits conclusions.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Before repairs and final acceptance, relevant changes since that baseline are reconciled.",
+          "location": "Essential promises, E7"
+        },
+        {
+          "source": "spec",
+          "quote": "Record the repository identity, base and audited source SHAs, lock/config/toolchain identifiers, environment and observation time.",
+          "location": "§4, execution baseline"
+        },
+        {
+          "source": "spec",
+          "quote": "Unavailable remote/task evidence is an explicit limit, not proof that nothing is in flight.",
+          "location": "§4, execution baseline"
+        },
+        {
+          "source": "spec",
+          "quote": "Before each repair batch and final acceptance, compare the current base and relevant TAK changes with the audited baseline.",
+          "location": "§4, final paragraph"
+        }
+      ]
+    },
+    {
+      "id": "E8",
+      "comparison": "supported",
+      "reason": "Evidence depth is driven by material decisions, existing applicable evidence is reused, timing trials are bounded and uncertainty survives. The campaign records its own overhead, uses compact existing artifacts and requires proportionate independent acceptance. This avoids making complete coverage synonymous with repeated full experiments or permanent full-audit gates.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Investigation and verification depth are chosen for their ability to change a material decision.",
+          "location": "Essential promises, E8"
+        },
+        {
+          "source": "spec",
+          "quote": "For each extra experiment, state the unresolved decision it can change and what would be lost by omitting it.",
+          "location": "§6, stopping rule"
+        },
+        {
+          "source": "spec",
+          "quote": "Stop once sufficient evidence settles that decision; extend only for a new counterexample, changed relevant inputs or material unresolved uncertainty.",
+          "location": "§6, stopping rule"
+        },
+        {
+          "source": "spec",
+          "quote": "Audit overhead is recorded separately and included in the final assessment of whether the campaign earned its cost.",
+          "location": "§6, stopping rule"
+        }
+      ]
+    },
+    {
+      "id": "E9",
+      "comparison": "supported",
+      "reason": "C5–C6 are preserved as mandatory acceptance outcomes, not optional advice. Section 7.1 maps demonstrated classes to authoritative principles and existing, extended or new detection; executable checks cover mechanically decidable properties and enforce invocation/consumption of the named semantic review path. It explicitly rejects treating a populated record as semantic proof and leaves unsupported coverage visible. Real good/bad corpora, variants, fixed expectations and reached detector/invocation faults validate claimed enforcement through future edit/commit/PR paths. Section 7.2 applies supported detectors and all seven criteria to the prevention population, including conformance tests, and requires independent evidence with an explicit revisitable trusted boundary. Cost-driven redesign cannot waive mandatory prevention. This bounded semantic/mechanical split and finite boundary are author proposals compatible with the PRD limitations, not claimed operator approval or observed effectiveness. The final paragraph change preserves the independent conformance contract, fixed good/bad expectations, reached detector faults, real delivery and restoration requirements. Pending delivery is a dependency to resolve, not an accepted prevention deferral: §§7.2 and 8 still prohibit optional prevention and require effective enforcement before acceptance. Thus the change removes an unsupported runtime assumption without weakening C5–C6 or E9.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Demonstrated recurring failure classes are generalized into authoritative testing principles and executable checks through existing TAK/metatest channels.",
+          "location": "Essential promises, E9"
+        },
+        {
+          "source": "spec",
+          "quote": "Follow TAK's independent conformance contract: reuse its actual driver when delivered and applicable; if it is still pending, resolve that dependency under §4 rather than claiming an existing runtime or building a competing mechanism.",
+          "location": "§7.2, independent conformance paragraph"
+        },
+        {
+          "source": "spec",
+          "quote": "Disable or narrowly weaken the actual detector or invocation with the corpus and expected outcomes fixed; the independent conformance test must detect that loss.",
+          "location": "§7.1, conformance paragraph"
+        },
+        {
+          "source": "spec",
+          "quote": "The prevention mechanisms and conformance tests appear in the inventory, receive all seven criteria, preserve an independent oracle and finite explicit trusted boundary, and justify their recurring cost without duplicating existing TAK enforcement.",
+          "location": "§8, Recursive quality and efficiency"
+        }
+      ]
+    }
+  ],
+  "outcome": "matches"
+}

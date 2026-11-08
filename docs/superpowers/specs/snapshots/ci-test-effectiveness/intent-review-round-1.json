@@ -1,0 +1,455 @@
+{
+  "version": 1,
+  "kind": "spec-review",
+  "featureId": "ci-test-effectiveness",
+  "prdRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md",
+    "sha256": "d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117"
+  },
+  "specRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md",
+    "sha256": "7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf"
+  },
+  "approvalRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-approval-2026-11-08.json",
+    "sha256": "53a12f441e9915272e465c30e99e2a27f4a05367cdab7cc89a7eca494916386f"
+  },
+  "reviewer": {
+    "independence": "Fresh artifact-only semantic reviewer. I did not author the candidate and did not read authoring dialogue or other reviewers' reports. The outcome was judged independently against the supplied approved PRD and recorded product clarifications.",
+    "context": "Reviewed only the four exact supplied product artifacts, the input manifest, the specification-review contract and relevant schema documentation. All four supplied SHA-256 hashes verified. Approval explicitly binds the PRD snapshot despite its retained pre-approval draft wording. This is specification preservation, not a code/CI audit, implementation observation, operator specification agreement, or execution permission.",
+    "documents": [
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md",
+        "sha256": "d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-approval-2026-11-08.json",
+        "sha256": "53a12f441e9915272e465c30e99e2a27f4a05367cdab7cc89a7eca494916386f"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/operator-clarifications-2026-11-08.md",
+        "sha256": "ecda6ec3b7250b9d4b32d0aee7fa829314a2ee49dcc9a822c8e1b40ecaf38bcf"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md",
+        "sha256": "7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/review-inputs-7a6ebcaf8984.json",
+        "sha256": "3aea44056fb0de468eed3ee06a0c482e2be857af3fd84984295b8322add0cbd0"
+      },
+      {
+        "path": ".agents/procedures/intent/references/spec-review.md",
+        "sha256": "9d5a03afad43f10a8452d6d7e57662d178b104002748de8eeb8bea0804dc2aca"
+      },
+      {
+        "path": ".agents/procedures/intent/helpers/check-result-review.mjs",
+        "sha256": "959223659d6d9119e877b85935ad5f1151e95d67168199ead4e5a2760fe1357c"
+      }
+    ]
+  },
+  "promises": [
+    {
+      "id": "E1",
+      "comparison": "supported",
+      "reason": "Supported as a design obligation: complete source/runner/invocation reconciliation includes skipped, generated and local cases, with explicit family membership and exceptions. Every item must receive all seven criteria, and unknowns cannot become passing assessments. This rejects both a filename census and TAK-only sampling. The recorded C3 scope is also preserved by explicit root-principle and metatest assessment (spec line 53). No actual complete inventory is asserted by this review.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| E1 | Complete scope and honest assessment | All CI checks and tests appear in a reconciled inventory; every item is covered by the seven criteria, individually or through an explicitly justified family assessment. Uncertainty and unexamined behavior remain visible. | A convenient sample, a filename census, or only TAK-related tests is presented as the complete audit. | None for the inventory or criterion coverage. Unavailable evidence may remain explicitly unresolved, never silently certified. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md:L48"
+        },
+        {
+          "source": "spec",
+          "quote": "**Proposed architecture choice:** use a complete inventory linked to protection obligations and actual invocation paths. Assess all seven criteria for every item; share evidence only where the same reasoning actually applies. This choice is the author's implementation proposal under the operator's request to continue /arch, not a previously selected operator detail.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L32"
+        },
+        {
+          "source": "spec",
+          "quote": "Enumerate tracked test sources and declared entrypoints, then reconcile against available native runner discovery and workflow/job/step invocation. Include shell and Node/Python suites, parameterized cases, generated/shipped tests and templates, fixture examples, scheduled/manual workflows, required/optional gates, skipped/disabled checks and local invocations of the same checks. Classify non-test automation explicitly. A test-shaped fixture is not silently counted as an executed test or omitted from the input population.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L83"
+        },
+        {
+          "source": "spec",
+          "quote": "Identify each executable check or distinct test case using its path and native identity where available. Group parameterized cases or shared mechanisms only with a member list and a reason their obligation, oracle, delivery and decision evidence are shared. Record exceptions separately. Discovery errors, dynamic names or unsupported runners require explicit reconciliation; they do not justify an empty green population. The inventory records unexecuted cases honestly.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L85"
+        },
+        {
+          "source": "spec",
+          "quote": "All seven assessments must be present for every item, either directly or through a justified family record with explicit item-level applicability. Use reasoned conclusions and evidence, not an aggregate score that can let low cost compensate for ineffective protection. “Unknown” is visible incomplete work, not a passing assessment. A concise evidence reference can discharge a criterion; seven repetitive essays are unnecessary.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L94"
+        },
+        {
+          "source": "spec",
+          "quote": "| Coverage | Every CI check and test is accounted for across all seven criteria; groups have explicit members and exceptions; additions/deletions are reconciled against the final source. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L132"
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "comparison": "supported",
+      "reason": "The obligation/invocation map and linked item, evidence and decision records connect risk, incremental protection, alternatives, cost and consequences to each disposition. Delivery timing and blocking consequence are part of protection, so relocation cannot silently weaken it. Contract-derived expectations and targeted real-boundary experiments reject green-as-proof. Recorded C1 is preserved by required removal only after no required protection is lost; C2 is preserved by redesign of useful disproportionate work. These are decision requirements, not findings that particular checks are wasteful.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| E2 | Decisions are based on meaningful evidence | For each retain, improve, combine, relocate or remove decision, the report identifies the risk, incremental value, evidence, cost and consequences. Relocation includes timing, frequency, scope and blocking role. | Checks are retained because they exist, deleted because they are slow, or declared useful because their own suites are green. | Evidence depth is proportional to the decision's consequences; uncertainty must limit the decision. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md:L49"
+        },
+        {
+          "source": "spec",
+          "quote": "The unit of protection is a meaningful obligation plus the boundary at which it must be enforced. A check's quality includes the relevant fault classes and boundary cases it detects, valid behavior it admits, applicable configurations/platforms, actual delivery/invocation, and required detection time and blocking consequence. Freeze these claims before optimizing the corresponding checks.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L51"
+        },
+        {
+          "source": "spec",
+          "quote": "1. **No incremental protection:** remove the unnecessary check, portion or invocation after establishing that nothing required is lost.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L57"
+        },
+        {
+          "source": "spec",
+          "quote": "2. **Useful protection at disproportionate cost:** redesign its implementation or invocation to deliver the same protection more economically.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L58"
+        },
+        {
+          "source": "spec",
+          "quote": "3. **Necessary and proportionate:** retain with a concise evidence-backed explanation.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L59"
+        },
+        {
+          "source": "spec",
+          "quote": "The loss constraint is strict: no known loss of the defined protection quality may be traded for speed. A small benefit is not zero benefit. For example, retaining detection only in a nightly job does not preserve a before-merge obligation; retaining Linux coverage does not preserve a distinct host-specific contract. Fewer false positives is a quality improvement, provided it does not admit required failure cases.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L63"
+        },
+        {
+          "source": "spec",
+          "quote": "Relevance determines which obligations are genuinely required; the existence of a test does not make its obligation immutable. A claim that an obligation is obsolete or unnecessary requires evidence from current product requirements and supported use. Changing a standing product goal, supported behavior or governing requirement is a separate explicit decision, never a relabeling performed to make a deletion pass. Purely unnecessary repeated work can be removed within this campaign without inventing a replacement.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L65"
+        },
+        {
+          "source": "spec",
+          "quote": "- **Item:** stable campaign ID, source/case/member identities, obligation/risk, invocation(s), required boundary, seven-criterion assessment, evidence references, disposition and change dependency.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L89"
+        },
+        {
+          "source": "spec",
+          "quote": "- **Invocation:** workflow/job/step or local entrypoint, event/path selection, environment, repetition, blocking/skip policy, setup and execution cost, and the items reached.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L90"
+        },
+        {
+          "source": "spec",
+          "quote": "- **Evidence:** claim tested, exact source/input/environment identifiers, method or command, result, raw record reference and limits. Expected outcomes come from the contract, not the checker being evaluated.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L91"
+        },
+        {
+          "source": "spec",
+          "quote": "- **Decision:** affected IDs, action and rationale, retained protection, alternatives considered, evidence and unresolved questions, implementation batch, verification and rollback.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L92"
+        },
+        {
+          "source": "spec",
+          "quote": "Use a targeted runtime experiment where the decision depends on actual detection, delivery, false positives or cost. Prefer the existing real entrypoint with a compliant case and a representative violating case; verify the intended diagnostic/status rather than counting any failure as success. For a disputed oracle or checker regression, use a localized reached fault with the relevant suite and expected outcomes held unchanged, followed by restoration. Compilation, network, permission and unrelated timeout failures do not count as successful defect detection.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L100"
+        },
+        {
+          "source": "spec",
+          "quote": "Each implementation batch has a coherent decision set, allowed paths, fresh inputs, acceptance evidence and a reversible patch. Before changing a useful check, record its required protection and unchanged comparison cases. Repair ineffective assertions or carriers against real faults; do not alter both the subject and expected result merely to manufacture green. Remove proven unnecessary work rather than leaving it as a permanent recommendation.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L118"
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "comparison": "supported",
+      "reason": "The design assesses combinations and actual invocation repetition, with setup, compute, queueing, developer wait, retries and maintenance costs. It distinguishes false positives from product/test/environmental failures and limits host or workload substitution. Comparable final results must include uncertainty and repair overhead, rather than conceal combined burden behind individually useful checks or invented ROI.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| E3 | The system's total burden is assessed | The audit examines repeated work, setup, critical-path delay, queueing and false alarms as well as the value of individual checks. | Useful individual checks hide an unnecessarily expensive combined workflow. | Unavailable measurements are identified; no fabricated ROI or precision. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md:L50"
+        },
+        {
+          "source": "spec",
+          "quote": "Minimality is assessed for the system, including combinations. Two checks that each appear redundant because the other exists cannot both be removed on that reasoning. Retained witnesses and their delivery boundaries must survive the complete proposed batch. Do not claim a mathematical global minimum or universal absence of bugs: acceptance is bounded by the enumerated obligations, considered alternatives and available evidence, with no unresolved known loss hidden inside a green status.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L67"
+        },
+        {
+          "source": "spec",
+          "quote": "- **Invocation:** workflow/job/step or local entrypoint, event/path selection, environment, repetition, blocking/skip policy, setup and execution cost, and the items reached.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L90"
+        },
+        {
+          "source": "spec",
+          "quote": "Measure total cost where a decision depends on it: runner/compute use, setup/download/build time, execution, queueing, developer wall-time, repeated attempts and diagnosis/maintenance work. Report history window and sample size. A failing run is not automatically a false positive; classify product defects, test defects, environmental failures and genuinely flaky results separately. Do not invent a monetary ROI or infer maintenance cost from line counts alone.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L104"
+        },
+        {
+          "source": "spec",
+          "quote": "Choose representative workloads from the actual event and change classes: documentation-only, ordinary production change, shared/kernel/config change, and broad/unknown-path fallback are initial candidates from TAK, to be reconciled at execution. Separate cold setup, warm execution, hosted CI and host-specific paths; do not substitute local timings for hosted queue delay.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L106"
+        },
+        {
+          "source": "spec",
+          "quote": "| Cost result | Comparable before/after evidence separates repair overhead from optimization gains and shows the final campaign result, including regressions or uncertainty. No cherry-picked workload, artificial numerical target or reduced denominator. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L137"
+        }
+      ]
+    },
+    {
+      "id": "E4",
+      "comparison": "supported",
+      "reason": "The two stages remain explicit: full assessment and decisions precede bounded implementation. Missing protection is repaired and supported unnecessary work is removed, with implementation batches tied to decisions. Unimplemented supported removals or unfixed gaps require PARTIAL/BLOCKED, preserving the promise that an audit report alone is insufficient. Dependency-limited changes remain open rather than being counted as delivered; no present repair or execution authorization is claimed.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| E4 | Audit decisions lead to actual improvements | A second execution stage applies supported changes and repairs in-scope defects, with traceability back to the audit. | The campaign ends at a report, or changes are made without the preceding evidence. | A change may be held for a specific unresolved dependency or decision; it remains open rather than counted as delivered. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md:L51"
+        },
+        {
+          "source": "spec",
+          "quote": "There are two execution stages: evidence-backed audit and decisions, then changes based on those decisions. This specification is not an audit finding. No existing check is classified as redundant, inefficient or effective by this document alone.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L14"
+        },
+        {
+          "source": "spec",
+          "quote": "Missing protection is repaired as part of stage 2. A fourth evidence state, **unresolved**, prevents an unsupported change; it is not a permanent exemption or a successful keep verdict. Record the exact missing fact and next bounded action or decision owner.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L61"
+        },
+        {
+          "source": "spec",
+          "quote": "Stage 1 closes with a complete reconciled inventory, all seven criteria addressed, a protection map, measured or explicitly limited cost evidence, and decisions. It does not require an expensive runtime experiment for every item. Unresolved assessment prevents a full audit-complete claim; completed decisions may be preserved, but the two-stage boundary must not be silently replaced by opportunistic repairs during discovery.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L114"
+        },
+        {
+          "source": "spec",
+          "quote": "Prioritize stage 2 by meaningful burden removed or protection repaired relative to implementation/verification cost. Prefer deletion of proven redundant invocations, removal of repeated setup/compilation, shared immutable reads and simpler checks before introducing complex selection or caching. A more elaborate optimization is justified only if simpler approaches cannot achieve the needed result economically.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L116"
+        },
+        {
+          "source": "spec",
+          "quote": "Each implementation batch has a coherent decision set, allowed paths, fresh inputs, acceptance evidence and a reversible patch. Before changing a useful check, record its required protection and unchanged comparison cases. Repair ineffective assertions or carriers against real faults; do not alter both the subject and expected result merely to manufacture green. Remove proven unnecessary work rather than leaving it as a permanent recommendation.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L118"
+        },
+        {
+          "source": "spec",
+          "quote": "| Honest completion | Independent acceptance can trace decisions to evidence and actual changes. Missing essential assessment, confirmed unfixed gaps, unimplemented supported removals or unresolved quality loss mean PARTIAL/BLOCKED, not DONE. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L139"
+        },
+        {
+          "source": "spec",
+          "quote": "Minimal sufficiency does not require proving that no conceivable future optimization exists. Completion means the complete assessed population has defensible dispositions, the supported in-scope improvements are delivered, and no known unnecessary work or protection loss is disguised as success. If no safe useful simplification is found, retain that evidence-backed outcome rather than manufacture deletions; distinguish a valid no-change conclusion from an incomplete investigation.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L141"
+        }
+      ]
+    },
+    {
+      "id": "E5",
+      "comparison": "supported",
+      "reason": "The specification requires before/after burden evidence and preserved relevant fault, valid-behavior, environment and delivery contracts, including combined removals and required detection timing. Representative compliant and violating cases must reach the real boundary with the intended diagnostic; unrelated failures cannot count as detection. Counterexamples require revising or reverting optimizations, and missing evidence limits completion. There is no campaign-wide speedup or deletion quota. Recorded C1 strict no-loss preference is preserved, without claiming universal absence of future bugs.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| E5 | Improvements are verified against the intended benefit | The final result shows what burden changed and whether the relevant protection still works, including legitimate passing cases and material failure cases where applicable. | CI is faster only because useful protection was disabled, or extra checks are added without assessing their cost. | If evidence cannot establish the benefit or protection, completion remains qualified. No predetermined speedup or deletion quota. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md:L52"
+        },
+        {
+          "source": "spec",
+          "quote": "The unit of protection is a meaningful obligation plus the boundary at which it must be enforced. A check's quality includes the relevant fault classes and boundary cases it detects, valid behavior it admits, applicable configurations/platforms, actual delivery/invocation, and required detection time and blocking consequence. Freeze these claims before optimizing the corresponding checks.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L51"
+        },
+        {
+          "source": "spec",
+          "quote": "The loss constraint is strict: no known loss of the defined protection quality may be traded for speed. A small benefit is not zero benefit. For example, retaining detection only in a nightly job does not preserve a before-merge obligation; retaining Linux coverage does not preserve a distinct host-specific contract. Fewer false positives is a quality improvement, provided it does not admit required failure cases.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L63"
+        },
+        {
+          "source": "spec",
+          "quote": "Minimality is assessed for the system, including combinations. Two checks that each appear redundant because the other exists cannot both be removed on that reasoning. Retained witnesses and their delivery boundaries must survive the complete proposed batch. Do not claim a mathematical global minimum or universal absence of bugs: acceptance is bounded by the enumerated obligations, considered alternatives and available evidence, with no unresolved known loss hidden inside a green status.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L67"
+        },
+        {
+          "source": "spec",
+          "quote": "Use a targeted runtime experiment where the decision depends on actual detection, delivery, false positives or cost. Prefer the existing real entrypoint with a compliant case and a representative violating case; verify the intended diagnostic/status rather than counting any failure as success. For a disputed oracle or checker regression, use a localized reached fault with the relevant suite and expected outcomes held unchanged, followed by restoration. Compilation, network, permission and unrelated timeout failures do not count as successful defect detection.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L100"
+        },
+        {
+          "source": "spec",
+          "quote": "Freeze the selected workload definitions and baseline before changing them. Reuse comparable fresh history where it is sufficient. When new timing trials are needed, start with three matched before/after trials for the affected workload, reporting individual values and median; add at most two when noise prevents the decision, then report uncertainty. Do not run the full matrix for a change whose effect can be established more narrowly. Existing binding TAK targets remain attached to TAK-owned changes; no arbitrary campaign-wide speedup or deletion quota is introduced here.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L108"
+        },
+        {
+          "source": "spec",
+          "quote": "Invocation changes must preserve the earliest required detection boundary, legitimate passing cases, supported environments, required gate aggregation and discoverability. If affected-test selection is changed, cover shared config/helpers, dependencies/locks, generated assets, renames/deletions, unknown paths and discovery failure with a conservative fallback. If cache reuse is introduced, bind all inputs necessary to the claimed property and demonstrate invalidation; a branch name or green SHA alone is insufficient.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L120"
+        },
+        {
+          "source": "spec",
+          "quote": "Verify the batch's combined retained protection, including any other removal that relied on the same witness. Reconcile generated/shipped artifacts and callers when touched. Run appropriate existing required checks for the resulting change. Baseline failures and infrastructure outages remain distinguishable from regressions and cannot be hidden by retries or widened skips. Revert or revise a proposed optimization if a counterexample shows quality or required timing loss.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L122"
+        },
+        {
+          "source": "spec",
+          "quote": "| Sufficient protection | Relevant fault and valid-behavior contracts, delivery and required detection timing are explicit; confirmed in-scope gaps are repaired and verified. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L133"
+        },
+        {
+          "source": "spec",
+          "quote": "| No loss | Every simplification preserves its required protection and the combined final system has no unresolved known loss or reachable counterexample hidden by green checks. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L134"
+        },
+        {
+          "source": "spec",
+          "quote": "| Cost result | Comparable before/after evidence separates repair overhead from optimization gains and shows the final campaign result, including regressions or uncertainty. No cherry-picked workload, artificial numerical target or reduced denominator. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L137"
+        },
+        {
+          "source": "spec",
+          "quote": "| Honest completion | Independent acceptance can trace decisions to evidence and actual changes. Missing essential assessment, confirmed unfixed gaps, unimplemented supported removals or unresolved quality loss mean PARTIAL/BLOCKED, not DONE. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L139"
+        }
+      ]
+    },
+    {
+      "id": "E6",
+      "comparison": "supported",
+      "reason": "Actual source, task/PR state and evidence must distinguish planned, running, landed and verified TAK work. Applicable evidence is reused with provenance and scope checks; all TAK-covered items still receive seven criteria. Existing TAK constraints and conflicts must be reconciled, and only affected changes wait. TAK conformance methods are scoped inputs rather than a universal certificate or compulsory duplicate assurance mechanism. This review establishes no actual TAK implementation status.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| E6 | TAK is considered without shrinking the audit | The executor establishes which TAK requirements and implementations are planned, in flight, landed and actually verified, reuses applicable evidence, and still assesses every check against all seven criteria. TAK's own checks are included. | TAK is treated as already complete, as a universal certificate, as an exemption, or as a reason to create a competing assurance mechanism. | Pending TAK delivery may hold dependent changes; unrelated assessment and improvements can continue. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md:L53"
+        },
+        {
+          "source": "spec",
+          "quote": "Read the then-current [TAK design](2026-10-08-test-assurance-kernel-design.md), [umbrella](../../../.claude/orchestrator-prompts/test-assurance-kernel/kickoff.md), stages and evidence. Determine what is planned, running, landed and verified from actual source, task/PR state and evidence, not the document's status sentence. Existing [population](../../test-assurance-kernel/s0/population.json), [workloads](../../test-assurance-kernel/s0/workloads.json) and [manifest](../../test-assurance-kernel/s0/manifest.json) are reusable inputs only after reconciling their revisions and scope.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L73"
+        },
+        {
+          "source": "spec",
+          "quote": "Create a short responsibility map: obligation/family → TAK work and evidence → this campaign's remaining assessment or change → dependency/owner. All TAK-covered items still receive the seven criteria. Reuse an existing result only if its code, inputs, tools, environment and claimed property apply. A source count is not runner discovery; a design is not delivered behavior.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L75"
+        },
+        {
+          "source": "spec",
+          "quote": "Do not duplicate an active TAK repair or silently change its stage order, executor constraints or acceptance targets. Wait or coordinate only affected changes; independent assessment can continue. The new campaign does not authorize dispatching or substituting for TAK. Differences between a TAK requirement and a justified removal/optimization are recorded as decisions needing reconciliation before the conflicting change; no silent supersession.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L77"
+        },
+        {
+          "source": "spec",
+          "quote": "Before each repair batch and final acceptance, compare the current base and relevant TAK changes with the audited baseline. Revalidate affected claims and reconcile inventory additions/deletions. Reuse unaffected evidence with its original provenance. Do not automatically restart the entire audit on every new commit, or silently rebase away an intervening change.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L79"
+        },
+        {
+          "source": "spec",
+          "quote": "K1–K7 and Q1–Q6 from TAK supply applicable methods within their stated scope, not a Cartesian experiment requirement for every assertion. For a metatest that is itself the production gate, an independent fixed conformance driver is the trusted boundary. Do not recursively add another permanent metatest for every verifier. Narrow probes run in disposable copies and cannot modify the working baseline or shared runtime configuration.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L102"
+        },
+        {
+          "source": "spec",
+          "quote": "| Freshness and TAK | Final claims bind the actual reviewed revision; relevant intervening changes and TAK responsibilities/evidence are reconciled. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L138"
+        }
+      ]
+    },
+    {
+      "id": "E7",
+      "comparison": "supported",
+      "reason": "Execution must establish the live integration base, divergence, open work, exact revisions, environment and observation time. Evidence must apply to the actual code, inputs and claimed property; changes are reconciled before each repair batch and final acceptance. Unavailable live or host evidence limits the claim rather than creating freshness by assumption. Reconciliation stays focused on changed areas, preserving reuse without relying on stale checkout conclusions.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| E7 | Conclusions apply to the actual repository state | The executor establishes the intended current base and records the audited revision, relevant branch/PR state and evidence dates. Before repairs and final acceptance, relevant changes since that baseline are reconciled. | An old checkout or stale report drives repairs to an already-fixed or changed mechanism. | If freshness cannot be established, affected conclusions remain provisional. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md:L54"
+        },
+        {
+          "source": "spec",
+          "quote": "At execution start, resolve the actual intended integration branch from current repository conventions and the launch context; verify its live remote state, local divergence and relevant open work. Record the repository identity, base and audited source SHAs, lock/config/toolchain identifiers, environment and observation time. Preserve unrelated WIP; use an isolated execution checkout. An old local remote-tracking ref is not freshness evidence. Unavailable remote/task evidence is an explicit limit, not proof that nothing is in flight.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L71"
+        },
+        {
+          "source": "spec",
+          "quote": "Create a short responsibility map: obligation/family → TAK work and evidence → this campaign's remaining assessment or change → dependency/owner. All TAK-covered items still receive the seven criteria. Reuse an existing result only if its code, inputs, tools, environment and claimed property apply. A source count is not runner discovery; a design is not delivered behavior.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L75"
+        },
+        {
+          "source": "spec",
+          "quote": "Before each repair batch and final acceptance, compare the current base and relevant TAK changes with the audited baseline. Revalidate affected claims and reconcile inventory additions/deletions. Reuse unaffected evidence with its original provenance. Do not automatically restart the entire audit on every new commit, or silently rebase away an intervening change.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L79"
+        },
+        {
+          "source": "spec",
+          "quote": "- **Evidence:** claim tested, exact source/input/environment identifiers, method or command, result, raw record reference and limits. Expected outcomes come from the contract, not the checker being evaluated.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L91"
+        },
+        {
+          "source": "spec",
+          "quote": "| Freshness and TAK | Final claims bind the actual reviewed revision; relevant intervening changes and TAK responsibilities/evidence are reconciled. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L138"
+        },
+        {
+          "source": "spec",
+          "quote": "Host-specific claims require the actual applicable host evidence. A missing host or inaccessible CI history limits the corresponding claim and completion status; it does not authorize a new infrastructure project.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L149"
+        }
+      ]
+    },
+    {
+      "id": "E8",
+      "comparison": "supported",
+      "reason": "The architecture controls investigation overhead through justified family evidence, reusable existing tools and records, bounded decision-driven experiments, narrow before/after measurements and reuse of unchanged historical evidence. Extra experiments must identify the material decision they can change, and audit overhead enters the final cost assessment. Independent acceptance targets consequential/disputed claims rather than repeating everything. No new permanent platform, metatest recursion or mandatory gate follows automatically from a finding; necessary evidence cannot be replaced by confidence.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| E8 | The campaign itself is proportionate | Investigation and verification depth are chosen for their ability to change a material decision. Existing suitable evidence is reused when its applicability and freshness are established. | The response to excessive checking is an unbounded new layer of audits, repeated reviews or permanent gates. | Low-value extra experiments may be omitted with an explanation; necessary evidence for a material change may not be replaced by confidence alone. |",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md:L55"
+        },
+        {
+          "source": "spec",
+          "quote": "An independent essay and identical experiment sequence for every test would expose local differences but repeat work and obscure cross-job duplication. A workflow-timing-only investigation would be cheaper but cannot settle usefulness, weak oracles or sufficiency. The selected proposal combines a complete item-level denominator with reusable evidence and explicit exceptions. Grouping economizes evidence; it does not exempt members from assessment.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L34"
+        },
+        {
+          "source": "spec",
+          "quote": "Use the existing runners, manifests, native discovery, Git history, CI records and applicable TAK artifacts. No new permanent audit platform, universal semantic checker, scoring framework or mandatory CI layer is a default deliverable.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L36"
+        },
+        {
+          "source": "spec",
+          "quote": "All seven assessments must be present for every item, either directly or through a justified family record with explicit item-level applicability. Use reasoned conclusions and evidence, not an aggregate score that can let low cost compensate for ineffective protection. “Unknown” is visible incomplete work, not a passing assessment. A concise evidence reference can discharge a criterion; seven repetitive essays are unnecessary.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L94"
+        },
+        {
+          "source": "spec",
+          "quote": "K1–K7 and Q1–Q6 from TAK supply applicable methods within their stated scope, not a Cartesian experiment requirement for every assertion. For a metatest that is itself the production gate, an independent fixed conformance driver is the trusted boundary. Do not recursively add another permanent metatest for every verifier. Narrow probes run in disposable copies and cannot modify the working baseline or shared runtime configuration.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L102"
+        },
+        {
+          "source": "spec",
+          "quote": "Freeze the selected workload definitions and baseline before changing them. Reuse comparable fresh history where it is sufficient. When new timing trials are needed, start with three matched before/after trials for the affected workload, reporting individual values and median; add at most two when noise prevents the decision, then report uncertainty. Do not run the full matrix for a change whose effect can be established more narrowly. Existing binding TAK targets remain attached to TAK-owned changes; no arbitrary campaign-wide speedup or deletion quota is introduced here.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L108"
+        },
+        {
+          "source": "spec",
+          "quote": "For each extra experiment, state the unresolved decision it can change and what would be lost by omitting it. Stop once sufficient evidence settles that decision; extend only for a new counterexample, changed relevant inputs or material unresolved uncertainty. A negative result must survive in the record. Audit overhead is recorded separately and included in the final assessment of whether the campaign earned its cost.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L110"
+        },
+        {
+          "source": "spec",
+          "quote": "No new permanent gate is mandatory merely because the campaign found a problem. A regression case is warranted when it protects a real repaired contract; its own execution and maintenance cost are part of the decision. No paid LLM is introduced into CI.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L124"
+        },
+        {
+          "source": "spec",
+          "quote": "Keep the deliverables small: one linked inventory/decision record, portable evidence for load-bearing claims, the implementation changes, and a concise before/after report. Large logs may use the existing artifact channel with durable references. A new dashboard, service or reporting framework is out of scope by default.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L128"
+        },
+        {
+          "source": "spec",
+          "quote": "The acceptance reviewer examines the complete decision/removal map and raw evidence, reproduces disputed or consequential protection claims at the actual changed boundary, and checks combined removals. It is not required to repeat every unchanged historical experiment. Evidence checks do not become a new permanent CI pipeline. A clean schema, a completed worker status or another green full-suite run is not a substitute for substantive acceptance.",
+          "location": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md:L147"
+        }
+      ]
+    }
+  ],
+  "outcome": "matches"
+}

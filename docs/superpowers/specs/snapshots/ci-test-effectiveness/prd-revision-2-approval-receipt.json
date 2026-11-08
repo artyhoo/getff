@@ -1,0 +1,14 @@
+{
+  "featureId": "ci-test-effectiveness",
+  "decision": "approved",
+  "approvedSha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4",
+  "snapshotRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4.md",
+    "sha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4"
+  },
+  "approvalRecordRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-revision-2-approval-2026-11-08.json",
+    "sha256": "8bba9f28f8ee8ffec73a432b766fc841523ad59835a3790527822bf6fa6024ba"
+  },
+  "approver": "operator in this chat"
+}
