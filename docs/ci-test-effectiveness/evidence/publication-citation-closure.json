@@ -1,5 +1,5 @@
 {
-  "status": "Current live-authority citation-only publication closure; committed citation gate pending",
+  "status": "Current citation publication closure verified on actual committed source; normal delivery checks pass; root publication/transport remains pending",
   "baseHead": "a8f52c04cfa8e36ab903a837579301080025706b",
   "sourcePaths": [
     ".agents/procedures/dispatcher/references/execution.md",
@@ -707,5 +707,28 @@
     "faceFacts": "pass; unchanged",
     "ruleIndex": "pass; unchanged",
     "archive": "pass1673 entries/1668 payload; only mapped hashes changed"
+  },
+  "sourceCommit": "c1930af47de3ff4932527972d8abec9a19e47923",
+  "committedCitationGate": {
+    "id": "committed-citation-gate",
+    "command": [
+      "env",
+      "PREPUSH_ONLY=line-citations",
+      "PREPUSH_UPSTREAM_REF=5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+      "node_modules/.bin/tsx",
+      "packages/core/hooks/pre-push.ts"
+    ],
+    "exitCode": 0,
+    "expectedExitCode": 0,
+    "wallSeconds": 11.400779,
+    "output": "docs/ci-test-effectiveness/evidence/publication-committed-citation-gate.txt",
+    "outputSha256": "74c6bed8e528bf2c02905078ca0d7323d8846abd9b1cb94c14a5ad4848a4b262",
+    "sourceHead": "c1930af47de3ff4932527972d8abec9a19e47923",
+    "rangeBase": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+    "resolved": 1273,
+    "unresolvableReported": 415,
+    "deferredToGenerator": 86,
+    "noBlameBaselineReported": 6,
+    "claimLimit": "Existing default gate passes; no claim that unresolvable/deferred/no-baseline citations were semantically certified."
   }
 }

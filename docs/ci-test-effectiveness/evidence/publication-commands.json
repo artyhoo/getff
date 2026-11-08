@@ -1,5 +1,6 @@
 {
-  "context": "Native current-reference publication closure; comment/prose-only equivalence, normal generators and actual gate. No full native test or installer repeat.",
+  "sourceHead": "c1930af47de3ff4932527972d8abec9a19e47923",
+  "context": "Actual registered current-citation prepush section against committed whole-branch source; one source-equivalent publication closure only. No full test or installer repeats.",
   "commands": [
     {
       "id": "citation-write",
@@ -193,8 +194,23 @@
       "wallSeconds": 0.169876,
       "output": "docs/ci-test-effectiveness/evidence/publication-source-hash-map-equivalence.txt",
       "outputSha256": "9a62e6ba0a686ec41637342da356042655fb41ebb68c440234c139333acba1ef"
+    },
+    {
+      "id": "committed-citation-gate",
+      "command": [
+        "env",
+        "PREPUSH_ONLY=line-citations",
+        "PREPUSH_UPSTREAM_REF=5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+        "node_modules/.bin/tsx",
+        "packages/core/hooks/pre-push.ts"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 11.400779,
+      "output": "docs/ci-test-effectiveness/evidence/publication-committed-citation-gate.txt",
+      "outputSha256": "74c6bed8e528bf2c02905078ca0d7323d8846abd9b1cb94c14a5ad4848a4b262"
     }
   ],
-  "measuredCommandWallSeconds": 30.739839,
-  "limits": "Measured child-command wall only. Excludes authoring, prior unclocked source reads/checks, commit hooks until separately reported; not CPU, token/$ or savings."
+  "measuredCommandWallSeconds": 42.140618,
+  "limits": "Child-command wall, not CPU, token/$, recurring incremental cost or savings. Excludes authoring, prior unclocked read/comparison drafts and separately reported normal commit hooks."
 }
