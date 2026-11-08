@@ -1,0 +1,177 @@
+{
+  "status": "PASS",
+  "elapsedSeconds": 0.9336272870004905,
+  "forecasts": [
+    {
+      "runId": 42372587424,
+      "headSHA": "346e3daf3255a431100c6fa2298727cca36e3bc7",
+      "rawRef": "docs/ci-test-effectiveness/evidence/ci-jobs-42372587424.json.gz",
+      "observedBeforeJobSeconds": {
+        "A": 4100.0,
+        "B": 10236.0,
+        "C": 2847.0
+      },
+      "movedSteps": [
+        {
+          "suite": "synth-wire-consumer-config",
+          "stepName": "install-sh \u2014 synth-wire adds getff's block to a consumer's own eslint config by insertions only, original kept (Q4.7; getff's own config still wired)",
+          "seconds": 1472.0,
+          "stepConclusion": "success"
+        },
+        {
+          "suite": "first-commit-passable",
+          "stepName": "install-sh \u2014 first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)",
+          "seconds": 647.0,
+          "stepConclusion": "success"
+        },
+        {
+          "suite": "r2-glob-reach",
+          "stepName": "Run install-sh R2 glob-reach test \u2014 CI-orphan WARN + per-package shadow + globals (GH",
+          "seconds": 1472.0,
+          "stepConclusion": "success"
+        },
+        {
+          "suite": "r2-auto-wire",
+          "stepName": "install-sh \u2014 r2-auto-wire (GH",
+          "seconds": 959.0,
+          "stepConclusion": "success"
+        }
+      ],
+      "forecastJobSeconds": {
+        "A": 6219.0,
+        "B": 5686.0,
+        "C": 5278.0
+      },
+      "observedBeforeMaxSeconds": 10236.0,
+      "forecastMaxSeconds": 6219.0,
+      "unchangedShardJobSecondsSum": 17183.0,
+      "removedRepeatStepSeconds": [
+        {
+          "job": "framework-self-install-ts-server",
+          "seconds": 3.0,
+          "conclusion": "success"
+        },
+        {
+          "job": "framework-self-install-react-next",
+          "seconds": 3.0,
+          "conclusion": "success"
+        }
+      ],
+      "assumptions": "Held durations only; no observed after, setup/queue/cache/network/host/order effects unmeasured; job sums are elapsed durations, not billed CPU."
+    },
+    {
+      "runId": 42372579925,
+      "headSHA": "346e3daf3255a431100c6fa2298727cca36e3bc7",
+      "rawRef": "docs/ci-test-effectiveness/evidence/ci-jobs-42372579925.json.gz",
+      "observedBeforeJobSeconds": {
+        "A": 4714.0,
+        "B": 9866.0,
+        "C": 3247.0
+      },
+      "movedSteps": [
+        {
+          "suite": "synth-wire-consumer-config",
+          "stepName": "install-sh \u2014 synth-wire adds getff's block to a consumer's own eslint config by insertions only, original kept (Q4.7; getff's own config still wired)",
+          "seconds": 1460.0,
+          "stepConclusion": "success"
+        },
+        {
+          "suite": "first-commit-passable",
+          "stepName": "install-sh \u2014 first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)",
+          "seconds": 615.0,
+          "stepConclusion": "success"
+        },
+        {
+          "suite": "r2-glob-reach",
+          "stepName": "Run install-sh R2 glob-reach test \u2014 CI-orphan WARN + per-package shadow + globals (GH",
+          "seconds": 1416.0,
+          "stepConclusion": "success"
+        },
+        {
+          "suite": "r2-auto-wire",
+          "stepName": "install-sh \u2014 r2-auto-wire (GH",
+          "seconds": 911.0,
+          "stepConclusion": "success"
+        }
+      ],
+      "forecastJobSeconds": {
+        "A": 6789.0,
+        "B": 5464.0,
+        "C": 5574.0
+      },
+      "observedBeforeMaxSeconds": 9866.0,
+      "forecastMaxSeconds": 6789.0,
+      "unchangedShardJobSecondsSum": 17827.0,
+      "removedRepeatStepSeconds": [
+        {
+          "job": "framework-self-install-ts-server",
+          "seconds": 3.0,
+          "conclusion": "success"
+        },
+        {
+          "job": "framework-self-install-react-next",
+          "seconds": 4.0,
+          "conclusion": "success"
+        }
+      ],
+      "assumptions": "Held durations only; no observed after, setup/queue/cache/network/host/order effects unmeasured; job sums are elapsed durations, not billed CPU."
+    },
+    {
+      "runId": 42489342075,
+      "headSHA": "01b25d78b11083fb6e463fdf9de61299aff8972a",
+      "rawRef": "docs/ci-test-effectiveness/evidence/b4-before-42489342075-jobs-rest.json.gz",
+      "observedBeforeJobSeconds": {
+        "A": 3951.0,
+        "B": 8495.0,
+        "C": 2241.0
+      },
+      "movedSteps": [
+        {
+          "suite": "synth-wire-consumer-config",
+          "stepName": "install-sh \u2014 synth-wire adds getff's block to a consumer's own eslint config by insertions only, original kept (Q4.7; getff's own config still wired)",
+          "seconds": 1254.0,
+          "stepConclusion": "success"
+        },
+        {
+          "suite": "first-commit-passable",
+          "stepName": "install-sh \u2014 first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)",
+          "seconds": 520.0,
+          "stepConclusion": "success"
+        },
+        {
+          "suite": "r2-glob-reach",
+          "stepName": "Run install-sh R2 glob-reach test \u2014 CI-orphan WARN + per-package shadow + globals (GH",
+          "seconds": 1187.0,
+          "stepConclusion": "success"
+        },
+        {
+          "suite": "r2-auto-wire",
+          "stepName": "install-sh \u2014 r2-auto-wire (GH",
+          "seconds": 783.0,
+          "stepConclusion": "success"
+        }
+      ],
+      "forecastJobSeconds": {
+        "A": 5725.0,
+        "B": 4751.0,
+        "C": 4211.0
+      },
+      "observedBeforeMaxSeconds": 8495.0,
+      "forecastMaxSeconds": 5725.0,
+      "unchangedShardJobSecondsSum": 14687.0,
+      "removedRepeatStepSeconds": [
+        {
+          "job": "framework-self-install-ts-server",
+          "seconds": 3.0,
+          "conclusion": "success"
+        },
+        {
+          "job": "framework-self-install-react-next",
+          "seconds": 3.0,
+          "conclusion": "success"
+        }
+      ],
+      "assumptions": "Held durations only; no observed after, setup/queue/cache/network/host/order effects unmeasured; job sums are elapsed durations, not billed CPU."
+    }
+  ]
+}

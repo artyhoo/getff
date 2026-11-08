@@ -1,0 +1,74 @@
+[
+  {
+    "runId": 42370509577,
+    "source": "cfb4609ac17cb032cbebd9c3255e8f4964f02b38",
+    "rawRef": "docs/ci-test-effectiveness/evidence/ci-jobs-42370509577.json.gz",
+    "repeatSteps": [
+      {
+        "job": "Self-install on tmp consumer (react-next)",
+        "seconds": 4.0,
+        "conclusion": "success"
+      },
+      {
+        "job": "Self-install on tmp consumer (ts-server)",
+        "seconds": 2.0,
+        "conclusion": "success"
+      }
+    ],
+    "sumStepSeconds": 6.0
+  },
+  {
+    "runId": 42372587424,
+    "source": "346e3daf3255a431100c6fa2298727cca36e3bc7",
+    "rawRef": "docs/ci-test-effectiveness/evidence/ci-jobs-42372587424.json.gz",
+    "repeatSteps": [
+      {
+        "job": "Self-install on tmp consumer (react-next)",
+        "seconds": 3.0,
+        "conclusion": "success"
+      },
+      {
+        "job": "Self-install on tmp consumer (ts-server)",
+        "seconds": 3.0,
+        "conclusion": "success"
+      }
+    ],
+    "sumStepSeconds": 6.0
+  },
+  {
+    "runId": 42372579925,
+    "source": "346e3daf3255a431100c6fa2298727cca36e3bc7",
+    "rawRef": "docs/ci-test-effectiveness/evidence/ci-jobs-42372579925.json.gz",
+    "repeatSteps": [
+      {
+        "job": "Self-install on tmp consumer (ts-server)",
+        "seconds": 3.0,
+        "conclusion": "success"
+      },
+      {
+        "job": "Self-install on tmp consumer (react-next)",
+        "seconds": 4.0,
+        "conclusion": "success"
+      }
+    ],
+    "sumStepSeconds": 7.0
+  },
+  {
+    "runId": 42489342075,
+    "source": "01b25d78b11083fb6e463fdf9de61299aff8972a",
+    "rawRef": "docs/ci-test-effectiveness/evidence/b4-before-42489342075-jobs-rest.json.gz",
+    "repeatSteps": [
+      {
+        "job": "Self-install on tmp consumer (react-next)",
+        "seconds": 3.0,
+        "conclusion": "success"
+      },
+      {
+        "job": "Self-install on tmp consumer (ts-server)",
+        "seconds": 3.0,
+        "conclusion": "success"
+      }
+    ],
+    "sumStepSeconds": 6.0
+  }
+]
