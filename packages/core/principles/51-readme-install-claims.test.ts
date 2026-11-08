@@ -149,3 +149,35 @@ describe('active array and factory option bypasses', () => {
     expect(checkClaim('B', form('B').replace('factory`', 'factory-reset`'), factory)).not.toEqual([]);
   });
 });
+
+describe('Arm F structural shell boundaries', () => {
+  const canonical = 'CORE_DEVDEPS=(\n  a@^1 # why: long enough explanation\n)\n';
+  it('rejects a second assignment behind an arbitrary declaration command', () => {
+    expect(checkPins(canonical + 'typeset -a CORE_DEVDEPS=(bad@^1)\n')).not.toEqual([]);
+  });
+  it('rejects an indexed assignment to the array', () => {
+    expect(checkPins(canonical + 'CORE_DEVDEPS[0]=bad@^1\n')).not.toEqual([]);
+  });
+  it('rejects an assignment after an escaped pseudo-comment', () => {
+    expect(checkPins(canonical + String.raw`echo\ #; CORE_DEVDEPS=(bad@^1)` + '\n')).not.toEqual([]);
+  });
+  it('rejects an assignment after a quoted hash', () => {
+    expect(checkPins(canonical + 'echo "text # still quoted"; CORE_DEVDEPS=(bad@^1)\n')).not.toEqual([]);
+  });
+  it('ignores an assignment in an inline shell comment', () => {
+    expect(checkPins(canonical + 'echo done # CORE_DEVDEPS=(bad@^1)\n')).toEqual([]);
+  });
+  it('rejects a closing parenthesis joined to another shell word', () => {
+    expect(checkPins(canonical.replace(')\n', ')garbage\n'))).not.toEqual([]);
+  });
+  it('rejects escaped whitespace before the apparent comment', () => {
+    expect(checkPins(String.raw`CORE_DEVDEPS=(
+  a@^1\ # why: long enough explanation
+)
+`)).not.toEqual([]);
+  });
+  it('accepts the live canonical block and inert commented assignments', () => {
+    expect(checkPins(pins)).toEqual([]);
+    expect(checkPins('# typeset -a CORE_DEVDEPS=(bad@^1)\n' + canonical + '# CORE_DEVDEPS+=(bad@^1)\n')).toEqual([]);
+  });
+});
