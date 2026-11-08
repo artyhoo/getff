@@ -1,0 +1,51 @@
+
+ RUN  v4.1.8 /tmp/b3-held-jmth7fsr
+
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 1 failed) 444ms
+     ✓ binds the required non-main PR gate, including body edits, to the shared checker 3ms
+     ✓ Incident-1 uncited prose 23ms
+     ✓ cited valid body 26ms
+     ✓ empty body 7ms
+     ✓ missing backward section 15ms
+     ✓ short forward 15ms
+     ✓ short backward 18ms
+     ✓ distinct uncited backward 25ms
+     ✓ malformed citation 28ms
+     ✓ citation outside section 22ms
+     ✓ Skip at 60 characters 9ms
+     ✓ Skip with supported-size UTF-8 content 27ms
+     ✓ Skip below 60 characters 18ms
+     ✓ section length exactly 40 28ms
+     ✓ section length below 40 15ms
+     ✓ has a safe manual fixture carrier in the recurring core hook suite 149ms
+     × propagates missing hooks and accepts actual checkout shapes through the workflow command 12ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 passed (17)
+   Start at  16:49:06
+   Duration  783ms (transform 49ms, setup 46ms, import 54ms, tests 444ms, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production husky checker > propagates missing hooks and accepts actual checkout shapes through the workflow command
+AssertionError: B3_REACHED_HUSKY_INVOCATION
+: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ status packages/core/hooks/ci-checker-oracles.test.ts:29:56
+     27|   expect(result.error).toBeUndefined();
+     28|   expect(result.signal).toBeNull();
+     29|   expect(result.status, result.stdout + result.stderr).toBe(expected);
+       |                                                        ^
+     30|   expect(result.stdout + result.stderr).toContain(diagnostic);
+     31| }
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:85:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

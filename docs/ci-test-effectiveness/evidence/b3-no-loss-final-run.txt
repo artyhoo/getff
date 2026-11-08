@@ -1,0 +1,78 @@
+{
+  "base": "9baa971338598082e4b261703cde1d1a2989b094",
+  "disciplinePredicateExactExceptSkipTransport": true,
+  "skipTransportException": "Same regex; echo-pipe-grep-q becomes here-string as required by normal commit scanner. One supported public UTF-8 probe passes both preimage and repair; no public runtime RED claimed. Sourced195KB rejection is non-public diagnostic only. Other bytes compare exactly.",
+  "disciplineBodySHA256": "8501c717369e04925b7b1a200ca11c88ca6eef005b10980e5d1c8903f080ca97",
+  "huskyPredicateExactAfterDirectoryParameterization": true,
+  "allOtherAuditJobsAndEventsExact": true,
+  "requiredNameGuardEventsPreserved": true,
+  "combinedSanityRemovals": "Both removed; surviving16 core controls and safe9-case husky fixtures execute actual helpers. Existing s17 commit gate and required completeness/aggregation tests unchanged.",
+  "hooksAfter": {
+    ".husky/post-checkout": {
+      "sha256": "43045e468b290cb4b2c2f846a4d5e266f4a3d70c259beb063f2056afdf25ed27",
+      "mode": "0o700"
+    },
+    ".husky/pre-commit": {
+      "sha256": "667cdb1a25c621183e20d1c04a317543305c6c642610d4a8c859e2f8cfdce5ee",
+      "mode": "0o700"
+    },
+    ".husky/pre-merge-commit": {
+      "sha256": "7354235663b5b9f90c94eb7d34cc52a8d8b5aceda00f3288245ffaade45cb0b0",
+      "mode": "0o700"
+    },
+    ".husky/pre-push": {
+      "sha256": "f3c325ba8fca5dda9978f36991f22ccda60758bbe473643dedb255b2948d2a22",
+      "mode": "0o700"
+    }
+  },
+  "hooksUnchanged": true,
+  "localMatchedTrials": {
+    "before-inline": {
+      "seconds": [
+        0.058943804000591626,
+        0.05657147300007637,
+        0.057241185999373556
+      ],
+      "medianSeconds": 0.057241185999373556
+    },
+    "after-script": {
+      "seconds": [
+        0.06833062500118103,
+        0.05103452399998787,
+        0.05352610599948093
+      ],
+      "medianSeconds": 0.05352610599948093
+    },
+    "new-recurring-core-file": {
+      "seconds": [
+        2.736632788000861,
+        2.4093568379994394,
+        2.2231696439994266
+      ],
+      "medianSeconds": 2.4093568379994394,
+      "includes": "npx/vitest startup plus16 controls; existing hosted test:hooks shares setup, so this standalone wall time is not marginal hosted overhead"
+    }
+  },
+  "removedHostedJobs": [
+    {
+      "id": 128755665547,
+      "name": "Sanity — §1.7 Backward-check with file:line citation MUST pass substance gate (Forward-check p...",
+      "head_sha": "62a6208a09357665c4a67fda852e48b482537f32",
+      "started_at": "2026-11-08T14:11:12Z",
+      "completed_at": "2026-11-08T14:11:16Z",
+      "html_url": "https://github.com/artyhoo/getff/actions/runs/42488550999/job/128755665547",
+      "elapsedSeconds": 4.0
+    },
+    {
+      "id": 128755665841,
+      "name": "Sanity — Incident-1 stub §1.7 body MUST fail substance gate",
+      "head_sha": "62a6208a09357665c4a67fda852e48b482537f32",
+      "started_at": "2026-11-08T14:11:12Z",
+      "completed_at": "2026-11-08T14:11:14Z",
+      "html_url": "https://github.com/artyhoo/getff/actions/runs/42488550999/job/128755665841",
+      "elapsedSeconds": 2.0
+    }
+  ],
+  "historicalSource": "evidence/ci-jobs-42488550999.json",
+  "costLimits": "One historical workflow/run (2+4 elapsed runner seconds), not measured after-CI saving; discipline adds checkout in surviving job. No queue/cold-cache/billing/net speedup claim. New host fixtures add meaningful repair overhead. Post-integration hosted data pending."
+}

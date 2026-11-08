@@ -1,0 +1,8 @@
+[sweep] FAIL enforce-husky-presence — output: /tmp/b3-sweep-nbzzmhh9/logs-missing-prepush/01-enforce-husky-presence.log
+----- enforce-husky-presence: last 40 lines of output -----
+::error::missing .husky/pre-push
+----- end enforce-husky-presence output -----
+SWEEP: stopped at enforce-husky-presence (mode=full)
+SWEEP: NOT RUN: (none)
+SWEEP: re-run with --keep-going to run them anyway
+SWEEP: gate logs in /tmp/b3-sweep-nbzzmhh9/logs-missing-prepush

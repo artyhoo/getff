@@ -1549,18 +1549,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Verify .husky/ hooks exist and are executable
-        run: |
-          for hook in .husky/pre-commit .husky/pre-push; do
-            test -f "$hook" || { echo "::error::missing $hook"; exit 1; }
-            test -x "$hook" || { echo "::error::$hook not executable"; exit 1; }
-            # non-empty + non-trivial (not just exit 0). Wave 10.1: the pre-push
-            # hook may delegate its probes to the TS orchestrator
-            # (packages/core/hooks/pre-push.ts) rather than inline them, so the
-            # dispatch reference counts as non-trivial too.
-            grep -qE '\b(actionlint|zizmor|bash -n|json\.load|yaml\.safe_load)\b|packages/core/hooks/pre-push\.ts' "$hook" \
-              || { echo "::error::$hook lacks expected probes (looks empty/stub)"; exit 1; }
-          done
-          echo "✓ .husky/ hooks present, executable, non-trivial"
+        run: bash scripts/check-husky-presence.sh
 
   framework-self-install-ts-server:
     name: Self-install on tmp consumer (ts-server)

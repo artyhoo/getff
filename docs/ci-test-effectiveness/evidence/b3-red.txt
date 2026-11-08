@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/workspace/getff-native/docs/ci-test-effectiveness/evidence/b3-conformance.py", line 28, in <module>
+    assert all(v['exit'] != 0 for v in held.values()), 'RED: production bypass reached; both claimed conformance carriers falsely return0'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RED: production bypass reached; both claimed conformance carriers falsely return0

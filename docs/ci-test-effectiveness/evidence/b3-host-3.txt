@@ -1,0 +1,10 @@
+PASS: missing pre-push
+PASS: non-executable pre-push
+PASS: stub pre-push
+PASS: missing pre-push
+PASS: non-executable pre-push
+PASS: stub pre-push
+PASS: owned valid probes
+PASS: dispatcher reference
+PASS: actual checkout dispatcher shapes (copied, never executed)
+PASS: husky checker fixed controls

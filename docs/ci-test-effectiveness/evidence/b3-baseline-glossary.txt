@@ -1,0 +1,11 @@
+
+ RUN  v4.1.8 /tmp/b3-baseline-i5gohtvi
+
+ ✓ packages/core/hooks/glossary-counters.test.ts (31 tests | 30 skipped) 3506ms
+     ✓ control: the same 10 prompts run SEQUENTIALLY also count 10  3503ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 30 skipped (31)
+   Start at  16:36:08
+   Duration  4.03s (transform 100ms, setup 37ms, import 100ms, tests 3.51s, environment 0ms)
+

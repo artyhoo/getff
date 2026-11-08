@@ -1,0 +1,120 @@
+
+ RUN  v4.1.8 /tmp/b3-held-jmth7fsr
+
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 15 failed) 260ms
+     × binds the required non-main PR gate, including body edits, to the shared checker 13ms
+     × Incident-1 uncited prose 8ms
+     × cited valid body 7ms
+     × empty body 6ms
+     × missing backward section 6ms
+     × short forward 4ms
+     × short backward 4ms
+     × distinct uncited backward 5ms
+     × malformed citation 6ms
+     × citation outside section 7ms
+     × Skip at 60 characters 6ms
+     × Skip with supported-size UTF-8 content 6ms
+     × Skip below 60 characters 4ms
+     × section length exactly 40 4ms
+     × section length below 40 5ms
+     ✓ has a safe manual fixture carrier in the recurring core hook suite 141ms
+     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 24ms
+
+ Test Files  1 failed (1)
+      Tests  15 failed | 2 passed (17)
+   Start at  16:49:04
+   Duration  666ms (transform 52ms, setup 40ms, import 71ms, tests 260ms, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > binds the required non-main PR gate, including body edits, to the shared checker
+AssertionError: expected 'echo B3_REACHED_INVOCATION_BYPASS; ex…' to be 'bash scripts/check-discipline-pr-body…' // Object.is equality
+
+Expected: "bash scripts/check-discipline-pr-body.sh"
+Received: "echo B3_REACHED_INVOCATION_BYPASS; exit 0"
+
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:47:22
+     45|     expect(job.if).toBe("github.event.pull_request.base.ref != 'main'"…
+     46|     expect(step.env).toEqual({ PR_BODY: '${{ github.event.pull_request…
+     47|     expect(step.run).toBe('bash scripts/check-discipline-pr-body.sh');
+       |                      ^
+     48|     expect(job.steps.some((s: { uses?: string }) => s.uses?.startsWith…
+     49|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/15]⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > Incident-1 uncited prose
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > empty body
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > missing backward section
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > short forward
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > short backward
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > distinct uncited backward
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > malformed citation
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > citation outside section
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > Skip below 60 characters
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > section length below 40
+AssertionError: B3_REACHED_INVOCATION_BYPASS
+: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ status packages/core/hooks/ci-checker-oracles.test.ts:29:56
+     27|   expect(result.error).toBeUndefined();
+     28|   expect(result.signal).toBeNull();
+     29|   expect(result.status, result.stdout + result.stderr).toBe(expected);
+       |                                                        ^
+     30|   expect(result.stdout + result.stderr).toContain(diagnostic);
+     31| }
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:69:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/15]⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > cited valid body
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > section length exactly 40
+AssertionError: expected 'B3_REACHED_INVOCATION_BYPASS\n' to contain 'Backward-check cites 1'
+
+- Expected
++ Received
+
+- Backward-check cites 1
++ B3_REACHED_INVOCATION_BYPASS
++
+
+ ❯ status packages/core/hooks/ci-checker-oracles.test.ts:30:41
+     28|   expect(result.signal).toBeNull();
+     29|   expect(result.status, result.stdout + result.stderr).toBe(expected);
+     30|   expect(result.stdout + result.stderr).toContain(diagnostic);
+       |                                         ^
+     31| }
+     32|
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:69:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/15]⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > Skip at 60 characters
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production discipline checker > Skip with supported-size UTF-8 content
+AssertionError: expected 'B3_REACHED_INVOCATION_BYPASS\n' to contain 'Skipped marker present'
+
+- Expected
++ Received
+
+- Skipped marker present
++ B3_REACHED_INVOCATION_BYPASS
++
+
+ ❯ status packages/core/hooks/ci-checker-oracles.test.ts:30:41
+     28|   expect(result.signal).toBeNull();
+     29|   expect(result.status, result.stdout + result.stderr).toBe(expected);
+     30|   expect(result.stdout + result.stderr).toContain(diagnostic);
+       |                                         ^
+     31| }
+     32|
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:69:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/15]⎯
+

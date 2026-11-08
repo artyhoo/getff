@@ -1,0 +1,125 @@
+{
+  "base": "9baa971338598082e4b261703cde1d1a2989b094",
+  "sourceClosure": "entire git archive of B3 input; unchanged real source, bundle and all fixture/import files; provisioned node_modules linked read-only by usage (no install)",
+  "archiveSHA256": "d9375a51c1fbc7b75644609b6f2937ab43e0544b5f8ea906338c1b1b9ac747ca",
+  "command": [
+    "/workspace/getff-native/node_modules/.bin/vitest",
+    "run",
+    "--root",
+    "/tmp/b3-baseline-zfyngsb2",
+    "--reporter=default",
+    "packages/core/hooks/pre-push.consumer-layout.test.ts",
+    "-t",
+    "S5 NEGATIVE-guard GREEN"
+  ],
+  "exit": 1,
+  "seconds": 3.500108158999865,
+  "output": "evidence/b3-baseline-consumer-layout.txt"
+}
+IVE (F-finding) — CONSUMER layout, workflow with an UNPINNED bare `run: pip install` → ci-tool-pinning Rule A FIRES on the consumer (exit 1)
+     ↓ pop-1 POSITIVE — CONSUMER layout, workflow with a PINNED install → exit 0 (gate is not always-failing)
+     ↓ pop-1 escape-hatch — CONSUMER layout, unpinned install carrying `# ci-tool-pin: allow` → exit 0 (§3 hatch honoured on a consumer)
+     ↓ S2 §3 PRIMARY (POSITIVE) — CONSUMER-clean diff + SHIPPED file with a dangling framework ref → §8 narrows to consumer-authored only → push passes (exit 0)
+     ↓ S2 §3 SECONDARY (NEGATIVE) — CONSUMER-owned markdown with a real broken link + lychee REJECTS → §8 lycheeSection blocks (gate is live, not silently disabled)
+     ↓ §8 twin-exclusion POSITIVE — a changed plugin/agents twin never reaches lychee argv (maintainer layout)
+     ↓ §8 twin-exclusion NEGATIVE — the agents/ SOURCE is still walked and a broken link there still blocks (exclusion is scoped, not a hole)
+     ↓ A4-8 NEGATIVE — a CONSUMER-authored .claude/skills/**/*.md with a broken link reaches lychee and blocks the push
+     ↓ A4-8 POSITIVE — a SHIPPED skill slug is still excluded (the S2 Part 1 narrowing is intact)
+     ↓ A4-8b POSITIVE — a shipped .ai-factory/*.md the old list forgot is excluded, not walked
+     ↓ A4-8b NEGATIVE — a CONSUMER-authored .ai-factory/RULES.<name>.md reaches lychee (the bare-prefix over-reach)
+     ↓ S-6 — an unknown PREPUSH_ONLY value FAILS LOUDLY (it used to run the whole hook and exit 0)
+     ↓ F-1 — 3g drift gate does NOT spawn the build script when no eslint-rule changed
+     ↓ F-1 paired-negative — an eslint-rules change DOES spawn it (the scoping is not a hole)
+     ↓ F-1 deletions — removing a rule source still spawns the gate (the orphan walk needs it)
+     ↓ P-0 — the REAL assembler answers --list-payload (the sandbox stub is not a lie)
+     ↓ P-1 — a non-payload push does NOT judge the manifest (arm A is change-scoped)
+     ↓ P-2 — a payload file edited without re-running the assembler is DRIFT
+     ↓ P-3 paired-negative — the same edit WITH the manifest re-run is clean
+     ↓ P-4 — a NEW payload file missing from the manifest is DRIFT
+     ↓ P-4b — a DELETED payload file still listed in the manifest is DRIFT
+     ↓ P-5 — a changed file whose OLD bytes are still in an install baseline is STALE
+     ↓ P-6 paired-negative — a push that ALSO re-captures the baseline is clean
+     ↓ P-7 — a consumer (no manifest, no baselines) is never blocked
+     ↓ S3 smoke — consumer default-branch `main`, no maintainer packages/core, benign commit → shipped main() reaches exit 0
+     ↓ S5 POSITIVE — astgrep sidecar present, lane tool ABSENT → LOUD skip + exit 0 (NOT a silent green)
+     ↓ S5 NEGATIVE — astgrep sidecar with BROKEN material (a bad[] sample that does not fire) + tool PRESENT → exit 1 RED
+     × S5 NEGATIVE-guard GREEN — same layout with SOUND material + tool present → exit 0 (the arm is not always-red) 941ms
+     ↓ S5 BLOCKER — corrupt sidecar JSON → exit 1 RED (no lane tool needed)
+     ↓ S5 BLOCKER-shape (a) — typo'd key `badd` → exit 1 RED (no lane tool needed)
+     ↓ S5 BLOCKER-shape (b) — empty `bad[]` → exit 1 RED (no lane tool needed)
+     ↓ S5 ruff GREEN — TID251-keyed sidecar, bad[] fires + good[] clean → exit 0
+     ↓ S5 ruff NEGATIVE — broken bad[] (does not violate the ban) → exit 1 RED
+     ↓ S5 cargo — toggle unset → loud opt-in skip + exit 0
+     ↓ S5 cargo — GETFF_PREPUSH_CARGO_FIRE=1 + cargo absent → DEGRADED loud skip + exit 0
+     ↓ S5 mutation-root — run-generated-rule-mutation.sh at consumer scripts/ depth resolves the sandbox root
+     ↓ S5 mutation exit 2 from run-armed — loud skip names the exit, not the runner, and prints the real cause
+     ↓ S5 mutation over its budget — an armed check that runs out of time blocks the push, NOT green
+     ↓ audit-ai-docs live POSITIVE — every goal-bearing file enrolled → the section passes and reports the live run
+     ↓ audit-ai-docs live NEGATIVE — an unenrolled file restating the goal blocks the push
+     ↓ audit-ai-docs live NEGATIVE — the .ts arm gates on its own: a bash twin that passes vacuously does not let the orphan through
+     ↓ POSITIVE — removes a real git-bearing fixture tree (cleanup is not a no-op)
+     ↓ retry wiring is LIVE — the recursive rm is handed maxRetries/retryDelay > 0 (deleting them reddens this)
+     ↓ NEGATIVE (structural guarantee) — an rm that always throws ENOTEMPTY does NOT propagate, and says so loudly
+     ↓ a failing entry does not strand the LATER sandboxes in the afterEach loop
+     ↓ POSITIVE — `node pre-push.bundle.mjs` in the shipped layout reaches exit 0 on a consumer push
+     ↓ NEGATIVE — the bundle really runs the consumer sections: an unpinned workflow install is rejected
+     ↓ NEGATIVE — the same layout holds no hook source: the pre-2026-09-28 entry cannot run there
+     ↓ S3 (i) FULL hook — a DEAD command rule in the generated manifest blocks a consumer push
+     ↓ S3 (ii) FULL hook — the LIVE twin passes, the push is not blocked, and the pass is said out loud
+     ↓ S3 (iii) FULL hook — an empty consumer prints the counted 0 (owner proof) and never a green line
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 61 skipped (62)
+   Start at  16:32:13
+   Duration  1.99s (transform 308ms, setup 70ms, import 516ms, tests 943ms, environment 0ms)
+
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/pre-push.consumer-layout.test.ts > pre-push.ts — consumer-layout push shield (#920/#921) > S5 NEGATIVE-guard GREEN — same layout with SOUND material + tool present → exit 0 (the arm is not always-red)
+AssertionError: ▶ astgrep firing (single-rule isolation) — /tmp/prepush-consumer-GBZoyf/.ai-factory/rule-tests/astgrep.json
+  ✗ FAIL [astgrep getff-researched-no-yaml-load] rule invalid — broken rule artifact (ast-grep exited 8 / produced no diagnostics JSON) (bad arm)
+  ✗ FAIL [astgrep getff-researched-no-yaml-load] rule invalid — broken rule artifact (ast-grep exited 8 / produced no diagnostics JSON) (good arm)
+
+❌ rule-tests firing: 2 broken sample(s) — repaired material is not sound. Fix the sidecar (never the rule artifact — T-RTS-B) and re-run.
+
+❌ astgrep rule-test firing failed — broken sidecar material (a bad[] sample did not fire, or a good[] sample over-fired)
+: expected '▶ astgrep firing (single-rule isolati…' to match /bad sample fired RED/
+
+- Expected:
+/bad sample fired RED/
+
++ Received:
+"▶ astgrep firing (single-rule isolation) — /tmp/prepush-consumer-GBZoyf/.ai-factory/rule-tests/astgrep.json
+  ✗ FAIL [astgrep getff-researched-no-yaml-load] rule invalid — broken rule artifact (ast-grep exited 8 / produced no diagnostics JSON) (bad arm)
+  ✗ FAIL [astgrep getff-researched-no-yaml-load] rule invalid — broken rule artifact (ast-grep exited 8 / produced no diagnostics JSON) (good arm)
+
+❌ rule-tests firing: 2 broken sample(s) — repaired material is not sound. Fix the sidecar (never the rule artifact — T-RTS-B) and re-run.
+
+❌ astgrep rule-test firing failed — broken sidecar material (a bad[] sample did not fire, or a good[] sample over-fired)
+"
+
+ ❯ packages/core/hooks/pre-push.consumer-layout.test.ts:1622:26
+    1620|         const out = `${r.stdout}\n${r.stderr}`;
+    1621|
+    1622|         expect(out, out).toMatch(/bad sample fired RED/);
+       |                          ^
+    1623|         expect(r.status, out).toBe(0);
+    1624|       },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+

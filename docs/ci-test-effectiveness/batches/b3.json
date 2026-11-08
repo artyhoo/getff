@@ -1,0 +1,420 @@
+{
+  "id": "B3",
+  "status": "DONE_WITH_CONCERNS_PENDING_INDEPENDENT_ACCEPTANCE",
+  "decisionIds": [
+    "D08",
+    "RC3",
+    "D07-manual-husky-only"
+  ],
+  "inputCommit": "9baa971338598082e4b261703cde1d1a2989b094",
+  "outputCommit": "controller records final integration identity; self-hash not embedded",
+  "scope": "Faithful actual production checker controls, safe manual husky recurrence and direct helper distribution closure only. Other D07 members and E9 remain outside B3.",
+  "authority": {
+    "spec": "docs/superpowers/specs/2026-11-08-ci-test-effectiveness-design.md",
+    "specSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+    "kickoff": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2c.md",
+    "acceptedInputs": [
+      "acceptance/s1-fix-1-review.md",
+      "acceptance/b1-review.md",
+      "acceptance/b2-review.md"
+    ],
+    "controllerFreshness": "origin/staging5fc5f74c unchanged; TAK2144 open7a5b63dc, review-sidecar2146 open4b59504f unchanged per controller dispatch; no new accepted runtime assumed",
+    "route": "native Linux authorized; no AIF or nested agents"
+  },
+  "inputHashes": {
+    ".github/workflows/discipline-self-check.yml": "1a3d4c7b4e04f05f3223c23d5c0e13701bc672cf7ce9f6bde3d91b78978ea896",
+    ".github/workflows/audit-self.yml": "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7",
+    "tests/hooks/test-enforce-husky-presence.sh": "75a90807d4e8a5d8a500040e23e6434c198bc56fe5c82a53b2b4ab9b76462ba4",
+    "scripts/run-local-ci-sweep.sh": "99b922bbee439afa0a8c1e3e070726e812a9ea4eb2f697f32d973f2e809ec263",
+    "scripts/build-getff-dist.sh": "9ce417ad682eecf1e3ffc2b431a954f44f390e9ceaac6d605967047fd9851285",
+    "packages/getff/MANIFEST.sha256": "f8c43126ffdd08ce07996216bfb9cfcc25f7acc79c9b7c465bf9348179807069",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl": "a87aa34272adc6794d4e78f818e64fbbd7ee77450ca69043e9599760fd590850"
+  },
+  "outputSourceHashes": {
+    ".github/workflows/discipline-self-check.yml": "ee53c06ff4991f666de50c00ac9da687fb26dd0960b6e9744e177f1ab06e2607",
+    ".github/workflows/audit-self.yml": "0f21c5a1e9d0adc7b399b707ae640a86c08877b3fd9f701907a9390b1fcc190c",
+    "scripts/check-discipline-pr-body.sh": "86e1c2835b5a89f16a560e60b33351afc26393f29f3b0b01d3af2f2d734472c6",
+    "scripts/check-husky-presence.sh": "2949fbf6e13c991d14a7592dd0bbfb473570eaef527533f6abaae129c7bf8ab1",
+    "packages/core/hooks/ci-checker-oracles.test.ts": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "tests/hooks/test-enforce-husky-presence.sh": "e4c0b972054d2b7d31b2db50bf1517da6eefc9731ce7aa2397312981cc39fc4f",
+    "scripts/run-local-ci-sweep.sh": "b941945413f0517b2e5566846db4e2fc9ba93b6f52bb27131e13f0d1ee1e9a0d",
+    "scripts/build-getff-dist.sh": "06539314adf9a43c93639c23218302a8de21f5221e10cbeee7f63eca3833ccde",
+    "packages/getff/MANIFEST.sha256": "3adee5916ca7b9b251fe8a37c264525e33d2974843d89ad960ada5f49f25ab56",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl": "07e039e4baadf3477e73690c3d7b2384636b20300b1e639e7ccc62490a19c33b"
+  },
+  "exactFiles": [
+    ".github/workflows/discipline-self-check.yml",
+    ".github/workflows/audit-self.yml",
+    "scripts/check-discipline-pr-body.sh",
+    "scripts/check-husky-presence.sh",
+    "packages/core/hooks/ci-checker-oracles.test.ts",
+    "tests/hooks/test-enforce-husky-presence.sh",
+    "scripts/run-local-ci-sweep.sh",
+    "scripts/build-getff-dist.sh",
+    "packages/getff/MANIFEST.sha256",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl",
+    "docs/ci-test-effectiveness/batches/b3.json",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-additional-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-additional.json",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-consumer-layout.txt",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-glossary.txt",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-hydration.txt",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-replay-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-replay.json",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-replay.py",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-tool-identity.json",
+    "docs/ci-test-effectiveness/evidence/b3-carrier-contracts.txt",
+    "docs/ci-test-effectiveness/evidence/b3-conformance.py",
+    "docs/ci-test-effectiveness/evidence/b3-core-hooks.txt",
+    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.json",
+    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.py",
+    "docs/ci-test-effectiveness/evidence/b3-cost-core-1.txt",
+    "docs/ci-test-effectiveness/evidence/b3-cost-core-2.txt",
+    "docs/ci-test-effectiveness/evidence/b3-cost-core-3.txt",
+    "docs/ci-test-effectiveness/evidence/b3-cost-initial.json",
+    "docs/ci-test-effectiveness/evidence/b3-dist-check.txt",
+    "docs/ci-test-effectiveness/evidence/b3-dist-regeneration.txt",
+    "docs/ci-test-effectiveness/evidence/b3-environment.json",
+    "docs/ci-test-effectiveness/evidence/b3-final-core.txt",
+    "docs/ci-test-effectiveness/evidence/b3-final-hooks.json",
+    "docs/ci-test-effectiveness/evidence/b3-first-commit-hook-rejection.txt",
+    "docs/ci-test-effectiveness/evidence/b3-freeze.json",
+    "docs/ci-test-effectiveness/evidence/b3-green.txt",
+    "docs/ci-test-effectiveness/evidence/b3-held-discipline-checker.txt",
+    "docs/ci-test-effectiveness/evidence/b3-held-discipline-invocation.txt",
+    "docs/ci-test-effectiveness/evidence/b3-held-husky-checker.txt",
+    "docs/ci-test-effectiveness/evidence/b3-held-husky-invocation.txt",
+    "docs/ci-test-effectiveness/evidence/b3-held-manual-carrier.txt",
+    "docs/ci-test-effectiveness/evidence/b3-held-restoration.txt",
+    "docs/ci-test-effectiveness/evidence/b3-held-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-held.json",
+    "docs/ci-test-effectiveness/evidence/b3-host-1.txt",
+    "docs/ci-test-effectiveness/evidence/b3-host-2.txt",
+    "docs/ci-test-effectiveness/evidence/b3-host-3.txt",
+    "docs/ci-test-effectiveness/evidence/b3-host-4.txt",
+    "docs/ci-test-effectiveness/evidence/b3-host-5.txt",
+    "docs/ci-test-effectiveness/evidence/b3-host-6.txt",
+    "docs/ci-test-effectiveness/evidence/b3-host-7.txt",
+    "docs/ci-test-effectiveness/evidence/b3-host.json",
+    "docs/ci-test-effectiveness/evidence/b3-no-loss-final-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-red.json",
+    "docs/ci-test-effectiveness/evidence/b3-red.txt",
+    "docs/ci-test-effectiveness/evidence/b3-self-review.txt",
+    "docs/ci-test-effectiveness/evidence/b3-skip-transport-green.txt",
+    "docs/ci-test-effectiveness/evidence/b3-skip-transport-red.txt",
+    "docs/ci-test-effectiveness/evidence/b3-skip-transport.json",
+    "docs/ci-test-effectiveness/evidence/b3-supported-skip-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-supported-skip.json",
+    "docs/ci-test-effectiveness/evidence/b3-supported-skip.py",
+    "docs/ci-test-effectiveness/evidence/b3-sweep-missing-prepush.txt",
+    "docs/ci-test-effectiveness/evidence/b3-sweep-row-weakening.txt",
+    "docs/ci-test-effectiveness/evidence/b3-sweep-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-sweep-valid.txt",
+    "docs/ci-test-effectiveness/evidence/b3-sweep.json",
+    "docs/ci-test-effectiveness/evidence/b3-sweep.py"
+  ],
+  "TDD": {
+    "defect": "Preimage detached sanity jobs falsely return0 with actual production run bypassed; fixed expected carrier outcome is nonzero. Predicate semantics already correct.",
+    "RED": {
+      "command": "python3 docs/ci-test-effectiveness/evidence/b3-conformance.py --preimage",
+      "exit": 1,
+      "evidence": [
+        "evidence/b3-red.txt",
+        "evidence/b3-red.json"
+      ],
+      "intendedReason": "RED: production bypass reached; both claimed conformance carriers falsely return0; ordinary invalid1/valid0 unaffected"
+    },
+    "GREEN": {
+      "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/ci-checker-oracles.test.ts",
+      "exit": 0,
+      "tests": 17,
+      "evidence": "evidence/b3-final-core.txt"
+    },
+    "minimalRepair": "Discipline body extraction except sole normal-hook-required Skip echo|grep-q to here-string repair; regex unchanged. Husky body parameterized only by disposable hook directory; same real workflow commands/safe fixtures; detached sanity copies removed."
+  },
+  "heldProtection": {
+    "command": "python3 docs/ci-test-effectiveness/evidence/b3-conformance.py",
+    "exit": 0,
+    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "faults": [
+      "discipline checker always-success",
+      "discipline workflow invocation bypass",
+      "husky checker always-success",
+      "husky workflow invocation bypass",
+      "manual wrapper bypass"
+    ],
+    "faultOutcome": "Each reached fixed marker with intended assertion failure and status1; exact held test bytes unchanged; restoration status0",
+    "evidence": "evidence/b3-held.json",
+    "realSweep": "actual row valid0/missing-prepush1; existing reverse coverage catches row-deletion1; checked-in coverage script unmodified",
+    "sweepEvidence": "evidence/b3-sweep.json"
+  },
+  "verification": [
+    {
+      "command": "bash -n scripts/check-discipline-pr-body.sh scripts/check-husky-presence.sh tests/hooks/test-enforce-husky-presence.sh scripts/run-local-ci-sweep.sh scripts/build-getff-dist.sh",
+      "exit": 0,
+      "seconds": 0.005922747001022799,
+      "output": "docs/ci-test-effectiveness/evidence/b3-host-1.txt"
+    },
+    {
+      "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/ci-checker-oracles.test.ts",
+      "exit": 0,
+      "seconds": 2.1222644160006894,
+      "output": "docs/ci-test-effectiveness/evidence/b3-host-2.txt"
+    },
+    {
+      "command": "bash tests/hooks/test-enforce-husky-presence.sh",
+      "exit": 0,
+      "seconds": 0.1528115090004576,
+      "output": "docs/ci-test-effectiveness/evidence/b3-host-3.txt"
+    },
+    {
+      "command": "bash scripts/check-husky-presence.sh",
+      "exit": 0,
+      "seconds": 0.009501369999270537,
+      "output": "docs/ci-test-effectiveness/evidence/b3-host-4.txt"
+    },
+    {
+      "command": "bash scripts/run-local-ci-sweep-coverage.test.sh",
+      "exit": 0,
+      "seconds": 17.025179688000208,
+      "output": "docs/ci-test-effectiveness/evidence/b3-host-5.txt"
+    },
+    {
+      "command": "bash scripts/run-local-ci-sweep.test.sh",
+      "exit": 0,
+      "seconds": 11.557811826000034,
+      "output": "docs/ci-test-effectiveness/evidence/b3-host-6.txt"
+    },
+    {
+      "command": "actionlint .github/workflows/discipline-self-check.yml .github/workflows/audit-self.yml",
+      "exit": 0,
+      "seconds": 0.02686225000070408,
+      "output": "docs/ci-test-effectiveness/evidence/b3-host-7.txt"
+    },
+    {
+      "command": "bash scripts/build-getff-dist.sh",
+      "exit": 0,
+      "evidence": "evidence/b3-dist-regeneration.txt"
+    },
+    {
+      "command": "bash scripts/build-getff-dist.sh --check",
+      "exit": 0,
+      "evidence": "evidence/b3-dist-check.txt"
+    },
+    {
+      "command": "npx --prefix packages/core vitest run --reporter=default packages/core/principles/36-ci-needs-completeness.test.ts packages/core/principles/37-required-context-completeness.test.ts packages/core/principles/38-vitest-include-ci-coverage.test.ts",
+      "exit": 0,
+      "tests": 26,
+      "evidence": "evidence/b3-carrier-contracts.txt"
+    },
+    {
+      "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/ci-checker-oracles.test.ts (final source)",
+      "exit": 0,
+      "tests": 17,
+      "evidence": "evidence/b3-final-core.txt"
+    },
+    {
+      "command": "python3 docs/ci-test-effectiveness/evidence/b3-supported-skip.py",
+      "exit": 0,
+      "meaning": "public preimage0/current0, publicRED=false",
+      "evidence": "evidence/b3-supported-skip.json"
+    },
+    {
+      "command": "python3 docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.py --closure-only",
+      "exit": 0,
+      "meaning": "final transport-normalized equivalence, no repeated timing",
+      "evidence": "evidence/b3-no-loss-final-run.txt"
+    }
+  ],
+  "broaderVerification": {
+    "command": "PATH=/workspace/getff-tools/bin:$PATH npm --prefix packages/core run test:hooks",
+    "exit": 1,
+    "files": {
+      "passed": 95,
+      "failed": 3
+    },
+    "tests": {
+      "passed": 2304,
+      "failed": 5,
+      "skipped": 2
+    },
+    "seconds": 171.84,
+    "evidence": "evidence/b3-core-hooks.txt",
+    "failures": [
+      {
+        "case": "pre-push.consumer-layout S5 NEGATIVE-guard GREEN at1622",
+        "classification": "same failure in exact input archive; no ast-grep; /usr/bin/sg util-linux2.41.5 help returns0 and fools fallback capability probe, runner then exits8",
+        "evidence": [
+          "evidence/b3-baseline-consumer-layout.txt",
+          "evidence/b3-baseline-tool-identity.json"
+        ]
+      },
+      {
+        "case": "worktree-setup-hydration positives at204,266, parity304",
+        "classification": "same three missing-state assertions in exact input archive",
+        "evidence": "evidence/b3-baseline-hydration.txt"
+      },
+      {
+        "case": "glossary-counters sequential10 at929",
+        "classification": "5000ms timeout in full parallel run; exact baseline selected case passes3503ms. Load/input causality unresolved; no retry or timeout widening.",
+        "evidence": "evidence/b3-baseline-glossary.txt"
+      }
+    ],
+    "baselineClosure": "entire9baa git archiveSHA256 d9375a51c1fbc7b75644609b6f2937ab43e0544b5f8ea906338c1b1b9ac747ca; source/bundle/fixtures held; linked existing deps, same environment. Controller dispositions retained in report."
+  },
+  "noLoss": {
+    "exactDisciplinePredicate": false,
+    "parameterizedHuskyPredicateEquivalent": true,
+    "requiredContextEventsNonMainGuardPreserved": true,
+    "allOtherAuditJobsAndEventsPreserved": true,
+    "combinedRemovedJobs": [
+      "sanity-stub-fails-substance",
+      "sanity-stub-backward-passes-with-citation"
+    ],
+    "survivors": [
+      "14 public actual-body fixture controls + workflow binding",
+      "safe9-case husky fixtures via core hook carrier",
+      "actual husky workflow command",
+      "existing s17 commit-input suite (unchanged)",
+      "existing ci-needs/required-context/core-suite coverage contracts26pass"
+    ],
+    "hooksUnchanged": true,
+    "evidence": [
+      "evidence/b3-cost-and-no-loss.json",
+      "evidence/b3-final-hooks.json",
+      "evidence/b3-carrier-contracts.txt"
+    ],
+    "disciplinePredicateEquivalentExceptTransport": true,
+    "transportException": "Normal commit hook flags original echo|grep-q under pipefail. Equivalent Bash here-string, same regex. One supported public58,078char/116,079byte body passes original+repair. No public runtime RED. Sourced195KB rejection is non-public diagnostic only, removed from recurring corpus."
+  },
+  "distribution": {
+    "method": "existing PAYLOAD adds only scripts/check-husky-presence.sh; normal generator and actual archive --check",
+    "manifestChanges": [
+      "added core/hooks/ci-checker-oracles.test.ts",
+      "added scripts/check-husky-presence.sh",
+      "updated existing scripts/run-local-ci-sweep.sh hash"
+    ],
+    "files": 1667,
+    "archiveFilesIncludingMetadata": 1672,
+    "otherGeneratedChanges": false
+  },
+  "metadataErratum": "Only B2-held-conformance.delivery corrected to its actual one-shot Python command; all other previous inventory entries unchanged; S1 evidence immutable.",
+  "newMechanisms": "Ten explicit B3 inventory rows, each seven criteria. Existing carriers/coverage only; includes one-shot supported-size transport classification driver. No generic platform, accepted TAK driver or E9 claim.",
+  "cost": {
+    "before-inline": {
+      "seconds": [
+        0.058943804000591626,
+        0.05657147300007637,
+        0.057241185999373556
+      ],
+      "medianSeconds": 0.057241185999373556
+    },
+    "after-script": {
+      "seconds": [
+        0.06833062500118103,
+        0.05103452399998787,
+        0.05352610599948093
+      ],
+      "medianSeconds": 0.05352610599948093
+    },
+    "new-recurring-core-file": {
+      "seconds": [
+        2.736632788000861,
+        2.4093568379994394,
+        2.2231696439994266
+      ],
+      "medianSeconds": 2.4093568379994394,
+      "includes": "npx/vitest startup plus16 controls; existing hosted test:hooks shares setup, so this standalone wall time is not marginal hosted overhead"
+    }
+  },
+  "costLimits": "New fixed controls are repair overhead, not optimization. One historical removed-job sample2+4 runner elapsed seconds; adds checkout to surviving discipline job; post-integration hosted setup/queue/net saving pending. Full hooks171.84s and selected baseline diagnostics reported separately, no dollar/net speed claim.",
+  "selfReview": "evidence/b3-self-review.txt",
+  "limits": [
+    "Only native Linux established; no Darwin or hosted final-CI result inferred.",
+    "Existing husky marker grammar does not prove runtime probe execution or resist intentional comment forgery.",
+    "Grammar remains mechanical, not prose citation validity/semantic substance certification.",
+    "Source+oracle co-edit/removal can evade finite controls; independent root review and fixed trusted expectations required.",
+    "Broader hook suite remains explicitly failing; baseline/tool and load uncertainty not silently waived.",
+    "Pending TAK owner integration/generalized prevention and other D07/campaign items not completed."
+  ],
+  "rollback": "Revert B3 commit(s) with normal hooks. This reopens detached oracle and unsafe manual-fixture defects; no dependency, schema or global setting migration.",
+  "rawEvidenceHashes": {
+    "docs/ci-test-effectiveness/evidence/b3-baseline-additional-run.txt": "147a4a3f39f80681ea7444868ca5008e79b1c8b33229a1ec53db4c1e09166feb",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-additional.json": "5327044f644c8d545cfd383894c62dd44993277b9b9a4b5b9e5e0611fa1f1531",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-consumer-layout.txt": "2d5358f6cb453c14fe02956121bfeb39e027ecf28cb6f178353548edc9780cc6",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-glossary.txt": "9a37a8fa6f3e7496462c0febac1dcfc48e96b27088a0d1656a1a26318f78d477",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-hydration.txt": "af3c81c0d9f3928fb06b079846f2795d7dca9eefb6fd43751237728b7ff3c8bc",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-replay-run.txt": "f6639c26d86e0a174fde38701768f095fe9c0c265eb2f1a36aa8f0b3ab4c43de",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-replay.json": "3308ed576c1b065e9fe05c3ddd159d9d6aea279bcd3e00256fdb20e968173dbf",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-replay.py": "2eb50a285160e64542c578be6b082fc566a72d906bb57ecbd9efac1cd53233bd",
+    "docs/ci-test-effectiveness/evidence/b3-baseline-tool-identity.json": "c47c12beb4fad0ed4e09a102fddce4517f654309a390beddbf01361d59e32fb5",
+    "docs/ci-test-effectiveness/evidence/b3-carrier-contracts.txt": "f08a84ede58cbda13246cc92675c71963db32d3c18ba0d407eae787ff55fd58b",
+    "docs/ci-test-effectiveness/evidence/b3-conformance.py": "fd30d11fba504b1f4bf52ff77d046d898371d19a65076207877841a2d94ad539",
+    "docs/ci-test-effectiveness/evidence/b3-core-hooks.txt": "845b1f5891c8e839b40677ba9f6ac9abf92c6d1c6c53fdcb5792aee56d84bb04",
+    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss-run.txt": "73445c85107b36288f8fef8009a3e7c9613aac244cb1c65ec77736049b4907b6",
+    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.json": "d7e9307aaf1d84cf89d34c8453a71e71f761038525467a721478b9a881806738",
+    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.py": "4be594183443610949e9f7a36de8a0fdb253a11b1425196578ed46d81a3015fa",
+    "docs/ci-test-effectiveness/evidence/b3-cost-core-1.txt": "cfade0569236008317ce6b5486a58f876a00dcbfd2816c7bba23d83753617b1c",
+    "docs/ci-test-effectiveness/evidence/b3-cost-core-2.txt": "ad93aa0d32e16a3902a3ba200fab8fc967e5951e52a385bbf140d09539db8703",
+    "docs/ci-test-effectiveness/evidence/b3-cost-core-3.txt": "8bce99005e0a3d8243af88fd67bbd45f351b9aef22f6eeb5f9ba658be0f4cce7",
+    "docs/ci-test-effectiveness/evidence/b3-cost-initial.json": "2d596cf96d3334a68bf82e63e4523a7731a0f058644c6bfb53f669dcce9dcb78",
+    "docs/ci-test-effectiveness/evidence/b3-dist-check.txt": "4bb3ac7cc955a0d6c2fe8144aa5168aa4628af0680f24d56a3f43702bd79884b",
+    "docs/ci-test-effectiveness/evidence/b3-dist-regeneration.txt": "91d291c6740a908c335580d7c8f04c158de3142bbc975d6493b8c50e16528248",
+    "docs/ci-test-effectiveness/evidence/b3-environment.json": "c7690c274d6d38172c0501024705eba0d1ce7f3b16760ede72c7655760f60361",
+    "docs/ci-test-effectiveness/evidence/b3-final-core.txt": "70eb2fff6d91a67c568a5ca0ebb5dd147676267807bc14f0c019217f85a19554",
+    "docs/ci-test-effectiveness/evidence/b3-final-hooks.json": "146e686f8e370f28b8361b3ba7f7f04f3cff0fd400724a1ebaeda3b37d724164",
+    "docs/ci-test-effectiveness/evidence/b3-first-commit-hook-rejection.txt": "5d58746d358a81b4959bf5063ba7e4e733317c413f24e140c2fed61761f03c1c",
+    "docs/ci-test-effectiveness/evidence/b3-freeze.json": "3063f8e1c5924e3816cc8f1dec813a051a63a24d79cd4d34b8c2e98b73fafabf",
+    "docs/ci-test-effectiveness/evidence/b3-green.txt": "1c855f7ac3fe099206ffd552cee1907ea1cafc36fc99a69677ce71078710dcd9",
+    "docs/ci-test-effectiveness/evidence/b3-held-discipline-checker.txt": "21e05bb2e6dce1cc4e84f6a04f2b7023c4301dc3298333671968505652234478",
+    "docs/ci-test-effectiveness/evidence/b3-held-discipline-invocation.txt": "c95ac3e2ecfff853611f9f45eb35588cfe30caae3ff6a5c96152cc87b8c9b409",
+    "docs/ci-test-effectiveness/evidence/b3-held-husky-checker.txt": "e45eb9f6bf7f432902271c1da4d4b865026f197fc2b37547435acccce0fc2cae",
+    "docs/ci-test-effectiveness/evidence/b3-held-husky-invocation.txt": "b0628dc82ce3fb766447466740c169fce467d8c45936f818b7b266d9924422f2",
+    "docs/ci-test-effectiveness/evidence/b3-held-manual-carrier.txt": "351eba620895d5176cae2399cdbc050f0139cf01a0402e72fe4e69ea784c21ef",
+    "docs/ci-test-effectiveness/evidence/b3-held-restoration.txt": "280d17c92b1e5d3902c0c61ff7f2d42aa432cf699f20115d5be11ad78de4b144",
+    "docs/ci-test-effectiveness/evidence/b3-held-run.txt": "1fd2c933cdc343e44abf71bd576c90fc060bcb73f27660ab6b4d48a11bb1b820",
+    "docs/ci-test-effectiveness/evidence/b3-held.json": "1fd2c933cdc343e44abf71bd576c90fc060bcb73f27660ab6b4d48a11bb1b820",
+    "docs/ci-test-effectiveness/evidence/b3-host-1.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "docs/ci-test-effectiveness/evidence/b3-host-2.txt": "53d6294fda6228be85a6040cbafcf9cbf37c08f61f2e1912e24fb761af5890cf",
+    "docs/ci-test-effectiveness/evidence/b3-host-3.txt": "ca807af94696e9389c113f11a8377a169b51ba1c6149d2eb803c07ef5c64c233",
+    "docs/ci-test-effectiveness/evidence/b3-host-4.txt": "16970c238e8b0607d2e9a2f85efb52f73d1f7efd6d7587ccbe68f211fc27f9ec",
+    "docs/ci-test-effectiveness/evidence/b3-host-5.txt": "4959ef6b76ae44b10df4ec89e89b6935267ef047c85609c0ad1087807a48a8e9",
+    "docs/ci-test-effectiveness/evidence/b3-host-6.txt": "512bb842adb98140426dd4e9c1519271c82b5bda564d6ee2b4629356816c47b8",
+    "docs/ci-test-effectiveness/evidence/b3-host-7.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "docs/ci-test-effectiveness/evidence/b3-host.json": "75267a2d59c50abc5d9a189cb49f383372bb7cb975f6add2e9f2f5e8ed9e064d",
+    "docs/ci-test-effectiveness/evidence/b3-no-loss-final-run.txt": "d7e9307aaf1d84cf89d34c8453a71e71f761038525467a721478b9a881806738",
+    "docs/ci-test-effectiveness/evidence/b3-red.json": "f5bd284cbc3528ad37d2ab67b63580aacd7eeb65d16dad8aa3f0e41bb81bf4a8",
+    "docs/ci-test-effectiveness/evidence/b3-red.txt": "cf10c89b0220428b73824abe9c97b7d5f1b1bbd3db48bb60ab5bb442013b2c2a",
+    "docs/ci-test-effectiveness/evidence/b3-self-review.txt": "906d7cfe4b9c206c0c824cd91f5a19dd091240966badc780d4bb4764c92e7cf5",
+    "docs/ci-test-effectiveness/evidence/b3-skip-transport-green.txt": "a95346862e85e21b8774812076f16bb8aefed50cd64370698b933f9e3d900d54",
+    "docs/ci-test-effectiveness/evidence/b3-skip-transport-red.txt": "6529875d441b1c5b834c30f5373ae564d5e6d85bc77f8d37ad9e2ca928d11c69",
+    "docs/ci-test-effectiveness/evidence/b3-skip-transport.json": "7fed01cc3bb625575b760178be1740253ac7a7efc67843493b5a951e1f623948",
+    "docs/ci-test-effectiveness/evidence/b3-supported-skip-run.txt": "acd8e78bf5861472e9593e9dd19f3dc60f6a4b9f7afef8389ebfb259483ba5a1",
+    "docs/ci-test-effectiveness/evidence/b3-supported-skip.json": "acd8e78bf5861472e9593e9dd19f3dc60f6a4b9f7afef8389ebfb259483ba5a1",
+    "docs/ci-test-effectiveness/evidence/b3-supported-skip.py": "2885aa0d80c0ad5275220908a53405dafe1c7962f0ff1113cbe7d6c5eeb4caf1",
+    "docs/ci-test-effectiveness/evidence/b3-sweep-missing-prepush.txt": "acc96969fd1f199d0ea6c0e8331d79d6f8a49d0b7d77184116d6b9d714cc0253",
+    "docs/ci-test-effectiveness/evidence/b3-sweep-row-weakening.txt": "fe21e58b1e492f967abfbcd820bebe6dd2db509873d2983f4a442de254b3f4f5",
+    "docs/ci-test-effectiveness/evidence/b3-sweep-run.txt": "c9888dfa850c281a3961050353e72d207bedceb6919ff5c041c57d2ffdf55c14",
+    "docs/ci-test-effectiveness/evidence/b3-sweep-valid.txt": "83f5fa50225af0d6faedc12d4b92b207919d725e3e4041d4d4e078e72de7f22d",
+    "docs/ci-test-effectiveness/evidence/b3-sweep.json": "4cdaaa30fde9c574e0a1f7dcb21f449d37f440aa33f3b4d9c336865eafcbf0d4",
+    "docs/ci-test-effectiveness/evidence/b3-sweep.py": "2c808cab74b646487c4c3ba1459cdda0171927581967eb46ec9435570cbd7393"
+  },
+  "costInitialReceipt": "evidence/b3-cost-initial.json",
+  "costRepeatDisclosure": "Collector rerun after equivalent command-reference cleanup; both sets retained, no speedup claimed, no further timing runs.",
+  "controllerDisposition": "Proceed normal scoped commit with all B3 declared boundary commands green. Full hook-suite RED remains; S5/hydration baseline reproduced; glossary unmatched-load causality unresolved. Later scoped repair/investigation owned by root; campaign acceptance remains blocked on known outcomes.",
+  "whitespaceCheck": "Source/JSON-only staged diff check0; raw log blank EOF/trailing spaces preserved exactly yield full staged whitespace exit2. No production/source whitespace error.",
+  "normalCommitFirstAttempt": {
+    "exit": 1,
+    "reason": "pre-commit pipefail scanner rejected extracted original Skip pipeline",
+    "evidence": "evidence/b3-first-commit-hook-rejection.txt",
+    "repair": "Same regex on Bash here-string, no bypass. Unsupported sourced diagnostic excluded from accepted protection; public positive companion17th case."
+  },
+  "final17CostSample": {
+    "testMilliseconds": 457,
+    "vitestSeconds": 0.906,
+    "commandSeconds": 2.080099201,
+    "evidence": "evidence/b3-final-core.txt",
+    "limit": "one verification sample, initial benchmark workload measured16 controls, no new marginal hosted claim"
+  }
+}

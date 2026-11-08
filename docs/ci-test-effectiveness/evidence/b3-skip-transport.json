@@ -1,0 +1,24 @@
+{
+  "trigger": "Normal commit hook scanner exposed original inline echo|grep-q under pipefail after extraction; commit rejected, no bypass.",
+  "firstProbe": "80,078-character ASCII body passed; not a RED witness and outside provider character bound. Abandoned without claiming defect detection.",
+  "secondMethod": "65,078-character195KB UTF-8 value sourced in Bash. It fails original pipeline but exceeds the real job single-env-string launch limit. Removed from recurring regression; diagnostic only, not public acceptance evidence.",
+  "red": {
+    "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/ci-checker-oracles.test.ts",
+    "exit": 1,
+    "tests": "1 failed transport case /16passed",
+    "reason": "Valid Skip falsely rejected as missing/too-short sections after echo SIGPIPE under pipefail",
+    "evidence": "evidence/b3-skip-transport-red.txt",
+    "classification": "non-public diagnostic, NOT actual workflow env-boundary RED"
+  },
+  "repair": "Same Skip grep regex against here-string, no grammar expansion.",
+  "green": {
+    "exit": 0,
+    "tests": 17,
+    "testMilliseconds": 457,
+    "vitestSeconds": 0.946,
+    "evidence": "evidence/b3-skip-transport-green.txt",
+    "classification": "historical source-only diagnostic run, superseded by final17 public controls"
+  },
+  "limits": "No public runtime defect demonstrated by the one supported probe. Here-string is a hook-required equivalent transport repair. Main detached-oracle TDD RED remains the B3 repair witness. No further size or scheduling probes.",
+  "finalPublicProbe": "b3-supported-skip.json:58,078chars/116,079bytes actual workflow command+env, preimage0 and repair0, publicRED=false"
+}

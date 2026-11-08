@@ -112,7 +112,7 @@
 #                         for it is the pre-push hook, not this sweep.
 #   fidelity-verdict-in-pr-body, stale-revert-in-pr-diff
 #                         both read the PR body / PR diff off the GitHub API — no PR, no gate.
-#   rule-to-probe, enforce-husky-presence, framework-self-detect / -research / -synth /
+#   rule-to-probe, framework-self-detect / -research / -synth /
 #   -validate / -install-validated, framework-provenance-anti-hand-edit, the synth-bundle
 #   functional smoke, the J3 go-lane live-fire
 #                         gate logic is inline bash in the workflow YAML, not a committed
@@ -420,7 +420,7 @@ gate_table() {
   # gates that payload, which is the honest answer the old `.claude/` mapping was hiding.
   #
   # Every other row reuses an already-committed script / npm-script VERBATIM. CI jobs whose
-  # gate logic lives inline in the workflow YAML (rule-to-probe, enforce-husky-presence, the
+  # gate logic lives inline in the workflow YAML (rule-to-probe, the
   # six framework-self-* snapshot diffs, the synth-bundle functional smoke) are deliberately
   # NOT transcribed here: a second copy of that logic would drift from the workflow it claims
   # to predict (.claude/rules/dual-implementation-discipline.md). Closing those needs the
@@ -433,6 +433,7 @@ gate_table() {
     "1${TAB}md-ci-only${TAB}.md${TAB}echo '[sweep] WARN: markdown line/dead-link gates run in CI only (local scan hits gitignored files) — verify on CI'" \
     "1${TAB}claude-dir-ci-only${TAB}.claude/${TAB}echo '[sweep] WARN: .claude/ is gated per-subtree, not as a whole. hooks/ skills/ templates/ ship, so getff-dist-manifest covers them; rules/ has render-check + rule-index-check. settings.json and orchestrator-prompts/ have no row of their own — their readers (the hooks harness-config drift test; vitest-spec-validation) are selected by their own triggers, and the whole-tree json/bash scanners are CI-only — verify on CI'" \
     "1${TAB}actionlint${TAB}.github/workflows/${TAB}if command -v actionlint >/dev/null 2>&1; then actionlint .github/workflows/*.yml; else echo '[sweep] WARN-skip actionlint absent'; fi" \
+    "1${TAB}enforce-husky-presence${TAB}.husky/,scripts/check-husky-presence.sh,.github/workflows/audit-self.yml${TAB}bash scripts/check-husky-presence.sh" \
     "1${TAB}alwayson-budget${TAB}CLAUDE.md,.claude/rules/,scripts/measure-always-on.sh,scripts/check-alwayson-budget.sh${TAB}bash scripts/measure-always-on.test.sh && bash scripts/check-alwayson-budget.test.sh && bash scripts/check-alwayson-budget.sh" \
     "2${TAB}format-check${TAB}$(formatted_surface_trigger)${TAB}npm run format:check" \
     "2${TAB}render-check${TAB}.claude/rules/${TAB}npx tsx packages/core/render/render-rules.ts --check" \

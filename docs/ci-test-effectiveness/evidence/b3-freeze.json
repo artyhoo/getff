@@ -1,0 +1,39 @@
+{
+  "base": "9baa971338598082e4b261703cde1d1a2989b094",
+  "sourceHashes": {
+    ".github/workflows/discipline-self-check.yml": "1a3d4c7b4e04f05f3223c23d5c0e13701bc672cf7ce9f6bde3d91b78978ea896",
+    ".github/workflows/audit-self.yml": "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7",
+    "tests/hooks/test-enforce-husky-presence.sh": "75a90807d4e8a5d8a500040e23e6434c198bc56fe5c82a53b2b4ab9b76462ba4",
+    "scripts/run-local-ci-sweep.sh": "99b922bbee439afa0a8c1e3e070726e812a9ea4eb2f697f32d973f2e809ec263",
+    "scripts/build-getff-dist.sh": "9ce417ad682eecf1e3ffc2b431a954f44f390e9ceaac6d605967047fd9851285",
+    "packages/getff/MANIFEST.sha256": "f8c43126ffdd08ce07996216bfb9cfcc25f7acc79c9b7c465bf9348179807069",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl": "a87aa34272adc6794d4e78f818e64fbbd7ee77450ca69043e9599760fd590850"
+  },
+  "hooks": {
+    ".husky/post-checkout": {
+      "sha256": "43045e468b290cb4b2c2f846a4d5e266f4a3d70c259beb063f2056afdf25ed27",
+      "mode": "0o700"
+    },
+    ".husky/pre-commit": {
+      "sha256": "667cdb1a25c621183e20d1c04a317543305c6c642610d4a8c859e2f8cfdce5ee",
+      "mode": "0o700"
+    },
+    ".husky/pre-merge-commit": {
+      "sha256": "7354235663b5b9f90c94eb7d34cc52a8d8b5aceda00f3288245ffaade45cb0b0",
+      "mode": "0o700"
+    },
+    ".husky/pre-push": {
+      "sha256": "f3c325ba8fca5dda9978f36991f22ccda60758bbe473643dedb255b2948d2a22",
+      "mode": "0o700"
+    }
+  },
+  "workloads": {
+    "discipline": "fixed Incident-1 invalid, cited valid, missing/short/citation/Skip boundaries; actual workflow command and checker; three matched local fixture runs",
+    "husky": "fresh missing/nonexec/stub each hook, owned valid and actual dispatcher; safe manual script recurring through core hooks",
+    "removedJobs": [
+      "sanity-stub-fails-substance",
+      "sanity-stub-backward-passes-with-citation"
+    ]
+  },
+  "limits": "Native Linux; existing S1 timing receipts reused; local fixture time is not hosted setup saving."
+}

@@ -1,0 +1,29 @@
+{
+  "ast-grep": null,
+  "sg": "/usr/bin/sg",
+  "sgRealpath": "/usr/bin/newgrp",
+  "sgSHA256": "e02de4ffdaa92a9a2a7b9014fa612ba3ce394fdb178e23f644f8fc61ad633f88",
+  "probes": [
+    {
+      "command": [
+        "sg",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "sg from util-linux 2.41.5\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "sg",
+        "scan",
+        "--help"
+      ],
+      "exit": 0,
+      "stdout": "\nUsage:\n sg <group> [[-c] <command>]\n\nLog in to a new group; optionally executing a shell command.\n\nOptions:\n -h, --help     display this help\n -V, --version  display version\n\nFor more details see newgrp(1).\n",
+      "stderr": ""
+    }
+  ],
+  "invocationProof": "unchanged test hasAstGrep uses sg scan --help; unchanged firing runner prioritizes ast-grep then accepts _sg_is_astgrep sg (same scan --help); exact full-source baseline runner reports sg scan --json failed8. No shim or tool installed.",
+  "classification": "baseline guard/tool-identity defect; util-linux sg help returns0, falsely satisfies ast-grep capability check. Not a demonstrated flake or B3 regression."
+}
