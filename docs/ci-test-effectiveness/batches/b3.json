@@ -98,6 +98,7 @@
     "docs/ci-test-effectiveness/evidence/b3-host-7.txt",
     "docs/ci-test-effectiveness/evidence/b3-host.json",
     "docs/ci-test-effectiveness/evidence/b3-no-loss-final-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-normal-commit.txt",
     "docs/ci-test-effectiveness/evidence/b3-red.json",
     "docs/ci-test-effectiveness/evidence/b3-red.txt",
     "docs/ci-test-effectiveness/evidence/b3-self-review.txt",
@@ -353,8 +354,8 @@
     "docs/ci-test-effectiveness/evidence/b3-conformance.py": "fd30d11fba504b1f4bf52ff77d046d898371d19a65076207877841a2d94ad539",
     "docs/ci-test-effectiveness/evidence/b3-core-hooks.txt": "845b1f5891c8e839b40677ba9f6ac9abf92c6d1c6c53fdcb5792aee56d84bb04",
     "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss-run.txt": "73445c85107b36288f8fef8009a3e7c9613aac244cb1c65ec77736049b4907b6",
-    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.json": "d7e9307aaf1d84cf89d34c8453a71e71f761038525467a721478b9a881806738",
-    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.py": "4be594183443610949e9f7a36de8a0fdb253a11b1425196578ed46d81a3015fa",
+    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.json": "24d697899f0ccdb4b3894cf01ca1ed61f1fa8528e92a7cfabb8f07047ff2bc41",
+    "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.py": "6d6696f881191c43ccf00e2dfc97b69f67cc9981292ec85b1eb74ac480d1405b",
     "docs/ci-test-effectiveness/evidence/b3-cost-core-1.txt": "cfade0569236008317ce6b5486a58f876a00dcbfd2816c7bba23d83753617b1c",
     "docs/ci-test-effectiveness/evidence/b3-cost-core-2.txt": "ad93aa0d32e16a3902a3ba200fab8fc967e5951e52a385bbf140d09539db8703",
     "docs/ci-test-effectiveness/evidence/b3-cost-core-3.txt": "8bce99005e0a3d8243af88fd67bbd45f351b9aef22f6eeb5f9ba658be0f4cce7",
@@ -383,7 +384,8 @@
     "docs/ci-test-effectiveness/evidence/b3-host-6.txt": "512bb842adb98140426dd4e9c1519271c82b5bda564d6ee2b4629356816c47b8",
     "docs/ci-test-effectiveness/evidence/b3-host-7.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "docs/ci-test-effectiveness/evidence/b3-host.json": "75267a2d59c50abc5d9a189cb49f383372bb7cb975f6add2e9f2f5e8ed9e064d",
-    "docs/ci-test-effectiveness/evidence/b3-no-loss-final-run.txt": "d7e9307aaf1d84cf89d34c8453a71e71f761038525467a721478b9a881806738",
+    "docs/ci-test-effectiveness/evidence/b3-no-loss-final-run.txt": "24d697899f0ccdb4b3894cf01ca1ed61f1fa8528e92a7cfabb8f07047ff2bc41",
+    "docs/ci-test-effectiveness/evidence/b3-normal-commit.txt": "d35ce0ac5c31b4f4b8e3eb6a0619133774a7a4ad86b0706b2c5d21f1db7985c3",
     "docs/ci-test-effectiveness/evidence/b3-red.json": "f5bd284cbc3528ad37d2ab67b63580aacd7eeb65d16dad8aa3f0e41bb81bf4a8",
     "docs/ci-test-effectiveness/evidence/b3-red.txt": "cf10c89b0220428b73824abe9c97b7d5f1b1bbd3db48bb60ab5bb442013b2c2a",
     "docs/ci-test-effectiveness/evidence/b3-self-review.txt": "906d7cfe4b9c206c0c824cd91f5a19dd091240966badc780d4bb4764c92e7cf5",
@@ -416,5 +418,14 @@
     "commandSeconds": 2.080099201,
     "evidence": "evidence/b3-final-core.txt",
     "limit": "one verification sample, initial benchmark workload measured16 controls, no new marginal hosted claim"
+  },
+  "implementationCommits": [
+    "a6c6571c871571d84753b628fdf16ee3b2b3300c"
+  ],
+  "normalHooks": {
+    "command": "PATH=/workspace/getff-tools/bin:$PATH git commit -m \"fix(ci): exercise production discipline and husky checkers\" -m \"Prior-art: skipped — extract existing predicates and repair detached test oracles without new capability\"",
+    "exit": 0,
+    "evidence": "evidence/b3-normal-commit.txt",
+    "warnings": "15 resolved/11 skipped code citations; no bypass. First normal attempt refusal separately retained."
   }
 }

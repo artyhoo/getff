@@ -6,7 +6,7 @@
   "huskyPredicateExactAfterDirectoryParameterization": true,
   "allOtherAuditJobsAndEventsExact": true,
   "requiredNameGuardEventsPreserved": true,
-  "combinedSanityRemovals": "Both removed; surviving16 core controls and safe9-case husky fixtures execute actual helpers. Existing s17 commit gate and required completeness/aggregation tests unchanged.",
+  "combinedSanityRemovals": "Both removed; surviving17 core controls and safe9-case husky fixtures execute actual helpers. Existing s17 commit gate and required completeness/aggregation tests unchanged.",
   "hooksAfter": {
     ".husky/post-checkout": {
       "sha256": "43045e468b290cb4b2c2f846a4d5e266f4a3d70c259beb063f2056afdf25ed27",
