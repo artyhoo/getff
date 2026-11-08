@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "S1_ASSESSED_AWAITING_INDEPENDENT_ACCEPTANCE",
+  "status": "PARTIAL_AWAITING_SCOPED_REVIEW",
   "feature": "ci-test-effectiveness",
   "observedAt": "2026-11-08T14:32:12.452176+00:00",
   "repository": "https://github.com/artyhoo/getff",
@@ -147,5 +147,16 @@
   },
   "decisionModel": "D00 retention plus8named exceptions. Seven criteria assess bounded source/contract usefulness, not dynamic certification. Null cost measurements are unknown measurements, not zero cost or unassessed usefulness.",
   "newPersistentMechanisms": [],
-  "independentAcceptance": "Not performed by implementer; controller owns substantive review. Metadata validation is not acceptance."
+  "independentAcceptance": "Not performed by implementer; controller owns substantive review. Metadata validation is not acceptance.",
+  "reviewCorrection": {
+    "round": 1,
+    "base": "8c13d59395297380f5b981eac508f9175bc2e8cb",
+    "findings": [
+      "I1",
+      "I2",
+      "I3"
+    ],
+    "status": "Corrections supplied, independent scoped re-review pending; not accepted.",
+    "productionAndProbeEvidence": "Frozen source and existing probe receipts unchanged."
+  }
 }

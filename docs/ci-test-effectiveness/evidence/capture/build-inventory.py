@@ -27,30 +27,13 @@ def fam(p):
  return 'shell-scripts'
 inv=json.load(open(E/'ci-invocations.json'));pkg=json.load(open(E/'package-entrypoints.json'));packageScripts={z['path']:z['scripts'] for z in pkg}
 workflowText='\n'.join(x['step'].get('run','') for x in inv)
-# Actual command carriers, not arbitrary file-name mentions in docs/snapshots.
+# Historical first capture; reviewed carrier ledger is authoritative after I1 correction.
+reviewedRoutes=json.load(open(E/'invocation-reconciliation.json'))['resolvedSourceDelivery']
 coreRoute={'principles':'test:principles','ir':'test:ir','backends':'test:backends','composition':'test:composition','hooks':'test:hooks','skills':'test:skills','spec-validation':'test:spec-validation','synthesizer':'test:synthesizer','render':'test:render'}
 def routes(p,kind):
- if p in missing:return {'status':'missing-recurring-carrier','entrypoints':['manual native command only'],'decision':'D07'}
- if p.startswith('packages/runtime-bridge/') and p.endswith('.test.ts'):return {'status':'manual-package-only' if 'aif-park-live' not in p else 'explicit-live-opt-in','entrypoints':['packages/runtime-bridge/package.json#test','package.json#test'],'decision':'D07' if 'aif-park-live' not in p else None}
- if p.startswith('packages/preset-next-15-canonical/'):return {'status':'manual-package-only','entrypoints':['packages/preset-next-15-canonical/package.json#test','package.json#test'],'decision':'D07'}
- if p=='packages/core/audit-self/run-bash-mutation.test.ts':return {'status':'local-tool-conditional','entrypoints':['packages/core/package.json#test:units'],'condition':'mutate and analyze_mutants installed; explicit local-only contract'}
- if p in manual or kind=='historical-receipt':return {'status':'manual-replay','entrypoints':['source documented native command / receipt corpus'],'condition':'Bound historical corpus, and tool/argument requirements in source; not a fresh native run'}
- if kind=='manual-live':return {'status':'manual-live','entrypoints':['source documented target command'],'condition':'Actual external/installed target needed, not run in S1'}
- if kind=='test-support':return {'status':'support-not-independent-suite','entrypoints':['owning tests/fixture consumers; source references preserved']}
- out=[]
- for x in inv:
-  if p in x['step'].get('run',''):out.append('ci:'+x['id'])
- if p.startswith('packages/core/') and p.endswith(('.test.ts','.audit.ts')):
-  part=p.split('/')[2];script=coreRoute.get(part,'test:units');out.append('packages/core/package.json#'+script)
-  out.append('ci:.github/workflows/audit-self.yml#principles-meta-tests')
-  if part=='principles':out.append('ci:.github/workflows/audit-self.yml#kickoff-checks')
- for path,scripts in packageScripts.items():
-  for name,command in scripts.items():
-   if p in command or (p.startswith('scripts/') and '../../'+p in command):out.append(path+'#'+name)
- if p=='tests/advisor-role-reminders/test_reminders.py':out.append('test:packages/core/hooks/advisor-role-reminders.test.ts')
- if p.startswith('tests/agnosticism/') and p.endswith('.sh'):out.append('tests/agnosticism/run-audit.sh (architectural/session audit)')
- if p.startswith('tests/consumer-matrix/') and not out:out.append('ci:.github/workflows/audit-self.yml#framework-fresh-install-validate via owning cell')
- return {'status':'recurring' if any(x.startswith(('ci:','packages/core/package.json#','test:')) for x in out) else 'explicit-local-or-aggregate','entrypoints':sorted(set(out))}
+ # Fail on uncensused sources; never infer an invocation from substring presence.
+ return reviewedRoutes[p]
+
 def refs(f,extra=None):return {k:{'assessmentRef':'family-assessments.json#'+f+'/criteria/'+k,**({'memberEvidence':extra} if extra else {})} for k in criteria}
 rows=[];members=[]
 for i,x in enumerate(source):

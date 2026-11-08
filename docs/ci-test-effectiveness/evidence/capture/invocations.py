@@ -113,4 +113,12 @@ for row in rows:
    if v.get('memberEvidence') and v['memberEvidence'] not in member:member.append(v['memberEvidence'])
    c[k]=v['assessmentRef']
  if member:row['criterionApplicability']=' '.join(member)
+# Apply source-reviewed invocation contracts, replacing the historical coarse defaults.
+reviewedInvocations={a['id']:(i,a) for i,a in enumerate(json.load(open(D/'invocation-assessments.json')))}
+for row in rows:
+ if row['id'] in reviewedInvocations:
+  i,a=reviewedInvocations[row['id']]
+  row['criteria']={k:'invocation-assessments.json#/'+str(i)+'/criteria/'+k for k in crit}
+  row['individualApplicability']=a['subject']+' '+a['applicability']
+  row['invocationAssessmentRef']='invocation-assessments.json#/'+str(i)
 (D/'inventory.jsonl').write_text(''.join(json.dumps(x,ensure_ascii=False,separators=(',',':'))+'\n' for x in rows));print('Total',len(rows),'kinds',dict(collections.Counter(x['kind'] for x in rows)));print('prepush sections',len(sections),'precommit blocks',len(heads))

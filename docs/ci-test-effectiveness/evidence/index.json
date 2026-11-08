@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "packagedAt": "2026-11-08T15:12:28.268533+00:00",
+  "packagedAt": "2026-11-08T15:42:11.287083+00:00",
   "archives": [
     {
       "logicalPath": "evidence/ci-cost-summary.json",
@@ -164,14 +164,15 @@
     "shell": "git-tracked source population plus complete declaration/oracle expressions; no fabricated shell runtime-case total.",
     "workflows": "PyYAML BaseLoader over tracked workflow definitions; exact steps, events, strategy preserved. Real local sweep --list-gates does not execute gates.",
     "github": "gh run list --repo artyhoo/getff --limit60 --json databaseId,workflowName,event,status,conclusion,createdAt,startedAt,updatedAt,headSha,url; gh api repos/artyhoo/getff/actions/runs/ID/jobs --paginate; gh api repos/artyhoo/getff/branches/staging; gh pr view2144 and paginated files. Job logs fetched through GitHub connector after gh redirect failures.",
-    "probes": "probe-ledger.json gives fixed oracle, commands, hashes and classifications; perform only in disposable copy. No full recurring suite is prerequisite."
+    "probes": "probe-ledger.json gives fixed oracle, commands, hashes and classifications; perform only in disposable copy. No full recurring suite is prerequisite.",
+    "reviewCorrection": "After initial capture/compaction, evidence/capture/reconcile-review-1.py performs the frozen source correction; original generators consume the reviewed delivery/assessment records. It is a one-shot audit materialization, not a new permanent parser or recurring detector. evidence/capture/validate-review-1.py checks bounded correction consistency and preserved original bytes against review base8c13d593."
   },
   "storageDecision": "Compress immutable-source/API/runner duplicates and long captures, retain readable inventory/decisions/family reports. The one-shot capture scripts are not validators or recurring machinery. No new CI cost is imposed by the audit itself beyond normal repository file scans.",
   "files": [
     {
       "path": "baseline.json",
-      "bytes": 6740,
-      "sha256": "0e2041a73768ff4eb990473c35148edd5481f93a52d48d9b56b250b5b84e27cd"
+      "bytes": 7068,
+      "sha256": "539a89772d0ba54ff1cd1bc132327d23551f1551ac1b4748384cea3440f90cc9"
     },
     {
       "path": "ci-job-assessments.json",
@@ -185,8 +186,8 @@
     },
     {
       "path": "evidence/capture/build-inventory.py",
-      "bytes": 14321,
-      "sha256": "636ee0a9e3936295b79c917ea221a62e08b8ee33d53fb0da6f3fd604c50cd146"
+      "bytes": 11869,
+      "sha256": "ec252252e37c096c861671b336678844dc6d382b7d37b5529c3e7e654e9378e4"
     },
     {
       "path": "evidence/capture/census.py",
@@ -210,8 +211,8 @@
     },
     {
       "path": "evidence/capture/invocations.py",
-      "bytes": 26867,
-      "sha256": "86a5389c1a681a51a32c2cc7bb6df8e952d731ee456b27c04e887c221aad7587"
+      "bytes": 27385,
+      "sha256": "773614ad8a00e81008a7740c618ca399178a97e4172a31295c58214d5396b858"
     },
     {
       "path": "evidence/capture/python-discover.py",
@@ -219,9 +220,19 @@
       "sha256": "495841cd0d667e0a73a0be77059ecf34d577242164424e56d095ecc9887493e6"
     },
     {
+      "path": "evidence/capture/reconcile-review-1.py",
+      "bytes": 23528,
+      "sha256": "eb8252af4778a5a9b5520afc2f485dee6bbaf16a1093d75b11c264341176141a"
+    },
+    {
       "path": "evidence/capture/validate-package.py",
-      "bytes": 5466,
-      "sha256": "32099518ad0d4c60dd2bccfeb04b6f7093ca58c24b296cdb25871dccaf902d37"
+      "bytes": 5524,
+      "sha256": "df0ad31708ee21f183ad54811c17e25c946471fccb31e67a00aebf783c663c74"
+    },
+    {
+      "path": "evidence/capture/validate-review-1.py",
+      "bytes": 5083,
+      "sha256": "c24fe76dd9bc887898835a9c6f8b97de481852d2192b58669153642e725532e0"
     },
     {
       "path": "evidence/case-inventory.jsonl.gz",
@@ -464,6 +475,11 @@
       "sha256": "e1969cd0eff4bee4fe0ddd0b1902969dca3a2275d4d40a07fa40e43b6e333217"
     },
     {
+      "path": "evidence/invocation-reconciliation.json",
+      "bytes": 557707,
+      "sha256": "cd3d0e94936da31fe3f2b05c4931bec0662cf6eaa485bb69ea9e1a5c53505d6a"
+    },
+    {
       "path": "evidence/local-actionlint-exit-probe.json",
       "bytes": 2021,
       "sha256": "1e680a2753a8edd69ed798803a1814a51f97ef7a293b826b454221001975691c"
@@ -575,8 +591,8 @@
     },
     {
       "path": "evidence/package-validation.json",
-      "bytes": 2807,
-      "sha256": "31da381166add79ebfc6ecc02e6f36b7a3719bc153ae2fc451fb359d4a84ec8b"
+      "bytes": 2815,
+      "sha256": "45ca66266e2d26afa537bd53e665625be938c82c30c3532b8d3e0b3e780ea88e"
     },
     {
       "path": "evidence/population-working-summary.json",
@@ -602,6 +618,16 @@
       "path": "evidence/remote-staging.txt",
       "bytes": 60,
       "sha256": "9871f9298cb87d0c7b3c7dfb5dc86ed09d010c22b0dae32e0aefce8cbb0155c7"
+    },
+    {
+      "path": "evidence/review-1-reconciliation-summary.json",
+      "bytes": 1914,
+      "sha256": "896906c73e9cc231fd2c48c47187f7d59331418d1b3fb1d57d43a1fd11fdb688"
+    },
+    {
+      "path": "evidence/review-1-validation.json",
+      "bytes": 1150,
+      "sha256": "8a227671ec1deeffd40389264ef91cc2fcacfc6e4ff71893823bdc3ed9fd5b5a"
     },
     {
       "path": "evidence/review-hooks.txt.gz",
@@ -750,8 +776,18 @@
     },
     {
       "path": "inventory.jsonl",
-      "bytes": 4526043,
-      "sha256": "41ff5ed023cf3f6295064869c277ec478838069b3c5816c5d586a7a7349e2bf9"
+      "bytes": 4615546,
+      "sha256": "40a389e6fa8bb12d228c23d241897da43acf2f4ba5b5eca3d255b5eb6c26051b"
+    },
+    {
+      "path": "invocation-assessments.json",
+      "bytes": 514340,
+      "sha256": "fecc4819e318344fcfd90059ff805380e8db71781ff6c35859e0ccff68a3800f"
+    },
+    {
+      "path": "invocation-criteria.json",
+      "bytes": 6635,
+      "sha256": "8e7a69531f2678109040a9589e7198dd95cf620dde7ea3cb4a536dcb915b09b8"
     },
     {
       "path": "principle-assessments.json",
@@ -760,13 +796,13 @@
     },
     {
       "path": "root-cause-map.json",
-      "bytes": 9247,
-      "sha256": "0bd15434d4e7dc91f1744f6ca6bd43e732c2273b143facae96849eca4cdfd36a"
+      "bytes": 21594,
+      "sha256": "8dea55931549db52e0f1a042a72e94a5b5758fcc7343eb1a1320c5eebab5834f"
     },
     {
       "path": "stage-1.md",
-      "bytes": 20988,
-      "sha256": "146a69d48d17da1d004e8000eca7e57b5097b9d88e8717450fb3581a80d3a0c0"
+      "bytes": 24408,
+      "sha256": "843b755d7e37f003c1dee19b0dbaee500eb91886b88c1de927a55d8956b1754c"
     },
     {
       "path": "tak-reconciliation.json",
@@ -779,6 +815,6 @@
       "sha256": "7d0e2bc78c586e8307d898e53cf43a8e91572e91e17a2eb52ca32f2b2a224de9"
     }
   ],
-  "totalStoredBytesExcludingIndex": 11053676,
-  "verification": "evidence/package-validation.json; one-shot script evidence/capture/validate-package.py. This verifies the artifact, not semantic acceptance."
+  "totalStoredBytesExcludingIndex": 12267763,
+  "verification": "evidence/package-validation.json (44 checks) and evidence/review-1-validation.json (22 scoped checks); archive transport verification recorded in ignored task report after commit. Dataset/integrity checks are not substantive acceptance."
 }

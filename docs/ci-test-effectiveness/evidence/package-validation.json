@@ -1,7 +1,7 @@
 {
-  "at": "2026-11-08T15:12:00.053363+00:00",
+  "at": "2026-11-08T15:41:35.536231+00:00",
   "status": "PASS",
-  "jsonArtifactsParsed": 67,
+  "jsonArtifactsParsed": 72,
   "checks": {
     "inventory2121unique": true,
     "member21196unique": true,
@@ -44,7 +44,7 @@
     "disciplineReachedFaultSurvivesHeldSanity": true,
     "recorderSelectedVsFiltered": true,
     "historySourceHashesEqual": true,
-    "noTrackedBaselineEdits": true,
+    "noProductChangesFromReviewBase": true,
     "untrackedWithinAuthorizedDocs": true,
     "stage1Under500Lines": true
   },

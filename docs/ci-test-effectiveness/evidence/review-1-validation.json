@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "checks": {
+    "293pairs289commands4nonexecuting": true,
+    "allFourFalseLinksAbsent": true,
+    "all289ReviewedDirectLinksPresent": true,
+    "all736SourceDeliveryRecordsBound": true,
+    "routeCostCopiesAgree": true,
+    "all56PackageScriptsAssessed": true,
+    "252SpecificCarrierAssessments": true,
+    "allReachedMembersExist": true,
+    "reachedFamiliesExactlyMatchSources": true,
+    "IRActualFamily": true,
+    "BackendsActualFamily": true,
+    "tscNotFixturePresence": true,
+    "skillDriftActualScanner": true,
+    "emptyPackagesExplicit": true,
+    "all252SevenCriteriaResolve": true,
+    "inventoryUsesCorrectInvocationRefs": true,
+    "allDelegatesExist": true,
+    "preservedOriginalEvidenceBytes": true,
+    "noProductionChanges": true,
+    "RC5RC6NamedRecurrenceAndConsumptionProposal": true,
+    "NoCompleteAcceptanceClaim": true
+  },
+  "preservedOriginalFilesCompared": 107,
+  "changedPreservedFiles": [],
+  "scope": "Consistency and review-targeted source/transport assertions only. No new fault experiment, suite run or semantic acceptance.",
+  "inventoryRecords": 2121,
+  "invocationAssessments": 252
+}
