@@ -1,0 +1,13 @@
+{
+  "repository": "artyhoo/getff",
+  "command": "GH_REPO=artyhoo/getff bash scripts/check-required-contexts.sh <actual workflow required_contexts JSON>",
+  "status": 1,
+  "seconds": 1.016,
+  "credentialValuesExposed": false,
+  "workflowTokenUsed": false,
+  "permissionLimit": "Native CLI auth only, not a hosted GITHUB_TOKEN witness; no credential added or admin endpoint requested.",
+  "priorPrivateReceipt": ".superpowers/sdd/ci-test-effectiveness/b8-policy-fresh.json",
+  "expectedCurrentPolicyStatus": 1,
+  "observedHelperSha256": "2b59be1b314f0a3725d742f49f0d62bba32459c978066884ac856cd7f6f18abb",
+  "timingLimit": "Native observation preceded final strict rejection of protected metadata lacking required_status_checks; final offline corpus covers that correction. No duplicate live read."
+}

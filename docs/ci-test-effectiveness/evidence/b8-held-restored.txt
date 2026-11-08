@@ -1,0 +1,65 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (a) non-vacuity: the parsers see the real workflows, not an empty parse 14ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (b) every declarable job carries a `# required-context:` marker with a substantive rationale 16ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (c) real-tree: both in-repo lists equal the declared set exactly 17ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (d) paired-negative (seeded flip): a job flipped to `yes` must break both lists 1ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (e) paired-negative (seeded removal): a job with no marker must be detected, never defaulted 1ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (f) paired-negative (seeded list edit): dropping an entry from either list must be detected 32ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (g) fail-closed: an unparseable list yields null, never a vacuous pass 5ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (h) the audit-self carve-out is covered by its sibling gate 6ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (i) every declared-required context sits behind an UNFILTERED pull_request: trigger 16ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (j) paired-negative (seeded filter): GREEN on the real tree, RED once a declared-required workflow is filtered 21ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (k) the filter parser is scoped to pull_request, and reads the inline trigger grammar 4ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper changes reach the existing observer with repository passed through env 8ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: complete classic contexts => 0 48ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: complete classic contexts => 0 40ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: complete real checks schema => 0 21ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: complete real checks schema => 0 41ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: known missing three => 1 51ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: known missing three => 1 49ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: unprotected known empty => 1 33ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: unprotected known empty => 1 34ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: protected without status requirement => 1 36ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: protected without status requirement => 1 39ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: inactive ruleset known missing => 1 28ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: inactive ruleset known missing => 1 47ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: active uninspected ruleset => 2 29ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: active uninspected ruleset => 2 45ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: active ruleset plus sufficient classic witness => 0 25ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: active ruleset plus sufficient classic witness => 0 23ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch HTTP failure despite valid complete body => 2 11ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch HTTP failure despite valid complete body => 2 14ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch malformed JSON => 2 23ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch malformed JSON => 2 27ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch unknown schema => 2 19ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch unknown schema => 2 19ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: protected branch missing required checks schema => 2 40ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: protected branch missing required checks schema => 2 27ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch wrong JSON type => 2 21ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch wrong JSON type => 2 26ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch contexts wrong type => 2 22ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch contexts wrong type => 2 21ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch checks malformed => 2 26ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch checks malformed => 2 24ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch multiple JSON documents => 2 27ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch multiple JSON documents => 2 22ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules API failure despite valid empty body => 2 34ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules API failure despite valid empty body => 2 35ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules malformed JSON => 2 33ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules malformed JSON => 2 45ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules unknown schema => 2 43ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules unknown schema => 2 34ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules unknown enforcement => 2 35ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules unknown enforcement => 2 42ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: paginated later active ruleset => 2 46ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: paginated later active ruleset => 2 42ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: classic complete needs no rules API => 0 19ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: classic complete needs no rules API => 0 34ms
+
+ Test Files  1 passed (1)
+      Tests  56 passed (56)
+   Start at  19:12:10
+   Duration  2.30s (transform 301ms, setup 235ms, import 141ms, tests 1.55s, environment 0ms)
+
