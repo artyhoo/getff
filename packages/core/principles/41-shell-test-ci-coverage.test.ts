@@ -191,17 +191,16 @@ function wrapperTargets(sources: (path: string) => string = read): string[] {
     compact(spawn).startsWith(
       "returnspawnSync('bash',['-e','-o','pipefail','-c',command],{cwd,env:",
     ) &&
-    directCallbacks(huskySource).some(
-      (b) =>
-        b.statements
-          .map(compact)
-          .includes(
-            "constresult=run('bashtests/hooks/test-enforce-husky-presence.sh');",
-          ) &&
-        b.statements
-          .map(compact)
-          .includes("status(result,0,'PASS:huskycheckerfixedcontrols');"),
-    )
+    directCallbacks(huskySource).some((block) => {
+      const body = block.statements.map(compact);
+      // The supported call and status assertion must be the first live statements.
+      // Later independent diagnostic assertions remain owned by the wrapper.
+      return (
+        body[0] ===
+          "constresult=run('bashtests/hooks/test-enforce-husky-presence.sh');" &&
+        body[1] === "status(result,0,'PASS:huskycheckerfixedcontrols');"
+      );
+    })
   )
     out.push('tests/hooks/test-enforce-husky-presence.sh');
   return out;
@@ -386,6 +385,50 @@ describe('Principle 41 — native source suites reach actual CI invocations', ()
       ).not.toContain('tests/advisor-role-reminders/test_reminders.py');
     }
   });
+  it.each([
+    ['return before invocation', 'return;', 'const result ='],
+    [
+      'throw before invocation',
+      'throw new Error("stopped");',
+      'const result =',
+    ],
+    ['conditional before invocation', 'if (true) return;', 'const result ='],
+    [
+      'return before status',
+      'return;',
+      "status(result, 0, 'PASS: husky checker fixed controls');",
+    ],
+    [
+      'conditional before status',
+      'if (true) return;',
+      "status(result, 0, 'PASS: husky checker fixed controls');",
+    ],
+  ])('(I1) husky wrapper rejects %s', (_name, interruption, boundary) => {
+    const path = 'packages/core/hooks/ci-checker-oracles.test.ts';
+    const source = read(path);
+    const fault = source.replace(boundary, `${interruption}\n    ${boundary}`);
+    expect(fault).not.toBe(source);
+    expect(wrapperTargets((p) => (p === path ? fault : read(p)))).not.toContain(
+      'tests/hooks/test-enforce-husky-presence.sh',
+    );
+  });
+  it.each(['unchanged', 'comment-only'])(
+    '(I1) husky wrapper accepts %s live companion',
+    (kind) => {
+      const path = 'packages/core/hooks/ci-checker-oracles.test.ts';
+      const source = read(path);
+      const companion =
+        kind === 'unchanged'
+          ? source
+          : source.replace(
+              'const result =',
+              '// The fixed controls still run before their independent diagnostic assertion.\n    const result =',
+            );
+      expect(
+        wrapperTargets((p) => (p === path ? companion : read(p))),
+      ).toContain('tests/hooks/test-enforce-husky-presence.sh');
+    },
+  );
   it('(g) exemption hygiene remains live with an empty map', () => {
     expect(hygiene(ALLOWLIST)).toEqual([]);
     expect(

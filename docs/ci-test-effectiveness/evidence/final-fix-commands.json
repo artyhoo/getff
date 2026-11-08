@@ -1,0 +1,353 @@
+{
+  "sourceBase": "7defdb78ba1a4c74713e10787cdc8917ebf1dbdc",
+  "environment": "Native Linux Node24.19.0; not hosted Node22/Windows",
+  "commands": [
+    {
+      "id": "corpus-red",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/41-shell-test-ci-coverage.test.ts",
+        "-t",
+        "(I1)"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "wallSeconds": 2.94235,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-corpus-red.txt",
+      "outputSha256": "0ecc186ffa92a0d33f64968914e05a383c7a262bddf6b097d7b426abf93cab0f"
+    },
+    {
+      "id": "population-loader-failed",
+      "command": [
+        "node_modules/.bin/tsx",
+        ".superpowers/sdd/ci-test-effectiveness/final-fix-population.mts"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 1,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.437476,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-population-loader-failed.txt",
+      "outputSha256": "06625a7ea84e33cef1898272ce8217d311ed2ad1243d14f878cd0f9bea3e1eb6"
+    },
+    {
+      "id": "original-population-before",
+      "command": [
+        "node_modules/.bin/tsx",
+        ".superpowers/sdd/ci-test-effectiveness/final-fix-population.mts"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 2.138809,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-original-population-before.txt",
+      "outputSha256": "41e56ddd2230f621c1eb4c41f793c89e50d867660cf39252650674a205ae963d"
+    },
+    {
+      "id": "original-population-held",
+      "command": [
+        "node_modules/.bin/tsx",
+        ".superpowers/sdd/ci-test-effectiveness/final-fix-population.mts"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 1.456093,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-original-population-held.txt",
+      "outputSha256": "41e56ddd2230f621c1eb4c41f793c89e50d867660cf39252650674a205ae963d"
+    },
+    {
+      "id": "original-carrier-held",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/41-shell-test-ci-coverage.test.ts",
+        "-t",
+        "real-tree: no tracked native source test is uninvoked"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 2.987657,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-original-carrier-held.txt",
+      "outputSha256": "ef2471bebbd916640079cbec5b9f7860f3f0738281d73e4fb85cc14c82976295"
+    },
+    {
+      "id": "original-carrier-restored",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/41-shell-test-ci-coverage.test.ts",
+        "-t",
+        "real-tree: no tracked native source test is uninvoked"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 2.659927,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-original-carrier-restored.txt",
+      "outputSha256": "cbfc041bcbc71ff822bc46c827630a6139be69ffbc13a21cca8d7e69890b8f7d"
+    },
+    {
+      "id": "p41-green",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/41-shell-test-ci-coverage.test.ts"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 5.531956,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-p41-green.txt",
+      "outputSha256": "bfd0a5d77fec17611b762f3027703ee3a8bdfa487a6019a77505952ea5c0d037"
+    },
+    {
+      "id": "face-write",
+      "command": [
+        "node",
+        "scripts/render-face-facts.mjs",
+        "--write"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 1.099557,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-face-write.txt",
+      "outputSha256": "6b8715cbd80545926ac36313024e9dce4f8dca0c75d96dc558a26c7d4125b089"
+    },
+    {
+      "id": "reference-check",
+      "command": [
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 4.571975,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-reference-check.txt",
+      "outputSha256": "ad79324664522e4357f2e25f044d89a165d4f2cf80dbf582d83906f078bb7c65"
+    },
+    {
+      "id": "fixed-population-before",
+      "command": [
+        "node_modules/.bin/tsx",
+        ".superpowers/sdd/ci-test-effectiveness/final-fix-population.mts"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 2.388944,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-fixed-population-before.txt",
+      "outputSha256": "41e56ddd2230f621c1eb4c41f793c89e50d867660cf39252650674a205ae963d"
+    },
+    {
+      "id": "fixed-population-held",
+      "command": [
+        "node_modules/.bin/tsx",
+        ".superpowers/sdd/ci-test-effectiveness/final-fix-population.mts"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 2.048324,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-fixed-population-held.txt",
+      "outputSha256": "916ca2d83f7c5cdb411a72bcea8bb54c1c1f56d86dae7bd101cc46f76ca13b45"
+    },
+    {
+      "id": "fixed-carrier-held",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/41-shell-test-ci-coverage.test.ts",
+        "-t",
+        "real-tree: no tracked native source test is uninvoked"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "wallSeconds": 3.008617,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-fixed-carrier-held.txt",
+      "outputSha256": "082fed282ea7f5741939368ba208ec7ea01dd1ccef16a1d8809ccfec6114a0eb"
+    },
+    {
+      "id": "fixed-carrier-restored",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/41-shell-test-ci-coverage.test.ts",
+        "-t",
+        "real-tree: no tracked native source test is uninvoked"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 2.540777,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-fixed-carrier-restored.txt",
+      "outputSha256": "9175db6680af7c5a2627321ec4a9d3f417da54a6af0d49534de52019326f605e"
+    },
+    {
+      "id": "actionlint-version",
+      "command": [
+        "/workspace/getff-tools/bin/actionlint",
+        "--version"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.047951,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-actionlint-version.txt",
+      "outputSha256": "f6d2718d09c84c4d0237eb0e6f16775b0a4374a8b67976ef0541b850d3d224ed"
+    },
+    {
+      "id": "actionlint",
+      "command": [
+        "/workspace/getff-tools/bin/actionlint",
+        ".github/workflows/pr-body-fidelity.yml"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.013103,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-actionlint.txt",
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "face-check",
+      "command": [
+        "node",
+        "scripts/render-face-facts.mjs",
+        "--check"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.671233,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-face-check.txt",
+      "outputSha256": "1bc70a2404f93bc201de7511a7d888ac187a51799e2e4cb7825e8b0c8140de6f"
+    },
+    {
+      "id": "manifest-write",
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 1.402739,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-manifest-write.txt",
+      "outputSha256": "af8a8a8d99bd09c6f6810f8b8df9998cc32ee0ce55495de6397fe832cf6e4d9c"
+    },
+    {
+      "id": "manifest-check",
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh",
+        "--check"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 7.328361,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-manifest-check.txt",
+      "outputSha256": "aa40e0a8803729d2111c29d3f279a0cf8aeb6f01bb2a4a44c13c1349a0a8d4d4"
+    },
+    {
+      "id": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.037193,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-diff-check.txt",
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "staged-diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "wallSeconds": 0.017368,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-staged-diff-check.txt",
+      "outputSha256": "653475796fc6d283218388dd09d70731c65fe0d43e5335be8c1fe38172144068"
+    },
+    {
+      "id": "repaired-paths-diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check",
+        "--",
+        ".",
+        ":!docs/ci-test-effectiveness/acceptance/final-review.md"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.023227,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-repaired-paths-diff-check.txt",
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "final-range-diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "7defdb78ba1a4c74713e10787cdc8917ebf1dbdc"
+      ],
+      "cwd": "/workspace/getff-native",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "wallSeconds": 0.024406,
+      "output": "docs/ci-test-effectiveness/evidence/final-fix-final-range-diff-check.txt",
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "unloggedSetupAttempt": {
+    "command": "python3 .superpowers/sdd/ci-test-effectiveness/final-fix-held.py original",
+    "result": "FileNotFoundError launching packages/core/node_modules/.bin/tsx before any subject mutation; use existing root node_modules/.bin/tsx",
+    "wallSeconds": null
+  },
+  "recordedCommandWallSeconds": 43.378043,
+  "costLimit": "Sum of measured child-command wall times, includes expected reds and failed loader. Not CPU, author/review time, token/$ or baseline-adjusted recurring cost. Trailing blank output normalized; empty stdout is empty file. Whitespace diagnostic log strips trailing spaces from displayed added lines; the actual frozen reviewer bytes remain exact in the gzip transport."
+}

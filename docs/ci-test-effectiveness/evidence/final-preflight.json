@@ -1,0 +1,14 @@
+{
+  "command": "node scripts/render-face-facts.mjs --check",
+  "observedExitCode": 1,
+  "observation": "docs/site/face-facts.json differs from the derivation \u2014 run scripts/render-face-facts.mjs --write (D42: derived, not asserted)",
+  "counts": {
+    "principles": 57,
+    "priorArtRows": 316,
+    "patches": 287,
+    "specs": 128,
+    "academic": 44
+  },
+  "sourceHead": "7defdb78ba1a4c74713e10787cdc8917ebf1dbdc",
+  "status": "Concrete final-review finding, no source edit made; required normal generator closure belongs to single final fix wave."
+}

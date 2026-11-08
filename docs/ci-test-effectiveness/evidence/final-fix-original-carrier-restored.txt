@@ -1,0 +1,14 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default principles/41-shell-test-ci-coverage.test.ts -t real-tree: no tracked native source test is uninvoked
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ✓ principles/41-shell-test-ci-coverage.test.ts (34 tests | 33 skipped) 909ms
+     ✓ (a) real-tree: no tracked native source test is uninvoked  907ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 33 skipped (34)
+   Start at  20:32:41
+   Duration  1.87s (transform 281ms, setup 55ms, import 632ms, tests 909ms, environment 0ms)

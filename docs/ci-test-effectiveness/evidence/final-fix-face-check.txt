@@ -1,0 +1,7 @@
+[render-face-facts] maturity: copied verbatim from packages/core/manifest/maturity.json
+[render-face-facts] installCommands: 5 stacks, 3 lanes, 4 README flags
+[render-face-facts] firstSteps: sequences + renders copied verbatim from packages/core/templates/shared/first-steps.source.json
+[render-face-facts] rosters: 11 families read (never re-derived)
+[render-face-facts] counts: principles=57 priorArtRows=316 patches=287 specs=128 academic=44
+[render-face-facts] enforcementOutcomes: 3 demo nodes × 4 backends (live facts)
+[render-face-facts] check: docs/site/face-facts.json is byte-identical to the derivation

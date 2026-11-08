@@ -1091,7 +1091,7 @@ d98339ab8d106e318a094466ed710199a8a5ab8f05229ccad3ee1ee46b30f414  packages/core/
 9aee92c313e8e1bea0a12fc79d5fcfe34ec2a6cc89f6e5ab74ef46b69a8f6d62  packages/core/principles/38-vitest-include-ci-coverage.test.ts
 2da93bb3d34e9e60a15919b17b8a37fd64464f201c61cf70ddf6cc9a8939d81f  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
-cbbf4595ce0e89058b7efe12b10c1244e6784bb7b959e27f5efe5be2f8dc4aa0  packages/core/principles/41-shell-test-ci-coverage.test.ts
+f03ca44ebba29efbbf4489b09cbea9c65fe35398c18fd49048b2fd506e6e2eb5  packages/core/principles/41-shell-test-ci-coverage.test.ts
 37e89ca82b46878d1f2a2fea23156b0c4f11291ae583fbf6672a53eafddc73ee  packages/core/principles/42-context-md-pointer-rule.test.ts
 4855016c0e4bc571d8f882b2014d6b1227c0c76a3fd6531d5252a5c4799356ef  packages/core/principles/42-context-md-spelling-uniqueness.test.ts
 5b361a30b9881057c031376e255e2bbf528251d90ccc603d23080324910bf6df  packages/core/principles/43-kickoff-host-verify-presence.test.ts
