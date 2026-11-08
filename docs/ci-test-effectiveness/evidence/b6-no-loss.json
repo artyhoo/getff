@@ -1,0 +1,48 @@
+{
+  "decisionId": "D10",
+  "inputCommit": "4044007fd1b1cdcd6ae6fe804c14f3ab96899986",
+  "source": "packages/core/hooks/glossary-counters.test.ts#concurrent sessions",
+  "sourceSHA256": "25b27342837e7b4f5b7a0e7e86e6f1ece0cb06630816884ad800d37b9aba7424",
+  "comparisonRef": "b6-source-diff.txt",
+  "retained": {
+    "N": 10,
+    "actualHookProcesses": true,
+    "callbacksChanged": false,
+    "counterAssertionsChanged": false,
+    "lockAssertionChanged": false,
+    "availabilityPolicyChanged": false,
+    "globalTimeoutChanged": false,
+    "addedTestOrMock": false,
+    "changedTestArguments": 3,
+    "argumentAdded": "existing SLOW_SHELL_MS (30000ms) as third argument"
+  },
+  "focused": {
+    "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/glossary-counters.test.ts -t 'concurrent sessions'",
+    "exit": 0,
+    "result": "3 passed, 28 skipped; 5.37s total, 4.94s test duration",
+    "rawRef": "b6-focused.txt"
+  },
+  "fullHooks": {
+    "command": "npm --prefix packages/core run test:hooks",
+    "exit": 1,
+    "result": "97 files passed, 1 failed; 2308 tests passed, 3 skipped; 159.61s duration",
+    "failure": "hooks/advisor-role-reminders.test.ts > advisor role reminder delivery boundary > preserves bytes and rejects unbound authority across context lifecycles; timed out at its existing 5000ms limit",
+    "rawRef": "b6-full-hooks.txt"
+  },
+  "manifest": {
+    "generator": "bash scripts/build-getff-dist.sh",
+    "generatorExit": 0,
+    "check": "bash scripts/build-getff-dist.sh --check",
+    "initialCheckExit": 1,
+    "initialCheckReason": "expected drift before normal regeneration",
+    "finalCheckExit": 0,
+    "finalCheckResult": "1667 payload files and actual 1672-file npm archive verified",
+    "rawRefs": ["b6-manifest-initial-check.txt", "b6-manifest-generate.txt", "b6-manifest-final-check.txt"]
+  },
+  "limits": [
+    "The full hooks failure is independent by file and was not diagnosed or attributed to D10.",
+    "The single full run was not repeated; no full-suite green claim.",
+    "Three suite skips are preserved as reported by Vitest; no new skip or filter was added.",
+    "Absent local ast-grep and host-specific behavior remain outside this evidence."
+  ]
+}

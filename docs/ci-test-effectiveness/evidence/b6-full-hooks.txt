@@ -1,0 +1,1135 @@
+
+> @rules-as-tests/core@0.1.0 test:hooks
+> vitest run hooks/
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+bash: /tmp/j5-hyd-test-uLkXfM/scripts/worktree-node-modules.sh: No such file or directory
+link-coordination: seeding $CANON from /tmp/j5-hyd-test-uLkXfM/.claude/orchestrator-prompts ...
+link-coordination: seed complete.
+link-coordination: linked my-umbrella/state.md → $CANON
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+bash: /tmp/j5-hyd-test-n5eG0K/scripts/worktree-node-modules.sh: No such file or directory
+bash: /tmp/j5-hyd-test-iFsxVS/scripts/worktree-node-modules.sh: No such file or directory
+link-coordination: seeding $CANON from /tmp/j5-hyd-test-iFsxVS/.claude/orchestrator-prompts ...
+link-coordination: seed complete.
+link-coordination: linked my-umbrella/state.md → $CANON
+bash: /tmp/j5-hyd-test-aAt6FE/scripts/worktree-node-modules.sh: No such file or directory
+bash: /tmp/j5-hyd-test-3bCMEZ/scripts/worktree-node-modules.sh: No such file or directory
+link-coordination: seeding $CANON from /tmp/j5-hyd-test-3bCMEZ/.claude/orchestrator-prompts ...
+link-coordination: seed complete.
+link-coordination: linked my-umbrella/state.md → $CANON
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+To /tmp/prepush-smoke-remote-sI0OAz
+ * [new branch]      main -> main
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+link-coordination: linked my-umbrella/state.md → $CANON
+CONFLICT: /tmp/link-coord-primary-hPOdin/.claude/worktrees/lnk-c/.claude/orchestrator-prompts/my-umbrella/state.md exists as real file AND /tmp/link-coord-canon-OUIVdP/my-umbrella/state.md exists in $CANON — resolve manually then re-run
+link-coordination: exiting with conflict(s) — see CONFLICT lines above.
+link-coordination: linked my-umbrella/state.md → $CANON
+link-coordination: linked my-umbrella/state.md → $CANON
+link-coordination: adopted my-umbrella/state.md → $CANON
+link-coordination: seeding $CANON from /tmp/link-coord-primary-edwylv/.claude/orchestrator-prompts ...
+link-coordination: seed complete.
+link-coordination: on-conflict=canon → canonical wins, relinked u1/state.md
+link-coordination: on-conflict=worktree → worktree wins, adopted u1/state.md
+CONFLICT: /tmp/link-coord-primary-ZlCCyN/.claude/worktrees/lnk-oc-skip/.claude/orchestrator-prompts/u1/state.md exists as real file AND /tmp/link-coord-canon-bMg3eI/u1/state.md exists in $CANON — resolve manually then re-run
+link-coordination: exiting with conflict(s) — see CONFLICT lines above.
+link-coordination: invalid --on-conflict='bogus' (canon|worktree|skip)
+link-coordination: adopted root _plan-cache.md → $CANON
+link-coordination: linked root _master-backlog-delta.json → $CANON
+link-coordination: adopted root _handoff-sess_abc123.md → $CANON
+link-coordination: linked root _handoff-sess_abc123.md → $CANON
+CONFLICT: /tmp/link-coord-primary-qAjdPY/.claude/worktrees/lnk-ho-conf/.claude/orchestrator-prompts/_handoff-dupe.md exists as real file AND /tmp/link-coord-canon-UzRcSU/_handoff-dupe.md exists in $CANON — resolve manually then re-run
+link-coordination: exiting with conflict(s) — see CONFLICT lines above.
+link-coordination: adopted root _handoff-sess_k5.md → $CANON
+link-coordination: adopted root _residue-k5.md → $CANON
+link-coordination: adopted root _morning-report-k5.md → $CANON
+link-coordination: linked root _handoff-sess_k5.md → $CANON
+link-coordination: linked root _residue-k5.md → $CANON
+link-coordination: linked root _morning-report-k5.md → $CANON
+link-coordination: linked u0/state.md → $CANON
+link-coordination: linked u1/state.md → $CANON
+link-coordination: linked u10/state.md → $CANON
+link-coordination: linked u11/state.md → $CANON
+link-coordination: linked u12/state.md → $CANON
+link-coordination: linked u13/state.md → $CANON
+link-coordination: linked u14/state.md → $CANON
+link-coordination: linked u15/state.md → $CANON
+link-coordination: linked u16/state.md → $CANON
+link-coordination: linked u17/state.md → $CANON
+link-coordination: linked u18/state.md → $CANON
+link-coordination: linked u19/state.md → $CANON
+link-coordination: linked u2/state.md → $CANON
+link-coordination: linked u20/state.md → $CANON
+link-coordination: linked u21/state.md → $CANON
+link-coordination: linked u22/state.md → $CANON
+link-coordination: linked u23/state.md → $CANON
+link-coordination: linked u24/state.md → $CANON
+link-coordination: linked u25/state.md → $CANON
+link-coordination: linked u26/state.md → $CANON
+link-coordination: linked u27/state.md → $CANON
+link-coordination: linked u28/state.md → $CANON
+link-coordination: linked u29/state.md → $CANON
+link-coordination: linked u3/state.md → $CANON
+link-coordination: linked u30/state.md → $CANON
+link-coordination: linked u31/state.md → $CANON
+link-coordination: linked u32/state.md → $CANON
+link-coordination: linked u33/state.md → $CANON
+link-coordination: linked u34/state.md → $CANON
+link-coordination: linked u35/state.md → $CANON
+link-coordination: linked u36/state.md → $CANON
+link-coordination: linked u37/state.md → $CANON
+link-coordination: linked u38/state.md → $CANON
+link-coordination: linked u39/state.md → $CANON
+link-coordination: linked u4/state.md → $CANON
+link-coordination: linked u40/state.md → $CANON
+link-coordination: linked u41/state.md → $CANON
+link-coordination: linked u42/state.md → $CANON
+link-coordination: linked u43/state.md → $CANON
+link-coordination: linked u44/state.md → $CANON
+link-coordination: linked u45/state.md → $CANON
+link-coordination: linked u46/state.md → $CANON
+link-coordination: linked u47/state.md → $CANON
+link-coordination: linked u48/state.md → $CANON
+link-coordination: linked u49/state.md → $CANON
+link-coordination: linked u5/state.md → $CANON
+link-coordination: linked u50/state.md → $CANON
+link-coordination: linked u51/state.md → $CANON
+link-coordination: linked u52/state.md → $CANON
+link-coordination: linked u53/state.md → $CANON
+link-coordination: linked u54/state.md → $CANON
+link-coordination: linked u55/state.md → $CANON
+link-coordination: linked u56/state.md → $CANON
+link-coordination: linked u57/state.md → $CANON
+link-coordination: linked u58/state.md → $CANON
+link-coordination: linked u59/state.md → $CANON
+link-coordination: linked u6/state.md → $CANON
+link-coordination: linked u7/state.md → $CANON
+link-coordination: linked u8/state.md → $CANON
+link-coordination: linked u9/state.md → $CANON
+link-coordination: linked u0/state.md → $CANON
+link-coordination: linked u1/state.md → $CANON
+link-coordination: linked u10/state.md → $CANON
+link-coordination: linked u11/state.md → $CANON
+link-coordination: linked u12/state.md → $CANON
+link-coordination: linked u13/state.md → $CANON
+link-coordination: linked u14/state.md → $CANON
+link-coordination: linked u15/state.md → $CANON
+link-coordination: linked u16/state.md → $CANON
+link-coordination: linked u17/state.md → $CANON
+link-coordination: linked u18/state.md → $CANON
+link-coordination: linked u19/state.md → $CANON
+link-coordination: linked u2/state.md → $CANON
+link-coordination: linked u20/state.md → $CANON
+link-coordination: linked u21/state.md → $CANON
+link-coordination: linked u22/state.md → $CANON
+link-coordination: linked u23/state.md → $CANON
+link-coordination: linked u24/state.md → $CANON
+link-coordination: linked u25/state.md → $CANON
+link-coordination: linked u26/state.md → $CANON
+link-coordination: linked u27/state.md → $CANON
+link-coordination: linked u28/state.md → $CANON
+link-coordination: linked u29/state.md → $CANON
+link-coordination: linked u3/state.md → $CANON
+link-coordination: linked u30/state.md → $CANON
+link-coordination: linked u31/state.md → $CANON
+link-coordination: linked u32/state.md → $CANON
+link-coordination: linked u33/state.md → $CANON
+link-coordination: linked u34/state.md → $CANON
+link-coordination: linked u35/state.md → $CANON
+link-coordination: linked u36/state.md → $CANON
+link-coordination: linked u37/state.md → $CANON
+link-coordination: linked u38/state.md → $CANON
+link-coordination: linked u39/state.md → $CANON
+link-coordination: linked u4/state.md → $CANON
+link-coordination: linked u40/state.md → $CANON
+link-coordination: linked u41/state.md → $CANON
+link-coordination: linked u42/state.md → $CANON
+link-coordination: linked u43/state.md → $CANON
+link-coordination: linked u44/state.md → $CANON
+link-coordination: linked u45/state.md → $CANON
+link-coordination: linked u46/state.md → $CANON
+link-coordination: linked u47/state.md → $CANON
+link-coordination: linked u48/state.md → $CANON
+link-coordination: linked u49/state.md → $CANON
+link-coordination: linked u5/state.md → $CANON
+link-coordination: linked u50/state.md → $CANON
+link-coordination: linked u51/state.md → $CANON
+link-coordination: linked u52/state.md → $CANON
+link-coordination: linked u53/state.md → $CANON
+link-coordination: linked u54/state.md → $CANON
+link-coordination: linked u55/state.md → $CANON
+link-coordination: linked u56/state.md → $CANON
+link-coordination: linked u57/state.md → $CANON
+link-coordination: linked u58/state.md → $CANON
+link-coordination: linked u59/state.md → $CANON
+link-coordination: linked u6/state.md → $CANON
+link-coordination: linked u7/state.md → $CANON
+link-coordination: linked u8/state.md → $CANON
+link-coordination: linked u9/state.md → $CANON
+link-coordination: linked u1/state.md → $CANON
+link-coordination: linked u1/state.md → $CANON
+link-coordination: adopted u1/back\slash.md → $CANON
+link-coordination: adopted u1/q"uote.md → $CANON
+link-coordination: linked u1/state.md → $CANON
+link-coordination: adopted u1/stage-4.md → $CANON
+link-coordination: linked u1/state.md → $CANON
+link-coordination: refusing /tmp/link-coord-foreign-aspvNX — not a checkout of this script's repository (/tmp/link-coord-guard-home-hNgTf3); nothing linked
+link-coordination: linked u1/state.md → $CANON
+link-coordination: linked root _handoff-guard.md → $CANON
+link-coordination: refusing /tmp/link-coord-foreign-cSrp3l — not a checkout of this script's repository (/tmp/link-coord-guard-home-gElyG3); nothing linked
+link-coordination: refusing /tmp/link-coord-nogit-GEW07B — not a checkout of this script's repository (/tmp/link-coord-guard-home-zrrSZV); nothing linked
+link-coordination: refusing /tmp/link-coord-guard-home-uvr5XS/sub/scratch — not a checkout of this script's repository (/tmp/link-coord-guard-home-uvr5XS); nothing linked
+link-coordination: linked u1/state.md → $CANON
+link-coordination: linked root _handoff-guard.md → $CANON
+link-coordination: adopted u1/state.md → $CANON
+link-coordination: adopted u2/state.md → $CANON
+link-coordination: adopted u1/state.md → $CANON
+link-coordination: adopted u1/state.md → $CANON
+· pre-push canonical-source: not selected for kickoff-only range
+· pre-push ir-meta: not selected for kickoff-only range
+· pre-push backends-meta: not selected for kickoff-only range
+· pre-push composition-meta: not selected for kickoff-only range
+✓ worktree-node-modules: provisioned /tmp/wtc-test-b5a9Ez/.claude/worktrees/my-wt
+⚠ worktree-setup: /tmp/wtc-test-b5a9Ez/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-b5a9Ez/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/wtc-test-IASrOl/.claude/worktrees/sym-root
+⚠ worktree-setup: /tmp/wtc-test-IASrOl/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-IASrOl/scripts/link-coordination.sh: No such file or directory
+ ❯ hooks/advisor-role-reminders.test.ts (1 test | 1 failed) 5273ms
+     × preserves bytes and rejects unbound authority across context lifecycles 5271ms
+✓ worktree-node-modules: provisioned /tmp/wtc-test-zuNfGW/.claude/worktrees/sym-core-nested
+⚠ worktree-setup: /tmp/wtc-test-zuNfGW/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-zuNfGW/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/wtc-test-jRVW32/.claude/worktrees/sym-core
+⚠ worktree-setup: /tmp/wtc-test-jRVW32/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-jRVW32/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/wtc-test-j3vB6g/.claude/worktrees/self-heal
+⚠ worktree-setup: /tmp/wtc-test-j3vB6g/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-j3vB6g/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/wtc-test-P9kNO0/.claude/worktrees/noop
+⚠ worktree-setup: /tmp/wtc-test-P9kNO0/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-P9kNO0/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/wtc-test-mb9otJ/.claude/worktrees/branch-conv
+⚠ worktree-setup: /tmp/wtc-test-mb9otJ/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-mb9otJ/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/wtc-test-UISbvJ/.claude/worktrees/idem
+⚠ worktree-setup: /tmp/wtc-test-UISbvJ/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-UISbvJ/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/wtc-test-K9AQQM/.claude/worktrees/one-line
+⚠ worktree-setup: /tmp/wtc-test-K9AQQM/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-K9AQQM/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/wtc-test-zdtLAI/.claude/worktrees/env-precedes
+⚠ worktree-setup: /tmp/wtc-test-zdtLAI/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-test-zdtLAI/scripts/link-coordination.sh: No such file or directory
+⚠ worktree-setup: missing .name in WorktreeCreate stdin payload
+⚠ worktree-setup: missing .name in WorktreeCreate stdin payload
+bash: /tmp/wtc-stale-7JMhxp/work/scripts/worktree-node-modules.sh: No such file or directory
+⚠ worktree-setup: /tmp/wtc-stale-7JMhxp/work/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/wtc-stale-7JMhxp/work/scripts/link-coordination.sh: No such file or directory
+⚠ worktree-setup: cannot resolve project root
+✓ worktree-node-modules: provisioned /tmp/cwt-test-JAZm7C/.claude/worktrees/my-wt
+⚠ create-worktree: /tmp/cwt-test-JAZm7C/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-JAZm7C/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-Fap6Zd/.claude/worktrees/sym-root
+⚠ create-worktree: /tmp/cwt-test-Fap6Zd/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-Fap6Zd/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-CHEIlr/.claude/worktrees/sym-core-nested
+⚠ create-worktree: /tmp/cwt-test-CHEIlr/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-CHEIlr/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-UcO0Pa/.claude/worktrees/sym-core
+⚠ create-worktree: /tmp/cwt-test-UcO0Pa/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-UcO0Pa/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-n2eYe2/.claude/worktrees/self-heal
+⚠ create-worktree: /tmp/cwt-test-n2eYe2/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-n2eYe2/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-T44dw6/.claude/worktrees/noop
+⚠ create-worktree: /tmp/cwt-test-T44dw6/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-T44dw6/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-10rc83/.claude/worktrees/branch-conv
+⚠ create-worktree: /tmp/cwt-test-10rc83/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-10rc83/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-i4uAQc/.claude/worktrees/idem
+⚠ create-worktree: /tmp/cwt-test-i4uAQc/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-i4uAQc/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-7IPno0/.claude/worktrees/one-line
+⚠ create-worktree: /tmp/cwt-test-7IPno0/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-7IPno0/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-Yy9avx/.claude/worktrees/based
+⚠ create-worktree: /tmp/cwt-test-Yy9avx/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-Yy9avx/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-elVAx8/.claude/worktrees/env-base
+⚠ create-worktree: /tmp/cwt-test-elVAx8/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-elVAx8/scripts/link-coordination.sh: No such file or directory
+✓ worktree-node-modules: provisioned /tmp/cwt-test-ggQ0vP/.claude/worktrees/default-dir
+⚠ create-worktree: /tmp/cwt-test-ggQ0vP/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually
+bash: /tmp/cwt-test-ggQ0vP/scripts/link-coordination.sh: No such file or directory
+/workspace/getff-native/scripts/create-worktree.sh: line 32: 1: Usage: /workspace/getff-native/scripts/create-worktree.sh <name> [<project-dir>] [<base-ref>]
+⚠ create-worktree: git worktree add failed (path=/tmp/cwt-test-iHtOco/.claude/worktrees/bad-base branch=worktree-bad-base base=origin/does-not-exist-anywhere)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+unknown arg: --bogus
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  hooks/advisor-role-reminders.test.ts > advisor role reminder delivery boundary > preserves bytes and rejects unbound authority across context lifecycles
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ hooks/advisor-role-reminders.test.ts:8:3
+      6| // fixtures. Including them here keeps the project-local adapter in th…
+      7| describe('advisor role reminder delivery boundary', () => {
+      8|   it('preserves bytes and rejects unbound authority across context lif…
+       |   ^
+      9|     const root = fileURLToPath(new URL('../../../', import.meta.url));
+     10|     const run = spawnSync(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 97 passed (98)
+      Tests  1 failed | 2308 passed | 3 skipped (2312)
+   Start at  18:10:06
+   Duration  159.61s (transform 4.47s, setup 1.69s, import 10.99s, tests 436.16s, environment 24ms)
+

@@ -1,0 +1,13 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/hooks/glossary-counters.test.ts (31 tests | 28 skipped) 4938ms
+     ✓ 10 CONCURRENT prompts each carrying one term count 10 usages, not fewer  1064ms
+     ✓ control: the same 10 prompts run SEQUENTIALLY also count 10  2894ms
+     ✓ the lock is released — no lock directory survives a run  977ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed | 28 skipped (31)
+   Start at  18:09:57
+   Duration  5.37s (transform 87ms, setup 33ms, import 92ms, tests 4.94s, environment 0ms)
+
