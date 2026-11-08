@@ -1,0 +1,42 @@
+{
+  "stage": "S1",
+  "status": "ACCEPTED",
+  "reviewedHead": "9098d3c5abc5409de0f138fcf5d0b8375fed3b68",
+  "auditedBaseline": "01b25d78b11083fb6e463fdf9de61299aff8972a",
+  "specSha256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+  "at": "2026-11-08T15:49:30.226299+00:00",
+  "controller": "native ci-test-effectiveness coordinator",
+  "independentReviewer": "native_s1_review",
+  "findings": {
+    "I1": "ADDRESSED",
+    "I2": "ADDRESSED",
+    "I3": "ADDRESSED"
+  },
+  "reviews": [
+    {
+      "path": "docs/ci-test-effectiveness/acceptance/s1-initial-review.md",
+      "sha256": "e3222558ae2d8fe425bfe6f5125295d042d9dd022d9738736bc3f9976a920d2d"
+    },
+    {
+      "path": "docs/ci-test-effectiveness/acceptance/s1-fix-1-review.md",
+      "sha256": "2c70aa973881855fd176bf4e938b7096f50d1df02e622588b41eec020d7f4f65"
+    }
+  ],
+  "verdict": {
+    "specCompliance": "PASS",
+    "taskQuality": "PASS"
+  },
+  "limits": [
+    "Source/contract assessment with targeted probes, not dynamic certification of all bodies or hosts.",
+    "S2, live policy administration, accepted TAK integration and actual after-cost are not yet accepted.",
+    "Scoped receipt has 21 named checks; handoff prose claiming22 was a nonblocking count error."
+  ],
+  "freshness": {
+    "integration": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+    "mergeHead": "4513fedafac12053497fe2a88b94d3370e7760f6",
+    "delta": "Only readme-install-claims kickoff; no relevant source/test/workflow inputs changed."
+  },
+  "transport": "Reviewed Git archive verification reports zero errors; see fix review. S1 index remains frozen to reviewed package, these acceptance records are an append-only controller addition.",
+  "reproduction": "Review packages are git log --oneline, git diff --stat and git diff -U10 for the exact ranges stated in both reports.",
+  "next": "S2 exact-file batches with independent review, starting D06/RC2."
+}
