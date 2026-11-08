@@ -1,17 +1,17 @@
 {
   "status": "Source/population reconciliation; bounded evidence views remain distinct",
-  "sourceHead": "ce1435c988cfdf69c650c570b7c73383fade5a5f",
+  "sourceHead": "948add8cf7fccd6334b44e834d8c3641fed2f80b",
   "acceptedS1Head": "9098d3c5abc5409de0f138fcf5d0b8375fed3b68",
   "originalLogicalRecords": 2121,
-  "s2SupplementRecords": 46,
+  "s2SupplementRecords": 51,
   "logicalCountWarning": "Supplement rows describe changes and drivers, not extra disjoint tests. Do not sum into a native test count.",
   "originalSourceCandidateCount": 736,
   "originalTestSourceCount": 722,
   "originalSupportSourceCount": 14,
   "currentOriginalSources": 736,
-  "unchangedOriginalSources": 711,
-  "changedOriginalSources": 25,
-  "behaviorOrS2AssessedOriginalSources": 14,
+  "unchangedOriginalSources": 709,
+  "changedOriginalSources": 27,
+  "behaviorOrS2AssessedOriginalSources": 16,
   "citationOnlyOriginalSources": 11,
   "removedOriginalSources": [],
   "newTestSourcePaths": [
@@ -19,14 +19,25 @@
     "packages/core/hooks/ci-checker-oracles.test.ts"
   ],
   "currentTestSourceCount": 724,
-  "newProductionPaths": [
+  "newNonAuditTrackedPaths": [
     "packages/core/hooks/autonomy-binding-lifecycle.test.ts",
     "packages/core/hooks/ci-checker-oracles.test.ts",
+    "packages/core/principles/__fixtures__/bundle/catalog/agents/p20-agent.md",
+    "packages/core/principles/__fixtures__/bundle/catalog/skills/p20-fixture/SKILL.md",
     "packages/core/principles/ci-test-invocations.ts",
     "scripts/check-discipline-pr-body.sh",
     "scripts/check-husky-presence.sh",
     "scripts/check-required-contexts.sh"
   ],
+  "fixtureData": {
+    "originalAssessedRecords": 314,
+    "newPaths": [
+      "packages/core/principles/__fixtures__/bundle/catalog/agents/p20-agent.md",
+      "packages/core/principles/__fixtures__/bundle/catalog/skills/p20-fixture/SKILL.md"
+    ],
+    "baselinePlusNewDataRecords": 316,
+    "meaning": "Fixture data are not disjoint executed tests. New tiny catalog is an explicit test input, not a product skill/agent."
+  },
   "ci": {
     "workflows": 15,
     "jobs": 54,
@@ -369,7 +380,7 @@
   },
   "nativePopulation": {
     "reused": "evidence/b7-population-reconciliation.json + b7-native-population-match.json",
-    "basis": "Only B8/B9 changes after B7 are within existing files, no test-source additions/deletions or Vitest include changes.",
+    "basis": "B8–B11 changes after B7 stay within existing test sources; B10 adds two catalog fixture inputs and two cases, not test files. No Vitest include changes.",
     "core": 342,
     "runtimeBridge": 31,
     "next": 3,
@@ -1205,10 +1216,11 @@
       "path": "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "5cd34075b76e975b064acd03a8824b114a90e754f4d7f2d939fd35d690b722b8",
-      "currentSHA256": "d5d2ec81ba3be660962013241e6b379ace7ea84ba759134b850a70574e425914",
+      "currentSHA256": "8b234c890044e7e888300c59a4cbfb120bda47a50d75ac8dacd4453f9672e797",
       "disposition": "changed-assessment-in-S2",
       "batchRefs": [
-        "batches/b9.json"
+        "batches/b9.json",
+        "batches/b11.json"
       ]
     },
     {
@@ -2220,9 +2232,11 @@
       "path": "packages/core/principles/20-bundle-classification.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "915c7ed8d0f465b97908036cbfc18d9cd146f3b17c9d7d02763af39175e3af92",
-      "currentSHA256": "915c7ed8d0f465b97908036cbfc18d9cd146f3b17c9d7d02763af39175e3af92",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "62a874fc61e5681e85f3d2d675f9c77be0f463def2f6318145af0a1b17de3d77",
+      "disposition": "changed-assessment-in-S2",
+      "batchRefs": [
+        "batches/b10.json"
+      ]
     },
     {
       "id": "test:packages/core/principles/21-agnosticism-conformance.test.ts",
@@ -2403,13 +2417,13 @@
       "path": "packages/core/principles/37-required-context-completeness.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "4eabacf7329386d40e48b3762b49b92d05b97a7f64d0369468936d24f9e21f92",
-      "currentSHA256": "faf48f2baace3600f9baafa09fd2b313c650c7bc07374af369a1feb66a64ccb2",
+      "currentSHA256": "806e0c6513ffd7a078657821079870442927e66828bfbcae0a286b8d36b2b9a4",
       "disposition": "changed-assessment-in-S2",
       "batchRefs": [
         "batches/b3.json",
         "batches/b8.json",
         "batches/b9.json",
-        "evidence/publication-citation-closure.json"
+        "batches/b11.json"
       ]
     },
     {
@@ -2838,9 +2852,11 @@
       "path": "packages/core/skills/assign-skill.test.ts",
       "kind": "test-source-or-probe",
       "beforeSHA256": "e728559ef694ad259c59d81613c17ecbe87d3a8646a90064f5c91744e33cf31a",
-      "currentSHA256": "e728559ef694ad259c59d81613c17ecbe87d3a8646a90064f5c91744e33cf31a",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "b1f66c5883c6b29bff6a5611b8dd63055d621fa7aee3d9fde34dcb6f3a95bf5e",
+      "disposition": "changed-assessment-in-S2",
+      "batchRefs": [
+        "batches/b10.json"
+      ]
     },
     {
       "id": "test:packages/core/skills/classify-each-candidate.test.ts",
@@ -7650,6 +7666,71 @@
     },
     {
       "id": "PUBLICATION-plugin-cache-and-rigor-metadata",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "B10-P20-fixed-catalog-and-context-guards",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "B10-frozen-catalog-test-data",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "B10-one-shot-conformance-drivers",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "B11-checked-library-bindings",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "B11-one-shot-compatibility-closure-drivers",
       "criterionNames": [
         "relevance",
         "effectiveness",

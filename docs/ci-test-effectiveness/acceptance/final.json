@@ -17,10 +17,10 @@
   },
   "controllerFinalMetadataCarry": "This final bookkeeping commit only adds review acceptance, source reconciliation and truthful status/rulings. No new production behavior, no extra cold full-source review. Exact published full head and CI evidence belong in PR2150 body.",
   "acceptance": {
-    "coverage": "Accepted S1 + final reconciliation +46S2selfassessed rows, including explicit citation-onlyinheritance; no reduced native denominator.",
+    "coverage": "Accepted S1 + current reconciliation +51 S2 self-assessed rows:736 original sources all retained,709 unchanged,16 S2-assessed,11 citation-only;724 test/probe files; no reduced native denominator.",
     "sufficientProtection": "Source faults fixed and actual invocation/held restoration proven; required live registration and hosted Node22/Windows still pending.",
     "noLoss": "Retained witnesses/workload/canonical/unknownfallback; actual finalreviewcounterexample corrected; finalhost proof pending.",
-    "minimality": "Both detached checker copies and both equivalent root repeats removed; P37 zero-marginal wrapper copies consolidated; no known proven redundant removal remains advice only.",
+    "minimality": "Both detached checker copies and both equivalent root repeats removed; P37 zero-marginal wrapper copies consolidated; no known proven redundant removal remains advice only. B10 removes repeated unasserted live-catalog scans from P20 setup through meaningful real helper inputs, preserving all original contracts and both async/sync/default-directory witnesses.",
     "economicalImplementation": "Four equivalent suites redistributed with commands/prerequisites preserved; unique useful cold/host witnesses retained and repairs charged as overhead.",
     "costResult": "Actual before traces + bounded forecast; native recurring/audit costs visible; hosted AFTER and incremental developer/financial payoff unknown, no gain claim.",
     "freshnessAndTAK": "Actual staging5fc + three unchanged open ownerheads, acceptedS0only, no competing kernel; actual published-head binding external.",
@@ -39,7 +39,7 @@
     "consumerSweep": "Existing framework-only applicability considered, no new supported consumer greenpathloss established; no new generalconsumercompletenessclaim.",
     "diagnosticNoise": "Expected fixtures/WARN/raw logs retained without pristineoutputclaim.",
     "oldMinorLabels": "Closed in actual current batchmetadata; no new round.",
-    "scopeFixes": "One finalfixwave+onescopedrereview complete; no open source finding."
+    "scopeFixes": "One broad whole-branch review and final fix wave accepted. Subsequently observed publication failures have explicit bounded D13/B10 and D14/B11 decisions and independent scoped reviews; no open source finding."
   },
   "remaining": [
     "Final exact-head hosted Node22/Windows + existing required pipeline results.",
@@ -47,7 +47,7 @@
     "Actual hostedtoken observer result and afterinstaller durations; keep timing attributionbounded."
   ],
   "publication": "https://github.com/artyhoo/getff/pull/2150",
-  "at": "2026-11-08T20:44:02.825510+00:00",
+  "at": "2026-11-08T22:35:19.418749+00:00",
   "publicationCitationClosure": {
     "sourceCommit": "c1930af47de3ff4932527972d8abec9a19e47923",
     "receiptHead": "08d06933075972d45a565e5b9d01a89810efb68a",
@@ -61,5 +61,17 @@
     "evidence": "evidence/publication-metadata-closure.json",
     "rootVerification": "Exact four versionfields0.3.38\u21920.3.39 only; nine kickoffdiffs preserve8existingresearchgradechoices + explicitly inheriteds2f, no originalscope/spec/requirements change. ActualexistingP24/P4025/25 aftersourcecommit; sourcepaths outsidecurrentpayload/installedmaps, no release/cacheuptakeclaimed.",
     "acceptance": "Routinepublicationmetadata accepted; actualnormalfullprepush remains mandatory."
-  }
+  },
+  "supplementalSourceAcceptance": [
+    {
+      "batch": "b10",
+      "acceptance": "acceptance/b10.json",
+      "head": "cbfd5015a92c742875f3ff0ec9a6bd62a0c4cee9"
+    },
+    {
+      "batch": "b11",
+      "acceptance": "acceptance/b11.json",
+      "head": "948add8cf7fccd6334b44e834d8c3641fed2f80b"
+    }
+  ]
 }

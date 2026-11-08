@@ -1,0 +1,15 @@
+{
+  "command": [
+    "git",
+    "commit",
+    "-m",
+    "fix(ci-test-effectiveness): restore checked library bindings"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 2.360399,
+  "log": "/workspace/scratch/b11-commit.txt",
+  "head": "948add8cf7fccd6334b44e834d8c3641fed2f80b",
+  "rawLog": "b11-commit.txt.gz",
+  "rawSHA256": "5e391fa44035a7b895ddbf7b1bee1fc708c16ce93c8c2525a3661287d7a7f767",
+  "controllerVerified": "Actual original receipt/log read after restart; normal commit exit0, no skip/bypass."
+}

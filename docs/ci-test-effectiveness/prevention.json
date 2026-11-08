@@ -1,5 +1,5 @@
 {
-  "status": "Source accepted after whole-branch review + single scoped final fix; hosted/admin final acceptance pending",
+  "status": "Source accepted after whole-branch/final-fix and supplemental B10/B11 independent reviews; final normal prepush/hosted/admin acceptance pending",
   "authority": "Approved design \u00a77.1\u20137.2, accepted S1 RC1\u2013RC7; current map only, frozen S1 unchanged",
   "map": [
     {
@@ -246,13 +246,13 @@
     "batch": "batches/b11.json",
     "actualCoreTypecheckExit": 0,
     "focusedConsumerCases": 120,
-    "status": "Local compiler restored; independent review/full normal prepush/final hosted/admin pending",
+    "status": "Local compiler and independent B11 review accepted; final normal prepush/hosted/admin pending",
     "regressionOrigin": "Four TS7016 introduced by B7\u2013B9 static bindings, not accepted S1 baseline.",
     "limits": [
       "Finite installed js-yaml4.3.2 default-load equivalence on15 actual workflows+valid/malformed companions; different YAML entrypoints/functions, no universal API/version claim.",
       "Picomatch4.0.5 factory identity proved from actual target module context, not root transitive dependency.",
       "Linux/Node24 focused execution is not hostedNode22/Windows/full-prepush acceptance.",
-      "Campaign remains PARTIAL pending independent acceptance, normal full prepush/final hosted results and missing3 required-context registrations."
+      "Campaign remains PARTIAL pending normal full prepush, final hosted results and three actual required-context registrations."
     ]
   }
 }

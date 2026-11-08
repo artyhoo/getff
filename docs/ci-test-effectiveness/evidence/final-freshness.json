@@ -1,7 +1,7 @@
 {
-  "observedAt": "2026-11-08 20:17:04 UTC",
+  "observedAt": "2026-11-08 22:35:49 UTC",
   "originStaging": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
-  "method": "actual git fetch origin staging + connected GitHub API PR reads",
+  "method": "Actual git fetch origin staging + fresh connected GitHub API reads of all four PRs immediately before final publication; heads/state unchanged.",
   "pullRequests": [
     {
       "number": 2144,
