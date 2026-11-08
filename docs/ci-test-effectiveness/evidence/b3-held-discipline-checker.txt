@@ -1,29 +1,29 @@
 
- RUN  v4.1.8 /tmp/b3-held-jmth7fsr
+ RUN  v4.1.8 /tmp/b3-held-an4vr477
 
- ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 14 failed) 311ms
-     ✓ binds the required non-main PR gate, including body edits, to the shared checker 5ms
-     × Incident-1 uncited prose 20ms
-     × cited valid body 7ms
-     × empty body 7ms
-     × missing backward section 10ms
-     × short forward 6ms
-     × short backward 7ms
-     × distinct uncited backward 6ms
-     × malformed citation 7ms
-     × citation outside section 6ms
-     × Skip at 60 characters 7ms
-     × Skip with supported-size UTF-8 content 8ms
-     × Skip below 60 characters 9ms
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 14 failed) 560ms
+     ✓ binds the required non-main PR gate, including body edits, to the shared checker 10ms
+     × Incident-1 uncited prose 32ms
+     × cited valid body 17ms
+     × empty body 11ms
+     × missing backward section 8ms
+     × short forward 21ms
+     × short backward 24ms
+     × distinct uncited backward 10ms
+     × malformed citation 22ms
+     × citation outside section 8ms
+     × Skip at 60 characters 11ms
+     × Skip with supported-size UTF-8 content 61ms
+     × Skip below 60 characters 15ms
      × section length exactly 40 12ms
-     × section length below 40 7ms
-     ✓ has a safe manual fixture carrier in the recurring core hook suite 164ms
-     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 18ms
+     × section length below 40 8ms
+     ✓ has a safe manual fixture carrier in the recurring core hook suite 239ms
+     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 46ms
 
  Test Files  1 failed (1)
       Tests  14 failed | 3 passed (17)
-   Start at  16:49:02
-   Duration  697ms (transform 41ms, setup 43ms, import 70ms, tests 311ms, environment 0ms)
+   Start at  17:09:22
+   Duration  1.15s (transform 91ms, setup 64ms, import 162ms, tests 560ms, environment 0ms)
 
 
 ⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯

@@ -1,29 +1,29 @@
 
- RUN  v4.1.8 /tmp/b3-held-jmth7fsr
+ RUN  v4.1.8 /tmp/b3-held-an4vr477
 
- ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 1 failed) 307ms
-     ✓ binds the required non-main PR gate, including body edits, to the shared checker 3ms
-     ✓ Incident-1 uncited prose 21ms
-     ✓ cited valid body 25ms
-     ✓ empty body 6ms
-     ✓ missing backward section 17ms
-     ✓ short forward 21ms
-     ✓ short backward 16ms
-     ✓ distinct uncited backward 27ms
-     ✓ malformed citation 22ms
-     ✓ citation outside section 16ms
-     ✓ Skip at 60 characters 8ms
-     ✓ Skip with supported-size UTF-8 content 23ms
-     ✓ Skip below 60 characters 16ms
-     ✓ section length exactly 40 27ms
-     ✓ section length below 40 16ms
-     × has a safe manual fixture carrier in the recurring core hook suite 15ms
-     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 21ms
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 1 failed) 595ms
+     ✓ binds the required non-main PR gate, including body edits, to the shared checker 2ms
+     ✓ Incident-1 uncited prose 80ms
+     ✓ cited valid body 63ms
+     ✓ empty body 19ms
+     ✓ missing backward section 24ms
+     ✓ short forward 22ms
+     ✓ short backward 36ms
+     ✓ distinct uncited backward 42ms
+     ✓ malformed citation 30ms
+     ✓ citation outside section 35ms
+     ✓ Skip at 60 characters 22ms
+     ✓ Skip with supported-size UTF-8 content 22ms
+     ✓ Skip below 60 characters 14ms
+     ✓ section length exactly 40 37ms
+     ✓ section length below 40 36ms
+     × has a safe manual fixture carrier in the recurring core hook suite 48ms
+     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 53ms
 
  Test Files  1 failed (1)
       Tests  1 failed | 16 passed (17)
-   Start at  16:49:07
-   Duration  643ms (transform 39ms, setup 39ms, import 57ms, tests 307ms, environment 0ms)
+   Start at  17:09:30
+   Duration  1.34s (transform 75ms, setup 65ms, import 182ms, tests 595ms, environment 2ms)
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
@@ -45,7 +45,7 @@ AssertionError: expected 'B3_REACHED_MANUAL_BYPASS\n' to contain 'PASS: husky ch
        |                                         ^
      31| }
      32|
- ❯ packages/core/hooks/ci-checker-oracles.test.ts:75:5
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:76:5
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
 

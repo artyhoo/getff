@@ -1,10 +1,10 @@
 
- RUN  v4.1.8 /tmp/b3-held-jmth7fsr
+ RUN  v4.1.8 /tmp/b3-held-an4vr477
 
- ✓ packages/core/hooks/ci-checker-oracles.test.ts (17 tests) 520ms
+ ✓ packages/core/hooks/ci-checker-oracles.test.ts (17 tests) 523ms
 
  Test Files  1 passed (1)
       Tests  17 passed (17)
-   Start at  16:49:09
-   Duration  884ms (transform 53ms, setup 60ms, import 57ms, tests 520ms, environment 0ms)
+   Start at  17:09:32
+   Duration  1.01s (transform 73ms, setup 68ms, import 86ms, tests 523ms, environment 0ms)
 

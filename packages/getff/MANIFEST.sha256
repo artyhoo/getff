@@ -901,7 +901,7 @@ f24ee8a7ee601f38b5666c6c617e4ec06da9f1d995db595e8cd36129c5aef19c  packages/core/
 b14b31ac7cbc8911535e202952e16e25f7fc8d17e48190b1e797e4242581f05f  packages/core/hooks/checks/skill-core-edit-scope.test.ts
 1c65c5906e5433fa3b987c37c1675c94a73307d1d41834d44e6283f76f5ee5d8  packages/core/hooks/checks/skill-core-edit-scope.ts
 f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
-94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95  packages/core/hooks/ci-checker-oracles.test.ts
+9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db  packages/core/hooks/ci-checker-oracles.test.ts
 072b2ee45076e00738df629c1ab9e169d61b6a086fac1f954d8e371c75c23ce1  packages/core/hooks/classify-work.test.ts
 e0b55c9ae640d03fb47eef70d0af91ad167315fd7a34c68a88faed4c2de66774  packages/core/hooks/close-aif-task-on-merge.test.ts
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts

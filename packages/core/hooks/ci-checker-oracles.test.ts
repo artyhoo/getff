@@ -72,7 +72,18 @@ describe('production discipline checker', () => {
 
 describe('production husky checker', () => {
   it('has a safe manual fixture carrier in the recurring core hook suite', () => {
-    status(run('bash tests/hooks/test-enforce-husky-presence.sh'), 0, 'PASS: husky checker fixed controls');
+    const result = run('bash tests/hooks/test-enforce-husky-presence.sh');
+    status(result, 0, 'PASS: husky checker fixed controls');
+    // Independent path expectations prevent a fixture helper from silently changing
+    // the outer hook subject while the wrapper still prints its final success line.
+    expect(result.stdout.split('\n').filter((line) => line.startsWith('::error::'))).toEqual([
+      expect.stringMatching(/^::error::missing .+\/missing-pre-commit\/pre-commit$/),
+      expect.stringMatching(/^::error::.+\/nonexec-pre-commit\/pre-commit not executable$/),
+      expect.stringMatching(/^::error::.+\/stub-pre-commit\/pre-commit lacks expected probes/),
+      expect.stringMatching(/^::error::missing .+\/missing-pre-push\/pre-push$/),
+      expect.stringMatching(/^::error::.+\/nonexec-pre-push\/pre-push not executable$/),
+      expect.stringMatching(/^::error::.+\/stub-pre-push\/pre-push lacks expected probes/),
+    ]);
   });
 
   it('propagates missing hooks and accepts actual checkout shapes through the workflow command', () => {

@@ -1,0 +1,19 @@
+PASS: missing pre-commit
+::error::missing /tmp/tmp.CUOErV5bm5/missing-pre-commit/pre-commit
+PASS: non-executable pre-commit
+::error::/tmp/tmp.CUOErV5bm5/nonexec-pre-commit/pre-commit not executable
+PASS: stub pre-commit
+::error::/tmp/tmp.CUOErV5bm5/stub-pre-commit/pre-commit lacks expected probes (looks empty/stub)
+PASS: missing pre-push
+::error::missing /tmp/tmp.CUOErV5bm5/missing-pre-push/pre-push
+PASS: non-executable pre-push
+::error::/tmp/tmp.CUOErV5bm5/nonexec-pre-push/pre-push not executable
+PASS: stub pre-push
+::error::/tmp/tmp.CUOErV5bm5/stub-pre-push/pre-push lacks expected probes (looks empty/stub)
+PASS: owned valid probes
+✓ .husky/ hooks present, executable, non-trivial
+PASS: dispatcher reference
+✓ .husky/ hooks present, executable, non-trivial
+PASS: actual checkout dispatcher shapes (copied, never executed)
+✓ .husky/ hooks present, executable, non-trivial
+PASS: husky checker fixed controls

@@ -15,12 +15,14 @@ check() { # name, expected status, diagnostic, hook directory
     exit 1
   fi
   echo "PASS: $1"
+  cat "$TMP/output"
 }
 valid() {
+  local fixture_hook
   mkdir -p "$1"
-  for hook in pre-commit pre-push; do
-    printf '#!/usr/bin/env bash\nbash -n "$0"\n' >"$1/$hook"
-    chmod +x "$1/$hook"
+  for fixture_hook in pre-commit pre-push; do
+    printf '#!/usr/bin/env bash\nbash -n "$0"\n' >"$1/$fixture_hook"
+    chmod +x "$1/$fixture_hook"
   done
 }
 

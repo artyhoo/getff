@@ -5,16 +5,18 @@
       "/workspace/getff-native/node_modules/.bin/vitest",
       "run",
       "--root",
-      "/tmp/b3-held-jmth7fsr",
+      "/tmp/b3-held-an4vr477",
       "--reporter=default",
       "packages/core/hooks/ci-checker-oracles.test.ts"
     ],
     "exit": 1,
-    "seconds": 1.1449601639997127,
-    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "seconds": 1.8112316360002296,
+    "heldTestSHA256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
     "faultSourceSHA256": "4d49844c3e7439f453a110b62be47f6366670afb4eb2dda1cf6291505012cd8c",
     "reachedMarker": "B3_REACHED_CHECKER_BYPASS",
-    "markerObserved": true
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
   },
   {
     "phase": "discipline-invocation",
@@ -22,16 +24,18 @@
       "/workspace/getff-native/node_modules/.bin/vitest",
       "run",
       "--root",
-      "/tmp/b3-held-jmth7fsr",
+      "/tmp/b3-held-an4vr477",
       "--reporter=default",
       "packages/core/hooks/ci-checker-oracles.test.ts"
     ],
     "exit": 1,
-    "seconds": 1.110882697001216,
-    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "seconds": 1.4552969249998569,
+    "heldTestSHA256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
     "faultSourceSHA256": "a1d3fd9d67b41b1528fcc9e84646e0b95639574a0e4f81b96f2eb28095d8d871",
     "reachedMarker": "B3_REACHED_INVOCATION_BYPASS",
-    "markerObserved": true
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
   },
   {
     "phase": "husky-checker",
@@ -39,16 +43,37 @@
       "/workspace/getff-native/node_modules/.bin/vitest",
       "run",
       "--root",
-      "/tmp/b3-held-jmth7fsr",
+      "/tmp/b3-held-an4vr477",
       "--reporter=default",
       "packages/core/hooks/ci-checker-oracles.test.ts"
     ],
     "exit": 1,
-    "seconds": 1.2103811010001664,
-    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "seconds": 1.3873179540005367,
+    "heldTestSHA256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
     "faultSourceSHA256": "d1904131a26fd9c59351ef55339c94849e7dec7f6c60653ea568ec8e31af6c1f",
     "reachedMarker": "B3_REACHED_HUSKY_BYPASS",
-    "markerObserved": true
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
+  },
+  {
+    "phase": "husky-first-hook-shape",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b3-held-an4vr477",
+      "--reporter=default",
+      "packages/core/hooks/ci-checker-oracles.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 1.5127071449987852,
+    "heldTestSHA256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
+    "faultSourceSHA256": "e375bef889497fa3c52bcd148aacde39a991fd6d6e5e446faf5078001f74bab1",
+    "reachedMarker": "B3_REACHED_FIRST_HOOK_SHAPE_BYPASS",
+    "markerObserved": true,
+    "firstHookTrace": "B3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\n",
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
   },
   {
     "phase": "husky-invocation",
@@ -56,16 +81,18 @@
       "/workspace/getff-native/node_modules/.bin/vitest",
       "run",
       "--root",
-      "/tmp/b3-held-jmth7fsr",
+      "/tmp/b3-held-an4vr477",
       "--reporter=default",
       "packages/core/hooks/ci-checker-oracles.test.ts"
     ],
     "exit": 1,
-    "seconds": 1.3097455989991431,
-    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "seconds": 1.5383048250005231,
+    "heldTestSHA256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
     "faultSourceSHA256": "9475b7c725b1aaf96a80d02aa6db2269b259105809a36dc65687c32bd3a1d03f",
     "reachedMarker": "B3_REACHED_HUSKY_INVOCATION",
-    "markerObserved": true
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
   },
   {
     "phase": "manual-carrier",
@@ -73,16 +100,18 @@
       "/workspace/getff-native/node_modules/.bin/vitest",
       "run",
       "--root",
-      "/tmp/b3-held-jmth7fsr",
+      "/tmp/b3-held-an4vr477",
       "--reporter=default",
       "packages/core/hooks/ci-checker-oracles.test.ts"
     ],
     "exit": 1,
-    "seconds": 1.1821037879999494,
-    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "seconds": 2.204808992000835,
+    "heldTestSHA256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
     "faultSourceSHA256": "6f2024eca0523b75b6f36478fcf6cec993cc96a5e9af592b8599aa6322e2d78d",
     "reachedMarker": "B3_REACHED_MANUAL_BYPASS",
-    "markerObserved": true
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "6f2024eca0523b75b6f36478fcf6cec993cc96a5e9af592b8599aa6322e2d78d"
   },
   {
     "phase": "restoration",
@@ -90,15 +119,17 @@
       "/workspace/getff-native/node_modules/.bin/vitest",
       "run",
       "--root",
-      "/tmp/b3-held-jmth7fsr",
+      "/tmp/b3-held-an4vr477",
       "--reporter=default",
       "packages/core/hooks/ci-checker-oracles.test.ts"
     ],
     "exit": 0,
-    "seconds": 1.3984293670000625,
-    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "seconds": 1.7502411980003671,
+    "heldTestSHA256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
     "faultSourceSHA256": null,
     "reachedMarker": null,
-    "markerObserved": null
+    "markerObserved": null,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
   }
 ]

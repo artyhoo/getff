@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/workspace/getff-native/docs/ci-test-effectiveness/evidence/b3-conformance.py", line 86, in <module>
+    assert p.returncode==1 and row['markerObserved'], output
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 
+ RUN  v4.1.8 /tmp/b3-held-k_edrwq9
+
+ ✓ packages/core/hooks/ci-checker-oracles.test.ts (17 tests) 529ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  17:03:14
+   Duration  1.03s (transform 59ms, setup 46ms, import 97ms, tests 529ms, environment 0ms)
+
+

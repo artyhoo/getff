@@ -1,35 +1,35 @@
 
- RUN  v4.1.8 /tmp/b3-held-jmth7fsr
+ RUN  v4.1.8 /tmp/b3-held-an4vr477
 
- ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 2 failed) 327ms
-     ✓ binds the required non-main PR gate, including body edits, to the shared checker 6ms
-     ✓ Incident-1 uncited prose 22ms
-     ✓ cited valid body 22ms
-     ✓ empty body 5ms
-     ✓ missing backward section 18ms
-     ✓ short forward 18ms
-     ✓ short backward 20ms
-     ✓ distinct uncited backward 27ms
-     ✓ malformed citation 17ms
-     ✓ citation outside section 31ms
-     ✓ Skip at 60 characters 8ms
-     ✓ Skip with supported-size UTF-8 content 22ms
-     ✓ Skip below 60 characters 16ms
-     ✓ section length exactly 40 23ms
-     ✓ section length below 40 14ms
-     × has a safe manual fixture carrier in the recurring core hook suite 32ms
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 2 failed) 416ms
+     ✓ binds the required non-main PR gate, including body edits, to the shared checker 7ms
+     ✓ Incident-1 uncited prose 28ms
+     ✓ cited valid body 28ms
+     ✓ empty body 7ms
+     ✓ missing backward section 22ms
+     ✓ short forward 16ms
+     ✓ short backward 29ms
+     ✓ distinct uncited backward 24ms
+     ✓ malformed citation 21ms
+     ✓ citation outside section 26ms
+     ✓ Skip at 60 characters 15ms
+     ✓ Skip with supported-size UTF-8 content 26ms
+     ✓ Skip below 60 characters 22ms
+     ✓ section length exactly 40 25ms
+     ✓ section length below 40 17ms
+     × has a safe manual fixture carrier in the recurring core hook suite 74ms
      × propagates missing hooks and accepts actual checkout shapes through the workflow command 18ms
 
  Test Files  1 failed (1)
       Tests  2 failed | 15 passed (17)
-   Start at  16:49:05
-   Duration  697ms (transform 51ms, setup 55ms, import 53ms, tests 327ms, environment 0ms)
+   Start at  17:09:25
+   Duration  903ms (transform 46ms, setup 42ms, import 99ms, tests 416ms, environment 1ms)
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production husky checker > has a safe manual fixture carrier in the recurring core hook suite
-AssertionError: FAIL: missing pre-push expected status 1 and diagnostic: missing /tmp/tmp.Kx9hzOIZ7X/missing-pre-commit/pre-push (got 0)
+AssertionError: FAIL: missing pre-commit expected status 1 and diagnostic: missing /tmp/tmp.e311bPcb4w/missing-pre-commit/pre-commit (got 0)
 B3_REACHED_HUSKY_BYPASS
 : expected 1 to be +0 // Object.is equality
 
@@ -46,7 +46,7 @@ B3_REACHED_HUSKY_BYPASS
        |                                                        ^
      30|   expect(result.stdout + result.stderr).toContain(diagnostic);
      31| }
- ❯ packages/core/hooks/ci-checker-oracles.test.ts:75:5
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:76:5
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
 
@@ -67,7 +67,7 @@ AssertionError: B3_REACHED_HUSKY_BYPASS
        |                                                        ^
      30|   expect(result.stdout + result.stderr).toContain(diagnostic);
      31| }
- ❯ packages/core/hooks/ci-checker-oracles.test.ts:85:7
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:96:7
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
 

@@ -1,29 +1,29 @@
 
- RUN  v4.1.8 /tmp/b3-held-jmth7fsr
+ RUN  v4.1.8 /tmp/b3-held-an4vr477
 
- ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 15 failed) 260ms
-     × binds the required non-main PR gate, including body edits, to the shared checker 13ms
-     × Incident-1 uncited prose 8ms
-     × cited valid body 7ms
-     × empty body 6ms
-     × missing backward section 6ms
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 15 failed) 305ms
+     × binds the required non-main PR gate, including body edits, to the shared checker 15ms
+     × Incident-1 uncited prose 11ms
+     × cited valid body 8ms
+     × empty body 4ms
+     × missing backward section 4ms
      × short forward 4ms
      × short backward 4ms
-     × distinct uncited backward 5ms
-     × malformed citation 6ms
-     × citation outside section 7ms
-     × Skip at 60 characters 6ms
-     × Skip with supported-size UTF-8 content 6ms
+     × distinct uncited backward 4ms
+     × malformed citation 7ms
+     × citation outside section 5ms
+     × Skip at 60 characters 4ms
+     × Skip with supported-size UTF-8 content 8ms
      × Skip below 60 characters 4ms
-     × section length exactly 40 4ms
-     × section length below 40 5ms
-     ✓ has a safe manual fixture carrier in the recurring core hook suite 141ms
-     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 24ms
+     × section length exactly 40 10ms
+     × section length below 40 6ms
+     ✓ has a safe manual fixture carrier in the recurring core hook suite 183ms
+     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 21ms
 
  Test Files  1 failed (1)
       Tests  15 failed | 2 passed (17)
-   Start at  16:49:04
-   Duration  666ms (transform 52ms, setup 40ms, import 71ms, tests 260ms, environment 0ms)
+   Start at  17:09:24
+   Duration  760ms (transform 70ms, setup 61ms, import 91ms, tests 305ms, environment 0ms)
 
 
 ⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯

@@ -1,0 +1,53 @@
+{
+  "reviewedHead": "6e429b0966837541693eb743e54a3402d8695d8c",
+  "sourceHashes": {
+    "tests/hooks/test-enforce-husky-presence.sh": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4",
+    "packages/core/hooks/ci-checker-oracles.test.ts": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
+    "scripts/check-husky-presence.sh": "2949fbf6e13c991d14a7592dd0bbfb473570eaef527533f6abaae129c7bf8ab1"
+  },
+  "expectedAdverseCases": [
+    "missing pre-commit",
+    "non-executable pre-commit",
+    "stub pre-commit",
+    "missing pre-push",
+    "non-executable pre-push",
+    "stub pre-push"
+  ],
+  "actualDiagnostics": [
+    "::error::missing /tmp/tmp.CUOErV5bm5/missing-pre-commit/pre-commit",
+    "::error::/tmp/tmp.CUOErV5bm5/nonexec-pre-commit/pre-commit not executable",
+    "::error::/tmp/tmp.CUOErV5bm5/stub-pre-commit/pre-commit lacks expected probes (looks empty/stub)",
+    "::error::missing /tmp/tmp.CUOErV5bm5/missing-pre-push/pre-push",
+    "::error::/tmp/tmp.CUOErV5bm5/nonexec-pre-push/pre-push not executable",
+    "::error::/tmp/tmp.CUOErV5bm5/stub-pre-push/pre-push lacks expected probes (looks empty/stub)"
+  ],
+  "distinctAdverseDiagnostics": 6,
+  "validCompanions": 3,
+  "hooksUnchanged": true,
+  "hooks": {
+    ".husky/post-checkout": {
+      "sha256": "43045e468b290cb4b2c2f846a4d5e266f4a3d70c259beb063f2056afdf25ed27",
+      "mode": "0o700"
+    },
+    ".husky/pre-commit": {
+      "sha256": "667cdb1a25c621183e20d1c04a317543305c6c642610d4a8c859e2f8cfdce5ee",
+      "mode": "0o700"
+    },
+    ".husky/pre-merge-commit": {
+      "sha256": "7354235663b5b9f90c94eb7d34cc52a8d8b5aceda00f3288245ffaade45cb0b0",
+      "mode": "0o700"
+    },
+    ".husky/pre-push": {
+      "sha256": "f3c325ba8fca5dda9978f36991f22ccda60758bbe473643dedb255b2948d2a22",
+      "mode": "0o700"
+    }
+  },
+  "manualCommand": "bash tests/hooks/test-enforce-husky-presence.sh",
+  "manualExit": 0,
+  "environment": {
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+    "PATH": "/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+    "rootObservation": "Controller provisioned rsync3.5.0 into /workspace/getff-tools; these actual checker/manual/core controls do not depend on rsync. No hydration or full-suite rerun performed in B3 fix."
+  },
+  "historicalCorrection": "Reviewed manual green receipts duplicated pre-push adverse cases and did not substantiate both-hooks coverage; superseded for this claim by this fix receipt and core exact diagnostic assertions. Historical timings retained."
+}

@@ -35,12 +35,12 @@
     ".github/workflows/audit-self.yml": "0f21c5a1e9d0adc7b399b707ae640a86c08877b3fd9f701907a9390b1fcc190c",
     "scripts/check-discipline-pr-body.sh": "86e1c2835b5a89f16a560e60b33351afc26393f29f3b0b01d3af2f2d734472c6",
     "scripts/check-husky-presence.sh": "2949fbf6e13c991d14a7592dd0bbfb473570eaef527533f6abaae129c7bf8ab1",
-    "packages/core/hooks/ci-checker-oracles.test.ts": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
-    "tests/hooks/test-enforce-husky-presence.sh": "e4c0b972054d2b7d31b2db50bf1517da6eefc9731ce7aa2397312981cc39fc4f",
+    "packages/core/hooks/ci-checker-oracles.test.ts": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
+    "tests/hooks/test-enforce-husky-presence.sh": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4",
     "scripts/run-local-ci-sweep.sh": "b941945413f0517b2e5566846db4e2fc9ba93b6f52bb27131e13f0d1ee1e9a0d",
     "scripts/build-getff-dist.sh": "06539314adf9a43c93639c23218302a8de21f5221e10cbeee7f63eca3833ccde",
-    "packages/getff/MANIFEST.sha256": "3adee5916ca7b9b251fe8a37c264525e33d2974843d89ad960ada5f49f25ab56",
-    "docs/ci-test-effectiveness/inventory-s2.jsonl": "07e039e4baadf3477e73690c3d7b2384636b20300b1e639e7ccc62490a19c33b"
+    "packages/getff/MANIFEST.sha256": "3eca2e9f94a71c5b4879875a028d487d683732dd62c991382f3560b13170ac0d",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl": "a1ebd1cddfc506e312bc7c8f5923736886f1d5c4ad5c5369200bc4fe178f2cd7"
   },
   "exactFiles": [
     ".github/workflows/discipline-self-check.yml",
@@ -79,11 +79,25 @@
     "docs/ci-test-effectiveness/evidence/b3-final-core.txt",
     "docs/ci-test-effectiveness/evidence/b3-final-hooks.json",
     "docs/ci-test-effectiveness/evidence/b3-first-commit-hook-rejection.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-core.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-dist-check.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-dist-regeneration.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-held-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-intermediate-held-run.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-intermediate-held.json",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-manual.json",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-manual.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-path-controls-red.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-red.json",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-red.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-syntax.txt",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1.json",
     "docs/ci-test-effectiveness/evidence/b3-freeze.json",
     "docs/ci-test-effectiveness/evidence/b3-green.txt",
     "docs/ci-test-effectiveness/evidence/b3-held-discipline-checker.txt",
     "docs/ci-test-effectiveness/evidence/b3-held-discipline-invocation.txt",
     "docs/ci-test-effectiveness/evidence/b3-held-husky-checker.txt",
+    "docs/ci-test-effectiveness/evidence/b3-held-husky-first-hook-shape.txt",
     "docs/ci-test-effectiveness/evidence/b3-held-husky-invocation.txt",
     "docs/ci-test-effectiveness/evidence/b3-held-manual-carrier.txt",
     "docs/ci-test-effectiveness/evidence/b3-held-restoration.txt",
@@ -130,22 +144,23 @@
       "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/ci-checker-oracles.test.ts",
       "exit": 0,
       "tests": 17,
-      "evidence": "evidence/b3-final-core.txt"
+      "evidence": "evidence/b3-fix-1-core.txt"
     },
     "minimalRepair": "Discipline body extraction except sole normal-hook-required Skip echo|grep-q to here-string repair; regex unchanged. Husky body parameterized only by disposable hook directory; same real workflow commands/safe fixtures; detached sanity copies removed."
   },
   "heldProtection": {
     "command": "python3 docs/ci-test-effectiveness/evidence/b3-conformance.py",
     "exit": 0,
-    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "heldTestSHA256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
     "faults": [
       "discipline checker always-success",
       "discipline workflow invocation bypass",
       "husky checker always-success",
+      "husky first-hook-only nonexec/marker shape bypass after existence check",
       "husky workflow invocation bypass",
       "manual wrapper bypass"
     ],
-    "faultOutcome": "Each reached fixed marker with intended assertion failure and status1; exact held test bytes unchanged; restoration status0",
+    "faultOutcome": "All six faults reached markers/trace and failed intended assertions exit1; narrowed first-hook fault fails nonexec pre-commit expected1/got0. Final core and manual bytes held unchanged; restoration0.",
     "evidence": "evidence/b3-held.json",
     "realSweep": "actual row valid0/missing-prepush1; existing reverse coverage catches row-deletion1; checked-in coverage script unmodified",
     "sweepEvidence": "evidence/b3-sweep.json"
@@ -226,6 +241,45 @@
       "exit": 0,
       "meaning": "final transport-normalized equivalence, no repeated timing",
       "evidence": "evidence/b3-no-loss-final-run.txt"
+    },
+    {
+      "command": "bash tests/hooks/test-enforce-husky-presence.sh",
+      "exit": 0,
+      "controls": 9,
+      "evidence": [
+        "evidence/b3-fix-1-manual.txt",
+        "evidence/b3-fix-1-manual.json"
+      ]
+    },
+    {
+      "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/ci-checker-oracles.test.ts",
+      "exit": 0,
+      "cases": 17,
+      "evidence": "evidence/b3-fix-1-core.txt"
+    },
+    {
+      "command": "python3 docs/ci-test-effectiveness/evidence/b3-conformance.py",
+      "exit": 0,
+      "meaning": "six reached child faults exit1; restoration0; exact final core+manual hashes held",
+      "evidence": [
+        "evidence/b3-held.json",
+        "evidence/b3-fix-1-held-run.txt"
+      ]
+    },
+    {
+      "command": "bash -n tests/hooks/test-enforce-husky-presence.sh scripts/check-husky-presence.sh scripts/check-discipline-pr-body.sh",
+      "exit": 0,
+      "evidence": "evidence/b3-fix-1-syntax.txt"
+    },
+    {
+      "command": "bash scripts/build-getff-dist.sh",
+      "exit": 0,
+      "evidence": "evidence/b3-fix-1-dist-regeneration.txt"
+    },
+    {
+      "command": "bash scripts/build-getff-dist.sh --check",
+      "exit": 0,
+      "evidence": "evidence/b3-fix-1-dist-check.txt"
     }
   ],
   "broaderVerification": {
@@ -284,7 +338,9 @@
     "evidence": [
       "evidence/b3-cost-and-no-loss.json",
       "evidence/b3-final-hooks.json",
-      "evidence/b3-carrier-contracts.txt"
+      "evidence/b3-carrier-contracts.txt",
+      "evidence/b3-fix-1-manual.json",
+      "evidence/b3-fix-1-core.txt"
     ],
     "disciplinePredicateEquivalentExceptTransport": true,
     "transportException": "Normal commit hook flags original echo|grep-q under pipefail. Equivalent Bash here-string, same regex. One supported public58,078char/116,079byte body passes original+repair. No public runtime RED. Sourced195KB rejection is non-public diagnostic only, removed from recurring corpus."
@@ -298,7 +354,8 @@
     ],
     "files": 1667,
     "archiveFilesIncludingMetadata": 1672,
-    "otherGeneratedChanges": false
+    "otherGeneratedChanges": false,
+    "fixRound1": "Only existing core conformance test hash regenerated; no PAYLOAD/helper/sweep source changes in fix."
   },
   "metadataErratum": "Only B2-held-conformance.delivery corrected to its actual one-shot Python command; all other previous inventory entries unchanged; S1 evidence immutable.",
   "newMechanisms": "Ten explicit B3 inventory rows, each seven criteria. Existing carriers/coverage only; includes one-shot supported-size transport classification driver. No generic platform, accepted TAK driver or E9 claim.",
@@ -351,7 +408,7 @@
     "docs/ci-test-effectiveness/evidence/b3-baseline-replay.py": "2eb50a285160e64542c578be6b082fc566a72d906bb57ecbd9efac1cd53233bd",
     "docs/ci-test-effectiveness/evidence/b3-baseline-tool-identity.json": "c47c12beb4fad0ed4e09a102fddce4517f654309a390beddbf01361d59e32fb5",
     "docs/ci-test-effectiveness/evidence/b3-carrier-contracts.txt": "f08a84ede58cbda13246cc92675c71963db32d3c18ba0d407eae787ff55fd58b",
-    "docs/ci-test-effectiveness/evidence/b3-conformance.py": "fd30d11fba504b1f4bf52ff77d046d898371d19a65076207877841a2d94ad539",
+    "docs/ci-test-effectiveness/evidence/b3-conformance.py": "84d61e44ac473c709c0b13ea93e839d3749770b1d63f03f6af56dba74885a76d",
     "docs/ci-test-effectiveness/evidence/b3-core-hooks.txt": "845b1f5891c8e839b40677ba9f6ac9abf92c6d1c6c53fdcb5792aee56d84bb04",
     "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss-run.txt": "73445c85107b36288f8fef8009a3e7c9613aac244cb1c65ec77736049b4907b6",
     "docs/ci-test-effectiveness/evidence/b3-cost-and-no-loss.json": "24d697899f0ccdb4b3894cf01ca1ed61f1fa8528e92a7cfabb8f07047ff2bc41",
@@ -366,16 +423,30 @@
     "docs/ci-test-effectiveness/evidence/b3-final-core.txt": "70eb2fff6d91a67c568a5ca0ebb5dd147676267807bc14f0c019217f85a19554",
     "docs/ci-test-effectiveness/evidence/b3-final-hooks.json": "146e686f8e370f28b8361b3ba7f7f04f3cff0fd400724a1ebaeda3b37d724164",
     "docs/ci-test-effectiveness/evidence/b3-first-commit-hook-rejection.txt": "5d58746d358a81b4959bf5063ba7e4e733317c413f24e140c2fed61761f03c1c",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-core.txt": "2145f6dffb8b0ecb5e368a839650d2895cb8be3c095a0b2c3896ddf895129f5d",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-dist-check.txt": "4bb3ac7cc955a0d6c2fe8144aa5168aa4628af0680f24d56a3f43702bd79884b",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-dist-regeneration.txt": "91d291c6740a908c335580d7c8f04c158de3142bbc975d6493b8c50e16528248",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-held-run.txt": "b795afaebef10efcf2b126789ad5e667e072d339f589a98defd533450cb79903",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-intermediate-held-run.txt": "bed80b1da4316e496e9ba2c053f33031f358dae19d3dba70267fe21be3cf38b7",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-intermediate-held.json": "bed80b1da4316e496e9ba2c053f33031f358dae19d3dba70267fe21be3cf38b7",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-manual.json": "3713e55168378fb473f6f91bbc8ead25090b06dad65ea1329e891879a6988c31",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-manual.txt": "210ac35aac800a7f77174df703411c8a1dfc708bbf80698ac741df3ab2ff701b",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-path-controls-red.txt": "9b97127a706f8a4cda976b85e2db34ff98a5966c0d7ca12b59a6d32246616cec",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-red.json": "85a0467db88d05e62af918ae68442861fa2d6ff847f66ab787d0ef631a374caa",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-red.txt": "d7354119bb654a24c0ddb0a73916e614163aaad596d1e9320095db4ae7b7e4e1",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1-syntax.txt": "d62638de74cf68f458aeb22f7c59a6b529f3fc19a12a8205ec1d3bc68862cd9d",
+    "docs/ci-test-effectiveness/evidence/b3-fix-1.json": "e4b8c2f2d7b3138821fcf255ddce799ab24ed2e4ca142bfb05f64edb49eb02dd",
     "docs/ci-test-effectiveness/evidence/b3-freeze.json": "3063f8e1c5924e3816cc8f1dec813a051a63a24d79cd4d34b8c2e98b73fafabf",
     "docs/ci-test-effectiveness/evidence/b3-green.txt": "1c855f7ac3fe099206ffd552cee1907ea1cafc36fc99a69677ce71078710dcd9",
-    "docs/ci-test-effectiveness/evidence/b3-held-discipline-checker.txt": "21e05bb2e6dce1cc4e84f6a04f2b7023c4301dc3298333671968505652234478",
-    "docs/ci-test-effectiveness/evidence/b3-held-discipline-invocation.txt": "c95ac3e2ecfff853611f9f45eb35588cfe30caae3ff6a5c96152cc87b8c9b409",
-    "docs/ci-test-effectiveness/evidence/b3-held-husky-checker.txt": "e45eb9f6bf7f432902271c1da4d4b865026f197fc2b37547435acccce0fc2cae",
-    "docs/ci-test-effectiveness/evidence/b3-held-husky-invocation.txt": "b0628dc82ce3fb766447466740c169fce467d8c45936f818b7b266d9924422f2",
-    "docs/ci-test-effectiveness/evidence/b3-held-manual-carrier.txt": "351eba620895d5176cae2399cdbc050f0139cf01a0402e72fe4e69ea784c21ef",
-    "docs/ci-test-effectiveness/evidence/b3-held-restoration.txt": "280d17c92b1e5d3902c0c61ff7f2d42aa432cf699f20115d5be11ad78de4b144",
+    "docs/ci-test-effectiveness/evidence/b3-held-discipline-checker.txt": "37d3eb600fd8fc5a78689e2d339a33daa36708077153bfcf00faff85a1bc6074",
+    "docs/ci-test-effectiveness/evidence/b3-held-discipline-invocation.txt": "c7846d967bdde2cd0189d5e08a63301dffab991559df238e52e4a6f84fb42157",
+    "docs/ci-test-effectiveness/evidence/b3-held-husky-checker.txt": "6710ee583cdb2d169140b0475456c450e36c6a85ae3c711a5a3db7e51dd7c211",
+    "docs/ci-test-effectiveness/evidence/b3-held-husky-first-hook-shape.txt": "8468a9728af4bc313e4500de1fde4197982a4ea4ac5d26f9db81b47580c4da2c",
+    "docs/ci-test-effectiveness/evidence/b3-held-husky-invocation.txt": "b0a05a049c85f1b8bb91755ce50afb426fa915a285661804d666a65b5a0fdc8d",
+    "docs/ci-test-effectiveness/evidence/b3-held-manual-carrier.txt": "33807624a2d96e2b84a8931614eb886edee5fbdfa9d9f306862b56ff094b6a45",
+    "docs/ci-test-effectiveness/evidence/b3-held-restoration.txt": "bf784bde96b963e89f048f2809a3a1048c895650e8b6cea01f031f9b70a041ca",
     "docs/ci-test-effectiveness/evidence/b3-held-run.txt": "1fd2c933cdc343e44abf71bd576c90fc060bcb73f27660ab6b4d48a11bb1b820",
-    "docs/ci-test-effectiveness/evidence/b3-held.json": "1fd2c933cdc343e44abf71bd576c90fc060bcb73f27660ab6b4d48a11bb1b820",
+    "docs/ci-test-effectiveness/evidence/b3-held.json": "b795afaebef10efcf2b126789ad5e667e072d339f589a98defd533450cb79903",
     "docs/ci-test-effectiveness/evidence/b3-host-1.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "docs/ci-test-effectiveness/evidence/b3-host-2.txt": "53d6294fda6228be85a6040cbafcf9cbf37c08f61f2e1912e24fb761af5890cf",
     "docs/ci-test-effectiveness/evidence/b3-host-3.txt": "ca807af94696e9389c113f11a8377a169b51ba1c6149d2eb803c07ef5c64c233",
@@ -388,7 +459,7 @@
     "docs/ci-test-effectiveness/evidence/b3-normal-commit.txt": "d35ce0ac5c31b4f4b8e3eb6a0619133774a7a4ad86b0706b2c5d21f1db7985c3",
     "docs/ci-test-effectiveness/evidence/b3-red.json": "f5bd284cbc3528ad37d2ab67b63580aacd7eeb65d16dad8aa3f0e41bb81bf4a8",
     "docs/ci-test-effectiveness/evidence/b3-red.txt": "cf10c89b0220428b73824abe9c97b7d5f1b1bbd3db48bb60ab5bb442013b2c2a",
-    "docs/ci-test-effectiveness/evidence/b3-self-review.txt": "906d7cfe4b9c206c0c824cd91f5a19dd091240966badc780d4bb4764c92e7cf5",
+    "docs/ci-test-effectiveness/evidence/b3-self-review.txt": "f55b34b39977548e35d84d4b8cf66e3c5d6cebbedfb490be8fa053587ffbd1bd",
     "docs/ci-test-effectiveness/evidence/b3-skip-transport-green.txt": "a95346862e85e21b8774812076f16bb8aefed50cd64370698b933f9e3d900d54",
     "docs/ci-test-effectiveness/evidence/b3-skip-transport-red.txt": "6529875d441b1c5b834c30f5373ae564d5e6d85bc77f8d37ad9e2ca928d11c69",
     "docs/ci-test-effectiveness/evidence/b3-skip-transport.json": "7fed01cc3bb625575b760178be1740253ac7a7efc67843493b5a951e1f623948",
@@ -427,5 +498,18 @@
     "exit": 0,
     "evidence": "evidence/b3-normal-commit.txt",
     "warnings": "15 resolved/11 skipped code citations; no bypass. First normal attempt refusal separately retained."
+  },
+  "fixRound1": {
+    "status": "DONE_WITH_CONCERNS_PENDING_SCOPED_REVIEW",
+    "reviewedHead": "6e429b0966837541693eb743e54a3402d8695d8c",
+    "reviewFindings": [
+      "I1",
+      "M1"
+    ],
+    "record": "evidence/b3-fix-1.json",
+    "supersededCoverageEvidence": {
+      "evidence/b3-host-3.txt": "Historical duplicate-prepush adverse identities; not valid both-hook coverage. Replaced by b3-fix-1-manual.txt/json and literal core diagnostic-path assertions."
+    },
+    "commit": "controller records fix commit"
   }
 }

@@ -44,15 +44,28 @@ else:
         originals={f:(shadow/f).read_bytes() for f in files}
         held=digest(originals[test])
         command=[str(ROOT/'node_modules/.bin/vitest'),'run','--root',str(shadow),'--reporter=default',test]
+        first_hook_trace=shadow/'first-hook.trace'
+        first_hook_needle=b'  test -x "$hook" || '
+        assert originals['scripts/check-husky-presence.sh'].count(first_hook_needle)==1
+        first_hook_bypass=(
+            b'  if [ "${hook##*/}" = pre-commit ]; then\n'
+            + f"    echo B3_REACHED_FIRST_HOOK_SHAPE_BYPASS >> '{first_hook_trace}'\n".encode()
+            + b'    continue\n  fi\n'
+        )
+        first_hook_fault=originals['scripts/check-husky-presence.sh'].replace(first_hook_needle,first_hook_bypass+first_hook_needle)
         faults=[
           ('discipline-checker','scripts/check-discipline-pr-body.sh',b'#!/usr/bin/env bash\necho B3_REACHED_CHECKER_BYPASS\nexit 0\n','B3_REACHED_CHECKER_BYPASS'),
           ('discipline-invocation','.github/workflows/discipline-self-check.yml',originals['.github/workflows/discipline-self-check.yml'].replace(b'run: bash scripts/check-discipline-pr-body.sh',b'run: echo B3_REACHED_INVOCATION_BYPASS; exit 0'),'B3_REACHED_INVOCATION_BYPASS'),
           ('husky-checker','scripts/check-husky-presence.sh',b'#!/usr/bin/env bash\necho B3_REACHED_HUSKY_BYPASS\nexit 0\n','B3_REACHED_HUSKY_BYPASS'),
+          ('husky-first-hook-shape','scripts/check-husky-presence.sh',first_hook_fault,'B3_REACHED_FIRST_HOOK_SHAPE_BYPASS'),
           ('husky-invocation','.github/workflows/audit-self.yml',originals['.github/workflows/audit-self.yml'].replace(b'run: bash scripts/check-husky-presence.sh',b'run: echo B3_REACHED_HUSKY_INVOCATION; exit 0'),'B3_REACHED_HUSKY_INVOCATION'),
           ('manual-carrier','tests/hooks/test-enforce-husky-presence.sh',b'#!/usr/bin/env bash\necho B3_REACHED_MANUAL_BYPASS\nexit 0\n','B3_REACHED_MANUAL_BYPASS'),
           ('restoration',None,None,None),
         ]
+        if '--first-hook-only' in sys.argv:
+            faults=[fault for fault in faults if fault[0] in ('husky-first-hook-shape','restoration')]
         for phase,path,content,marker in faults:
+            first_hook_trace.unlink(missing_ok=True)
             for f,b in originals.items(): (shadow/f).write_bytes(b)
             if path: (shadow/path).write_bytes(content)
             start=time.perf_counter()
@@ -61,13 +74,20 @@ else:
             (E/f'b3-held-{phase}.txt').write_text(output)
             row={'phase':phase,'command':command,'exit':p.returncode,'seconds':time.perf_counter()-start,
                  'heldTestSHA256':digest((shadow/test).read_bytes()),'faultSourceSHA256':digest(content) if content else None,
-                 'reachedMarker':marker,'markerObserved':marker in output if marker else None}
+                 'reachedMarker':marker,'markerObserved':(marker in output or (first_hook_trace.exists() and marker in first_hook_trace.read_text())) if marker else None,
+                 'firstHookTrace':first_hook_trace.read_text() if first_hook_trace.exists() else None,
+                 'heldManualSHA256':digest((shadow/'tests/hooks/test-enforce-husky-presence.sh').read_bytes())}
             results.append(row)
             assert row['heldTestSHA256']==held
             if phase=='restoration': assert p.returncode==0, output
             else:
-                assert p.returncode==1 and marker in output, output
+                if phase=='husky-first-hook-shape' and '--first-hook-only' in sys.argv and p.returncode!=1:
+                    (E/'b3-fix-1-red.json').write_text(json.dumps(row,indent=2)+'\n')
+                assert p.returncode==1 and row['markerObserved'], output
                 assert 'AssertionError' in output and 'ENOENT' not in output, output
+                if phase=='husky-first-hook-shape':
+                    assert 'FAIL: non-executable pre-commit expected status 1' in output, output
+                    assert '/nonexec-pre-commit/pre-commit not executable' in output and '(got 0)' in output, output
         assert all((shadow/f).read_bytes()==originals[f] for f in files)
     (E/'b3-held.json').write_text(json.dumps(results,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps(results,ensure_ascii=False,indent=2))
