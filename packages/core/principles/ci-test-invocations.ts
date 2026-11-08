@@ -6,9 +6,15 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, posix } from 'node:path';
-import yaml from 'js-yaml';
-import picomatch from 'picomatch';
+import { createRequire } from 'node:module';
 import ts from 'typescript';
+
+const nodeRequire = createRequire(import.meta.url);
+const yaml = nodeRequire('js-yaml') as { load: (source: string) => unknown };
+const picomatch = nodeRequire('picomatch') as (
+  pattern: string | string[],
+  options?: { dot?: boolean },
+) => (input: string) => boolean;
 
 export const ROOT = resolve(import.meta.dirname, '../../..');
 export const tracked = (): string[] =>

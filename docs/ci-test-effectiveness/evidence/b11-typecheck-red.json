@@ -1,0 +1,13 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "packages/core",
+    "run",
+    "typecheck"
+  ],
+  "exit": 2,
+  "elapsedSeconds": 11.431657,
+  "log": "docs/ci-test-effectiveness/evidence/b11-typecheck-red.txt",
+  "logSHA256": "0765ef341223dbf55ce6e7a30f1db9ece83a06d923bdfa7532b1780f600bd436"
+}

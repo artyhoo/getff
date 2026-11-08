@@ -14,7 +14,7 @@
       "invocation": "Existing test:principles pre-push/required CI; supported actual npm/Node/Python carriers",
       "fault": "printed/dead/misleading/wrong-cwd/missing-workspace or invocation has no coverage; supported husky wrapper return/throw/conditional before invocation or status receives no delivery credit",
       "validCompanion": "quoted/env/and real calls, valid same-cwd config, empty presets and explicit owner exceptions; unchanged/comment-only live husky wrapper retains its independent later diagnostic assertion",
-      "boundedClaim": "B7 finite grammar does not certify arbitrary shell/JS semantics; no owner TAK runtime imported",
+      "boundedClaim": "B7 finite grammar does not certify arbitrary shell/JS semantics; no owner TAK runtime imported D14/B11 restores checked bindings without predicate/grammar changes; actual core compiler and120 consumers pass on Linux/Node24.",
       "criteria": {
         "relevance": "A declaration or path mention is mistaken for a reachable test invocation; population stops at one runner/package.",
         "effectiveness": "Actual ordinary P41 carrier originally stayed green with a return before the only live husky call; repaired carrier rejects exactly that shell source while 323-source membership stays fixed, then passes after exact restoration. Fixed independent return/throw/control-flow cases and two useful companions cover the supported boundary.",
@@ -31,7 +31,11 @@
         "evidence/final-fix-p41-green.txt",
         "evidence/final-fix-fixed-carrier-held.txt",
         "evidence/final-fix-fixed-restoration.json",
-        "evidence/final-fix-source-bindings.json"
+        "evidence/final-fix-source-bindings.json",
+        "evidence/b11-api-result.json",
+        "evidence/b11-typecheck-green.json",
+        "evidence/b11-consumers.json",
+        "evidence/b11-closure-result.json"
       ],
       "TAKowner": "TAK2144 open7a5b63dc remains external/unaccepted; reconcile design \u00a74 on actual accepted runtime, no second TAK"
     },
@@ -237,5 +241,18 @@
   },
   "trustedBoundary": "Truthful controller/competent cold review plus finite independent expectations and host behavior. No arbitrary semantic certification or cryptographic identity.",
   "finalSourceAcceptance": "acceptance/final.json",
-  "publicationCitationClosure": "evidence/publication-citation-closure.json; no runtime behavior change; existing citationgate pass and sourceequivalence, no new standing check"
+  "publicationCitationClosure": "evidence/publication-citation-closure.json; no runtime behavior change; existing citationgate pass and sourceequivalence, no new standing check",
+  "compileReadiness": {
+    "batch": "batches/b11.json",
+    "actualCoreTypecheckExit": 0,
+    "focusedConsumerCases": 120,
+    "status": "Local compiler restored; independent review/full normal prepush/final hosted/admin pending",
+    "regressionOrigin": "Four TS7016 introduced by B7\u2013B9 static bindings, not accepted S1 baseline.",
+    "limits": [
+      "Finite installed js-yaml4.3.2 default-load equivalence on15 actual workflows+valid/malformed companions; different YAML entrypoints/functions, no universal API/version claim.",
+      "Picomatch4.0.5 factory identity proved from actual target module context, not root transitive dependency.",
+      "Linux/Node24 focused execution is not hostedNode22/Windows/full-prepush acceptance.",
+      "Campaign remains PARTIAL pending independent acceptance, normal full prepush/final hosted results and missing3 required-context registrations."
+    ]
+  }
 }

@@ -1,0 +1,179 @@
+{
+  "id": "B11-RC1-D14",
+  "status": "IMPLEMENTED; independent review/full prepush/final hosted/admin pending",
+  "inputCommit": "508149ab999628c309c47b0e0f05429538127abe",
+  "authority": {
+    "specSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+    "beforeEffectsDecision": "D14 accepted by controller before source; task12 brief authoritative"
+  },
+  "criteria": {
+    "relevance": "B7\u2013B9 introduced4 TS7016 diagnostics at3 library bindings; D14 decision precedes effects; this is a campaign regression, not baseline/environment waiver.",
+    "effectiveness": "Actual full core typecheck RED2/four TS7016 then GREEN0; all120 original focused consumer cases pass; exact inverse-binding comparison protects every original predicate/expectation/grammar byte.",
+    "theatre": "Uses installed Node createRequire and actual pinned libraries, full existing compiler, original consumers, normal assembler and actual npm archive; no stub/dependency/any/suppression.",
+    "tautology": "Original compiler failure predates repair. Old ESM API is separate comparison oracle; literal expected valid/error outcomes independent of either implementation, actual module resolutions recorded.",
+    "duplication": "Reuses existing typed createRequire idiom and existing compiler/consumer/archive carriers; no loader abstraction, new standing test or CI hierarchy.",
+    "costEffectiveness": "One bounded API comparison, full compiler red/green, focused120 consumers and normal delivery checks; per-command measured costs retained, no installer/native/P20/full-hooks replay or timing-savings claim.",
+    "sufficiency": "Proves bounded used contracts and compilation on actual Linux/Node24 installed versions; independent review and final hosted/admin evidence remain separate."
+  },
+  "oneShotDriverCriteria": {
+    "relevance": "One-shot comparison/closure/receipt drivers establish API interop, preservation, delivery applicability and measured costs for this repair.",
+    "effectiveness": "51 YAML comparisons include fixed successful/malformed outcomes and relevant error details; require/import matcher factory strict identity; inverse exact-source edits,15 installed maps and exact3 manifest changes asserted; original command exits/logs retained.",
+    "theatre": "Reads actual source/workflows/module exports/baseline maps and invokes real commands; not synthetic producer answers or copied parser implementation.",
+    "tautology": "Old static-ESM behavior and immutable base source are independent references; expected15 workflow population, failure companion and exact3 changed paths are fixed independently of candidate results.",
+    "duplication": "Three one-shot evidence drivers only, not runtime/CI hooks, standing tests or generic module-loading framework.",
+    "costEffectiveness": "API and closure subsecond samples plus command-runner costs recorded separately; no unneeded broad capture/recensus. Full output retained without rerunning consumers.",
+    "sufficiency": "Drivers are trusted finite evidence and can fail assertions; no universal YAML equivalence, hosted timing or other-version claims. Existing full compiler/consumer commands remain recurring enforcement."
+  },
+  "sourceHashes": [
+    {
+      "path": "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+      "beforeSHA256": "d5d2ec81ba3be660962013241e6b379ace7ea84ba759134b850a70574e425914",
+      "afterSHA256": "8b234c890044e7e888300c59a4cbfb120bda47a50d75ac8dacd4453f9672e797",
+      "onlyExactBindingsChanged": true
+    },
+    {
+      "path": "packages/core/principles/37-required-context-completeness.test.ts",
+      "beforeSHA256": "faf48f2baace3600f9baafa09fd2b313c650c7bc07374af369a1feb66a64ccb2",
+      "afterSHA256": "806e0c6513ffd7a078657821079870442927e66828bfbcae0a286b8d36b2b9a4",
+      "onlyExactBindingsChanged": true
+    },
+    {
+      "path": "packages/core/principles/ci-test-invocations.ts",
+      "beforeSHA256": "4ad9e1935adc11c033873c73b225bb206c5789ee1a742ab4727faaa8ae5f5115",
+      "afterSHA256": "8133a1307d02d38268fe1639ec7fbb1035be983ff088dabbe3e0d5954a9976a5",
+      "onlyExactBindingsChanged": true
+    }
+  ],
+  "driverHashes": {
+    "docs/ci-test-effectiveness/evidence/b11-api-comparison.mjs": "0400ecc21239fc7c4b993637dc5c4f9090d7a2bd0cd1fdbf74aa7702aa5888e4",
+    "docs/ci-test-effectiveness/evidence/b11-closure.py": "9f7d4ba7a8340ccb09a61cde412bb765a42818425e6ea644a2733f77fcf08808",
+    "docs/ci-test-effectiveness/evidence/b11-command.py": "a938f3f0a392a7c269fa3c56187566cc837c35c7da12bd6fba71660aa9001d2b"
+  },
+  "commands": {
+    "api": {
+      "command": [
+        "node",
+        "--experimental-import-meta-resolve",
+        "docs/ci-test-effectiveness/evidence/b11-api-comparison.mjs"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.295331,
+      "log": "docs/ci-test-effectiveness/evidence/b11-api.txt",
+      "logSHA256": "9056c234393d1b8b41b575ca483f3e0184610a9e7a57acec70436dbf0d1e43ef"
+    },
+    "typecheck-red": {
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "typecheck"
+      ],
+      "exit": 2,
+      "elapsedSeconds": 11.431657,
+      "log": "docs/ci-test-effectiveness/evidence/b11-typecheck-red.txt",
+      "logSHA256": "0765ef341223dbf55ce6e7a30f1db9ece83a06d923bdfa7532b1780f600bd436"
+    },
+    "typecheck-green": {
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "typecheck"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 14.933236,
+      "log": "docs/ci-test-effectiveness/evidence/b11-typecheck-green.txt",
+      "rawLog": "docs/ci-test-effectiveness/evidence/b11-typecheck-green.txt.gz",
+      "rawLogSHA256": "6a4a55798b6b5df1bac47e32452ef1bd1561219959f1417a8643d047e7d8ebcd",
+      "displayLogSHA256": "a0a9a357ce20a4a020470334c077d4448a8fc5187b98d39c7a55345efb5baecd",
+      "displayNote": "Only excess terminal newlines trimmed for git whitespace; exact raw output preserved in deterministic gzip."
+    },
+    "consumers": {
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "hooks/checks/pr-body-fidelity-bin.test.ts",
+        "principles/37-required-context-completeness.test.ts",
+        "principles/38-vitest-include-ci-coverage.test.ts",
+        "principles/41-shell-test-ci-coverage.test.ts"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 24.490362,
+      "log": "docs/ci-test-effectiveness/evidence/b11-consumers.txt",
+      "rawLog": "docs/ci-test-effectiveness/evidence/b11-consumers.txt.gz",
+      "rawLogSHA256": "3bf3846917e756b128920dc1d8f659c3adb9efb336be23c01e94cc3482c92a24",
+      "displayLogSHA256": "949b71d8d4d4790122340fe61b0fea01ac292d95e8aedc0ae902f9828cd88769",
+      "displayNote": "Only excess terminal newlines trimmed for git whitespace; exact raw output preserved in deterministic gzip."
+    },
+    "manifest-generate": {
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 2.64943,
+      "log": "docs/ci-test-effectiveness/evidence/b11-manifest-generate.txt",
+      "logSHA256": "723fb8525ebf6ba82a9b9f7e82c9bff8f119929413d9c17b2201531055e8415c"
+    },
+    "closure": {
+      "command": [
+        "python3",
+        "docs/ci-test-effectiveness/evidence/b11-closure.py"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.197739,
+      "log": "docs/ci-test-effectiveness/evidence/b11-closure.txt",
+      "logSHA256": "ed9fce7ff7fe369492a03f319005be0515be52c2a15ee7ace2484f2ab5d61cfb"
+    },
+    "archive-check": {
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh",
+        "--check"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 8.585999,
+      "log": "docs/ci-test-effectiveness/evidence/b11-archive-check.txt",
+      "logSHA256": "318d1bfaf704c0f58904f45d1a84db9c228d7ab220a418ca1f313b49838298d7"
+    }
+  },
+  "measuredCommandWallSeconds": 62.583754,
+  "apiEvidence": "evidence/b11-api-result.json",
+  "deliveryEvidence": "evidence/b11-closure-result.json",
+  "normalCommit": "Task12 report records actual normal commit/head/hook output and cost without self-referential evidence churn.",
+  "limits": [
+    "Finite installed js-yaml4.3.2 default-load equivalence on15 actual workflows+valid/malformed companions; different YAML entrypoints/functions, no universal API/version claim.",
+    "Picomatch4.0.5 factory identity proved from actual target module context, not root transitive dependency.",
+    "Linux/Node24 focused execution is not hostedNode22/Windows/full-prepush acceptance.",
+    "Campaign remains PARTIAL pending independent acceptance, normal full prepush/final hosted results and missing3 required-context registrations."
+  ],
+  "evidenceRefs": [
+    "evidence/b11-api-comparison.mjs",
+    "evidence/b11-api-result.json",
+    "evidence/b11-api.json",
+    "evidence/b11-api.txt",
+    "evidence/b11-archive-check.json",
+    "evidence/b11-archive-check.txt",
+    "evidence/b11-closure-result.json",
+    "evidence/b11-closure.json",
+    "evidence/b11-closure.py",
+    "evidence/b11-closure.txt",
+    "evidence/b11-command.py",
+    "evidence/b11-consumers.json",
+    "evidence/b11-consumers.txt",
+    "evidence/b11-consumers.txt.gz",
+    "evidence/b11-manifest-generate.json",
+    "evidence/b11-manifest-generate.txt",
+    "evidence/b11-typecheck-green.json",
+    "evidence/b11-typecheck-green.txt",
+    "evidence/b11-typecheck-green.txt.gz",
+    "evidence/b11-typecheck-red.json",
+    "evidence/b11-typecheck-red.txt"
+  ]
+}

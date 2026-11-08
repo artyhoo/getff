@@ -1,0 +1,1 @@
+PASS: exact binding-only source delta; 15 actual maps exclude changed paths; exactly 3 normal manifest hash changes; frozen inventory prefix preserved

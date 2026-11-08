@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { load } from 'js-yaml';
 import { runCheck } from '../utils/run-check.ts';
+
+const { load } = createRequire(import.meta.url)('js-yaml') as { load: (source: string) => unknown };
 
 const BIN = fileURLToPath(new URL('./pr-body-fidelity-bin.ts', import.meta.url));
 const ROOT = resolve(dirname(BIN), '../../../..');

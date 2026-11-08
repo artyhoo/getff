@@ -878,7 +878,7 @@ c3948b93be91c68c6052ff9525ec5992bf261c96e67b51b1347e8fcc9c3fdc62  packages/core/
 ac26588d9da5982279a5edeb4e916ae8782148a530f7eeb6015839a54363d966  packages/core/hooks/checks/hooks-path.test.ts
 0e99dd01da436e9b31735fbbedbf6a76bbcd16b545cd8d8ddddbdead615907b4  packages/core/hooks/checks/hooks-path.ts
 cc3a54223bb624e310bb87df203c253d7a2bc128591b48049cacc9e806cdc363  packages/core/hooks/checks/pr-body-base-freshness.test.ts
-d5d2ec81ba3be660962013241e6b379ace7ea84ba759134b850a70574e425914  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts
+8b234c890044e7e888300c59a4cbfb120bda47a50d75ac8dacd4453f9672e797  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts
 f94b307dd8ebfd60803e215afcf873b36285b2b03325a5a655b81be396807ca1  packages/core/hooks/checks/pr-body-fidelity-bin.ts
 014a50092154e48377c47a24ec9b7c225de9eb8974c01fd10785e5dd1aa85374  packages/core/hooks/checks/pr-body-fidelity.test.ts
 d4c00552b5a42823897f7c05f0a6910e4544f5e3f3d9720793cdf141c5d80339  packages/core/hooks/checks/pr-body-fidelity.ts
@@ -1087,7 +1087,7 @@ ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/
 94a5d167d4c475b51a9fad67b23d8e9a2650079a9ef9c405ee613fdd25f2df05  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
 950c8bfce8432a3bc1f26702170be12e0da8b59867c387bf347b2e19c2768b90  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
-faf48f2baace3600f9baafa09fd2b313c650c7bc07374af369a1feb66a64ccb2  packages/core/principles/37-required-context-completeness.test.ts
+806e0c6513ffd7a078657821079870442927e66828bfbcae0a286b8d36b2b9a4  packages/core/principles/37-required-context-completeness.test.ts
 9aee92c313e8e1bea0a12fc79d5fcfe34ec2a6cc89f6e5ab74ef46b69a8f6d62  packages/core/principles/38-vitest-include-ci-coverage.test.ts
 2cb9edb1a039f3a366ed6ef5502fde25aded6d8e62c0eeaeebac9913dbcb1807  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
@@ -1114,7 +1114,7 @@ e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3  packages/core/
 b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt
 217e9a42978beeb341d68eac882153fe007f2a9b55d423ab05c5c26d4358748a  packages/core/principles/__fixtures__/bundle/catalog/agents/p20-agent.md
 0e12414168f51be7484a4dbd4c6bf460fa45a210e5b3e7f8f894cfde868c09ba  packages/core/principles/__fixtures__/bundle/catalog/skills/p20-fixture/SKILL.md
-4ad9e1935adc11c033873c73b225bb206c5789ee1a742ab4727faaa8ae5f5115  packages/core/principles/ci-test-invocations.ts
+8133a1307d02d38268fe1639ec7fbb1035be983ff088dabbe3e0d5954a9976a5  packages/core/principles/ci-test-invocations.ts
 ad9f44d2784fc60a76ed499cecd83bc38beeb40a84cad45a50bc4e38c1de5045  packages/core/principles/fixtures/29-corpus-verdicts.json
 3c09aa8215a55a5d138a3e6b22542ae5bc4e0cd10754eefe6604e6f28dfdb666  packages/core/principles/fixtures/adapter-jig/marker-fixture.txt
 6fff931f3d893d6ddec216ae2c96cd2cd181a09a77293b77e8ee6acd2fecdf9c  packages/core/principles/fixtures/rule-channel/dangling-channel-exception.md

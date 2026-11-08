@@ -1,0 +1,111 @@
+{
+  "base": "508149ab999628c309c47b0e0f05429538127abe",
+  "sourceHashes": [
+    {
+      "path": "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+      "beforeSHA256": "d5d2ec81ba3be660962013241e6b379ace7ea84ba759134b850a70574e425914",
+      "afterSHA256": "8b234c890044e7e888300c59a4cbfb120bda47a50d75ac8dacd4453f9672e797",
+      "onlyExactBindingsChanged": true
+    },
+    {
+      "path": "packages/core/principles/37-required-context-completeness.test.ts",
+      "beforeSHA256": "faf48f2baace3600f9baafa09fd2b313c650c7bc07374af369a1feb66a64ccb2",
+      "afterSHA256": "806e0c6513ffd7a078657821079870442927e66828bfbcae0a286b8d36b2b9a4",
+      "onlyExactBindingsChanged": true
+    },
+    {
+      "path": "packages/core/principles/ci-test-invocations.ts",
+      "beforeSHA256": "4ad9e1935adc11c033873c73b225bb206c5789ee1a742ab4727faaa8ae5f5115",
+      "afterSHA256": "8133a1307d02d38268fe1639ec7fbb1035be983ff088dabbe3e0d5954a9976a5",
+      "onlyExactBindingsChanged": true
+    }
+  ],
+  "baselineMaps": [
+    {
+      "path": "tests/install-sh/baselines/cargo/brownfield-clippy.fingerprint",
+      "sha256": "8f9f5856f579f04d2ce258d07697cd77b668b64b4725885e8c938c37c037b099",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/cargo/greenfield.fingerprint",
+      "sha256": "993d57e2c962f577fc064814dde65eb03ed7addba896ddc454dcb6c9fc8eb27d",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/go/brownfield-golangci.fingerprint",
+      "sha256": "d87939a33465d7499e06090b9b415dd811cf45a13adb25d3e617c08581f812c8",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/go/greenfield.fingerprint",
+      "sha256": "ddef381ad5a7c1a99f5271448a289bac066f2f05bb031fbbed9e3dea25d26ae4",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/brownfield-ruff.fingerprint",
+      "sha256": "9428aa211aee401b75c6824d7d3d1282297525ca17f16e696246e2e8890a98ec",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/brownfield-sgconfig.fingerprint",
+      "sha256": "34f0cecefbb6ddcec15ac3f4c562df5e74933dc6e0ee17710f7b9d6d3e3ed41a",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/greenfield.fingerprint",
+      "sha256": "57ec4b804ecef2e991ea8a2ecc6849757f13e674715070ed5b6aa03e88eedfb3",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-native/brownfield.fingerprint",
+      "sha256": "a00f931b73ef3567c340d08554230f65d626cda374857f0511642f22515e2f72",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-native/greenfield.fingerprint",
+      "sha256": "20a62e9fd942c90d0639c7cb713cf0f8ba3a8d20bb1c16c9e4ef315ec9ffb4f5",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-next/brownfield.fingerprint",
+      "sha256": "01e2fd4c41052b01431bda6f3e466ed91a235dbe2205d162b96920f31c244a2e",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-next/greenfield.fingerprint",
+      "sha256": "db24c4c8a8d234bc1bb6cc855247b63f246c6dadf42206d85f66213442291216",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-spa/brownfield.fingerprint",
+      "sha256": "c08e88b666ce0599564cc861813134899b627768248b7667262686142c8aed6c",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-spa/greenfield.fingerprint",
+      "sha256": "235190f3f464ce29f93e885b8701227223625ad3a95f24b056cfbc9642e9c042",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/ts-server/brownfield.fingerprint",
+      "sha256": "415a006a6990b285308ed68ee0991bc740c30ec1387750adef2a67bfa55bff98",
+      "matchingChangedInstalledInputs": []
+    },
+    {
+      "path": "tests/install-sh/baselines/ts-server/greenfield.fingerprint",
+      "sha256": "cbc0dc581a697c50660bd4f10a5a3ce9e87f236a6092a0061a012d4960ea1794",
+      "matchingChangedInstalledInputs": []
+    }
+  ],
+  "manifest": {
+    "sha256": "bb3a7de43117b9abeb82627d9ae78f2c24440dc17b8804088dbcb392e4987095",
+    "entries": 1670,
+    "changedPaths": [
+      "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+      "packages/core/principles/37-required-context-completeness.test.ts",
+      "packages/core/principles/ci-test-invocations.ts"
+    ]
+  },
+  "inventoryPrefixSHA256": "7cd9a61c19b3052d99678a09aff57a4d4dfd44a2c7cde3e05d480492c674c887",
+  "limits": "Installed baseline maps exclude these exact test-only inputs. No capture or platform-suite replay warranted; this is not hosted execution evidence."
+}

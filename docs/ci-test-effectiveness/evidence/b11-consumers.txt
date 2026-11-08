@@ -1,0 +1,48 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default hooks/checks/pr-body-fidelity-bin.test.ts principles/37-required-context-completeness.test.ts principles/38-vitest-include-ci-coverage.test.ts principles/41-shell-test-ci-coverage.test.ts
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ✓ principles/37-required-context-completeness.test.ts (37 tests) 1915ms
+ ✓ principles/38-vitest-include-ci-coverage.test.ts (19 tests) 658ms
+     ✓ (f) removal, data-only replacement and new runner populations are rejected  330ms
+ ✓ principles/41-shell-test-ci-coverage.test.ts (34 tests) 3422ms
+     ✓ (a) real-tree: no tracked native source test is uninvoked  1496ms
+     ✓ (I3) advisor requires the ordered direct spawn and assertion without control flow  499ms
+     ✓ (f) wrappers require a live callback, real spawn and status assertion  504ms
+ ✓ hooks/checks/pr-body-fidelity-bin.test.ts (30 tests) 22711ms
+     ✓ accepts unrelated docs without a review record  1074ms
+     ✓ requires a record even when author claims skipped/applicable=false  768ms
+     ✓ accepts zero findings with scoped basis and consumed original report  1283ms
+     ✓ missing base ref  1076ms
+     ✓ missing head  738ms
+     ✓ missing base sha  619ms
+     ✓ unavailable Git base  763ms
+     ✓ preserves main promotion exemption  621ms
+     ✓ stale base  539ms
+     ✓ stale full head  882ms
+     ✓ wrong scope  833ms
+     ✓ unconsumed  908ms
+     ✓ unresolved material  952ms
+     ✓ unaccepted deferral  715ms
+     ✓ transports fixed (schema only)  807ms
+     ✓ transports retained-with-evidence (schema only)  607ms
+     ✓ transports owner-accepted-deferral (schema only)  634ms
+     ✓ rejects duplicate stable finding IDs  554ms
+     ✓ rejects duplicate records and malformed JSON  1300ms
+     ✓ does not borrow commented or quoted code examples as an actual record  1019ms
+     ✓ actual diff trigger: deleted test  622ms
+     ✓ actual diff trigger: renamed test  627ms
+     ✓ actual diff trigger: runner  586ms
+     ✓ actual diff trigger: schedule  656ms
+     ✓ actual diff trigger: package scripts  725ms
+     ✓ actual diff trigger: unknown file  746ms
+     ✓ still rejects a missing fidelity verdict with an otherwise valid record  821ms
+     ✓ executes the actual run block and propagates edited-body repair and failure  1021ms
+
+ Test Files  4 passed (4)
+      Tests  120 passed (120)
+   Start at  22:21:06
+   Duration  23.37s (transform 851ms, setup 184ms, import 2.36s, tests 28.71s, environment 1ms)

@@ -1,0 +1,12 @@
+
+> @rules-as-tests/core@0.1.0 typecheck
+> tsc --noEmit
+
+hooks/checks/pr-body-fidelity-bin.test.ts(7,22): error TS7016: Could not find a declaration file for module 'js-yaml'. '/workspace/getff/node_modules/js-yaml/dist/js-yaml.mjs' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/js-yaml` if it exists or add a new declaration (.d.ts) file containing `declare module 'js-yaml';`
+principles/37-required-context-completeness.test.ts(95,22): error TS7016: Could not find a declaration file for module 'js-yaml'. '/workspace/getff/node_modules/js-yaml/dist/js-yaml.mjs' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/js-yaml` if it exists or add a new declaration (.d.ts) file containing `declare module 'js-yaml';`
+principles/ci-test-invocations.ts(9,18): error TS7016: Could not find a declaration file for module 'js-yaml'. '/workspace/getff/node_modules/js-yaml/dist/js-yaml.mjs' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/js-yaml` if it exists or add a new declaration (.d.ts) file containing `declare module 'js-yaml';`
+principles/ci-test-invocations.ts(10,23): error TS7016: Could not find a declaration file for module 'picomatch'. '/workspace/getff/packages/core/node_modules/picomatch/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/picomatch` if it exists or add a new declaration (.d.ts) file containing `declare module 'picomatch';`
