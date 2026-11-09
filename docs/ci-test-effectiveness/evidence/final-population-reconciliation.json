@@ -1,9 +1,9 @@
 {
   "status": "Source/population reconciliation; bounded evidence views remain distinct",
-  "sourceHead": "b8c963fec62d68a8ca7d9b9446dcd97b7f588441",
+  "sourceHead": "128ee5d2518cf42e2fd08eabf182ca9b8bd99700",
   "acceptedS1Head": "9098d3c5abc5409de0f138fcf5d0b8375fed3b68",
   "originalLogicalRecords": 2121,
-  "s2SupplementRecords": 52,
+  "s2SupplementRecords": 54,
   "logicalCountWarning": "Supplement rows describe changes and drivers, not extra disjoint tests. Do not sum into a native test count.",
   "originalSourceCandidateCount": 736,
   "originalTestSourceCount": 722,
@@ -220,7 +220,8 @@
           "batches/b1.json",
           "batches/b3.json",
           "batches/b4.json",
-          "batches/b7.json"
+          "batches/b7.json",
+          "batches/b12.json"
         ]
       },
       {
@@ -7744,6 +7745,32 @@
     },
     {
       "id": "publication-kickoff-trap-citation-closure",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "B12-shipped-revision-and-earlier-failure",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "B12-one-shot-preservation-and-command-drivers",
       "criterionNames": [
         "relevance",
         "effectiveness",

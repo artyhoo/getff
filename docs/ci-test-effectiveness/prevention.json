@@ -1,5 +1,5 @@
 {
-  "status": "B12/D15 local installer repair verified after actual hosted failure; parent scoped review/publication/final hosted acceptance pending. Admin6contexts/app15368 already resolved (coordinator verified).",
+  "status": "B12 source/local repair independently accepted; admin6contexts/app15368/native+hosted complete. Final new-head hosted acceptance pending.",
   "authority": "Approved design \u00a77.1\u20137.2, accepted S1 RC1\u2013RC7; current map only, frozen S1 unchanged",
   "map": [
     {
