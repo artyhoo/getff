@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "base": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+  "newAcceptedStaging": "c65360339b8f175e2e2800a3b909196b3651f76f",
+  "nativeList": {
+    "command": [
+      "node",
+      "/workspace/getff-native/node_modules/vitest/vitest.mjs",
+      "list",
+      "--filesOnly",
+      "--json"
+    ],
+    "cwd": "/workspace/getff-native/packages/core",
+    "exit": 0,
+    "beforeCount": 342,
+    "afterCount": 343,
+    "added": [
+      "/workspace/getff-native/packages/core/principles/51-readme-install-claims.test.ts"
+    ],
+    "removed": [],
+    "output": "/workspace/scratch/ci-test-effectiveness-c653-core-native.json",
+    "outputSHA256": "2bd905c1548619e624bbe9e571367a35f7a7b3af221450517867b16b223fabc8",
+    "listingAndReconciliationSeconds": 0.961304,
+    "durationMeaning": "Includes listing plus offline JSON/Git/literal-source reconciliation, not isolated runner speed."
+  },
+  "dependencyPreservation": {
+    "path": "setup.d/70-deps.sh",
+    "orderedCoreSpecsIdentical": true,
+    "count": 23,
+    "restOfFileIdentical": true,
+    "scope": "Inspected literal CORE_DEVDEPS Bash array; shlex comment/word comparison is bounded to this unchanged literal grammar, no general shell equivalence claim."
+  },
+  "derivedMergedChecks": {
+    "installRoster": "exit0",
+    "reference": "exit0,11familyJSON+fences",
+    "faceFacts": "exit0,byte-identical derivation,principles58",
+    "actualArchive": "exit0,1677members/1672manifest/fivemetadata"
+  },
+  "derivedReceiptLimit": "These four commands were actually run on the merged tree via tool receipts; original byte stdout/time not archived by recorder. No invented command rerun, hash or duration."
+}

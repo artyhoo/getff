@@ -1,0 +1,93 @@
+{
+  "id": "freshness-2151",
+  "status": "SCOPED_FRESHNESS_ACCEPTED; FINAL_HOSTED_PENDING",
+  "oldAcceptedStaging": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+  "newAcceptedStaging": "c65360339b8f175e2e2800a3b909196b3651f76f",
+  "mergeHead": "cd480b9c6f9e44bf9d69c0946ea301225333639d",
+  "ownerPR": "https://github.com/artyhoo/getff/pull/2151",
+  "assessment": "acceptance/freshness-2151-review.md",
+  "assessmentSHA256": "005f1a2907f6d7a06e8114da30a5d5d3a1145a147aff7bd6545a09f4814c26f7",
+  "sourceChanges": [
+    {
+      "path": "INSTALL-FOR-AI.md",
+      "acceptedOwnerSHA256": "b1d2283c0c9efa27b420d0065d5ee8e772cabe2ce0c3a8e4bb102394c0887c10",
+      "currentSHA256": "b1d2283c0c9efa27b420d0065d5ee8e772cabe2ce0c3a8e4bb102394c0887c10",
+      "equalsOwner": true
+    },
+    {
+      "path": "README.md",
+      "acceptedOwnerSHA256": "a06595e87f3886b8fd81fc986a6429c0b8491a835d899c51d4410b8e71ecdbdb",
+      "currentSHA256": "a06595e87f3886b8fd81fc986a6429c0b8491a835d899c51d4410b8e71ecdbdb",
+      "equalsOwner": true
+    },
+    {
+      "path": "docs/site/face-facts.json",
+      "acceptedOwnerSHA256": "0877c211bfff7e94305d666b02d11d002a6c0acdb442b5540bc964848f395376",
+      "currentSHA256": "7ef1e6a70947c8b8f48a4fff95ec6c32b73cfa9d0e294ab94ff4639cbe0b4061",
+      "equalsOwner": false
+    },
+    {
+      "path": "docs/site/reference/C.json",
+      "acceptedOwnerSHA256": "b595fad84ca4fc0edb8c1bae08a318945ebee2c29fc79192f52f32231118490e",
+      "currentSHA256": "d02e719dafe3291383bf6abe9dbd8fbb869c3ec1baf9af61a0aeb8181afc8f80",
+      "equalsOwner": false
+    },
+    {
+      "path": "packages/core/principles/51-readme-install-claims.test.ts",
+      "acceptedOwnerSHA256": "46bad25e7e52b1ff148fd95f71da644d8d70c63a800be4eae197c050a8603610",
+      "currentSHA256": "46bad25e7e52b1ff148fd95f71da644d8d70c63a800be4eae197c050a8603610",
+      "equalsOwner": true
+    },
+    {
+      "path": "packages/core/principles/51-readme-install-claims.ts",
+      "acceptedOwnerSHA256": "7e177b579f17e20e0510bc95f240e5290c0ab72baefa33cf45d2382bede0bb40",
+      "currentSHA256": "7e177b579f17e20e0510bc95f240e5290c0ab72baefa33cf45d2382bede0bb40",
+      "equalsOwner": true
+    },
+    {
+      "path": "packages/getff/MANIFEST.sha256",
+      "acceptedOwnerSHA256": "1693314569441079da5776c648c1a70b4943dc9631e0087394bb07c739af7f5e",
+      "currentSHA256": "41073d86a2f956daca58b2f266fc7d606342aea7dbfc9aae5e5d79d61afde382",
+      "equalsOwner": false
+    },
+    {
+      "path": "scripts/render-install-roster.mjs",
+      "acceptedOwnerSHA256": "ac0d5d76573bca9b5bc08c517a41364c66966f9ca8cf56294f96488da6257c1c",
+      "currentSHA256": "ac0d5d76573bca9b5bc08c517a41364c66966f9ca8cf56294f96488da6257c1c",
+      "equalsOwner": true
+    },
+    {
+      "path": "scripts/render-reference.test.sh",
+      "acceptedOwnerSHA256": "b292bd427b4dba234e3b7d81c6fc99ab1bb0e7522d7ca980a53bbdbad6184acb",
+      "currentSHA256": "b292bd427b4dba234e3b7d81c6fc99ab1bb0e7522d7ca980a53bbdbad6184acb",
+      "equalsOwner": true
+    },
+    {
+      "path": "setup.d/70-deps.sh",
+      "acceptedOwnerSHA256": "c43761eba225cb1ce107f461bdea4fd9cef4d6eb03b03f4b9840070a41f352b0",
+      "currentSHA256": "c43761eba225cb1ce107f461bdea4fd9cef4d6eb03b03f4b9840070a41f352b0",
+      "equalsOwner": true
+    },
+    {
+      "path": "tests/install-sh/cic-s3-dep-install.test.sh",
+      "acceptedOwnerSHA256": "c09969676d84f76b7d93768fed3a3b927f770f9557a64bce8788dda4813156c5",
+      "currentSHA256": "c09969676d84f76b7d93768fed3a3b927f770f9557a64bce8788dda4813156c5",
+      "equalsOwner": true
+    },
+    {
+      "path": "tests/install-sh/getff-dep-names.test.sh",
+      "acceptedOwnerSHA256": "d9810151a3a0af62b0b5d631cdc3b243cdec43b87546cc63dcbdd9d8de45982a",
+      "currentSHA256": "d9810151a3a0af62b0b5d631cdc3b243cdec43b87546cc63dcbdd9d8de45982a",
+      "equalsOwner": true
+    }
+  ],
+  "criteriaRecords": [
+    "freshness-2151-p51",
+    "freshness-2151-shell",
+    "freshness-2151-fixture"
+  ],
+  "B12": "Tuple,template,test,earlyCstep untouched by owner. Same23literalcoredeps/order; all functions/rest70-deps unchanged. Snapshot/behavior inheritance is bounded to these verified unchanged runtime inputs, not universal hash omissions.",
+  "nativePopulation": "Actual343core files, exactly old342 plus P51;59cases is not59files. Other workspace discovery inputs unchanged.",
+  "sourceAndDelivery": "Conflict-free normal merge; normal derived roster/reference/face-facts/actual archive all0. New owner claims are source-assessed, not a second whole-repository audit.",
+  "costLimits": "Scoped reviewer/model/editor/transport cost unmeasured, not zero/savings. Source/code/normaldelivery/native listing only; required fullnormalpush/host remains."
+}

@@ -1,0 +1,1031 @@
+[
+  {
+    "file": "/workspace/getff-native/packages/core/audit-self/audit-ai-docs.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/audit-self/base-core-list.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/audit-self/first-steps-parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/audit-self/hooks-tree-guard.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/audit-self/md-line-gate.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/audit-self/prove-rules-parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/audit-self/prove-rules.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/audit-self/run-bash-mutation.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/audit-self/template-render.audit.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/python-templates-drift.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/composition/compose.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/composition/fence.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/detector/index.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/detector/patterns.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/detector/read-aif.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/detector/read-python-cargo.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/detector/snapshot.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/detector/stack-exhaustiveness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/detector/write-skill-context.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/diagnostics/registry.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/diagnostics/to-diagnostics.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/diff/preset-similarity.calibration.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/diff/preset-similarity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/detector-v0/detect-applicable-rules.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/docs-engine/resolver.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/eslint-rules/next-r13-no-fetch-in-useeffect.parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/eslint-rules/next-r18-usequery-require-parse.parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/eslint-rules/no-direct-time-randomness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/eslint-rules/no-unsafe-zod-parse.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/eslint-rules/plugin-dual-engine.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/eslint-rules/require-error-boundary.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/eslint-rules/require-otel-span.parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/eslint-rules/require-otel-span.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/eslint-rules/restricted-syntax-audit-exempt.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/_zcode-emit.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/adopt-orchestrator-prompts.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/advisor-role-reminders.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/apply-doc-fixes.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/ask-question-reminder.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/autonomy-binding-lifecycle.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/check-doc-authority-header.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/check-doc-authority.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/check-docs-refresh.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/check-hook-marker.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/check-kickoff-portability.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/check-kickoff-traps.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/check-skill-drift.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/check-worker-dispatch-channel.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/ci-checker-oracles.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/classify-work.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/close-aif-task-on-merge.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/create-worktree.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/delta-diff.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/delta-write-from-state.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/deps-hash-check.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/dispatch-from-state.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/done-md-completion-filter.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/dup-detect-empty-arg.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/end-of-turn-reminder.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/env-hermeticity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/format-shipped-anchor.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/frontier.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/getff-work.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/glossary-counters.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/harness-config-drift.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/hook-emit-prelude.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/host-verify.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/husky-self-delegate.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/inject-handoff-on-compact.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/inject-matching-rule.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/inject-memory-codification.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/inject-project-digest.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/inject-session-bootstrap.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/inject-subagent-context.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/inject-subagent-digest.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/install-coordination-wiring.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/lang-parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/launch-table-generator.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/link-coordination.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/list-presets.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/parse-override-flags.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/parse-preset.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/pin-parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/pre-push.consumer-layout.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/pre-push.fallback.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/pre-push.heavy-runner.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/pre-push.kickoff-scope.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/pre-push.line-citations-timeout.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/pre-push.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/precompact-residue.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/priority-score-branch-matcher.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/priority-score-reconstruct-stub.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/priority-score-skip-closed.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/priority-score-synthetic.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/render-status.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/rule-channel-degradation.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/runtime-bridge-dispatch.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/session-start.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/skill-index-on-compact.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/snapshot-for-seat.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/unpinned-tool-install.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/update-cache.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/update-delta.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/validate-prompt.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/warn-subagent-report.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/worktree-doctor.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/worktree-node-modules.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/worktree-setup-hydration.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/worktree-setup.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/zcode-runtime-probe.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/install/delivered-scripts-lint-ignored.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/install/mcp-source-check.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/install/rule-bootstrap-check-plan.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/install/rule-bootstrap-cli.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/install/rule-bootstrap-practice.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/install/tool-decisions-blocks-named.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/install/wire-eslint-r2.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/install/wire-live-snippet.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/install/wire-synth-rules.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/installer/install.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/installer/schema-version-refusal.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/installer/snapshot.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/installer/version-diff.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/ir/types.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/render/render-rules.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/python-starter/starter-nodes.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/01-executable-check.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/02-paired-negative-test.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/03-ast-over-grep.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/04-no-tautology.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/05-manifest-ssot.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/06-must-not-demoted.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/07-documents-lie.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/08-prior-art-cited.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/09-doc-authority-hierarchy.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/10-research-patch-annotation.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/11-build-first-reuse-default.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/12-ai-laziness-traps.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/13-phase-research-coverage-s17.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/14-skill-drift-detection.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/15-skill-paired-negative.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/16-hook-stub-completeness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/17-no-paid-llm-in-ci.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/18-meta-orchestrator-output-format.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/20-bundle-classification.paired-negative.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/20-bundle-classification.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/21-agnosticism-conformance.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/21-shipped-agent-liveness-tool-parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/21-shipped-agent-tools-valid.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/22-internal-english.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/23-aif-init-passport-gen.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/24-plugin-manifest-integrity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/25-template-rule-ref-resolution.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/26-template-selector-sync.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/27-prepush-copylist-complete.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/28-synth-wire-oracle.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/29-worker-dispatch-channel.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/30-research-source-trust.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/31-rule-channel-declaration.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/32-prepush-section-owner.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/33-adapter-jig-arm-registry.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/34-claudemd-excludes-liveness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/36-ci-needs-completeness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/37-make-target-claim-liveness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/37-required-context-completeness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/38-vitest-include-ci-coverage.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/39-skill-fence-orch-home.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/40-kickoff-rigor-label.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/41-shell-test-ci-coverage.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/42-context-md-pointer-rule.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/42-context-md-spelling-uniqueness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/43-kickoff-host-verify-presence.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/44-kickoff-authoring-traps.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/45-prepush-contract-claim-liveness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/46-git-env-inheritance-safety.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/46-reference-generator-arms.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/47-symlink-safe-entry-point.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/48-skill-description-budget.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/49-executor-tier-parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/50-cold-seat-inputs-ref.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/50-install-rc-asserted.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/principles/51-readme-install-claims.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/scenario-generator/static-gate.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/scenario-generator/store.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/ackfilepath-plan-containment.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/allowlist-resolver.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/allowlist.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/diff.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/drift.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/ecosystem-adapter-precondition.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/ecosystem-cargo.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/ecosystem-go.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/ecosystem-name.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/ecosystem-npm.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/ecosystem-prefix-dispatch.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/ecosystem-python.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/ecosystem-unwired-debt.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/load.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/research-adapter-anthropic.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/research-live.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/research-path-guards.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/researcher-doc-base-core.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/researcher-doc-tier1.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/snapshot.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/tier1.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/validate-plan.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/spec-validation/validate-batch-spec.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/assign-skill.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/classify-each-candidate.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/classify-work.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/domain-modeling-vendored-body.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/dup-detect-skip-closed.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/dup-detect.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/emit-output-strings.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/emit-story-prompt.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/grilling-vendored-body.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/inflight-check.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/integer-name-guard.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/intent-ask-advice.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/intent-current-decisions.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/intent-pilot.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/intent-result-review.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/intent-routing.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/intent-spec-continuity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/orch-home-resolver.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/pipeline-english-canonical.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/pipeline-lang-parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/pipeline-park-contract.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/plan-currency-check-count.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/plan-currency-check-digest.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/plan-currency-check-kickoff.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/plan-currency-check.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/plan-drift-write-guard.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/planner-discovery.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/run-helper.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/seat-lifecycle-pointer.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/triage-rubric-label-parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/upstream-skill-reference.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/canonical-rule-hash.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/compile-declarative-md.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/emit.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/file-clients-partial-drop.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/file-clients.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/generate-cli.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/generate-react-spa.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/generate.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/live-generation-clippy.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/menu-pick.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/merge-eslint-config.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/research-to-clippy-node.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/research-to-node.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/resolve-ctx.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/rule-bootstrap-live.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/rule-bootstrap.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/rule-tests-sidecar.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/run-generated-rule-mutation-skip.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/run-generated-rule-mutation.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/s1-tier1-fixtures.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/snapshot.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/synthesize.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/to-node.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/synthesizer/verify-provenance.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-autofix-clean.adversarial.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-conflict.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-message-id-coverage.adversarial.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-require-vacuity.adversarial.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-require-vacuity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-rule-tester.adversarial.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-rule-tester.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-schema.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-single-token-diff.adversarial.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-tautology.adversarial.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/gate-tautology.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/preset-plugin-resolver.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/r14-r20-declarative-migration.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/snapshot.adversarial.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/snapshot.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/to-aif-gate-result.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/validator/validate.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/astgrep/capability-matrix.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/astgrep/firing.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/astgrep/live-generation-delivery.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/astgrep/live-generation-research.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/astgrep/relational-firing.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/astgrep/render-astgrep.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/astgrep/researched-live-path.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/astgrep/rule-tests-sidecar-firing.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/cargo/capability-matrix.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/cargo/firing.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/cargo/render-clippy.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/cargo/write-clippy.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/npm/capability-matrix.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/npm/firing.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/npm/from-node.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/npm/grammar-gate-in-flow.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/golangci/capability-matrix.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/golangci/firing.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/ruff/capability-matrix.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/ruff/firing.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/ruff/render-ruff.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/shared/json-array-parse.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/shared/no-stray-hoist-markers.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/shared/toolchain-freshness-population.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/composition/gates/composition-gate.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/composition/demo/root-agents-demo.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/cmd-script-liveness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/docs-card.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/guard-liveness-fullsweep.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/guard-liveness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/harness-config-local.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/hooks-path.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/pr-body-base-freshness.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/pr-body-fidelity-bin.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/pr-body-fidelity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/pr-body-prior-art.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/pr-body-removal-consumers-bin.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/pr-body-removal-consumers.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/pr-stale-revert-bin.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/pr-stale-revert.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/prior-art.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/registry.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/s17.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/checks/skill-core-edit-scope.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/utils/git.range-renames.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/utils/git.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/utils/markdown-comments.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/hooks/utils/run-check.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/ir/gates/grammar.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/gates/provenance.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/gates/report.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/research/gates/shape.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/dispatcher/advance-frontier.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/dispatcher/dispatch.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/dispatcher/monitor.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/dispatcher/probe-inflight-late.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/dispatcher/probe-inflight.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/pipeline/frontier.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/pipeline/priority-score-launch-table.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/skills/pipeline/repo-root-anchor.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/tests/acceptance/canonical-regen.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/core/backends/cargo/demo/demo.test.ts"
+  }
+]

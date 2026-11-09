@@ -17,13 +17,13 @@
   },
   "controllerFinalMetadataCarry": "This final bookkeeping commit only adds review acceptance, source reconciliation and truthful status/rulings. No new production behavior, no extra cold full-source review. Exact published full head and CI evidence belong in PR2150 body.",
   "acceptance": {
-    "coverage": "Accepted S1 + current reconciliation +54 S2 self-assessed rows:736 original sources all retained,709 unchanged,16 S2-assessed,11 citation-only;724 test/probe files; no reduced native denominator.",
+    "coverage": "Accepted S1 +57 separately assessed supplement rows;736 original sources all retained,706 unchanged,19 S2/freshness-assessed,11 citation-only;725 test/probe source candidates, core native343 =old342+P51. No reduced denominator.",
     "sufficientProtection": "Local/source faults and real invocation/held-restoration accepted; admin all6contexts/app15368 actual native+hosted complete. New-head final hosted required after B12 fixes actual first-run C regression.",
     "noLoss": "Retained witnesses/workload/canonical/unknownfallback; actual finalreviewcounterexample corrected; finalhost proof pending.",
     "minimality": "Both detached checker copies and both equivalent root repeats removed; P37 zero-marginal wrapper copies consolidated; no known proven redundant removal remains advice only. B10 removes repeated unasserted live-catalog scans from P20 setup through meaningful real helper inputs, preserving all original contracts and both async/sync/default-directory witnesses.",
     "economicalImplementation": "Four equivalent suites redistributed with commands/prerequisites preserved; unique useful cold/host witnesses retained and repairs charged as overhead.",
     "costResult": "Actual before traces + bounded forecast; native recurring/audit costs visible; hosted AFTER and incremental developer/financial payoff unknown, no gain claim.",
-    "freshnessAndTAK": "Actual staging5fc + three unchanged open ownerheads, acceptedS0only, no competing kernel; actual published-head binding external.",
+    "freshnessAndTAK": "Accepted stagingc6536033/PR2151 merged normally and independently assessed only12pathdelta; TAK2144/OCR2146/Windows2116 same open/unmerged heads. P51 README check is not accepted TAK conformance delivery.",
     "generalPrevention": "RC1\u20137 existing channels/rubric + actual diffbound consumed dispositions, real fault/companion/disable/restore, six independent bounded cold cases and real fixture repairs.",
     "recursiveQualityEfficiency": "All new controls/drivers have7criteria, distinct oracles, bounded costs and finite explicit trusted boundary; no paid modelCI/census/platform.",
     "honestCompletion": "PARTIAL until new-head applicable hosted jobs including complete C tail and aggregate pass; source-only/local42 success is not campaignDONE."
@@ -46,7 +46,7 @@
     "Complete-population AFTER timings and bounded comparison; first failed C run is not successful performance evidence."
   ],
   "publication": "https://github.com/artyhoo/getff/pull/2150",
-  "at": "2026-11-09T19:04:10.129222+00:00",
+  "at": "2026-11-09T19:20:34.260655+00:00",
   "publicationCitationClosure": {
     "sourceCommit": "c1930af47de3ff4932527972d8abec9a19e47923",
     "receiptHead": "08d06933075972d45a565e5b9d01a89810efb68a",
@@ -82,5 +82,13 @@
     "base": "b8c963fec62d68a8ca7d9b9446dcd97b7f588441",
     "evidence": "evidence/publication-kickoff-closure.json",
     "acceptance": "Root-owned append-only coordinator documentation; exact original prefix hashes retained, late provenance explicit; actual existing P12 9/9 and unchanged two host-list contracts pass. No behavior/payload/checker changes; full normal publishing gate remains mandatory."
+  },
+  "freshnessIncorporation": {
+    "base": "c65360339b8f175e2e2800a3b909196b3651f76f",
+    "merge": "cd480b9c6f9e44bf9d69c0946ea301225333639d",
+    "assessment": "acceptance/freshness-2151-review.md",
+    "record": "batches/freshness-2151.json",
+    "source": "Exact owner sources retained; generatedJSON/manifest union verified by normalcheck,1677/1672actualarchive.23pins sameorder/rest70-depssame; officialnative343addsonefileonly.",
+    "hosted": "Final new-head applicable execution still pending."
   }
 }

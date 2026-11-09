@@ -1,27 +1,30 @@
 {
   "status": "Source/population reconciliation; bounded evidence views remain distinct",
-  "sourceHead": "128ee5d2518cf42e2fd08eabf182ca9b8bd99700",
+  "sourceHead": "cd480b9c6f9e44bf9d69c0946ea301225333639d",
   "acceptedS1Head": "9098d3c5abc5409de0f138fcf5d0b8375fed3b68",
   "originalLogicalRecords": 2121,
-  "s2SupplementRecords": 54,
+  "s2SupplementRecords": 57,
   "logicalCountWarning": "Supplement rows describe changes and drivers, not extra disjoint tests. Do not sum into a native test count.",
   "originalSourceCandidateCount": 736,
   "originalTestSourceCount": 722,
   "originalSupportSourceCount": 14,
   "currentOriginalSources": 736,
-  "unchangedOriginalSources": 709,
-  "changedOriginalSources": 27,
-  "behaviorOrS2AssessedOriginalSources": 16,
+  "unchangedOriginalSources": 706,
+  "changedOriginalSources": 30,
+  "behaviorOrS2AssessedOriginalSources": 19,
   "citationOnlyOriginalSources": 11,
   "removedOriginalSources": [],
   "newTestSourcePaths": [
     "packages/core/hooks/autonomy-binding-lifecycle.test.ts",
-    "packages/core/hooks/ci-checker-oracles.test.ts"
+    "packages/core/hooks/ci-checker-oracles.test.ts",
+    "packages/core/principles/51-readme-install-claims.test.ts"
   ],
-  "currentTestSourceCount": 724,
+  "currentTestSourceCount": 725,
   "newNonAuditTrackedPaths": [
     "packages/core/hooks/autonomy-binding-lifecycle.test.ts",
     "packages/core/hooks/ci-checker-oracles.test.ts",
+    "packages/core/principles/51-readme-install-claims.test.ts",
+    "packages/core/principles/51-readme-install-claims.ts",
     "packages/core/principles/__fixtures__/bundle/catalog/agents/p20-agent.md",
     "packages/core/principles/__fixtures__/bundle/catalog/skills/p20-fixture/SKILL.md",
     "packages/core/principles/ci-test-invocations.ts",
@@ -381,8 +384,8 @@
   },
   "nativePopulation": {
     "reused": "evidence/b7-population-reconciliation.json + b7-native-population-match.json",
-    "basis": "B8–B11 changes after B7 stay within existing test sources; B10 adds two catalog fixture inputs and two cases, not test files. No Vitest include changes.",
-    "core": 342,
+    "basis": "Own B8–B12 add no test files/includes after B7; accepted PR2151 adds one P51 source. Actual native342→343, alloldmembers retained; other workspace inputs unchanged.",
+    "core": 343,
     "runtimeBridge": 31,
     "next": 3,
     "reactNative": 0,
@@ -4648,9 +4651,11 @@
       "path": "scripts/render-reference.test.sh",
       "kind": "test-source-or-probe",
       "beforeSHA256": "21e70ca6d1d8b7e00cc84693d2d5fe630950e5510376add49eb5ddff26416787",
-      "currentSHA256": "21e70ca6d1d8b7e00cc84693d2d5fe630950e5510376add49eb5ddff26416787",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "b292bd427b4dba234e3b7d81c6fc99ab1bb0e7522d7ca980a53bbdbad6184acb",
+      "disposition": "changed-assessment-in-S2",
+      "batchRefs": [
+        "batches/freshness-2151.json"
+      ]
     },
     {
       "id": "test:scripts/render-terms-style.test.sh",
@@ -5382,9 +5387,11 @@
       "path": "tests/install-sh/cic-s3-dep-install.test.sh",
       "kind": "test-source-or-probe",
       "beforeSHA256": "07c05fceccbd854396cb0224cfedeec9c2f61e4429e368aaaa6f86b6c2638d09",
-      "currentSHA256": "07c05fceccbd854396cb0224cfedeec9c2f61e4429e368aaaa6f86b6c2638d09",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "c09969676d84f76b7d93768fed3a3b927f770f9557a64bce8788dda4813156c5",
+      "disposition": "changed-assessment-in-S2",
+      "batchRefs": [
+        "batches/freshness-2151.json"
+      ]
     },
     {
       "id": "test:tests/install-sh/consumer-delivery-safety-guard.test.sh",
@@ -5751,9 +5758,11 @@
       "path": "tests/install-sh/getff-dep-names.test.sh",
       "kind": "test-source-or-probe",
       "beforeSHA256": "04d2a8a1aabb7a447bb8af4ed97e6d3326c89c9cabf4ca2d3d31e6df1f34d0f2",
-      "currentSHA256": "04d2a8a1aabb7a447bb8af4ed97e6d3326c89c9cabf4ca2d3d31e6df1f34d0f2",
-      "disposition": "inherit-accepted-S1-assessment",
-      "batchRefs": []
+      "currentSHA256": "d9810151a3a0af62b0b5d631cdc3b243cdec43b87546cc63dcbdd9d8de45982a",
+      "disposition": "changed-assessment-in-S2",
+      "batchRefs": [
+        "batches/freshness-2151.json"
+      ]
     },
     {
       "id": "test:tests/install-sh/gh-531-shipped-prettier.test.sh",
@@ -7771,6 +7780,45 @@
     },
     {
       "id": "B12-one-shot-preservation-and-command-drivers",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "freshness-2151-p51",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "freshness-2151-shell",
+      "criterionNames": [
+        "relevance",
+        "effectiveness",
+        "theatre",
+        "tautology",
+        "duplication",
+        "costEffectiveness",
+        "sufficiency"
+      ],
+      "allSevenPresent": true
+    },
+    {
+      "id": "freshness-2151-fixture",
       "criterionNames": [
         "relevance",
         "effectiveness",
