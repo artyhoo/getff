@@ -1,0 +1,10 @@
+{
+  "command": [
+    "bash",
+    "scripts/build-getff-dist.sh"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 1.566557,
+  "log": "docs/ci-test-effectiveness/evidence/b12-manifest-generate-citations.txt",
+  "logSHA256": "723fb8525ebf6ba82a9b9f7e82c9bff8f119929413d9c17b2201531055e8415c"
+}

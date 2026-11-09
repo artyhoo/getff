@@ -1,5 +1,5 @@
 {
-  "status": "Source accepted after whole-branch/final-fix and supplemental B10/B11 independent reviews; final normal prepush/hosted/admin acceptance pending",
+  "status": "B12/D15 local installer repair verified after actual hosted failure; parent scoped review/publication/final hosted acceptance pending. Admin6contexts/app15368 already resolved (coordinator verified).",
   "authority": "Approved design \u00a77.1\u20137.2, accepted S1 RC1\u2013RC7; current map only, frozen S1 unchanged",
   "map": [
     {
@@ -9,20 +9,23 @@
       "sources": [
         "packages/core/principles/38-vitest-include-ci-coverage.test.ts",
         "packages/core/principles/41-shell-test-ci-coverage.test.ts",
-        "packages/core/principles/ci-test-invocations.ts"
+        "packages/core/principles/ci-test-invocations.ts",
+        "setup.d/lib.sh",
+        ".github/workflows/audit-self.yml",
+        "tests/install-sh/skill-context-evolve-coownership.test.sh"
       ],
       "invocation": "Existing test:principles pre-push/required CI; supported actual npm/Node/Python carriers",
       "fault": "printed/dead/misleading/wrong-cwd/missing-workspace or invocation has no coverage; supported husky wrapper return/throw/conditional before invocation or status receives no delivery credit",
       "validCompanion": "quoted/env/and real calls, valid same-cwd config, empty presets and explicit owner exceptions; unchanged/comment-only live husky wrapper retains its independent later diagnostic assertion",
-      "boundedClaim": "B7 finite grammar does not certify arbitrary shell/JS semantics; no owner TAK runtime imported D14/B11 restores checked bindings without predicate/grammar changes; actual core compiler and120 consumers pass on Linux/Node24.",
+      "boundedClaim": "B7 finite grammar does not certify arbitrary shell/JS semantics; no owner TAK runtime imported D14/B11 restores checked bindings without predicate/grammar changes; actual core compiler and120 consumers pass on Linux/Node24. B12 restores the current shipped revision with one append-only tuple; unchanged42-case real install/refresh carrier passes. Same complete57-step shard keeps all four setup prerequisites and moves the test first; no completed AFTER speed claim.",
       "criteria": {
         "relevance": "A declaration or path mention is mistaken for a reachable test invocation; population stops at one runner/package.",
-        "effectiveness": "Actual ordinary P41 carrier originally stayed green with a return before the only live husky call; repaired carrier rejects exactly that shell source while 323-source membership stays fixed, then passes after exact restoration. Fixed independent return/throw/control-flow cases and two useful companions cover the supported boundary.",
+        "effectiveness": "Actual ordinary P41 carrier originally stayed green with a return before the only live husky call; repaired carrier rejects exactly that shell source while 323-source membership stays fixed, then passes after exact restoration. Fixed independent return/throw/control-flow cases and two useful companions cover the supported boundary. B12 admitted hosted40/2 failure becomes local42/0 with original stripped-marker one-template/evolved-byte and npm/Python integration expectations unchanged.",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
         "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
-        "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
-        "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately.",
-        "sufficiency": "B7 finite grammar does not certify arbitrary shell/JS semantics; no owner TAK runtime imported"
+        "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review. Existing \u00a70 requires every shipped revision; original coownership carrier now fails at the first test position after all4 common setup steps. No new checker hierarchy.",
+        "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately. B12 local commands count as overhead,15 installed maps exclude changed inputs; no blind capture or unchanged failing battery replay.",
+        "sufficiency": "B7 finite grammar does not certify arbitrary shell/JS semantics; no owner TAK runtime imported Final hosted shardC completion remains unobserved for the repair; partial earlier run does not prove successful AFTER latency."
       },
       "evidence": [
         "evidence/b7-fix1-held.json",
@@ -35,7 +38,12 @@
         "evidence/b11-api-result.json",
         "evidence/b11-typecheck-green.json",
         "evidence/b11-consumers.json",
-        "evidence/b11-closure-result.json"
+        "evidence/b11-closure-result.json",
+        "evidence/b12-first-hosted-failure.json",
+        "evidence/b12-coownership-green.json",
+        "evidence/b12-preservation-result.json",
+        "evidence/b12-status.json",
+        "batches/b12.json"
       ],
       "TAKowner": "TAK2144 open7a5b63dc remains external/unaccepted; reconcile design \u00a74 on actual accepted runtime, no second TAK"
     },
@@ -173,20 +181,23 @@
         "packages/core/hooks/checks/pr-body-fidelity.ts",
         "packages/core/principles/20-bundle-classification.ts",
         "packages/core/principles/20-bundle-classification.test.ts",
-        "packages/core/skills/assign-skill.test.ts"
+        "packages/core/skills/assign-skill.test.ts",
+        "setup.d/lib.sh",
+        ".github/workflows/audit-self.yml",
+        "tests/install-sh/skill-context-evolve-coownership.test.sh"
       ],
       "invocation": "Same existing cold review and consumed record on actual scheduling/runner/check changes",
       "fault": "imbalanced equivalent workloads require evidence-backed review and disposition; unresolved blocks; P20 child catalog pins missing in async prefetch or distinct sync miss must reject fixed skill/agent output expectations",
       "validCompanion": "justified slow unique contract; matched history unavailable with bounded owner decision; no global SLO; all old P20 eligibility/overlap/cap/mutants and default-directory L5 positives retained with tiny meaningful real inputs",
-      "boundedClaim": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured. B10 adds actual fixed-catalog recurrence witnesses, no wall-clock quota or global latency guarantee.",
+      "boundedClaim": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured. B10 adds actual fixed-catalog recurrence witnesses, no wall-clock quota or global latency guarantee. B12 restores the current shipped revision with one append-only tuple; unchanged42-case real install/refresh carrier passes. Same complete57-step shard keeps all four setup prerequisites and moves the test first; no completed AFTER speed claim.",
       "criteria": {
         "relevance": "Useful work is concentrated in one of three otherwise equivalent serial jobs. B10 observed unasserted global catalog scans in a timed-out bundle hook.",
-        "effectiveness": "imbalanced equivalent workloads require evidence-backed review and disposition; unresolved blocks; justified slow unique contract; matched history unavailable with bounded owner decision; no global SLO B10 real async/sync context guards reject dropped wiring; guard omission false green is independently rejected against fixed expected1, restoration35pass. Default-directory owned-name witness rejects the actual live-agent basename collision, retaining old assertions.",
+        "effectiveness": "imbalanced equivalent workloads require evidence-backed review and disposition; unresolved blocks; justified slow unique contract; matched history unavailable with bounded owner decision; no global SLO B10 real async/sync context guards reject dropped wiring; guard omission false green is independently rejected against fixed expected1, restoration35pass. Default-directory owned-name witness rejects the actual live-agent basename collision, retaining old assertions. B12 admitted hosted40/2 failure becomes local42/0 with original stripped-marker one-template/evolved-byte and npm/Python integration expectations unchanged.",
         "theatre": "Actual carrier/held source controls cited; declaration, schema presence and policy metadata do not establish runtime or semantic success.",
         "independentOracle": "Fixed status/population/diagnostic outcomes are separate from subjects. RC5/6 independently frozen semantic classes were assessed against sealed cold originals, not supplied to producer/reviewer.",
-        "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review.",
-        "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately. B10 uses existing principles/L5 carriers and two meaningful catalog entries; local measured costs in batches/b10.json, no broader replay.",
-        "sufficiency": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured."
+        "marginalProtection": "Existing owners/channels reused. Distinct schema and environment witnesses retained; P37 thin wrapper copies consolidated only after M1 review. Existing \u00a70 requires every shipped revision; original coownership carrier now fails at the first test position after all4 common setup steps. No new checker hierarchy.",
+        "costAndChannel": "Use existing recurring carrier and at most two matched semantic history traces; no full unrelated audit, model CI or global SLO. Actual B9 host/audit costs reported separately. B10 uses existing principles/L5 carriers and two meaningful catalog entries; local measured costs in batches/b10.json, no broader replay. B12 local commands count as overhead,15 installed maps exclude changed inputs; no blind capture or unchanged failing battery replay.",
+        "sufficiency": "Six bounded cold synthetic cases + actual unresolved/fixed CLI consumption observed; record schema is not truth or arbitrary semantic certification. B4 after-run timing remains unmeasured. Final hosted shardC completion remains unobserved for the repair; partial earlier run does not prove successful AFTER latency."
       },
       "evidence": [
         "evidence/b4-no-loss.json",
@@ -202,7 +213,12 @@
         "evidence/b10-final-prime-result.json",
         "batches/b10.json",
         "evidence/b10-default-held.json",
-        "evidence/b10-final-green.txt"
+        "evidence/b10-final-green.txt",
+        "evidence/b12-first-hosted-failure.json",
+        "evidence/b12-coownership-green.json",
+        "evidence/b12-preservation-result.json",
+        "evidence/b12-status.json",
+        "batches/b12.json"
       ],
       "TAKowner": "TAK2144 open7a5b63dc remains external/unaccepted; reconcile design \u00a74 on actual accepted runtime, no second TAK"
     },

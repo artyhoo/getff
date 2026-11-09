@@ -1,0 +1,11 @@
+{
+  "command": [
+    "bash",
+    "scripts/build-getff-dist.sh",
+    "--check"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 11.63505,
+  "log": "docs/ci-test-effectiveness/evidence/b12-archive-check.txt",
+  "logSHA256": "318d1bfaf704c0f58904f45d1a84db9c228d7ab220a418ca1f313b49838298d7"
+}

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "node",
+    "scripts/check-line-citations.mjs",
+    "--check",
+    "--corpus",
+    "--affected-by=setup.d/lib.sh",
+    "--affected-by=.github/workflows/audit-self.yml",
+    "--affected-by=.agents/rules/evidence-regeneration.md"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 16.007442,
+  "log": "docs/ci-test-effectiveness/evidence/b12-citations-green.txt",
+  "logSHA256": "bc77d385db533af786f8f4494785260d4e82e2df4a7952c30e3d2b1a5e41edfa"
+}

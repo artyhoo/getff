@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "docs/ci-test-effectiveness/evidence/b12-preservation.py"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 1.038373,
+  "log": "docs/ci-test-effectiveness/evidence/b12-preservation.txt",
+  "logSHA256": "756b87ccf9e0de2c646533987fe1d7e0f81edbe0b6cdeaa8e3aa6a51acb5a4ae"
+}

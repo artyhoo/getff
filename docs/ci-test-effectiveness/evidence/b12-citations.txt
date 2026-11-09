@@ -1,0 +1,55 @@
+.agents/rules/evidence-regeneration.md:75  `:1159`  → :383  (ambiguous — several lines match, fix by hand)
+      cited: run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
+      found: run: pip install ruff==0.15.21
+.agents/rules/evidence-regeneration.md:76  `:1157`  → :393  (ambiguous — several lines match, fix by hand)
+      cited: run: pip install ruff==0.15.21
+      found: # dropped install cannot quietly re-empty the arms.
+.agents/rules/ai-laziness-traps.md:62  foo.ts:42  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/rules/ci-tool-pinning.md:100  setup.sh:89  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/rules/destination-environment-verification.md:133  generator-require-composite-tier-meta-launch/state.md:72  — skipped (path-missing): path does not resolve in this repo
+.agents/rules/kickoff-staging-placement.md:86  check-ask-files.sh:84  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/checks/check-ask-files.sh, scripts/check-ask-files.sh
+.agents/procedures/aif-doctor/references/failure-catalogue.md:26  docs/providers.md:64  — skipped (path-missing): path does not resolve in this repo
+.agents/procedures/aif-doctor/references/failure-catalogue.md:32  packages/agent/dist/coordinator.js:571  — skipped (path-missing): path does not resolve in this repo
+.agents/procedures/aif-doctor/references/failure-catalogue.md:77  adopt-orchestrator-prompts.sh:59-65  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/hooks/adopt-orchestrator-prompts.sh, .claude/hooks/adopt-orchestrator-prompts.sh
+.agents/procedures/aif-doctor/references/failure-catalogue.md:77  worktree-setup.sh:153-163  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/hooks/worktree-setup.sh, .claude/hooks/worktree-setup.sh
+.agents/procedures/aif-doctor/references/failure-catalogue.md:83  check-kickoff-traps.sh:170-197  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/hooks/check-kickoff-traps.sh, .claude/hooks/check-kickoff-traps.sh
+.agents/procedures/aif-doctor/references/failure-catalogue.md:130  coordinator.js:825  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/aif-doctor/references/failure-catalogue.md:131  coordinator.js:647  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/aif-doctor/references/failure-catalogue.md:132  coordinator.js:702  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/aif-doctor/references/failure-catalogue.md:134  env.js:109-110  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/aif-doctor/references/failure-catalogue.md:135  stateMachine.js:80  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/aif-doctor/references/failure-catalogue.md:135  stateMachine.js:15-19  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/aif-doctor/references/failure-catalogue.md:135  coordinator.js:702  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/aif-doctor/references/failure-catalogue.md:136  coordinator.js:547  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/aif-doctor/references/failure-catalogue.md:143  packages/agent/src/reviewContract.ts:95  — skipped (path-missing): path does not resolve in this repo
+.agents/procedures/aif-doctor/references/failure-catalogue.md:145  reviewContract.ts:117  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/aif-doctor/references/failure-catalogue.md:168  reviewer.ts:168  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/dispatcher/references/parks.md:19  questions.ts:85-93  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: packages/runtime-bridge/src/cli/questions.ts, packages/runtime-bridge/vendor/src/cli/questions.ts
+.agents/procedures/dispatcher/references/parks.md:19  answer.ts:207-212  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: packages/runtime-bridge/src/cli/answer.ts, packages/runtime-bridge/vendor/src/cli/answer.ts
+.agents/procedures/dispatcher/references/parks.md:60  ask-question-reminder.sh:6  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/hooks/ask-question-reminder.sh, .claude/hooks/ask-question-reminder.sh
+.agents/procedures/dispatcher/references/scope-and-provenance.md:17  build-first-reuse-default.md:44  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/rules/build-first-reuse-default.md, .claude/rules/build-first-reuse-default.md, docs/site/reference/F1/build-first-reuse-default.md
+.agents/procedures/dispatcher/references/scope-and-provenance.md:19  parallel-subwave-isolation.md:6  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/rules/parallel-subwave-isolation.md, .claude/rules/parallel-subwave-isolation.md, docs/site/reference/F1/parallel-subwave-isolation.md
+.agents/procedures/dispatcher/references/scope-and-provenance.md:19  recommendation-laziness-discipline.md:6  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/rules/recommendation-laziness-discipline.md, .claude/rules/recommendation-laziness-discipline.md, docs/site/reference/F1/recommendation-laziness-discipline.md
+.agents/procedures/night-mode/references/substrate-and-models.md:19  skill-creator/SKILL.md:101  — skipped (path-missing): path does not resolve in this repo
+.agents/procedures/pipeline/references/dispatch.md:26  questions.ts:85-93  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: packages/runtime-bridge/src/cli/questions.ts, packages/runtime-bridge/vendor/src/cli/questions.ts
+.agents/procedures/pipeline/references/dispatch.md:50  coordinator.ts:398-476  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+.agents/procedures/pipeline/references/mode-overrides.md:123  helpers/update-delta.sh:7-8  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/procedures/pipeline/helpers/update-delta.sh, .claude/skills/pipeline/helpers/update-delta.sh
+.agents/procedures/pipeline/references/mode-overrides.md:140  update-delta.sh:1-40  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/procedures/pipeline/helpers/update-delta.sh, .claude/skills/pipeline/helpers/update-delta.sh
+.agents/procedures/pipeline/templates/meta-kickoff.template.md:135  .claude/rules/foo.md:42  — skipped (path-missing): path does not resolve in this repo
+.agents/procedures/pipeline/templates/meta-kickoff.template.md:162  coordinator.ts:398-476  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+docs/site/quickstart-python.md:133  app/clock.py:9  — skipped (path-missing): path does not resolve in this repo
+docs/site/reference/D/adopt-orchestrator-prompts.md:60  `@cc-only-rationale`, line 18  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+docs/site/reference/D/check-worker-dispatch-channel.md:87  .claude/orchestrator-prompts/tmp-red-wd/kickoff.md:2  — skipped (path-missing): path does not resolve in this repo
+docs/site/reference/D/deps-hash-check.md:142  `_drifted` lines 389-400  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+docs/site/reference/D/inject-subagent-context.md:135  inject-project-digest.sh:38  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/hooks/inject-project-digest.sh, .claude/hooks/inject-project-digest.sh
+docs/site/reference/D/warn-subagent-report-zcode.md:87  `_warn`, lines 50-64  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+docs/site/reference/D/warn-subagent-report.md:60  `#gate-where-judgment-needed`, lines 4-6  — skipped (bare-basename): no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated
+docs/site/reference/F1/recommendation-laziness-discipline.md:109  inject-session-bootstrap.sh:92  — skipped (ambiguous-basename): several tracked files share this basename — qualify the path  candidates: .agents/hooks/inject-session-bootstrap.sh, .claude/hooks/inject-session-bootstrap.sh
+check-line-citations: 374 unresolvable citation(s) in code files not listed (--show-skips lists them).
+
+check-line-citations: resolved 1279 / skipped 415 citation(s). (86 deferred to generator regions)
+
+❌ 2 stale `path:line` citation(s).
+   Fix: npx tsx scripts/check-line-citations.mjs --write <files>
+   A deliberate past-state citation takes `<!-- cite:historical <why> -->` on the same line
+   (in a code comment: `cite:historical <why>` to the end of the line).

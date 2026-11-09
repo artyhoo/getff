@@ -1140,6 +1140,8 @@ jobs:
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
+      - name: "install-sh — skill-context co-owned with /aif-evolve: install keeps evolved rules + delivers getff's fenced block, --refresh re-injects only that block (npm + python lanes)"
+        run: bash tests/install-sh/skill-context-evolve-coownership.test.sh
       - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
         run: bash tests/install-sh/r2-glob-reach.test.sh
       - name: install-sh — r2-auto-wire (GH #547 C2/C3 fixtures + self-probe)
@@ -1229,8 +1231,6 @@ jobs:
           GETFF_REQUIRE_RESEARCH_TOOLS: '1'
       - name: "install-sh — Python agent surface: --refresh parity (A2-4) + python-lane RULES.md (A2-5)"
         run: bash tests/install-sh/python-agent-surface-refresh.test.sh
-      - name: "install-sh — skill-context co-owned with /aif-evolve: install keeps evolved rules + delivers getff's fenced block, --refresh re-injects only that block (npm + python lanes)"
-        run: bash tests/install-sh/skill-context-evolve-coownership.test.sh
       - name: "install-sh — Python rules-lock variant: schema + non-vacuity + determinism + teeth (ecosystem-wiring W3)"
         run: bash tests/install-sh/python-rules-lock.test.sh
       - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"

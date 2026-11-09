@@ -1,0 +1,11 @@
+{
+  "command": [
+    "node",
+    "scripts/render-harness-config.mjs",
+    "--check"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 0.407325,
+  "log": "docs/ci-test-effectiveness/evidence/b12-harness-check.txt",
+  "logSHA256": "19a3bf674455ede9d14068716294ea05c1cc6be248ccb295888bad40ea635c94"
+}

@@ -1,0 +1,11 @@
+{
+  "command": [
+    "bash",
+    "-c",
+    "source setup.d/lib.sh; _skill_context_revision_row aif-review packages/core/templates/shared/skill-context/aif-review/SKILL.md"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 0.118824,
+  "log": "docs/ci-test-effectiveness/evidence/b12-derived-row.txt",
+  "logSHA256": "dce0aac627dd2fd60f3059a542fecdaa6216dd77155fb3edfe0bc0c05ab64996"
+}

@@ -1,0 +1,30 @@
+{
+  "authority": "Task13/B12 brief and coordinator supplied actual hosted/admin observations; implementer made no API/settings write or independent hosted observation.",
+  "specSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+  "decision": "D15 accepted and committed before B12 effects",
+  "hosted": {
+    "run": 42532386292,
+    "head": "76e5e8b5c72d40423aac5adfb810747f15f764c4",
+    "completeJobs": 53,
+    "success": 50,
+    "failure": 2,
+    "skipped": 1,
+    "failureJobs": [
+      "install-sh battery (shard C)",
+      "ci-success (dependent aggregate)"
+    ],
+    "installerAB": "successful",
+    "installerC": "failed at coownership step; remaining steps never executed",
+    "incompletePriorSummary": "b12-first-hosted-failure.json all-other29-main-jobs statement came from incomplete first30 normalized list; original evidence bytes preserved",
+    "timingClaim": "No completed AFTER speed or developer-wait reduction claim; successful A/B do not substitute for complete C."
+  },
+  "admin": {
+    "status": "Already resolved before Task13",
+    "requiredContexts": 6,
+    "app_id": 15368,
+    "nativeObserverExit": 0,
+    "hostedObserver": "attempt2 GREEN",
+    "provenance": "Coordinator observation and task-13-brief.md; no settings work in B12"
+  },
+  "acceptance": "Local repair verified; parent independent scoped review, normal source publication and final hosted acceptance pending. Campaign not DONE."
+}
