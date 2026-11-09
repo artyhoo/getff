@@ -5,12 +5,17 @@
 [![Audit Self](https://github.com/artyhoo/getff/actions/workflows/audit-self.yml/badge.svg?branch=main)](https://github.com/artyhoo/getff/actions/workflows/audit-self.yml)
 [![Workflow Integrity](https://github.com/artyhoo/getff/actions/workflows/workflow-integrity.yml/badge.svg?branch=main)](https://github.com/artyhoo/getff/actions/workflows/workflow-integrity.yml)
 
-getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy for cargo — cargo-deny dependency bans are on the roadmap). Its own [AGENTS.md](AGENTS.md) is executable — every claim carries a live-fired enforcement status; the gate fails when a claim drifts from reality. Docs lie; tests don't.
+getff helps you prepare and maintain a project's engineering foundation for AI-assisted development. It brings together maintained engineering principles, reviewed examples of failures, diagnostics and reusable integrations. Start with the checks that fit your stack, keep the tools that already work for your team and add executable checks for your project's own agreements. Use the core on its own or add skills, MCP tools and workflow support as needed.
 
-**Honest framing:** today the executable AGENTS.md is this repo's own — [open it](AGENTS.md), every statement has an enforcement line. `getff init` (via `./setup`, see [Installation](#installation)) installs the enforcement layer (ESLint/husky/CI gates) into your TypeScript project; generating *your* executable AGENTS.md is the next milestone, not shipped yet.
+A check can catch a covered violation in a command your team already runs and point to what needs to change. The project's rules and review criteria apply whether a person or an agent made the change.
 
-![Adding `as any` gets blocked at the git hook, before CI even sees it](demo/violation-blocked.gif)
-![A rule's own claim drifts from the generated index; the check `make self-audit` runs catches it and names the fix](demo/doc-drift-gate.gif)
+getff is designed to share engineering agreements and common checking mechanisms as your stack and AI tools change. Each integration handles the details of its language, framework, model, provider or coding agent. The applicable project agreements stay in force across those changes. Each supported setup has its own prerequisites and activation steps.
+
+## See the feedback from a check
+
+The TypeScript server template enables ESLint's `@typescript-eslint/no-explicit-any` rule. It flags `export const count: any = 1;`. Letting TypeScript infer the type with `export const count = 1;` passes the same lint command. The pre-commit demo shows how a Git hook rejects a violation. [Pre-commit demo](demo/violation-blocked.gif)
+
+See the checks in this repository’s [AGENTS.md](AGENTS.md) and the [documentation drift demo](demo/doc-drift-gate.gif). [Preview the core profile](#try-it-on-a-typescript-server-project)
 
 ## What you get today
 
@@ -126,13 +131,58 @@ per-artifact list is generated rather than kept by hand (see the closing note).
 | **Generation** | [`packages/core/synthesizer/`](packages/core/synthesizer/), [`packages/core/detector/`](packages/core/detector/) | Declarative markdown compiled into an ESLint rule; stack detection deciding which preset a project gets. |
 | **Delivery** | [`install.sh`](install.sh), [`setup.d/`](setup.d/), [`packages/getff/`](packages/getff/), [`plugin/`](plugin/) | The one-command install, the layered installer, the npm tarball with a hash manifest, and the Claude Code / ZCode plugin twins. Byte-identical install snapshots per stack and lane guard all of it. |
 
-**The per-artifact list is generated, not written here.** A hand-kept roster of this size drifts
-on the first pull request that adds a skill — the failure mode
-[`.claude/rules/attention-is-not-a-mechanism.md`](.claude/rules/attention-is-not-a-mechanism.md)
-exists to forbid. The reference generator — one card per artifact across installer layers,
-skills, agents, hooks, templates, rules, scripts, packages, bridge CLI and plugin, with a test
-asserting population and cards match one-to-one in both directions — is designed and lands with
-the documentation site. Until it does, the directories above are the source of truth.
+The installer roster and the site reference are generated from the project sources. [Install roster](INSTALL-FOR-AI.md) · [Generated reference](docs/site/reference)
+
+## What the checks and tests establish
+
+| What you run | What it establishes |
+| --- | --- |
+| A check for a project agreement | An executable check rejects a covered violation, such as a forbidden dependency between modules. |
+| Tests of that protection | A violating example fails for the intended reason, a valid example passes and the team's normal command invokes the check. |
+| Application behavior tests | The application produces the expected business result. Your team defines that behavior, and engineers or a selected workflow can write tests for it. |
+
+## Choose what to install
+
+| Profile | Who it helps | What it adds |
+| --- | --- | --- |
+| `core` | Teams that want executable project agreements in their existing workflow. | Stack checks and rule authoring tools. Keep your current agent, commands and protections where they fit. |
+| `env` | Teams that also want help with research, design, testing and review. | Development and workflow skills. Add selected companion tools where useful. This is the fresh npm install default. |
+| `factory` | Maintainers who need to coordinate work across multiple stages and owners. | Operator procedures for planning, execution, handoff and review with traceable progress. Handoff tools require the aif-handoff runtime. |
+
+Use `--profile` to select the depth. The setup wrapper's `--full` flag controls the non-interactive installation path, including dependency installation.
+
+**Skills.** Select and install existing skills suited to the project. If a gap remains, adapt a relevant skill or define a narrowly scoped one as a separate task.
+
+**MCP tools.** Select a server for a resource the project uses. Configure it in the chosen harness, complete the required access and trust steps, then verify a real call to the relevant tool.
+
+**Workflows and interfaces.** Add workflow or factory procedures when the team needs coordination across steps and owners. Memory and bot interfaces are optional integrations where available.
+
+## Try it on a TypeScript server project
+
+From your project root, with Git, Bash, Python 3 and curl available, preview the core profile from a getff checkout. A full TypeScript setup also needs the project's supported Node.js and package manager.
+
+```bash
+git clone https://github.com/artyhoo/getff /tmp/getff
+bash /tmp/getff/setup --dry-run --profile core ts-server
+```
+
+Review the plan. For the interactive installation, repeat the setup command without `--dry-run`. Read the install's `Checked by the install` and `NOT wired` output to see the checks it performed and any setup it could not connect.
+
+## Add checks for your project
+
+When your project needs a new rule, start with the separate research step. Verify that the proposed rule fits your framework version and local policy, and reuse a suitable check if you have one. For a supported rule, getff can turn reviewed research and selection inputs into a check and its tests. [Rule research](.agents/procedures/rule-research/SKILL.md)
+
+## An Astro project (illustration)
+
+Suppose your team upgrades an Astro project and chooses the development environment. Start with the project's actual Astro version, rendering and deployment mode, dependencies and configuration. Use the official guidance for that setup and the team's own policies to decide which requirements apply. Keep the checks that already cover them.
+
+If one applicable, mechanically checkable requirement lacks protection, use reviewed research and selection inputs to produce a rule and valid and violating cases through a supported backend. Run the cases and confirm that the normal project command invokes the rule. Choose an existing skill that helps with the upgrade. If the workflow needs access to a documentation resource, configure a suitable MCP server and verify a real call once the harness trusts it and access is in place.
+
+Astro is the first framework planned for this workflow. Supported versions, modes and environments are still to be specified.
+
+## Find your stack and harness
+
+The existing Codex hook adapter reuses shared getff scripts. Hook activation depends on the setup and trust steps for the host. Preparation, editing and updates can also have different tool and provider requirements. [Codex integration](docs/codex-contributor.md) · [Installation guide](INSTALL.md) · [Harness compatibility](#compatibility)
 
 ## Installation
 
@@ -230,7 +280,7 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 | Path | Source | Edit needed? |
 |---|---|---|
 | `.claude/skills/getff/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
-| `.claude/agents/` — 11 files (`review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`, `docplan-auditor`, `claims-conformance-auditor`, `fidelity-auditor`, `rule-test-author`) | sub-agents for `/aif-verify` (R1–R20 validation is earlier-channel: ESLint + pre-push + AIF `rules-sidecar`) | No |
+| `.claude/agents/` | Shipped sub-agents by install profile. See [What you get today](#what-you-get-today) for the checked roster. | No |
 | `.ai-factory/skill-context/aif-review/SKILL.md`, `aif-rules-check/SKILL.md` | overrides injected into AIF's own sidecars (anti-tautology review + R10/test-existence residue); getff owns only its fenced block, so rules `/aif-evolve` writes into the same file survive install and `--refresh` | No |
 | `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |
 | `.ai-factory/DESCRIPTION.template.md` + `.ai-factory/DESCRIPTION.md` | template with `<PLACEHOLDERS>`; the installer already materializes `DESCRIPTION.md` from it (`setup.d/30-templates.sh:77`, never clobbering an edited one) | **Yes — fill in `DESCRIPTION.md`** (no rename needed) |
