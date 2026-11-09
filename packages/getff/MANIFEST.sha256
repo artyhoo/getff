@@ -1109,6 +1109,8 @@ cf9cd533aa3c34dd328c380375d1b60cbf71e489b5312e0a8dd25cec99b3deb7  packages/core/
 1976df31b8d8043943fe98538e47afdc3bd7572c00540ce0486c3c6e2f5405c1  packages/core/principles/50-install-rc-asserted.baseline.json
 09bf141281b2a42fda1768e8a0139747ea1d5a0684c81801dc78d85b3d56c4ef  packages/core/principles/50-install-rc-asserted.test.ts
 481bccb8b309731b99abcbb45d1d332e11b4cce60af9b9a2716353977715ae6b  packages/core/principles/50-install-rc-asserted.ts
+46bad25e7e52b1ff148fd95f71da644d8d70c63a800be4eae197c050a8603610  packages/core/principles/51-readme-install-claims.test.ts
+7e177b579f17e20e0510bc95f240e5290c0ab72baefa33cf45d2382bede0bb40  packages/core/principles/51-readme-install-claims.ts
 946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980  packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt
 e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3  packages/core/principles/__fixtures__/bundle/backlog-2-mixed.txt
 b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt
@@ -1630,7 +1632,7 @@ f1c635252c516775983252bce6deb41659e59b46a01da731a0c6a2b757915fa0  setup.d/40-con
 6f7cac83ba442347ee3d94287355632cc5a17d798dd399ebf45478e6a7ec34c1  setup.d/50-hooks.sh
 662c4900986cb198c3c59001d4bf83632a86e1e78848981838fd60f05d56b0c4  setup.d/55-runtime-bridge-vendor.sh
 5e34b7f3d378956caf5d34b245b824f019a07d15bf23b38bbbfc8ebfaafef072  setup.d/60-ci.sh
-810887ea4349d69ec37a6fe81fe15946e261b73c6166a0835cce0c7cffb0a468  setup.d/70-deps.sh
+c43761eba225cb1ce107f461bdea4fd9cef4d6eb03b03f4b9840070a41f352b0  setup.d/70-deps.sh
 d5df120d95cf20fd53bd9fb2da071d1fba3b019400b8eab02f32fd2c133ca2e7  setup.d/80-rule-bootstrap.sh
 6aaa3ac610d502b3be24ac381c06189fd36952acdd96497de755b3502483daf1  setup.d/85-worktree-scripts.sh
 213ea60d3675f6a13b9ce352037547507c47e5dfae5291bac01e8092a60c4b9e  setup.d/99-finalize.sh

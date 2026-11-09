@@ -254,6 +254,31 @@
       "example": null
     },
     {
+      "name": "plan-drift-semantic-auditor",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Cold semantic check for a `/pipeline` F1 factual-reconciliation write that the deterministic guard (plan-drift-write-guard.sh) routed to review (exit 3). Given the pre-image snapshot, the postimage, the declared target/replacement and the DRIFT evidence — but never the writer's narrative — classifies the diff fact-vs-strategy and returns FACTUAL-BOUNDED / STRATEGY-EDIT with a structured verdict. Reporting-only; never invoked from CI; no paid LLM call.",
+      "source": {
+        "path": ".agents/roles/plan-drift-semantic-auditor.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Grep, Bash",
+        "referenced-by": [
+          ".agents/roles/plan-drift-semantic-auditor.md"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "review-sidecar",
       "kind": "agent",
       "shipsTo": {

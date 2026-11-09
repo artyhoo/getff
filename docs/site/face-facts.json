@@ -352,7 +352,7 @@
       "C": {
         "familyName": "agents",
         "path": "docs/site/reference/C.json",
-        "members": 12
+        "members": 13
       },
       "D": {
         "familyName": "hooks",
@@ -400,7 +400,7 @@
     "principles": {
       "source": "packages/core/principles/",
       "predicate": "files matching /\\.test\\.ts$/",
-      "count": 57
+      "count": 58
     },
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
