@@ -33,8 +33,9 @@ for n in typescript @storybook/nextjs-vite eslint-plugin-boundaries eslint-confi
 done
 
 # The arrays' tokens, counted by text alone (awk, not the helper's sed): every token inside the five array blocks.
+# A shell comment (at line start or after whitespace) is stripped before the array-end detection and token extraction, so `# why:` words are not counted as package names.
 want=$(awk '/^(CORE_DEVDEPS|REACT_DEVDEPS|REACT_SPA_DEVDEPS|REACT_NATIVE_DEVDEPS|CORE_RUNTIME_DEPS)=\(/{f=1; sub(/^[A-Z_]+=\(/,"")}
-  f{ e=/\)[[:space:]]*$/; sub(/\)[[:space:]]*$/,""); for(i=1;i<=NF;i++) print $i; if(e) f=0 }' "$REPO_ROOT/setup.d/70-deps.sh" \
+  f{ sub(/^[[:space:]]*#.*/,""); sub(/[[:space:]]+#.*/,""); e=/\)[[:space:]]*$/; sub(/\)[[:space:]]*$/,""); for(i=1;i<=NF;i++) print $i; if(e) f=0 }' "$REPO_ROOT/setup.d/70-deps.sh" \
   | awk '{ n = $0; if (substr(n, 1, 1) == "@") { i = index(substr(n, 2), "@"); if (i) n = substr(n, 1, i) }
            else { i = index(n, "@"); if (i) n = substr(n, 1, i - 1) } print n }' | sort -u)
 [ "$(wc -l <<<"$out")" -eq "$(wc -l <<<"$want")" ] && [ "$out" = "$want" ] \
