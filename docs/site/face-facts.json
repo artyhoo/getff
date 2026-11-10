@@ -85,7 +85,7 @@
     "source": {
       "positionals": "setup:73",
       "laneTable": "install.sh:302",
-      "flags": "README.md:147"
+      "flags": "README.md:199"
     },
     "stacks": [
       "ts-server",
@@ -114,19 +114,19 @@
     "flags": [
       {
         "flag": "--yes",
-        "line": 149
+        "line": 201
       },
       {
         "flag": "--global",
-        "line": 150
+        "line": 202
       },
       {
         "flag": "--all",
-        "line": 151
+        "line": 203
       },
       {
         "flag": "--dry-run",
-        "line": 152
+        "line": 204
       }
     ]
   },
@@ -352,7 +352,7 @@
       "C": {
         "familyName": "agents",
         "path": "docs/site/reference/C.json",
-        "members": 12
+        "members": 13
       },
       "D": {
         "familyName": "hooks",
@@ -400,7 +400,7 @@
     "principles": {
       "source": "packages/core/principles/",
       "predicate": "files matching /\\.test\\.ts$/",
-      "count": 57
+      "count": 58
     },
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",

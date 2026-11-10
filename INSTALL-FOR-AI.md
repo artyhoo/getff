@@ -80,8 +80,8 @@ Install getff into this project. Walk the steps below in order, in this one sess
    Run the command my answer picked with the variables before it on the same line — with no «no» in my answer: `GETFF_SESSION_SETTINGS=1 GETFF_STACK_TOOLS=1 bash /tmp/getff/setup -y <detected-stack>`; a «no» drops its variable (adjust the path if Step 0 cloned elsewhere). Keep the
    «Checked by the install» block and every «NOT wired» line for the report. It installs:
    <!-- getff:begin section=install-roster plan=scripts/render-install-roster.mjs -->
-   - `.claude/agents/` — 12 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, docs-form-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
-   - `.claude/skills/` — 9 dirs at the default `env` depth: the 4-dir core set — ai-doc, rule-research, rule-tests, template-audit — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer
+   - `.claude/agents/` — 13 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, docs-form-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, plan-drift-semantic-auditor, review-sidecar, rule-researcher, rule-test-author
+   - `.claude/skills/` — 11 dirs at the default `env` depth: the 6-dir core set — ai-doc, getff, rule-research, rule-tests, template-audit, tool-bootstrapping — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer
 <!-- getff:end section=install-roster -->
      (Roster caveats, hand-maintained outside the generated section: best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline appear only at --profile factory / --with-aif-suite / --all; `--profile core` ships the 6 core dirs only. NOTE the directory is `getff`, not `rules-as-tests` — see "Names you will see" below)
    - .ai-factory/tier-home.md — the tier-routing criteria (env+ only; absent at `--profile core`)
