@@ -31,7 +31,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT_REAL = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT_REAL,
-  '.claude/skills/pipeline/helpers/inflight-check.sh',
+  '.agents/procedures/pipeline/helpers/inflight-check.sh',
 );
 
 // ── Fixture state shared across tests ────────────────────────────────────────
@@ -72,7 +72,7 @@ function runScript(umbrella: string, extraEnv: Record<string, string> = {}): str
   }
 }
 
-/** Run and capture the exit code (script must fail-soft to 0). */
+/** Run and capture the exit code (unavailable evidence must exit nonzero). */
 function runExitCode(umbrella: string): number {
   try {
     execFileSync('bash', [SCRIPT, umbrella], {
@@ -195,15 +195,16 @@ describe('inflight-check.sh — Test 4: NEG stopword-only overlap', () => {
   });
 });
 
-// ── Test 5: NEG fail-soft — gh + git both unavailable ─────────────────────────
+// ── Test 5: NEG unavailable evidence — gh + git both unavailable ─────────────────────────
 
-describe('inflight-check.sh — Test 5: NEG fail-soft', () => {
-  it('gh and git both exit 1 → CLEAR (no crash) and exit code 0', { timeout: 20_000 }, () => {
+describe('inflight-check.sh — Test 5: NEG unavailable evidence', () => {
+  it('gh and git both exit 1 → UNKNOWN and nonzero status', { timeout: 20_000 }, () => {
     mockGhBin = writeMock('mock-gh', '#!/usr/bin/env bash\nexit 1');
     mockGitBin = writeMock('mock-git', '#!/usr/bin/env bash\nexit 1');
     const out = runScript('meta-orch-inflight-check');
-    expect(out).toContain('CLEAR:');
+    expect(out).toContain('UNKNOWN:');
+    expect(out).not.toContain('CLEAR:');
     expect(out).not.toContain('INFLIGHT:');
-    expect(runExitCode('meta-orch-inflight-check')).toBe(0);
+    expect(runExitCode('meta-orch-inflight-check')).toBe(1);
   });
 });

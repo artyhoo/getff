@@ -36,7 +36,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT_REAL = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT_REAL,
-  '.claude/skills/pipeline/helpers/dup-detect.sh',
+  '.agents/procedures/pipeline/helpers/dup-detect.sh',
 );
 
 // Every test here spawns the real dup-detect.sh, which walks a sandbox umbrella
@@ -65,7 +65,7 @@ function runScript(umbrella: string, extraEnv: Record<string, string> = {}): str
         REPO_ROOT: tmpRoot,
         MO_GH_BIN: mockGhBin,
         MO_PR_WINDOW_DAYS: '9999', // avoid real date cutoff in tests
-        GIT_DIR: '', // prevent git ops in tmpRoot
+        MO_DELIVERABLE_REF: 'HEAD', // real empty baseline tree verifies absence
         ...extraEnv,
       },
     }).trim();
@@ -104,6 +104,8 @@ beforeEach(() => {
     ].join('\n'),
   );
   chmodSync(mockGhBin, 0o755);
+  execFileSync('git', ['init', '-q'], { cwd: tmpRoot });
+  execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', '-c', 'core.hooksPath=/dev/null', 'commit', '--allow-empty', '-qm', 'empty deliverable baseline'], { cwd: tmpRoot });
 });
 
 afterEach(() => {
@@ -209,10 +211,10 @@ describe('dup-detect.sh — Test 4: NEG jaccard threshold (paired with Test 2)',
   });
 });
 
-// ── Test 5: NEG fail-soft — gh unavailable ────────────────────────────────────
+// ── Test 5: NEG incomplete — gh unavailable ────────────────────────────────────
 
-describe('dup-detect.sh — Test 5: NEG fail-soft gh unavailable', { timeout: SLOW_SHELL_MS }, () => {
-  it('gh returns exit-1 → PR-based signals skipped, script continues + exit code 0', () => {
+describe('dup-detect.sh — Test 5: NEG incomplete gh unavailable', { timeout: SLOW_SHELL_MS }, () => {
+  it('gh returns exit-1 → PR-based signals skipped, positive observations continue + nonzero status', () => {
     // Replace mock-gh with one that exits 1
     write(mockGhBin, '#!/usr/bin/env bash\nexit 1\n');
     chmodSync(mockGhBin, 0o755);
@@ -222,13 +224,11 @@ describe('dup-detect.sh — Test 5: NEG fail-soft gh unavailable', { timeout: SL
       '# Kickoff\n\n## § scope\n\n- some task\n',
     );
     const out = runScript('test-fail-soft');
-    // New contract: gh failure no longer early-exits. The "(gh unavailable …)" note
-    // goes to stderr; stdout still carries the normal per-umbrella line so the
-    // gh-independent deliverable check (Signal 3) can run. Here GIT_DIR is nulled so
-    // Signal 3 finds nothing → OK line. (Was: stdout "dup-detect skipped" + early exit.)
-    expect(out).toContain('OK:');
+    // Unavailable PR population remains incomplete, even if deliverable lookup succeeds.
+    expect(out).toContain('UNKNOWN:');
+    expect(out).not.toContain('OK:');
     expect(out).not.toContain('POTENTIAL_DUPE:');
-    // The script must still exit 0 on gh failure
+    // The script must return nonzero on gh failure
     // We verify this by running via shell and checking exit
     let exitCode = 0;
     try {
@@ -239,20 +239,20 @@ describe('dup-detect.sh — Test 5: NEG fail-soft gh unavailable', { timeout: SL
           REPO_ROOT: tmpRoot,
           MO_GH_BIN: mockGhBin,
           MO_PR_WINDOW_DAYS: '9999',
-          GIT_DIR: '',
+          MO_DELIVERABLE_REF: 'HEAD',
         },
       });
     } catch {
       exitCode = 1;
     }
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(1);
   });
 });
 
 // ── Test 6: NEG missing kickoff ───────────────────────────────────────────────
 
 describe('dup-detect.sh — Test 6: NEG missing kickoff', { timeout: SLOW_SHELL_MS }, () => {
-  it('umbrella dir has no kickoff.md → MISSING: line, exit 0', () => {
+  it('umbrella dir has no kickoff.md → MISSING/UNKNOWN line, nonzero status', () => {
     // Create dir but NO kickoff.md
     mkdirSync(join(promptsDir, 'test-missing'), { recursive: true });
     const out = runScript('test-missing');
@@ -320,9 +320,8 @@ describe('dup-detect.sh — Test 8: MO_JACCARD_THRESHOLD seam', { timeout: SLOW_
 
 // ── Signal 3: deliverable-already-on-staging ─────────────────────────────────
 //
-// These tests need a REAL git ref to ls-tree, so they init a throwaway git repo
-// at tmpRoot and commit a fixture research-patch. GIT_DIR is intentionally NOT
-// nulled here (the other tests null it to block git ops; Signal 3 needs git).
+// These tests add committed deliverables to the empty throwaway baseline tree
+// at tmpRoot and commit a fixture research-patch. Every absence assertion requires a successful real Git tree lookup.
 
 /** Init a git repo at tmpRoot and commit the given files (path→content). */
 function initGitRepo(files: Record<string, string>): void {
@@ -335,7 +334,7 @@ function initGitRepo(files: Record<string, string>): void {
     write(join(tmpRoot, rel), content);
   }
   run(['add', '-A']);
-  run(['commit', '-q', '-m', 'fixture']);
+  run(['-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'fixture']);
 }
 
 /** Run dup-detect.sh against a real git ref (GIT_DIR left intact). */

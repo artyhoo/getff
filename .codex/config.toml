@@ -1,0 +1,7 @@
+# Generated contributor MCP configuration. Operator owns permission/model policy.
+
+[mcp_servers."context7"]
+url = "https://mcp.context7.com/mcp"
+
+[mcp_servers."deepwiki"]
+url = "https://mcp.deepwiki.com/mcp"

@@ -1,0 +1,14 @@
+{
+  "featureId": "portable-verified-autonomy",
+  "decision": "agreed",
+  "operatorEvidence": "Operator: «го пиши кикоф», following the exact reviewed-spec presentation and the reminder to preserve grokbot-field-notes practice transfer.",
+  "specRef": {
+    "path": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md",
+    "sha256": "d82086984feffc8bc038021ef4419e0d4388e32e82accbe7ebab0e016002904c"
+  },
+  "agreementRecordRef": {
+    "path": "docs/superpowers/specs/reviews/portable-verified-autonomy/spec-agreement.md",
+    "sha256": "01dfbee1196220a006de0a6ba9f9106dc7bf44868e0d0b01c0519bf815da9f2d"
+  },
+  "parentPrdSha256": "ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721"
+}

@@ -38,6 +38,7 @@ export default defineConfig({
       'backends/**/*.test.ts',
       'composition/**/*.test.ts',
       'python-starter/**/*.test.ts',
+      'docs-engine/**/*.test.ts',
     ],
     exclude: [
       '**/node_modules/**',

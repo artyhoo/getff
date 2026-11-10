@@ -4,6 +4,17 @@
 # Wired in CI via .github/workflows/audit-self.yml; reached locally through the sweep's
 # `script-selftests` row, which derives its file list from that workflow.
 set -uo pipefail
+# The OFFLOAD arms set these per call. An inherited value — the sweep run under PC_LOCAL=1, or a
+# session that exports the runner — must not reach the arms that do not set them.
+unset PC_LOCAL PC_LOCAL_WHY INSTALL_SH_HEAVY_RUNNER INSTALL_SH_QUARANTINE
+# The same holds for an inherited fd 3. The sweep does `exec 3>&2` before it runs this file, so fd 3
+# arrives OPEN there and CLOSED in CI; the runner's progress() writes to fd 3 when it is open, and
+# every arm that captures only stdout+stderr and greps for progress text then passes in CI and fails
+# in the sweep. Two such arms went RED under the sweep only (2026-09-14: the fd3-closed arm;
+# 2026-09-29: the offload fallback arm's «ran the routed half on this host»). Closing fd 3 once here
+# makes every arm see what CI sees; the progress arm below opens it explicitly for its own call.
+# The CI step runs this file a second time with fd 3 open to keep that property from regressing.
+exec 3>&-
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNNER="$HERE/run-install-sh-suite.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
@@ -81,7 +92,7 @@ for tag in aaa bbb ccc ddd; do
   last=$(grep -n "^$tag-60$" "$TMP/o5" | head -1 | cut -d: -f1)
   if [ -z "$first" ] || [ -z "$last" ]; then weave_bad=1; continue; fi
   # every line strictly inside the block must belong to this fixture
-  if sed -n "${first},${last}p" "$TMP/o5" | grep -qvE "^$tag-[0-9]+$"; then weave_bad=1; fi
+  if grep -qvE "^$tag-[0-9]+$" <<<"$(sed -n "${first},${last}p" "$TMP/o5")"; then weave_bad=1; fi
 done
 if [ "$weave_bad" -eq 0 ]; then echo "  ✓ concurrent output blocks are contiguous (no interleave)"
 else echo "  ✗ concurrent output interleaved"; fails=$((fails + 1)); fi
@@ -122,13 +133,200 @@ printf '%s\n' "$captured" >"$TMP/o8"
 no_grep_out "the counter did NOT leak into the captured gate output" "3/3 done" "$TMP/o8"
 grep_out "the gate output itself is still captured" "body-2" "$TMP/o8"
 # Fallback: with fd 3 closed (a direct CI invocation) the counter must still appear, on stderr.
-# `3>&-` is load-bearing and must stay: when this file runs as a sweep gate the sweep has already
-# done `exec 3>&2`, so fd 3 is OPEN and inherited here — without the explicit close the arm would
-# assert the fallback while the fast path was actually taken, and pass for the wrong reason.
-# (Measured 2026-09-14: standalone GREEN, RED under `bash scripts/run-local-ci-sweep.sh`.)
+# The file-wide `exec 3>&-` at the top already closes an inherited fd 3; the per-call `3>&-` stays
+# so this arm states its own precondition and does not depend on the top of the file (it is the
+# 2026-09-14 arm named there: standalone GREEN, RED under `bash scripts/run-local-ci-sweep.sh`).
 bash "$RUNNER" "$S" >"$TMP/o9" 2>"$TMP/e9" 3>&-
 check "fd3-closed arm exits 0" 0 $?
 grep_out "with fd 3 closed the counter falls back to stderr" "3/3 done" "$TMP/e9"
+
+# ─── OFFLOAD (INSTALL_SH_HEAVY_RUNNER) ──────────────────────────────────────────────────────────
+# The runner re-roots onto the repo, so these arms need a repo-shaped layout: a copy of the runner
+# under $R/scripts/ and the fixture suite at $R/tests/install-sh/. The fake runners stand in for the
+# operator's pc-run. `remote-runner` logs its cwd + argv, marks the environment, and runs the command
+# as another host would see it: the origin mark (a path in the caller's work directory) does not
+# exist there — so a fixture can tell from its own output which half it ran in. `exec-runner` is a
+# runner that fell back to running on the calling host, as pc-run does when the PC is unreachable.
+R="$TMP/repo"; mkdir -p "$R/scripts" "$R/tests/install-sh" "$TMP/bin"
+cp "$RUNNER" "$R/scripts/run-install-sh-suite.sh"
+RS="$R/tests/install-sh"
+mk_route_suite() { # two stays-local fixtures + three routable ones, all green
+  rm -f "$RS"/*.test.sh
+  for n in k1 k2; do
+    printf '#!/bin/bash\n# stays-local: fixture that must keep running on this host\necho "%s-where=${ROUTED_BY_FAKE:-here}"\n' "$n" >"$RS/$n.test.sh"
+  done
+  for n in r1 r2 r3; do
+    printf '#!/bin/bash\necho "%s-where=${ROUTED_BY_FAKE:-here}"\n' "$n" >"$RS/$n.test.sh"
+  done
+}
+printf '#!/bin/bash\necho "$PWD|$*" >>"%s/runner.log"\nexport ROUTED_BY_FAKE=runner\nexec "$@"\n' "$TMP" >"$TMP/bin/exec-runner"
+cat >"$TMP/bin/remote-runner" <<EOF
+#!/bin/bash
+echo "\$PWD|\$*" >>"$TMP/runner.log"
+export ROUTED_BY_FAKE=runner
+args=()
+while [ \$# -gt 0 ]; do
+  if [ "\$1" = --origin ]; then args+=(--origin "$TMP/no-such-dir-on-the-far-host/origin"); shift 2
+  else args+=("\$1"); shift; fi
+done
+exec "\${args[@]}"
+EOF
+# swap-runner: the right COUNT for the wrong SET — r3 was routed, x9 is what it reports.
+cat >"$TMP/bin/swap-runner" <<'EOF'
+#!/bin/bash
+for n in r1 r2 x9; do echo "───── $n.test.sh ─────"; done
+echo "[install-sh:routed] 3/3 passed in 0s (1 parallel, 0 quarantined-serial)"
+EOF
+printf '#!/bin/bash\necho "$PWD|$*" >>"%s/runner.log"\nexit 0\n' "$TMP" >"$TMP/bin/null-runner"
+printf '#!/bin/bash\necho "[install-sh:routed] 1/1 passed in 0s (1 parallel, 0 quarantined-serial)"\nexit 0\n' >"$TMP/bin/short-runner"
+printf '#!/bin/bash\necho "remote deps missing" >&2\nexit 96\n' >"$TMP/bin/notrun-runner"
+chmod +x "$TMP/bin/"*
+
+# --- (route, pos) the split: stays-local fixtures here, the rest through ONE runner call ---
+mk_route_suite; rm -f "$TMP/runner.log"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/remote-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r1" 2>&1
+check "routed all-green exits 0" 0 $?
+grep_out "routed run tallies both halves" "5/5 passed" "$TMP/r1"
+for n in k1 k2; do grep_out "stays-local $n ran here" "$n-where=here" "$TMP/r1"; done
+for n in r1 r2 r3; do grep_out "routable $n ran through the runner" "$n-where=runner" "$TMP/r1"; done
+runner_calls=$(grep -c . "$TMP/runner.log" 2>/dev/null || echo 0)
+check "the runner was called exactly once" 1 "$runner_calls"
+# argv names the suite relative to the repo and the cwd is the repo root: a runner that re-roots the
+# cwd onto a mirror can translate neither an absolute path nor a cwd outside the repo. The one
+# absolute path is the origin mark, which exists to NOT resolve on the runner's host.
+if grep -qE '\|bash scripts/run-install-sh-suite\.sh --routed --origin /[^ ]+/origin tests/install-sh/?$' "$TMP/runner.log"; then
+  echo "  ✓ runner argv: repo-relative suite, origin mark"
+else echo "  ✗ runner argv is not the routed shape: $(cat "$TMP/runner.log")"; fails=$((fails + 1)); fi
+if grep -q "^$(cd "$R" && pwd)|" "$TMP/runner.log"; then echo "  ✓ runner cwd is the repo root"
+else echo "  ✗ runner cwd is not the repo root: $(cat "$TMP/runner.log")"; fails=$((fails + 1)); fi
+
+# --- (route, neg — exit-code fidelity) a failing ROUTED test fails the whole run, named ---
+mk_route_suite
+printf '#!/bin/bash\necho boom\nexit 7\n' >"$RS/r2.test.sh"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/remote-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r2" 2>&1
+check "a failing routed fixture exits 1" 1 $?
+grep_out "the routed failure is named with its rc" "r2.test.sh(rc=7)" "$TMP/r2"
+grep_out "the routed half's tally is folded in" "4/5 passed" "$TMP/r2"
+
+# --- (route, neg) a failing STAYS-LOCAL test still fails the run while the routed half is green ---
+mk_route_suite
+printf '#!/bin/bash\n# stays-local: fixture that must keep running on this host\nexit 5\n' >"$RS/k2.test.sh"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/remote-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r3" 2>&1
+check "a failing stays-local fixture exits 1" 1 $?
+grep_out "the local failure is named with its rc" "k2.test.sh(rc=5)" "$TMP/r3"
+
+# --- (route, false-green guards) the runner's exit code alone never earns a green ---
+mk_route_suite
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/null-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r4" 2>&1
+check "a runner that exits 0 without running anything → exits 1" 1 $?
+grep_out "the silent runner is reported, not tallied" "NO VALID RESULT" "$TMP/r4"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/short-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r5" 2>&1
+check "a runner that reports a different test count → exits 1" 1 $?
+grep_out "the count mismatch is reported" "got 1" "$TMP/r5"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/notrun-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r6" 2>/dev/null
+check "a runner that could not run the suite (exit 96) → exits 1" 1 $?
+grep_out "the runner's exit code is carried into the report" "runner-exit=96" "$TMP/r6"
+# stdout only: the runner's «why» reaches the report even when the progress channel is discarded.
+grep_out "the runner's own reason is replayed in the report" "remote deps missing" "$TMP/r6"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/swap-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r6s" 2>&1
+check "a runner that reports the right count for a different set → exits 1" 1 $?
+grep_out "the set mismatch is reported" "not the 3 routed from here" "$TMP/r6s"
+grep_out "the missing routed test is named" "routed but not reported: r3.test.sh" "$TMP/r6s"
+grep_out "the foreign test is named" "reported but not routed: x9.test.sh" "$TMP/r6s"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/does-not-exist" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r7" 2>&1
+check "a runner that is not an executable → exits 1" 1 $?
+grep_out "the bad runner is named with the way out" "unset INSTALL_SH_HEAVY_RUNNER" "$TMP/r7"
+no_grep_out "nothing ran before the bad runner was refused" "where=" "$TMP/r7"
+
+# --- (route, escape) PC_LOCAL=1 + a reason → the runner is never called and the run is the unrouted one ---
+mk_route_suite; rm -f "$TMP/runner.log"
+PC_LOCAL=1 PC_LOCAL_WHY='fixture escape: this run stays on this host' INSTALL_SH_HEAVY_RUNNER="$TMP/bin/exec-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r8" 2>&1
+check "PC_LOCAL=1 with a reason exits 0" 0 $?
+grep_out "PC_LOCAL=1 with a reason tallies every fixture" "5/5 passed" "$TMP/r8"
+if [ -s "$TMP/runner.log" ]; then echo "  ✗ PC_LOCAL=1 with a reason still called the runner"; fails=$((fails + 1))
+else echo "  ✓ PC_LOCAL=1 with a reason never called the runner"; fi
+no_grep_out "PC_LOCAL=1 with a reason ran nothing through the runner" "where=runner" "$TMP/r8"
+# Skipping the runner also skips its log, so the escape says itself here with the reason.
+grep_out "PC_LOCAL=1 with a reason says the escape and its reason" "runner skipped (why: fixture escape: this run stays on this host)" "$TMP/r8"
+
+# --- (route, no reason) a bare or short-reason PC_LOCAL=1 is not an escape: the split still routes ---
+# The runner (~/bin/pc-run) honours PC_LOCAL=1 only with PC_LOCAL_WHY of 20+ characters since
+# 2026-09-29; a bare flag here used to skip the runner entirely, so the habit bypassed that rule
+# without leaving a line in the runner's log. A too-short reason is the same as none.
+for why in '' 'too short'; do
+  mk_route_suite; rm -f "$TMP/runner.log"
+  PC_LOCAL=1 PC_LOCAL_WHY="$why" INSTALL_SH_HEAVY_RUNNER="$TMP/bin/remote-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r8b" 2>&1
+  check "PC_LOCAL=1 with reason '$why' still exits 0" 0 $?
+  check "PC_LOCAL=1 with reason '$why' still calls the runner once" 1 "$(grep -c . "$TMP/runner.log" 2>/dev/null || echo 0)"
+  for n in r1 r2 r3; do grep_out "PC_LOCAL=1 with reason '$why': routable $n ran through the runner" "$n-where=runner" "$TMP/r8b"; done
+done
+
+# --- (route, fallback) a runner that ran the routed half on THIS host → one pool, never two ---
+# pc-run falls back to a local run when the PC is unreachable; the far end sees the origin mark,
+# runs nothing, and the caller takes the routed tests into its own pool after its own tests.
+mk_route_suite; rm -f "$TMP/runner.log"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/exec-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r10" 2>&1
+check "a fallen-back runner still exits 0" 0 $?
+grep_out "a fallen-back run tallies every fixture" "5/5 passed" "$TMP/r10"
+grep_out "the fallback is said, not hidden" "ran the routed half on this host" "$TMP/r10"
+for n in r1 r2 r3; do grep_out "routable $n ran in this pool after the fallback" "$n-where=here" "$TMP/r10"; done
+no_grep_out "the far end ran nothing on the origin host" "[install-sh:routed] 1/" "$TMP/r10"
+check "the fallen-back runner was called exactly once" 1 "$(grep -c . "$TMP/runner.log" 2>/dev/null || echo 0)"
+mk_route_suite
+printf '#!/bin/bash\necho boom\nexit 7\n' >"$RS/r3.test.sh"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/exec-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r11" 2>&1
+check "a failing test taken over after the fallback exits 1" 1 $?
+grep_out "the taken-over failure is named with its rc" "r3.test.sh(rc=7)" "$TMP/r11"
+
+# --- (route, quarantine) the quarantined test stays here whatever its header says ---
+# It must finish before the routed half starts, and must never run next to other tests anywhere.
+mk_route_suite; rm -f "$TMP/runner.log"
+INSTALL_SH_QUARANTINE="r3.test.sh" INSTALL_SH_HEAVY_RUNNER="$TMP/bin/remote-runner" \
+  bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r12" 2>&1
+check "a quarantined routable fixture: run exits 0" 0 $?
+grep_out "the quarantined fixture ran here" "r3-where=here" "$TMP/r12"
+grep_out "only the other two routable fixtures were routed" "2 routed)" "$TMP/r12"
+
+# --- (route, header) the marker counts only in the header ---
+mk_route_suite
+printf '#!/bin/bash\necho "r1-where=${ROUTED_BY_FAKE:-here}"\n\n\n\n\n# stays-local: a mention below the header\n' >"$RS/r1.test.sh"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/remote-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r13" 2>&1
+check "a body mention of the marker: run exits 0" 0 $?
+grep_out "a body mention does not keep a test here" "r1-where=runner" "$TMP/r13"
+
+# --- (route, far end) --routed runs only the routable fixtures and never routes again ---
+mk_route_suite; rm -f "$TMP/runner.log"
+INSTALL_SH_HEAVY_RUNNER="$TMP/bin/exec-runner" bash "$R/scripts/run-install-sh-suite.sh" --routed tests/install-sh/ >"$TMP/r9" 2>&1
+check "--routed exits 0" 0 $?
+grep_out "--routed tallies only the routable fixtures" "[install-sh:routed] 3/3 passed" "$TMP/r9"
+no_grep_out "--routed skipped the stays-local fixtures" "k1-where" "$TMP/r9"
+if [ -s "$TMP/runner.log" ]; then echo "  ✗ --routed routed again"; fails=$((fails + 1))
+else echo "  ✓ --routed did not route again"; fi
+
+# --- (real suite) every `# stays-local:` line in tests/install-sh carries its reason ---
+# The header is how a test keeps its macOS signal when the battery is offloaded; a bare marker
+# would keep the test here without saying which bash-3.2 / BSD / Mac-only-tool dependency it guards,
+# and nobody could later tell whether it is still needed. Same ≥20-char floor as the repo's other
+# escape tokens (ci-tool-pinning.md §3, the Prior-art escape hatch).
+REAL="$HERE/../tests/install-sh"
+# Both readers (the runner's stays_local, ~/bin/pc-run-bash) look at the first 5 lines only.
+marked=$(awk 'FNR <= 5 && /^# stays-local:/ { print FILENAME }' "$REAL"/*.test.sh | wc -l | tr -d ' ')
+if [ "$marked" -gt 0 ]; then echo "  ✓ the real suite marks $marked test(s) stays-local"
+else echo "  ✗ no test in $REAL carries # stays-local: — the offload would move every macOS canary"; fails=$((fails + 1)); fi
+late=$(awk 'FNR > 5 && /^# stays-local:/ { print FILENAME ":" FNR }' "$REAL"/*.test.sh)
+if [ -z "$late" ]; then echo "  ✓ no stays-local marker sits below the header, where both readers ignore it"
+else echo "  ✗ stays-local below line 5 is ignored — move it into the header: $late"; fails=$((fails + 1)); fi
+short=$(awk 'FNR <= 5 && /^# stays-local:/ { r = $0; sub(/^# stays-local:/, "", r); gsub(/^ +| +$/, "", r); if (length(r) < 20) print FILENAME }' "$REAL"/*.test.sh)
+if [ -z "$short" ]; then echo "  ✓ every stays-local reason is ≥20 chars"
+else echo "  ✗ stays-local without a reason: $short"; fails=$((fails + 1)); fi
+# The two broad bash-3.2 canaries: layer-units runs every setup.d unit under set -u, byte-identical
+# every stack's full install. With them routed, nothing would exercise install.sh on bash 3.2 + BSD
+# broadly any more (CI runs this battery on ubuntu only) — dropping either marker is a design change.
+for c in layer-units byte-identical; do
+  if awk 'FNR <= 5 && /^# stays-local:/ { f = 1 } END { exit !f }' "$REAL/$c.test.sh"; then
+    echo "  ✓ the bash-3.2 canary $c stays local"
+  else echo "  ✗ $c.test.sh lost its # stays-local: header — it is one of the two broad bash-3.2 canaries"; fails=$((fails + 1)); fi
+done
 
 # shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-install-sh-suite: ALL PASS"; exit 0; } || { echo "run-install-sh-suite: $fails FAIL"; exit 1; }

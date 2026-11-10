@@ -15,12 +15,22 @@
 #                            installer should ensure RULE_GLOBS.boundary holds.
 #   no-boundary-confident  — declarative-validation framework (allowlist) present AND zero boundary
 #                            signals. Safe to record a conditional R2 N/A.
+#   no-boundary-yet        — zero boundary signals AND no `zod` declared in any package.json of the
+#                            repo: no HTTP boundary yet, and nothing to write a zod one with. The
+#                            installer records the same conditional N/A (only into getff's own,
+#                            unedited ESLint config — 60-ci.sh), re-checked by the same gates.
 #   ambiguous              — anything else. Stay red (today's behaviour). No auto-green on doubt.
 #
-# Conservative invariant (LOAD-BEARING): no-boundary-confident requires a POSITIVE allowlist match
-# AND zero boundary signals. Every uncertain case degrades to `ambiguous`. A false `no-boundary-
-# confident` (silently un-guarding a real boundary) is therefore structurally unlikely; the worst
-# realistic outcome is a false `ambiguous` (a red the human reconciles) — the same cost as today.
+# Conservative invariant (LOAD-BEARING): a verdict that waives R2 needs zero boundary signals AND a
+# positive reason the zero is real — an allowlisted declarative framework (no-boundary-confident),
+# or no zod to parse with at all (no-boundary-yet). Every uncertain case degrades to `ambiguous`.
+# Either waiver is re-checked on every push (r2-na-marker.sh), so it never outlives its precondition:
+# a declarative N/A then fails the gates as stale; a no-boundary-yet N/A stops applying and the gates
+# judge R2's globs as usual (R2 itself stays on in getff's config and lints the new code). The worst
+# realistic outcome of a doubt stays a false `ambiguous` (a red the human reconciles) — as before.
+# Relaxed 2026-09-29 (P2 K2, operator log entry 28 fork 1 = A): the invariant used to read
+# «no-boundary-confident requires a POSITIVE allowlist match AND zero boundary signals», which left
+# every project with no HTTP boundary yet red on its first push.
 #
 # Exit: always 0 (a classifier, not a gate). The verdict is on stdout.
 set -uo pipefail
@@ -38,10 +48,21 @@ DECLARATIVE_ALLOWLIST="${R2_DECLARATIVE_ALLOWLIST:-@hono/zod-openapi}"
 # generates into the consumer. That dir's own rule source (e.g. no-unsafe-zod-parse.ts) literally
 # contains `.safeParse(`/`.parse(` as the thing the rule TALKS ABOUT — counting it as a consumer
 # boundary signal would false-positive every install to boundary-present (GH #547 self-test finding).
-# Post-#735: install.sh ALSO ships the framework's vendored rules to `packages/core/eslint-rules/`
-# (so guard-liveness.ts can load) — same `.parse(`-as-rule-subject false-positive as eslint-rules-local
+# From #735 until 2026-09-28 install.sh ALSO shipped the framework's vendored rules to
+# `packages/core/eslint-rules/` (so guard-liveness.ts could load), and a consumer installed in that
+# window still carries them — same `.parse(`-as-rule-subject false-positive as eslint-rules-local
 # above, at a different path. Prune the vendored framework tree too. (GH #777)
-PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -name eslint-rules-local -o -path '*/packages/core' -o -path '*/.claude/worktrees' )
+# Only getff's OWN subtrees of a packages/core are pruned — its eslint-rules/, and a hooks/ dir that
+# holds getff's pre-push files (pre-push.ts was vendored until #1860; the fallback and the bundle
+# still are). A consumer workspace named packages/core is the consumer's code: pruning the whole dir
+# hid its zod declaration and its parse sites, and a real boundary read no-boundary-yet (P2 cold
+# review B1).
+PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -name eslint-rules-local -o -path '*/packages/core/eslint-rules' -o -path '*/.claude/worktrees' )
+while IFS= read -r _hooks; do
+  if [ -e "$_hooks/pre-push.ts" ] || [ -e "$_hooks/pre-push.fallback.sh" ] || [ -e "$_hooks/pre-push.bundle.mjs" ]; then
+    PRUNE+=( -o -path "$_hooks" )
+  fi
+done < <(find "$ROOT" \( -name node_modules -o -name .git \) -prune -o -type d -path '*/packages/core/hooks' -print 2>/dev/null)
 BOUNDARY_TOKENS=( handlers routes controllers actions )   # app/api is two-segment → path-probed below
 
 # A file is "test" (excluded from boundary signals) if it is *.test.* / *.spec.* / under __tests__ / under tests/.
@@ -89,6 +110,16 @@ declarative_framework_present() {
   return 1
 }
 
+# (4) Is `zod` declared (deps, devDeps, peer or optional) in any package.json of the repo — a
+# workspace package included? The key must be exactly "zod": zod-to-json-schema is not zod.
+zod_declared() {
+  local f
+  while IFS= read -r f; do
+    grep -qE '"zod"[[:space:]]*:' "$f" 2>/dev/null && return 0
+  done < <(find "$ROOT" \( "${PRUNE[@]}" \) -prune -o -type f -name package.json -print 2>/dev/null)
+  return 1
+}
+
 BT_FILES="$(boundary_token_files)"
 PS_FILES="$(parse_site_files)"
 
@@ -111,6 +142,11 @@ fi
 
 if declarative_framework_present; then
   echo "no-boundary-confident"
+  exit 0
+fi
+
+if ! zod_declared; then
+  echo "no-boundary-yet"
   exit 0
 fi
 

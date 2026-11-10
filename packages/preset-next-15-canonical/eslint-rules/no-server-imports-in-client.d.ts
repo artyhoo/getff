@@ -1,4 +1,4 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-export declare const noServerImportsInClient: ESLintUtils.RuleModule<"noServerImportInClient", [], unknown, ESLintUtils.RuleListener> & {
-    name: string;
-};
+import type { TSESLint } from '@typescript-eslint/utils';
+type MessageIds = 'noServerImportInClient';
+export declare const noServerImportsInClient: TSESLint.RuleModule<MessageIds>;
+export {};

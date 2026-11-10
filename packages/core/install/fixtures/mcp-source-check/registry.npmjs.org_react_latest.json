@@ -1,0 +1,10 @@
+{
+  "name": "react",
+  "version": "19.3.0",
+  "homepage": "https://react.dev/",
+  "repository": {
+    "url": "git+https://github.com/react/react.git",
+    "type": "git",
+    "directory": "packages/react"
+  }
+}

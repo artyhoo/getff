@@ -1,0 +1,1727 @@
+[00:00] My name is David Andre and over the past
+[00:01] four years I've spent well over 2,000
+[00:04] hours coding with AI and I've also
+[00:06] personally interviewed some of the most
+[00:08] legit people in all of AI. Now in this
+[00:10] video we will cover how agents are
+[00:13] replacing human work. A totally new way
+[00:14] of starting agents, why agentic loops
+[00:16] and software factories are inevitable
+[00:18] and the future. Also why cloud agents
+[00:20] are replacing local agents and why cloud
+[00:22] is the future. How my job and your job
+[00:25] will look like 12 months from now. And
+[00:28] towards the end, I'll show you live how
+[00:30] you can build a mini software factory
+[00:32] from scratch. And I'll actually show you
+[00:33] how I do that myself. So first of all,
+[00:36] aentic work is evolving, right? It's no
+[00:37] longer just sitting and sharing with
+[00:39] cloud code 101 or with codex. Everything
+[00:42] changed with the release of Astra and
+[00:43] Opus 5.5, right? A lot of credible
+[00:45] people said that Astra is AGI. But
+[00:48] whether it is or not, the evidence is
+[00:50] here. OpenI has just dropped this repo a
+[00:52] few days ago. A lot of mathematicians
+[00:54] are losing their mind because they just
+[00:55] posted like 370 different proofs to
+[00:57] unsolved problems that were unsolved for
+[00:59] decades and centuries. I'm not going to
+[01:00] be lying to you. We are all getting
+[01:02] replaced. Programmers, video editors,
+[01:04] mathematicians, graphic designers,
+[01:06] content creators, AI can do more and
+[01:08] more. So, it begs the question, what
+[01:10] will humans actually do? And I'm going
+[01:11] to touch on that later in the video
+[01:13] because it is an existential question
+[01:14] that a lot of people are losing a lot of
+[01:16] sleep over. But there's actually a very
+[01:18] clear answer and very clear path
+[01:19] forward. It's just a lot of people
+[01:21] haven't thought it through. Now, humans
+[01:24] are still better than agents in a lot of
+[01:26] things. Okay, I know it's kind of
+[01:27] obvious, but like in a lot of ways, LLMs
+[01:29] are more robotic. You give it an input
+[01:31] and it does certain things, right? It
+[01:32] doesn't generate an input. It doesn't
+[01:34] come with a predefined goal. Doesn't get
+[01:36] a random thought as it's going. You can
+[01:38] literally see its reasoning chain and
+[01:39] it's from training data. So, let's talk
+[01:41] about this, right? Humans are better at
+[01:43] like creative novel thought at intuition
+[01:46] and instinct because throughout our life
+[01:49] we've seen so many tokens like audio
+[01:51] tokens, input tokens, physical touch
+[01:53] tokens that are not represented in the
+[01:56] training data at all. Like these things
+[01:58] are not in text on the internet. And if
+[01:59] it's not in the training data, the
+[02:01] agents and the models are bad at it.
+[02:03] Another thing is being practical. You
+[02:05] might notice if you have like a big
+[02:06] task, you only have one hour to finish
+[02:08] this big coding project. The agent
+[02:09] doesn't know what that means. He doesn't
+[02:11] know like let's skip these details or
+[02:12] let's not fill this repo with endless
+[02:14] tests, right? They they just don't know
+[02:16] like practicality and and like good
+[02:18] resource allocation. Also, taste, right?
+[02:20] This is like things like anybody can use
+[02:22] AI to like build 10,000 apps or generate
+[02:24] hundreds of images, but only one of them
+[02:27] will go viral, right? Only one of like
+[02:28] only a couple of them will make money.
+[02:30] So taste and knowing what's good, what
+[02:31] makes a great product, what makes a
+[02:33] great YouTube thumbnail, what makes a
+[02:35] great song. This is taste and mortals
+[02:37] don't have it. and the humans that do
+[02:39] have it will be better at them, right?
+[02:41] So, stop holding on to the things that
+[02:42] LM do better. If you're still like
+[02:44] trying to write code line by line
+[02:46] instead of using codeex or cloth code, I
+[02:48] don't know what to tell you. Like,
+[02:49] you're literally like the person trying
+[02:51] to be an elevator boy when elevators
+[02:53] were solved or the person doing math
+[02:54] like hand by hand doing spreadsheets
+[02:56] when like computers and calculators were
+[02:58] were invented, right? Just do the things
+[03:00] humans are better at and let agents do
+[03:02] the rest. Otherwise, you're going to
+[03:03] have a very bad time. Now to understand
+[03:06] where the future is headed, it's helpful
+[03:07] to look at the past. And I think farming
+[03:09] is a great analogy because this is what
+[03:11] the world looked like 200 years ago, 250
+[03:13] years ago. Uh in fact in USA in America
+[03:17] over 75% of all workers in 1800 worked
+[03:22] in farming, right? That's literally like
+[03:25] vast majority of people. Today it's
+[03:27] under 2%. Yet there's more food than
+[03:29] ever. Why? Thanks to technology. When I
+[03:31] look at this image on the left, I
+[03:32] literally see ourselves like clicking
+[03:34] around and filling forms and applying
+[03:36] for some document and and and doing some
+[03:39] taxes, some accounting. On the right,
+[03:41] this is a more accurate image.
+[03:42] Obviously, it doesn't really represent
+[03:44] how we will be working with agents and
+[03:46] orchestrating them, but again, we're
+[03:47] going to touch on that soon. So,
+[03:49] basically the TLDDR is don't be scared,
+[03:52] okay? Stop being so afraid. The past we
+[03:55] went through multiple of these
+[03:56] industrial revolutions. Human computers,
+[03:58] another thing, right? Everybody was
+[03:59] doing math by hand. You literally had
+[04:01] like 15 floor buildings where every
+[04:03] single floor people are like doing math
+[04:05] by hand. Humans always adapt. If there's
+[04:07] one pattern throughout the tens of
+[04:09] thousands, hundreds of thousands of year
+[04:10] history we have is that we always adopt,
+[04:12] right? So let's talk about it. What does
+[04:14] the future of work look like? I call
+[04:16] this the higher level work because what
+[04:19] like if the tasks that we today are
+[04:21] replaced, we need to know what we'll be
+[04:22] doing. A lot of people don't have good
+[04:24] clarity about that. So now this section
+[04:27] is on what the higher level of work will
+[04:29] look like once everything we do today is
+[04:31] replaced. The most common mistake I see
+[04:34] new founders make is not enough feedback
+[04:37] from real users. Sure, with AI you can
+[04:39] build software much faster, but the
+[04:41] faster you build, the more important
+[04:44] real customer data becomes. After all,
+[04:46] you need to know whether you're building
+[04:48] the right thing. That's why I want to
+[04:50] tell you about today's sponsor, Post
+[04:51] Hog. Post Hog shows you how [snorts]
+[04:53] people are actually using your product
+[04:56] like where they get stuck, which
+[04:57] features they are using and whether they
+[04:59] are coming back. And with their session
+[05:01] replay, you can even see what the users
+[05:04] actually did. Y Combinator, Superbase,
+[05:06] Fireworks AI, 11 Labs, Railway, all of
+[05:09] these companies use Post Hog. In fact,
+[05:12] Superbase used Post Hog to spot a wave
+[05:15] of new users coming from AI app builders
+[05:18] and based on that data pursued
+[05:20] partnerships with those companies. As
+[05:22] one marketing expert at Superbase put
+[05:24] it, Post Hog has literally helped us get
+[05:26] 10x more weekly new users than we did a
+[05:30] year ago. When you're shipping new
+[05:31] features every day, your feedback loop
+[05:33] needs to keep up. And that's exactly the
+[05:35] problem Post Hawk solves. So visit
+[05:38] go.post.com/david posth.com/david
+[05:40] and learn how post can help you
+[05:42] understand your users and build better
+[05:44] products. That's go.posthog.com/david.
+[05:48] The first link below the video.
+[05:49] Actually, I think this uh graphic also
+[05:51] illustrates it well. Today, you just do
+[05:53] the task. You sit in front of a computer
+[05:54] and do a specific task. If you are, you
+[05:56] know, watching my channel, hopefully you
+[05:57] run agents, right? You run codeex, cloud
+[05:59] code, cursor, pi, Hermes, whatever. So,
+[06:02] that's already better than just doing
+[06:03] the task yourself, like interacting the
+[06:05] agent and then do the task. This is
+[06:06] where most people are like literally
+[06:08] stuck on step one or two but we need to
+[06:10] go to the next levels right it's time it
+[06:12] really is time and the next step is
+[06:14] designing agentic loops and after that
+[06:16] is running the agent factory so as you
+[06:18] move towards the top right in this
+[06:20] graphic the work is less manual less
+[06:22] repetitive and more unique more creative
+[06:25] more abstract so let's get very specific
+[06:28] right in the future you will not be
+[06:30] starting agents one by one this is a
+[06:32] thing of the past like yes 2024 2025 and
+[06:35] even the first three quarters of 2026.
+[06:38] This is fine. It's no longer fine. The
+[06:40] gap is widening and I have a point on
+[06:42] this later, but the gap between people
+[06:43] who are on the true cutting edge versus
+[06:46] people who are like kind of okayish
+[06:47] using AI is going to grow. Think of the
+[06:49] average consumer. What are they using?
+[06:51] Free version of change GBT, pre Google
+[06:54] AI search. These are using like terrible
+[06:56] models compared to Opus 5.5 extra high
+[06:59] or max. Anyways, in the future, we will
+[07:02] be designing things that run on a
+[07:05] schedule. These agents will not be
+[07:06] started by me and you. Anything that
+[07:08] involves a human is bottlenecked. Okay?
+[07:10] It's like a business. A CEO cannot be
+[07:12] involved in everything. He cannot decide
+[07:14] when to mop the floors or when to close
+[07:17] the books or when to like fire a junior
+[07:19] level employee or when to start like
+[07:22] close a marketing campaign. Right? If
+[07:24] you have a 5,000 person company, the CEO
+[07:26] cannot do everything. You have to
+[07:28] realize soon all of us will have a 5,000
+[07:31] entity company just some of these will
+[07:32] be humans and most of these will be
+[07:34] agents right so you need you better get
+[07:36] good advancement a lot of the things you
+[07:38] have to realize in AI it's a 80year-old
+[07:40] field a lot of the breakthroughs came
+[07:42] from mimicking biology and humans right
+[07:45] the neural network is modeled after the
+[07:47] brain and right now the limit of running
+[07:51] more agents is that you simply cannot
+[07:52] unblock them all especially after opus
+[07:54] because it runs so fast it's actually a
+[07:57] challenge If you're unblocking agents
+[07:58] one by one, it's a challenge to even
+[08:00] have more than five running at the same
+[08:02] time. And if you sit down and realize
+[08:04] how big of a problem that is, it becomes
+[08:06] obvious that the human cannot be in the
+[08:07] loop. Right? In the past, it's like,
+[08:09] okay, human in the loop and the AI does
+[08:11] something human in the loop. We need to
+[08:12] remove ourselves from the loop. So, we
+[08:14] need to have different triggers instead
+[08:16] of a human sense a prompt. could be
+[08:18] schedules, web hooks, outages, you know,
+[08:20] product features, some something
+[08:21] behavior of your customers, different
+[08:23] triggers that do not require you to type
+[08:25] in on a keyboard or do a voice prompt.
+[08:27] Voice prompt is better than typing
+[08:28] obviously, but it still requires your
+[08:30] attention. It still requires your time
+[08:32] and it's not enough. It was enough maybe
+[08:34] 6 12 months ago. It's no longer enough.
+[08:36] So, in the future, the higher level
+[08:39] work, pay attention because this is like
+[08:41] exactly what this video is about. And
+[08:43] when I talk like this, I'm actually kind
+[08:44] of shocked. When I talked on my podcast
+[08:46] and I always ask this question, people
+[08:49] they haven't thought through it. Even
+[08:50] these people at the frontier, they
+[08:52] really struggle to answer what the
+[08:53] future of work is like. And the I I know
+[08:55] why. Because it's not obvious. Some of
+[08:57] these things I list out are obvious, but
+[08:59] we don't know all of them. Just because
+[09:01] these are kind of clear in the fog, we
+[09:03] don't know what's behind the fog. So
+[09:05] based on what we know right now, let me
+[09:07] tell you what we will do in the future.
+[09:09] We will create new agents that that are
+[09:11] like you know set up for a specific
+[09:13] thing or the general agents. Then even
+[09:15] more higher abstract we'll manage fleets
+[09:17] of agents right so like agent team doing
+[09:19] your marketing agent team you're doing
+[09:20] your product agent team doing customer
+[09:22] support whatever we'll allocate
+[09:24] resources. So let's say you have a
+[09:26] business that makes $50,000 a month. How
+[09:28] do you spend that? How much of that goes
+[09:30] on tokens? How much of that goes on
+[09:32] human salaries? How much of that goes on
+[09:34] Facebook ads? How much of that goes on
+[09:36] investing into new hardware? Right?
+[09:37] We'll be allocating those resources and
+[09:39] also even more gradually when it comes
+[09:41] to mod like agents we'll be choosing the
+[09:43] models like when to use pi agent when to
+[09:45] use her when to use cloth code what
+[09:48] model you put into these harnesses okay
+[09:49] so for these types of task this is a
+[09:51] very easy task so maybe let's use
+[09:53] deepseek v4.1 flash because it's cost
+[09:56] efficient and we just need best
+[09:57] performance right or this task is very
+[09:59] important let's use Jeff because it's a
+[10:01] decision model and it outputs a
+[10:02] structured output and it cannot go wrong
+[10:04] okay for this task we need the best of
+[10:05] the best use let's use Opus 5.5 or maybe
+[10:08] in the future Fable 5.5 or Astra 6.1
+[10:11] whatever it is in the future. Okay,
+[10:12] we'll establish evals, right? So like
+[10:14] how do we know that our agents are
+[10:15] performing? Are we tracking what
+[10:18] percentage of tasks are done by agents,
+[10:19] by humans? Like how many tokens are we
+[10:21] burning? All that stuff. Evals,
+[10:23] benchmarks. This is what again higher
+[10:25] level work looks like. And spending more
+[10:27] time thinking really as simple as that.
+[10:29] Like thinking like how could we take
+[10:31] this business to the next level? How can
+[10:33] I use more agents? Like how can I create
+[10:35] more agentic groups? What am I not
+[10:37] doing? This is real work, right? This is
+[10:39] this is what like CEOs and executives do
+[10:41] but now all of us will be doing it
+[10:43] because u all of our work will be done
+[10:45] by agents. Now let's talk about agentic
+[10:47] loops because a lot of people are
+[10:48] confused like what even is agentic loop?
+[10:51] You know there was this trend with like
+[10:53] Peter Stinberger like loops graphs
+[10:56] ignore that completely. I'm going to be
+[10:58] very practical. Right? Agentic loops,
+[10:59] software factories. Basically, software
+[11:02] factory is many agentic loops and the
+[11:05] agentic loop can still have a human
+[11:08] somewhere like at the approval process.
+[11:10] But really, a software factory should
+[11:12] not have, right? It should be running by
+[11:14] itself and it's basically the next level
+[11:16] of that. Again, more on software
+[11:18] factories in a bit. But what are agentic
+[11:20] loops? Well, it's basically the attempt
+[11:22] to try to remove yourself. The way to do
+[11:24] that is just like you know if you watch
+[11:26] me for a long time two two years ago
+[11:28] three years ago I told you about NA10
+[11:30] it's not to try to automate everything
+[11:31] like a big task try with a small task
+[11:33] right you need to analyze at what work
+[11:36] you do the truth is me and you we do the
+[11:39] same types of tasks every day only when
+[11:41] you start like a new company or like
+[11:43] pursue a new effort or decide to write a
+[11:45] new book something radical something
+[11:46] different that's where your work shifts
+[11:49] most of the time it's like respond to
+[11:51] the same email open Slack back deliver
+[11:53] to customer you know do another brand
+[11:55] deal I don't know it's just the same
+[11:57] type of work okay it might not be the
+[11:59] same exact thing every day but it's the
+[12:01] same type of thing which means it's
+[12:03] opportunity for automation right just
+[12:05] not really possible with programmatic
+[12:07] automation like in the past just plain
+[12:09] code but it's possible by putting an
+[12:12] agent and the difference now is really
+[12:14] the model and the harnesses like massive
+[12:18] progress on harnesses in the last year
+[12:19] right think about it a year ago what was
+[12:22] the best harness like maybe cloth code
+[12:24] then what happened January open claw
+[12:26] February we got Hermes agent right then
+[12:28] PI agent became super popular um we we
+[12:31] got other things like prime another
+[12:33] self-improving agent so like massive
+[12:35] progress and all of these harnesses got
+[12:37] better because most of them are open
+[12:38] source and one of them improves and all
+[12:40] of them just take the idea improve right
+[12:42] so that's the benefit of open source we
+[12:43] I wish the models stayed open source
+[12:46] anyways the point is that like progress
+[12:47] in models and and harnesses has been
+[12:49] massive over the past 6 to 12 months and
+[12:51] Now things are possible that were just
+[12:53] not possible in the past. Like you can
+[12:55] just do full design animations, insane
+[12:58] insane stuff, especially after Opus 5.5.
+[13:01] So really there's no excuse for you to
+[13:03] be doing everything. Start by trying to
+[13:05] take 5% of your work and automating
+[13:07] that. The stuff that is like very
+[13:09] predictable and safe and then do another
+[13:11] 5%. Look at the types of task what you
+[13:13] do. For example, what I do is I track my
+[13:15] calendar every 15 minutes every single
+[13:17] day. Right? So I've I've done that for
+[13:19] like years now. So, I have loads of data
+[13:22] and I can literally use Composio CLI and
+[13:24] tell my agent. I mean, I can just do
+[13:25] that right now, right? Look at use
+[13:27] Composio CLI and tell me what I spent
+[13:29] the last 14 days working on. Just leave
+[13:31] out any private stuff. I'm recording
+[13:33] YouTube video. It's going to be seen by
+[13:34] tens of thousands of people. So, just
+[13:36] give me like very broad buckets of uh
+[13:38] what we're doing, right? So, it's going
+[13:40] to run this. It's going to use my skill
+[13:41] for Composio CLI and it's running inside
+[13:43] of Cloud Room. We're going to let it run
+[13:45] in about 30 seconds. It's going to be
+[13:46] done. And then that's how you analyze.
+[13:49] You know, you need to know where your
+[13:50] time is going. Just like you need to be
+[13:51] tracking your accounting expenses to
+[13:53] know what to optimize. It's the same
+[13:55] thing with time. You need to track your
+[13:56] time in some way, maybe not every 15
+[13:59] minutes, some of you, to know how to
+[14:00] optimize your time and how you're
+[14:02] actually allocating it. Most people are
+[14:03] clueless. They think they're like
+[14:04] spending 20% of time of this turns out
+[14:06] to be 60. Or they think like, "Oh yeah,
+[14:08] I'm I'm somebody who works out often."
+[14:11] Turns out they go to the gym like three
+[14:12] times a month, right? But basically,
+[14:14] that's how you need to be looking at it.
+[14:15] And in any business, in any business,
+[14:17] the most valuable resource
+[14:20] is the CEO's time. I don't care if it's
+[14:22] SpaceX and Elon Musk or your free person
+[14:25] team. Like my team is pretty small.
+[14:27] Still, I'm the bottleneck on nearly
+[14:28] everything. No matter how locked in the
+[14:31] people on my team are so you are the
+[14:34] founder and the CEO of a business, your
+[14:36] time is the most valuable resource and
+[14:38] you need to know where it's going. So
+[14:40] figure out how to wait to track it
+[14:41] because then the next way is to replace
+[14:43] that 5% with a aentic loop or a mini
+[14:46] software factory. Now a big mistake a
+[14:48] lot of people make with this is they
+[14:49] assume our work with agents will be the
+[14:51] same. They look at like how we
+[14:53] interacted with CH GBT and claude and
+[14:55] perplexity and cursor and think it's
+[14:57] going to be the same. It's not going to
+[14:58] be the same because we have reached the
+[15:00] point with Astra and now Opus 5.5 where
+[15:04] we really are the bottleneck and it's
+[15:05] really bad right? me like all of us know
+[15:08] me, you, everyone watching this, we know
+[15:10] we should be running more agents, but we
+[15:12] aren't. The bottleneck are no longer the
+[15:14] models or the tokens. Tokens are cheap.
+[15:16] The amount of inference you get from a
+[15:18] single $200 amount of cloud subscription
+[15:20] is insane. If you don't have the money,
+[15:22] like open code go is insane in value,
+[15:24] right? Tokens are cheap and very smart
+[15:26] tokens are cheap, right? Especially like
+[15:28] if you invest into hardware and
+[15:29] self-hosted, then tokens are free once
+[15:31] you buy the hardware. So it's no longer
+[15:34] the models, it's no longer the token
+[15:35] cost, it's no longer the harnesses. So
+[15:37] what is missing? Everything else. That's
+[15:39] the problem. It's really abstract
+[15:40] problem and it's what I spend most of my
+[15:43] time like obsessing over and working on.
+[15:46] But you cannot be this is literally a
+[15:48] great visual by the way. It's like this
+[15:49] is how we are. These agents are waiting
+[15:51] for us. Like if you're running many
+[15:52] agents, you know, 30, 40, 50 agents at
+[15:54] once, they are waiting for us. In fact,
+[15:55] I can just open my sidebar and look, I
+[15:59] have so many things and these are okay.
+[16:00] Did you see that? Those are my u agentic
+[16:02] u loops starting on different things
+[16:05] right so feedback from different users
+[16:08] of cloud room as well as like automatic
+[16:10] agents doing cyber security and trying
+[16:12] to simplify the codebase so you know I'm
+[16:14] just I'm not I'm not talking and I
+[16:17] actually um do what I preach. You
+[16:19] literally saw these start by themselves.
+[16:21] I didn't do them and I'm going to show
+[16:22] you all of my automations later on. So
+[16:24] stay tuned. But what I want to show you
+[16:26] is like I have like hundreds I have
+[16:28] hundreds of threats open and they're all
+[16:31] waiting for me, right? Except for the
+[16:33] automations and minister of the
+[16:34] factories which are more automated than
+[16:36] that. But a lot of that work is still
+[16:39] waiting for me. And this is me literally
+[16:41] blocking all the agents, right? Blocking
+[16:42] the progress. So the challenge then
+[16:44] becomes how do you architecture a
+[16:46] factory, some a magentic loop, something
+[16:49] that works without you? How do you
+[16:51] remove yourself from the loop? That is
+[16:52] the real challenge. So stop assuming
+[16:54] like you will be sending the prompt.
+[16:55] You'll be voice prompting. People who
+[16:56] tell you that they live in the past.
+[16:58] Okay? Again might have been the truth
+[17:00] couple of months ago, six months ago,
+[17:01] whatever. It's no longer the truth. AI
+[17:03] field is changing fast. You need to
+[17:05] accept it. If you don't like change,
+[17:08] good luck. Things are changing faster
+[17:10] than ever. And you really have to you
+[17:13] have to remove your emotion from it and
+[17:15] see the game for what it is and be
+[17:16] willing to play the game. So the the
+[17:19] real first part the two pieces for this
+[17:22] is like the trigger and the execution
+[17:24] figuring out what is the trigger right
+[17:27] some some of them could be on a schedule
+[17:28] once a day every every 3 hours every 1
+[17:31] hour a lot of them will be on like a web
+[17:34] hook right or or let's say like your
+[17:36] database is like hitting 90% of the
+[17:39] connections like concurrent connections
+[17:41] allowed to your database or maybe
+[17:42] there's a like payments are failing and
+[17:44] that sends a web hook like that's a
+[17:46] trigger right so figuring out how to
+[17:48] trigger the unit of work and knowing
+[17:50] what a good unit of work is and then the
+[17:52] execution so the agent can do the same.
+[17:54] So obviously you put in a powerful model
+[17:55] but then what skills you give it, what
+[17:57] context you give it, what MCPS and APIs
+[18:00] you give it.
+[18:01] That is the art right that is that is
+[18:04] the challenge is like the trigger and
+[18:05] execution. So the nature of work will
+[18:07] change and stop assuming the way you
+[18:09] interact with agents today is going to
+[18:10] be the way you interact with them 12
+[18:12] months from now because it will be very
+[18:14] very different. Also, the amount of
+[18:15] agents is increasing, right? Like today,
+[18:18] in any given day, I interact with
+[18:19] hundreds of different agents. That was
+[18:21] not the case 12 months ago. Both me and
+[18:22] you run more agents today than we ran 12
+[18:25] months ago. But that's going to be true
+[18:28] 12 months from now. 12 months from now,
+[18:30] we will run a lot more agents than we
+[18:32] are today. So, the challenge is figure
+[18:34] out how to get there faster so you get
+[18:36] an unfair advantage over everyone else.
+[18:38] Now, when I try to figure out like why
+[18:40] aren't we running more agents, which I
+[18:41] think is a trillion dollar,
+[18:43] multi-trillion dollar question. Why
+[18:45] aren't we running more agents? Let's
+[18:47] start with the laptop problem, right?
+[18:48] You as a human, imagine joining a
+[18:50] company and the company tells you, oh,
+[18:51] there's 20 other people you share the
+[18:53] laptop with, right? That's basically
+[18:55] what it means running agents like
+[18:58] multiple agents on the same laptop.
+[19:00] Sure, you can do a little bit of a fix
+[19:02] with worksheets, but still at a certain
+[19:04] point agents will conflict or if you
+[19:07] want to do computer use, the agents will
+[19:10] do random pop-ups, open the random
+[19:11] browser tabs while you, the human are
+[19:14] trying to work, right? Also, if you
+[19:15] close the laptop, agents die. If you
+[19:17] lose Wi-Fi or internet, agents die. If
+[19:20] the uh laptop runs out of battery,
+[19:22] agents stop running. And that's
+[19:23] criminal. It is really bad ext like
+[19:26] especially the more agents are involved
+[19:28] in your business and life and the more
+[19:30] that they do. Okay, maybe it would not
+[19:32] you today but again think in the
+[19:35] future once agents are doing 20% 40% 60%
+[19:38] of your business tasks delivering on
+[19:40] customers researching your competitors
+[19:42] getting you more leads creating new uh
+[19:45] creatives and running ads for you know
+[19:47] helping you do more content helping you
+[19:49] improve your product fix bugs. If all of
+[19:52] these automations, agentic loops,
+[19:54] software factories stop running because
+[19:56] your laptop is in a bad environment or
+[19:59] just died, your business has died. Okay.
+[20:02] All it takes is a couple for agent to
+[20:04] like decide to open Docker Desktop and
+[20:05] run a large test suite and you already
+[20:07] can hear the fans going. Also, if you
+[20:09] want to be building the future where
+[20:10] like agents are spawned by a trigger and
+[20:13] not by you sending a prompt, you need to
+[20:16] have an always on server, right? some
+[20:18] cloud VM, something that always is
+[20:20] available 99.99 at least with perfect
+[20:24] internet like 10 GB internet and is
+[20:26] scalable because imagine if you buy a
+[20:28] powerful computer. A lot of people do
+[20:29] this, right? They like buy a powerful
+[20:31] like Linux box or powerful Mac Studio
+[20:34] and they think they've solved the
+[20:35] problem. Well, okay, you only solve the
+[20:37] problem for X amount of agents. What if
+[20:39] you need that amount plus 20%. You
+[20:42] cannot just upgrade your existing box on
+[20:45] your computer and add 20%. you would
+[20:47] have to buy another box, right? And what
+[20:49] if you only need that 20% for a couple
+[20:50] of days and for a week. So like you need
+[20:52] this to be dynamic, scalable both up and
+[20:54] down. And let's say if you want to
+[20:56] launch hundreds of agents, most of you
+[20:58] cannot do it. Most of you just cannot do
+[20:59] it on a computer because your hardware
+[21:01] is not powerful enough. But what if
+[21:02] there was opportunity for you to do
+[21:04] that? What if that would be a big
+[21:06] customer that needed to do that work or
+[21:08] some like, you know, opportunity in the
+[21:10] stock market, whatever, just something
+[21:12] where you need to run hundreds of agents
+[21:14] at once. But you cannot do that because
+[21:16] your computer is limited. Let me show
+[21:18] you how we did it. One of our engineers
+[21:20] at Cloud Room literally just solved that
+[21:22] problem. Um or like I try to split as
+[21:24] that because people still live in the
+[21:26] old paradigm of launching agents one at
+[21:28] a time. But you can simply tell in cloud
+[21:31] room one agent to start 110 agents right
+[21:33] and this was a free tier hierarchy. So
+[21:35] the most powerful manager like the you
+[21:37] know CEO whatever was opus then all of
+[21:40] the coordinators managers were set and
+[21:43] the the workers were haikus right and
+[21:45] this again let me just make that very
+[21:47] clear simple prompt this is how you need
+[21:50] to think it's like what if you design
+[21:51] one agent that can start 10 you see the
+[21:53] leverage on that instead of like
+[21:55] launching all of the workers one by one
+[21:57] think of a task where
+[22:00] 20 50 100 agents can actually do
+[22:02] meaningful work and think of like what
+[22:04] you need to do to ensure they do good
+[22:06] work and they just don't do a much of
+[22:08] slop, right? That is the challenge of
+[22:10] the future is figuring out the skills,
+[22:13] the the rules, the conditions, the the
+[22:16] user interfaces, the review processes,
+[22:18] all of that stuff, right? And the first
+[22:20] step as I was began working on this like
+[22:22] why are we running more agents? It
+[22:23] became obvious that it's a laptop
+[22:25] problem. Now, I try to build around
+[22:26] this, right? I actually open source
+[22:28] multiple repos. So u I did like um it's
+[22:31] called immortal agents and basically um
+[22:35] anytime an agent goes to sleep it would
+[22:38] started. Okay, there it is. I found the
+[22:40] repo. It's under our vector labs um or
+[22:43] but basically anytime the agent goes to
+[22:44] sleep it gets restarted right? So any
+[22:47] agent that would die from loss of
+[22:49] internet or you closing your laptop when
+[22:51] you reopen it would start itself. That
+[22:53] way your agents are running your agents
+[22:55] keep running. Obviously, this is more of
+[22:57] a tool, but that prompted me to like go
+[22:59] in this right direction of why aren't
+[23:02] agents more running. And a big problem
+[23:04] with that was the agents running local.
+[23:06] Let's talk about this local agents
+[23:08] versus cloud agents. A lot of people
+[23:10] don't know the difference, but in fact,
+[23:12] cursor did the study internally where at
+[23:15] the start of the year, only like 10% of
+[23:17] their agents, 10% of the PRs that made
+[23:19] it to production came from cloud agents.
+[23:22] By August, it was over 60%. So from 10%
+[23:25] to 60% in a matter of you know eight
+[23:29] months or whatever if you have good
+[23:32] visualization skills you can imagine you
+[23:34] know a scale where this is 10% in
+[23:37] January and this you know January and
+[23:40] this is August at 60% here right so it's
+[23:43] not doesn't take a genius to see the
+[23:46] exponential growth of that and soon
+[23:47] enough it will be 90% probably won't
+[23:49] reach 10 100% because uh there is still
+[23:52] some value in running sometimes agent
+[23:54] locally
+[23:54] like you know for privacy or for or like
+[23:58] cleaning up your folders whatever right
+[24:00] but the vast majority of tasks I would
+[24:02] say over 95% for sure probably over 98%
+[24:05] can be done better in the cloud so what
+[24:08] is the difference well a local agent
+[24:10] runs on your laptop or your PC whatever
+[24:12] cloud agents runs on a server on a VM
+[24:14] isolated sandbox your laptop or whatever
+[24:17] computer you have even if you have the
+[24:19] top you know DJ workstation top Mac
+[24:22] studio it still has limited certain
+[24:24] amount of CPU, RAM, and disk, right,
+[24:25] that you purchase, and you're stuck with
+[24:26] it. Cloud, if you especially when you
+[24:28] put each agent in an isolated sandbox,
+[24:30] you're only paying for when the agents
+[24:32] are running. And it's infinitely
+[24:33] scalable. You can have 10 agents, 10
+[24:36] sandboxes, you have 500 agents, you have
+[24:39] 500 sandboxes, you never hit the limit.
+[24:41] And this is like one of the first things
+[24:43] you need the environment to be correct,
+[24:45] right? There's a lot of other factors to
+[24:46] make making sure your agents are always
+[24:48] running and that they're not limited and
+[24:50] blocked by you. But the first thing is
+[24:52] making sure their environment is
+[24:53] correct. And if you run them on your
+[24:55] laptop, that is going to be limited in a
+[24:56] lot of different ways. Also, computer
+[24:59] use, this is very annoying. Computer use
+[25:01] is something that has been massive
+[25:02] progress in the last three or four
+[25:03] months, right? If you haven't ever tried
+[25:05] like Codex computer use or KUA driver,
+[25:08] you are missing out. The agents are
+[25:09] amazing. They can go and take over your
+[25:11] screen and click around and fill out
+[25:12] forms and you know set up AWS and Google
+[25:15] Cloud Console and the most convoluted
+[25:17] interfaces known to man. You never have
+[25:19] to use them ever again. You just give a
+[25:21] powerful model computer use and that's
+[25:23] it. Problem is they take over your
+[25:25] screen. They do popups, you know, ask
+[25:27] for permissions. Um they open new
+[25:30] browser tabs. You are trying to work.
+[25:32] It's good if you don't want to work on
+[25:33] that computer, but you're trying to work
+[25:34] on there, right? So that's another
+[25:36] thing. It's it's very inconvenient
+[25:37] having 20 plus agents running while you
+[25:40] are working on the same machine. Another
+[25:42] thing is cyber security which is
+[25:43] becoming more important with each
+[25:45] passing day. In fact, I recently
+[25:47] interviewed the CEO of Versell Gilmo and
+[25:50] he said quote cloud is infinitely better
+[25:53] for security and it makes sense right if
+[25:54] you have your own device. I mean you can
+[25:56] just draw it real quick. Boom. This is
+[25:58] your laptop and then you have a bunch of
+[26:00] um
+[26:02] sandboxes where the agents are running
+[26:04] in the cloud. You know if one of these
+[26:06] gets compromised
+[26:08] at worst that agent is compromised
+[26:10] right? If your main machine gets
+[26:12] compromised because you were running
+[26:14] some bad model and somebody pro injected
+[26:16] it and you know told it to download a
+[26:18] malicious package or something then you
+[26:20] lose everything that's on your laptop or
+[26:22] your login or your data whatever. But if
+[26:25] one of these sandboxes gets you know
+[26:26] hacked it's just that sandbox. So as
+[26:28] cyber security is more important both
+[26:30] for individuals and companies
+[26:34] the more the value is running agents in
+[26:37] cloud and specifically in isolated uh
+[26:40] cloud sandboxes. I already showed you
+[26:41] how automation started on its own
+[26:43] actually I want to show it now but you
+[26:45] saw it earlier where inside of cloud
+[26:46] room I literally have these automations
+[26:49] and u I mean I can just explain some of
+[26:51] them right. So for example, billing
+[26:53] review checks all the billing code every
+[26:56] four hours um to see if there's like any
+[26:58] issues, right? Any new bugs, anything I
+[27:01] missed last time. Database health check.
+[27:03] This can change all the time, right?
+[27:04] Suddenly maybe multiple power users wake
+[27:07] up and use it at the same time and maybe
+[27:08] like again the concurrent connections
+[27:10] don't keep up or CPU is not keeping up
+[27:13] or or something or or like we're running
+[27:15] out of memory, right? There can be many
+[27:17] reasons, many things that go wrong. It's
+[27:18] good to have the agent investing and but
+[27:20] actually this is a software project
+[27:22] right. So all of these would be
+[27:23] departments in a large software company.
+[27:25] If you fought about 5,000 software
+[27:27] company you would have a team database
+[27:29] team. You would have a team just on the
+[27:31] billing and and payments, right? You
+[27:33] have team on like cyber security and
+[27:35] authentication. These would be teams in
+[27:38] a large software company. So whatever
+[27:40] you do, think of like how that would
+[27:42] split up. If your company was 10x
+[27:44] bigger, how would that split up into
+[27:46] teams? And then think of like the
+[27:48] agentic loops you can create today for
+[27:52] those different parts of your business.
+[27:53] Right? This one is is especially good.
+[27:56] Anybody who has a bug inside of cloud
+[27:58] room can literally just tell report this
+[28:00] to David and this automation runs every
+[28:04] 10 minutes checks a table inside of
+[28:06] superbase and if there's a new entry it
+[28:08] spawns open 5.5 agent to investigate it.
+[28:10] Now the beauty is that this doesn't take
+[28:13] my time. It's fully automated when it's
+[28:16] a like something small, right? Like some
+[28:18] rare edge case or like a idea that
+[28:21] doesn't really align. If it's a serious
+[28:23] issue or if it's like a great feature
+[28:25] idea or or something that is worth
+[28:27] fixing, it investigates it, explains it
+[28:29] to me in a couple of plain English
+[28:31] sentences and leaves it be. But if it's
+[28:33] not, then it self archives. Right? So
+[28:35] whatever threads you see here, these are
+[28:37] the things that it decided to keep. all
+[28:39] of the stuff that is like that these
+[28:42] autonomous agentic automations
+[28:45] started and was small or like there was
+[28:47] no issue maybe again checks the database
+[28:49] every five orders and most of the time
+[28:51] there is no issue so opus 5.5 the
+[28:54] smartest model in the world runs on like
+[28:55] extra high or max and investigate
+[28:58] something and self-closes if there's no
+[29:00] issue like that is tremendous value if
+[29:02] there is an issue it spots it explains
+[29:04] it to me in plain English and tells me
+[29:06] what the proper fix is again in the
+[29:08] future This will be even more automated.
+[29:10] Even more of these will be launched by
+[29:11] agents. But you can start to see how
+[29:13] powerful this is. Me as a somebody who's
+[29:15] running like a very lean team. We are
+[29:18] doing so much more work than literally
+[29:20] companies with like 50, 100, 200
+[29:22] developers. Why? Because we know how to
+[29:24] use these agents and we have these
+[29:26] agentic automations. And you saw earlier
+[29:28] in the video how multiple of them
+[29:30] started at the same time. And by the
+[29:31] way, stuff like this is absolutely
+[29:32] essential security sweep, right? every
+[29:34] 90 minutes just extensive pen testing
+[29:37] and cyber security testing of my
+[29:38] codebase. If you are not doing that
+[29:40] someone else will do it on you, right?
+[29:42] So in the future it'll just be whoever
+[29:44] spends more tokens on a software and
+[29:46] tries to you know break through tries to
+[29:47] access to sensitive data, get admin
+[29:49] access or you know do you whatever. So
+[29:53] this is not really optional like all of
+[29:55] you will implement this. The question is
+[29:57] will you start implementing it today or
+[29:59] will you wait six months 12 months and
+[30:01] implement it once it's obvious to
+[30:02] everybody at which point there is no
+[30:04] advantage. Now, cloud regions are hard,
+[30:07] right? There's a reason why most people
+[30:08] still don't use them. And the best
+[30:11] products are all closed source from
+[30:13] large companies like Codex, Cursor,
+[30:15] Claude, Devon from Cognition AI, right?
+[30:18] All of them are closed source and uh it
+[30:22] there has never been a good solution
+[30:24] that lets you like have full sovereignty
+[30:26] of your data, export the chats and that
+[30:28] feels really that allows you to use any
+[30:30] model, any any hardness, any
+[30:32] subscription. And there's a reason for
+[30:33] that because cloud agents are hard,
+[30:35] right? It's it's hard to start a thread
+[30:38] and needs to feel feel as local. If it
+[30:40] doesn't feel just as fast as on local,
+[30:42] people will not adopt cloud agents. You
+[30:45] need your repos there and your context
+[30:47] there, your skills, right? You want to
+[30:48] use the subscriptions you already pay
+[30:50] for. Like if you need to switch to like
+[30:52] I don't know AM and Devon. The problem
+[30:54] with them is that they force you to use
+[30:56] their subscriptions and their harness.
+[30:59] We're all all of us are paying more for
+[31:00] AI tokens than ever before, right? We
+[31:02] want to use the subscriptions we already
+[31:03] have whether that's codex, load code,
+[31:05] cursor,
+[31:07] newsportal, whatever. And the agent
+[31:09] sometimes still needs your laptop. So
+[31:11] cloud agents are hard. It takes a lot of
+[31:13] care and effort and deep knowledge to
+[31:15] make them execute correctly. And e just
+[31:18] one of these frictions would be enough
+[31:19] for people to not use cloud agents. So
+[31:23] that's exactly what my vision is with
+[31:26] cloud room. What I'm building this is
+[31:28] platform for running thousands of agents
+[31:30] productively. That's the ultimate vision
+[31:32] and I'm building it open source and uh
+[31:36] it allows you to use any model any
+[31:38] harness and any subscription and it's
+[31:40] really designed to not only do the
+[31:43] current work like I showed you earlier
+[31:45] with you know chatting with any model
+[31:47] whether it's cloth code cursor codeex
+[31:50] this is devon pi open code heras
+[31:53] whatever but also to do the futuristic
+[31:57] steps right creating the agentic loops
+[31:59] aentic automations moving moving towards
+[32:01] the future of work with the software
+[32:02] factories and having all the tools where
+[32:05] you could run thousands of agents
+[32:06] proactively from a single interface and
+[32:08] also letting you choose whether you
+[32:10] start thread on local or on cloud
+[32:12] because you know sometimes you really
+[32:14] might want to clean up your downloads
+[32:15] folder or desktop and you want to run it
+[32:16] locally or local in a work tree or just
+[32:19] in a cloud where each cloud thread gets
+[32:21] its own isolated sandbox. So the target
+[32:23] avatar for this is really not everyday
+[32:26] people. It's entrepreneurs and really
+[32:28] the superpower users like advanced
+[32:30] developers and people doing lot of
+[32:32] agentic work. And if you aren't already
+[32:35] paying for multiple $200 a month
+[32:37] subscriptions, this isn't like you're
+[32:40] not the target avatar for this. The
+[32:41] ideal person would already have $200
+[32:43] plan on cloud code and $200 month plan
+[32:46] on Codex. And you already should have
+[32:48] the need to run agents in the cloud.
+[32:50] Like my not my job here is not to
+[32:52] convince you that you should be running
+[32:53] cloud agents, right? You've already
+[32:55] watched enough of this video. If it's
+[32:57] not obvious by now, then um I probably
+[32:59] am not going to convince you, right? So
+[33:02] the reason I'm saying this is because
+[33:03] we're moving towards general launch and
+[33:05] before that I'm looking to work with a
+[33:07] couple of individual a handful of
+[33:09] individuals who have a business or who
+[33:12] have the need to run many many agents on
+[33:15] cloud infrastructure because uh I'm
+[33:17] opening up cloud room ultra. So when you
+[33:19] go to cloudroom.dev which I'm going to
+[33:21] link this below the video you can click
+[33:23] on get started or just the pricing and
+[33:25] cloudroom ultra is really for the most
+[33:27] powerful people and again I'm going to
+[33:28] be working with you directly to help you
+[33:30] deploy cloud agent infrastructure for
+[33:32] you. You're going to get personalized
+[33:34] onboarding with me and my team and you
+[33:37] get 10,000 cloud agents per 30 days. So
+[33:40] 10,000 different cloud agent launches
+[33:42] and each agent runs in his own
+[33:44] environment. So again I'm going to
+[33:46] demonstrate that to you. When you are
+[33:47] inside of cloud room, you can select the
+[33:49] environment. So here I can say launch 15
+[33:52] sub aents to analyze different parts of
+[33:55] this codebase for smallbox. Put each sub
+[33:58] agent as sonet 5.5 extra high model.
+[34:03] Boom. So here it is. It launched the
+[34:05] main agent and look at that. That was
+[34:07] like less than a second. Okay.
+[34:10] Most cloud agent platforms take 20 to 30
+[34:12] seconds to boot up the sandbox. I've we
+[34:14] have done a lot of work. me and my team
+[34:16] to make this feel as fast as possible as
+[34:19] fast as local. That really is the bar.
+[34:21] It needs to feel as fast as running
+[34:23] agent locally. So this opus will launch
+[34:25] 15 sub aents and it's analyzing the
+[34:27] codebase and going to make each of them
+[34:29] look for different small bugs and it
+[34:31] could be any other task. Obviously this
+[34:32] is a just a demonstration task. It could
+[34:35] be like doing research or cyber security
+[34:37] testing or working on a feature. And
+[34:38] there it is. Look in the left sidebar.
+[34:40] It's launching this very easily. And
+[34:42] this is already something that like
+[34:43] cloud desktop cannot do. It cannot like
+[34:45] interact with other threats
+[34:46] programmatically like that. And the
+[34:48] beauty of the cloud threats is that each
+[34:50] agent run its own isolated sandbox. So
+[34:54] they're not stealing resources from one
+[34:56] another. They are not competing for the
+[34:58] same CPU and RAM and disk, right? Let me
+[35:00] just stop it now. Pause all of them. You
+[35:03] can also see all your limits right from
+[35:05] all the different plants. So boom. And
+[35:06] just like that, he stopped all of them.
+[35:08] Now archive all of them and relaunch
+[35:10] them as codeex instead with GPD 6.1 soul
+[35:13] as the model. and do 25 sub agents
+[35:15] instead of 15. So if you look at here,
+[35:17] it's obviously Sonet because that's what
+[35:18] we um discussed. But now boom, it
+[35:21] archives all of them just like that. And
+[35:23] now it should launch 25 codex sub aents
+[35:26] u with a different model. Right? So you
+[35:28] can mix the harnesses. You can have Opus
+[35:30] as orchestrator and then Soul as the
+[35:32] worker or Astra as the manager and then
+[35:34] Opus or or Sonet as the implementing
+[35:37] agent. It's entirely up to you, right?
+[35:39] All of this is possible inside of cloud
+[35:40] room and that's what I'm trying to build
+[35:42] is the platform to run thousands of
+[35:44] agents productively. So as I mentioned
+[35:46] right now I'm looking for a handful of
+[35:48] people who work closely with uh people
+[35:50] who can afford the ultra plan and again
+[35:52] your target avatar is somebody who has a
+[35:55] business who has the need to run 20 30
+[35:58] 40 agents in parallel. someone who
+[36:00] already is paying for $200 a month cloud
+[36:02] code and codex and wants really to be at
+[36:06] the cutting edge of AI agents and
+[36:08] already sees the value of cloud agents.
+[36:09] So if that is you go to cloudroom.dev
+[36:12] and uh join the ultra plan and again all
+[36:14] of you will get a personalized
+[36:15] onboarding from me. Let's talk about
+[36:17] this principle that you are the
+[36:18] bottleneck. This is essential to
+[36:20] understand the future of work because if
+[36:22] you don't remove yourself from more and
+[36:24] more things you cannot scale and it's
+[36:25] the same as a business right if you want
+[36:27] to scale to like 10 20 30 people you
+[36:29] need to start removing yourself from
+[36:31] some some tasks like you cannot be doing
+[36:33] everything as a CEO and the same thing
+[36:35] is you are the CEO of your agent army
+[36:38] you cannot be doing everything so OB 5.5
+[36:40] is already the AGL level if you disagree
+[36:42] you are wrong uh it's the best model
+[36:44] right now by a lot because it's
+[36:46] extremely cost efficient I'm going to
+[36:48] touch on like what is my token setup and
+[36:50] subscription setup a bit later. But Opus
+[36:52] 545 is like incredibly fast and
+[36:55] incredibly token efficient and is
+[36:56] incredibly smart. All of the design and
+[36:58] visuals like literally I'm I'm I'm going
+[37:00] to admit it, right? If we go to Cloud
+[37:01] Room, all these animations and these
+[37:03] graphics, this is me working with Opus
+[37:05] 5.5, right? Yes, I I asked for multiple
+[37:08] variations and I did some tweaks to make
+[37:09] these animations smooth, but like no
+[37:12] other model would come even close. It's
+[37:14] crazy. like all of these designs. Yes,
+[37:17] you need to have some taste as a human
+[37:18] to know what is good and what isn't. But
+[37:20] man, like Opus is is AGI. It's AGI. So,
+[37:24] you need to figure out how to let it
+[37:26] cook, how you can get the most out of
+[37:28] the subscription and remove yourself.
+[37:30] That's another thing. A lot of you um
+[37:32] let the weekly limit just go with like
+[37:34] more than half of it unused.
+[37:37] You can do a lot with that. And you the
+[37:39] the the bad answer, there's two answers,
+[37:41] right? The one of them is like, okay,
+[37:43] you're going to downgrade your
+[37:44] subscription. Sure, you save $100 a
+[37:46] month, but then you're just admitting
+[37:48] you don't know how to turn tokens into
+[37:50] revenue, and that's a very bad problem
+[37:52] because that's literally like the main
+[37:54] skill of the future. Can you use these
+[37:57] tokens to generate more money than it
+[37:58] cost cost you to pay for the
+[38:00] subscription? And the anthropic
+[38:01] subscription is already subsidized like
+[38:02] 90%. And more on that later. I'm going
+[38:04] to show you the actual stats research
+[38:06] from semi analysis but like you get like
+[38:09] 90 tokens of Opus 5.5 for like 90% 50 to
+[38:14] 90% less than you would get it in the
+[38:17] API so what do you do well you try to do
+[38:20] something right you try to improve your
+[38:22] marketing try to improve your product
+[38:23] cyber security I already showed you like
+[38:25] guys just steal it steal my automations
+[38:27] right billing review database health
+[38:29] check feedback threats from customers
+[38:31] get up issues PRs um overview of of like
+[38:34] public repos, sandbox alert threats,
+[38:37] different issues with sandboxes and like
+[38:38] hitting limits. Security sweep, cyber
+[38:40] security, simplifying the codebase,
+[38:42] looking for unnecessary complexity or
+[38:43] unused code, right? We can go big deep
+[38:46] bit deeper here. Um, test gap. Okay, so
+[38:50] this one is like a bit more advanced.
+[38:53] This one looks for u missing tests, but
+[38:57] it it's more nuanced because
+[39:00] agents love tests. they will just flood
+[39:02] your whole codebase with unit tests and
+[39:04] component tests, integration tests,
+[39:05] whatever. This is much better because it
+[39:08] checks different parts of the codebase
+[39:11] to see if there's a like a gap for
+[39:13] obviously good test. When Opus thinks of
+[39:16] it, it launches GBD 6.1 soul extra high
+[39:19] doing adversarial review of it.
+[39:21] Basically kind of assuming that like is
+[39:23] this test You know, assume
+[39:24] it's not needed, whatever, whatever. And
+[39:27] only if both models, Opus who found the
+[39:30] test and GBT who was reviewing it, if
+[39:32] both agree that this is a good test to
+[39:34] add,
+[39:36] then it passes and then it goes to me
+[39:38] for approval, right? So you can see like
+[39:40] how these agentic automations can become
+[39:42] more advanced over time and really you
+[39:45] need to start building these for you.
+[39:46] So, whatever that is,
+[39:49] um, whatever if you're building a
+[39:51] software, if you're doing a marketing
+[39:52] agency, if you're a real estate agent,
+[39:55] you need to figure out if your business
+[39:56] was 100 times bigger. And you can just
+[39:58] research it because there probably are
+[40:00] companies 100 times bigger. What are
+[40:02] their departments like? What are the
+[40:03] teams at their companies like? And
+[40:05] that's how you need to start creating
+[40:06] these automations that again, some of
+[40:08] them run on a trigger, some of them run
+[40:10] every 10 minutes, some of them run every
+[40:11] four hours. Depends up to you. And
+[40:13] that's like really the art of you
+[40:15] fine-tuning that over time. So basically
+[40:17] the question is where else can I point
+[40:18] Opus at or Astra or GBD6 these super
+[40:22] powerful models. How can you use them?
+[40:24] What is like some automation, some loop,
+[40:26] some mini software factory you can
+[40:27] launch that would like be directionally
+[40:29] correct? And again you need to try some
+[40:31] of them. Maybe you delete some that are
+[40:32] not useful. But if you don't try, you
+[40:34] will not find the great ones. Okay.
+[40:35] Okay, so let's talk about inference
+[40:37] because this is one of the main
+[40:38] variables of running your software
+[40:40] factories, your agentic loops, whatever
+[40:42] is like what how much you're spending on
+[40:44] inference and what you know tokens
+[40:46] you're running. So great research from
+[40:48] some analysis which by the way I posted
+[40:50] uh like a less scientific version of it
+[40:52] on Twitter and it went viral recently.
+[40:54] Here it is. A lot of people thought I
+[40:57] wasn't uh I was being like facitious or
+[40:59] like I was being u overly dramatic but
+[41:02] this is actually true. Before Opus 5.5
+[41:05] released, I had six different $200 a
+[41:08] month codex plans. Why? Because Astra
+[41:11] was the best model in the world. For a
+[41:12] solid 3 weeks, Astra was the goat. It
+[41:14] was by far the best model in the world.
+[41:16] Way better than Fable Fable 5.1. But
+[41:19] then Opus 5.5 released. And one Lord
+[41:22] Code subscription for 200 can handle the
+[41:25] same amount of tokens. In fact, more
+[41:27] because Opus is insanely fast, way
+[41:29] faster than Astra. And that's why I was
+[41:32] uh very confident in this uh estimate
+[41:34] that currently the cloth code 200
+[41:37] subscription gives you 16 to 20x time
+[41:39] more usage than the codax 200 and then
+[41:42] obviously openai before the dev day they
+[41:44] dropped u they reduced the usage of
+[41:47] codex 200 plan by half and then they
+[41:49] released their $500 plan so you know it
+[41:53] is what it is but basically u semi
+[41:55] analysis even though it wasn't as
+[41:57] radical kind of confirmed that it is
+[41:59] like 10 point 10 times more value 10.6
+[42:03] and 10.6. So basically you get 10 times
+[42:05] more value currently from cloud code
+[42:09] subscription compared to open codex. So
+[42:12] if you only have
+[42:14] like space for one $200 a month plan.
+[42:16] It's not even close. I cannot in good
+[42:19] faith recommend you the $200 codex plan
+[42:21] right now when the current enthropic
+[42:23] plan is such a good value. So Opus 515
+[42:25] is the best model. If you think
+[42:26] otherwise you're wrong. And again,
+[42:28] there's probably going to be another big
+[42:30] model release in the next two weeks,
+[42:31] three weeks, who knows? So, this can
+[42:32] change very fast. But Enthropic is right
+[42:34] now on a tear. And I expect if they
+[42:37] release Fable 5.5, probably going to be
+[42:39] the best as well. So now, basically,
+[42:44] most of my tokens come from a single
+[42:46] $200 close code subscription. Now, I did
+[42:48] get a second one to run more of these
+[42:50] aentic loops. So, to be fully
+[42:52] transparent, I'm paying for two. And
+[42:54] yes, I'm paying for all of these. The
+[42:55] companies are not paying uh me for them.
+[42:58] It's my own money. And this was worth it
+[43:00] at the time. Astra had the best tokens.
+[43:02] So I was happily paying 1,200 a month
+[43:04] for uh six different codeex plans. But
+[43:06] now
+[43:08] um Opus is best. So GPT models, how do
+[43:10] you use them? Well, I use them for
+[43:11] review, right? So if we go into cloud
+[43:13] room, what I might do is for example,
+[43:16] actually here is like example of a
+[43:18] automation how it works when it runs,
+[43:19] right? So this was a simp like a 16th
+[43:22] execution of this automation to simplify
+[43:24] the codebase and it's it comes with the
+[43:26] prompt launches it and then uh um it it
+[43:30] ran for 4 minutes 12 seconds and this is
+[43:33] the model it was sold with max and it
+[43:36] found a cleanup. So now what I can do is
+[43:38] actually usually be in the reverse. So
+[43:40] say run open review to see if this is
+[43:44] legit
+[43:45] and save to delete right. So he will
+[43:48] obviously run this as a sub agent and
+[43:51] again this um this would be inverted.
+[43:54] You you you always want to review with
+[43:56] the separate company model. So Frontier
+[43:59] are two companies right now. Opraia
+[44:01] Anthropic other companies are trying to
+[44:03] be Frontier but yeah it's not even
+[44:05] close. Um Opraia Anropic are the two
+[44:08] companies at the at the cutting edge. So
+[44:10] when you build something with GPT 649
+[44:12] Solo or GPT Astra 6 Astra you want to
+[44:15] review it with OB5. If you build with
+[44:18] Opus 5.5, you want to review it with GBD
+[44:20] 61, right? Always review with the
+[44:24] second company model to spot like
+[44:26] differences and to look at it in a
+[44:27] different way. So again, 98%
+[44:31] of my threads are running Opus as the
+[44:33] primary. So then I launch GBD 6.0 Soul
+[44:35] or Astra or sometimes both if it's like
+[44:38] a serious change for review. And then I
+[44:41] ask Opus like is this legit or is this
+[44:43] just overthinking, right? you want to
+[44:45] avoid API pricing at all, don't pay API
+[44:47] pricing, um yeah, the subscriptions are
+[44:50] a better deal. Um if you need to pay API
+[44:52] pricing for some cost like some reason,
+[44:54] just you would need to use like Chinese
+[44:56] models for sure because they're much
+[44:57] better deal. Um I mean now haiku is
+[45:00] pretty good deal from
+[45:02] Enthropic and yeah, you can look at
+[45:04] these more specific numbers from
+[45:06] artificial analysis. Enthropic is just
+[45:09] giving you a much better deal right now
+[45:10] and it's not even close. So
+[45:14] let's talk about the types of triggers,
+[45:15] right? Because this is what matters when
+[45:17] it comes to building these software
+[45:18] factories or agentic loops.
+[45:21] What starts an agent? In the past or I
+[45:24] guess currently as well, most of us are
+[45:26] still launching a lot of agents
+[45:28] manually, which is fine for a
+[45:29] transitionary period, right? It's fine
+[45:31] to like do it where it's nearly needed,
+[45:34] but you should really seek to remove
+[45:36] yourself from as many of these as
+[45:37] possible and look for different types of
+[45:38] triggers such as a schedule every 15
+[45:40] minutes, every 5 hours, once a day, web
+[45:44] hook. This is going to be one of the
+[45:45] most like flexible ones. A separate like
+[45:48] incident, database outage, error spike,
+[45:50] whatever. Customer feedback, right? The
+[45:52] more customers you have, the more
+[45:54] feedback you have. proactive um bug hunt
+[45:56] which uh can run on a schedule I guess
+[45:59] but or another agent that's another
+[46:01] thing right this is going to be really
+[46:02] the frontier for example one of my
+[46:04] opensource repos is the director let me
+[46:07] see if I can find it here and that's a
+[46:09] like a main agent yeah right here that
+[46:14] manages other ones and that kind of
+[46:16] learns your prompting style and learns
+[46:19] your decision-m over time and again this
+[46:21] is a open source repo so you can take it
+[46:23] but really this is going to be the
+[46:24] artist frontier and that's where it's
+[46:26] going to get the most crazy because you
+[46:28] can imagine like I show you you can have
+[46:31] a manager with 15 20 25 sub agents and
+[46:36] if you have good skills and good
+[46:38] knowledge and good rules how you operate
+[46:41] and you can teach that to a powerful
+[46:43] model like open 5 as a director you can
+[46:47] get probably very far and it can
+[46:48] actually unblock the other agents more
+[46:50] efficiently than you would think. So
+[46:52] this is important to understand and
+[46:53] again triggers are like half of it. The
+[46:56] second half is the execution. Now let's
+[46:58] talk about problems and skills right
+[46:59] because people don't see what that is.
+[47:00] They think oh it's just a markdown file
+[47:02] but
+[47:04] really this is the first attempt towards
+[47:07] automating and towards optimizing. A
+[47:10] skill is like something you do a lot
+[47:13] right prompt is like the simplest. A
+[47:15] prompt template is just something you do
+[47:17] all the time. Right? I can show you a
+[47:18] bunch of these that I use every single
+[47:20] day. Like for example this rebase off of
+[47:22] main check the underlying code to see if
+[47:24] has been fixed or not yet answer in
+[47:26] short plain English or answer in short
+[47:28] and plain English or don't be verbose
+[47:29] make your answer simpler and shorter
+[47:30] focus on what really matters or run
+[47:33] forex var search deep research and 3x
+[47:35] deep scrape on this or anything else to
+[47:38] do here or not really remind me of the
+[47:39] original purpose of this right these are
+[47:41] all raycast snippets that I can just
+[47:43] instantly invoke faster than you can
+[47:45] even understand what's happening and uh
+[47:47] yeah that's how I can work way faster
+[47:49] than anybody
+[47:50] But these are still like prom templates,
+[47:52] right? The next level of that is skills.
+[47:54] I have many skills obviously. In fact,
+[47:56] my skills repo is open source, so you
+[47:58] can just take them and copy them, the
+[48:00] ones that matter. And uh yes, this is my
+[48:03] most popular repo with over 4,000 stars.
+[48:05] And skills are basically like more
+[48:07] advanced um processes, right? like SOPs
+[48:10] in companies, standard operating
+[48:12] procedures,
+[48:13] things that you kind of repeat and find
+[48:15] yourself repeating such as the decision
+[48:17] skills that I run after it does or like
+[48:20] the GP reviewer, you know, like running
+[48:21] it with the with the opposite model like
+[48:26] the review skills. I have like a total
+[48:27] review as well or I have like a GI
+[48:30] release or um types of different
+[48:32] releases, right? The core release,
+[48:34] computer use skills, um yeah, a lot of
+[48:37] different stuff. So the types of
+[48:38] processes like the types of work you can
+[48:40] turn into skills and then you can invoke
+[48:41] them. But if you're paying attention in
+[48:44] this video, you are still needed in that
+[48:46] loop and that's not ideal. All right. So
+[48:48] prompts and skills are a great step in
+[48:50] the right direction. It's definitely
+[48:52] directionally correct but you still want
+[48:54] to be removing it and you still want to
+[48:56] do like if you need to be involved more
+[48:58] work should happen. So what I predict is
+[49:01] that after skills we will see the
+[49:03] invention of sequences and sequences
+[49:06] will be basically a sequence of multiple
+[49:09] skills chained together but it's going
+[49:10] to be based on probability of watching
+[49:12] your own behavior right so all of us
+[49:13] have agent traces and like the agentic
+[49:15] sessions on our computer and if you've
+[49:18] been using agents for a couple of months
+[49:19] you probably have thousands of different
+[49:20] agent sessions stacked up so somebody
+[49:22] could see like okay in this type of
+[49:24] situation David runs these three skills
+[49:27] back to back with a 98% probability that
+[49:31] would be a sequence a sequence of skills
+[49:33] right and uh I think that's going to be
+[49:35] the next step in the right direction
+[49:38] again you still need to be involved to
+[49:40] some degree so we're going to be
+[49:42] optimizing both like asynchronous work
+[49:45] and synchronous from the human both of
+[49:46] these need to be hyper optimized but
+[49:48] after skills I I predict that sequences
+[49:51] will be the next uh big paradigm big
+[49:54] strength over the next six six months
+[49:56] now agent loop into software factory
+[49:58] right So loop is the trigger where the
+[50:01] agent doesn't work and there's a check
+[50:02] and that repeats right a simple loop for
+[50:05] factory is many different loops doing
+[50:07] different things right so I showed you
+[50:08] like I call it mini software factory
+[50:10] because I don't think we're quite there
+[50:13] yet I think this is still early days so
+[50:15] I don't want to like fully claim like a
+[50:17] lot of people just say like AGI they
+[50:19] were speaking it for last three years
+[50:20] like AGI is here whatever soft factories
+[50:23] I want to make the claim when it's there
+[50:26] okay so I think we have reached AGI but
+[50:29] I don't think people are running like I
+[50:31] wouldn't claim what I have right here is
+[50:32] the best software factory possible
+[50:34] that's why I call it a mini software
+[50:35] factory right so it's not just one
+[50:37] agentic loop you can see it's like on
+[50:39] different like software disciplines and
+[50:42] types of software work because I'm
+[50:44] building a software company obviously if
+[50:45] you're building a different type of
+[50:46] company it would look different but
+[50:48] that's why I like to call it a mini
+[50:50] software factory and again software
+[50:53] factory is just many different agentic
+[50:55] loops um working together in parallel to
+[50:58] achieve a specific outcome either in
+[51:00] your life or business. So yeah, that's
+[51:03] the difference. So I guess let me show
+[51:05] you how easy it is to build an
+[51:06] automation in plain English inside of
+[51:08] Cloud Room. And I already have many. So
+[51:12] let's uh let's do a new thread. Let's do
+[51:16] let's do a cloud thread. Let me show you
+[51:18] how fast cloud threads are. Opus 5.5
+[51:21] high is enough. So I'm going to voice
+[51:22] prompted. Right. I want to create a new
+[51:25] automation and basically
+[51:28] actually let me show you local thread
+[51:29] because I already showed you cloud
+[51:30] thread so I want to make you
+[51:33] see all of it that you can do stuff on
+[51:36] local as well. Okay, if you're using
+[51:39] codeex or cloud code or whatever you can
+[51:41] do local work inside of cloud room as
+[51:43] well. So let me show you local because I
+[51:44] already showed you how powerful it can
+[51:46] be on cloud running all of these uh sub
+[51:48] agents.
+[51:50] So let's do this.
+[51:52] create a new cloud room automation where
+[51:55] every two hours a new threat spawns with
+[51:58] opus 5.5 extra high as the model and it
+[52:02] looks for product gaps against all of
+[52:05] the ADRs we have in /doc/ ADR and looks
+[52:08] for like one obvious improvement for our
+[52:10] product. It could be a feature, it could
+[52:12] be more clear UI, anything. Uh it needs
+[52:15] just needs to be aligned with our ADRs
+[52:17] and decisions we've made in /docs
+[52:18] folder. And then when it finishes and it
+[52:22] has a good idea, launch
+[52:26] a reviewer sub agent below it with GPT
+[52:30] 6.1
+[52:32] past
+[52:33] extra high as the model and doing
+[52:36] adversarial review to try to make the
+[52:38] arguments of like why this shouldn't be
+[52:39] a feature and why this shouldn't be
+[52:41] added. Once the sub aent finishes, it
+[52:42] should go back to the main agent and he
+[52:45] should review the feedback of the sub
+[52:47] agent thinking about it from first
+[52:49] principles. And if he agrees with the
+[52:51] sub agent, he should simply archive both
+[52:52] threats. But if he disagrees, he should
+[52:54] keep this threat opened waiting for me,
+[52:57] David, to review it. Create this cloud
+[52:59] room automation now. Keep it simple.
+[53:01] Don't overthink it.
+[53:03] So just like that, literally less than a
+[53:05] minute of speaking and I have a prompt
+[53:08] that will result in an automation that
+[53:10] can like forever improve my product.
+[53:13] Right now again when you launch a new
+[53:16] automation it might need a few like
+[53:18] tweaks in the first time first few times
+[53:21] it runs to get it right to make it
+[53:23] useful so that it's actually producing
+[53:25] good results and not just wasting tokens
+[53:27] or you know adding slope. This is the
+[53:28] main thing a lot of people just flex
+[53:30] like yo recently I l literally heard
+[53:33] somebody flex that he has over half a
+[53:35] million markdown files like nobody cares
+[53:37] like you could just run a cheap obs
+[53:39] model and generate half a million
+[53:40] markdown files like literally nobody
+[53:41] cares so
+[53:44] don't flex lines of code don't flex how
+[53:46] many markdown files you have it just
+[53:48] shows you're a dummy and a beginner
+[53:51] you need to figure out how to add this
+[53:53] in a way where again you
+[53:56] I think big product decisions should be
+[53:58] made by humans and like UIUX still agent
+[54:01] does have that taste but again backend
+[54:03] bucks database optimizations speed ups
+[54:05] in the codebase all of these things opus
+[54:08] is much better than me and I have no
+[54:10] like ego around that I I have no need
+[54:12] for like to hold on on the things where
+[54:14] Opus or or Astra or other models are
+[54:17] better than me right so you need to let
+[54:19] go where the agents are better and
+[54:21] instead embrace it and and build those
+[54:23] engine loops and automations this is the
+[54:25] test run okay so it's it's looking for
+[54:27] it um it's analyzing the codebase for an
+[54:30] idea and uh we'll see if the if the sub
+[54:35] agent launches with soul that's how it
+[54:38] looks like product gapped uh automation
+[54:42] and but the nice thing that you can just
+[54:43] click through them and these agents are
+[54:45] tagged so you can tag any of these
+[54:47] agents so for example here I can do like
+[54:50] find bugs equals 50 codes areas um just
+[54:53] archive this threat and all of his sub
+[54:56] agents
+[54:58] And these agents can interact with each
+[55:00] other. You can have like complex
+[55:02] relationships and hierarchical
+[55:03] structures. Um really your creativity is
+[55:06] limit. And my my goal with cloud room.
+[55:09] There it is. All of them are archived.
+[55:11] My goal with cloud room is to like build
+[55:13] the best open source cloud agents. And
+[55:16] really right now we're the world's first
+[55:18] tool like AI coding tool that gives you
+[55:20] a cloud agent um in each thread with a
+[55:24] separated environment. Right? So here by
+[55:26] the way you can say like uh what
+[55:28] computer are we on or what machine are
+[55:30] we on going to run that same prompt in a
+[55:34] new cloud thresh so you can see the
+[55:37] difference right so here it will say
+[55:39] like oh we're on MacBook Pro whatever
+[55:41] whatever 128 GB of RAM there we go right
+[55:46] then the same question here look how
+[55:48] fast it was it was the same speed as
+[55:49] local we're in a cloud room cloud
+[55:51] sandbox so yeah this is Uh this is my
+[55:56] goal is to build the ultimate platform
+[55:58] to run thousands of agents productively.
+[55:59] And yeah, there it is. It launch
+[56:01] launched the um
+[56:03] it launched the sub agent to do the
+[56:05] adversarial review
+[56:08] to see like what's happening and whether
+[56:09] this is a good feature. So yeah, that's
+[56:12] how easy it is to launch a new
+[56:13] automation. You can actually see it
+[56:14] here. Uh we have now 32 instead of 31.
+[56:17] And I think this is that one product gap
+[56:20] every two hours. So um yeah, I mean you
+[56:24] can turn it on, turn it off, very easy
+[56:26] to manage that.
+[56:29] So another thing before we wrap up, I
+[56:31] want to address a complete lie that you
+[56:34] might have heard from people like Sam
+[56:35] Ultman and it's that the AI will benefit
+[56:38] everybody and it's going to lift
+[56:39] everyone. Guys, the gap is growing.
+[56:43] Right now I'm in San Francisco and I met
+[56:44] like so many locked in people and
+[56:46] everybody agrees that like if you know
+[56:48] how to run 50, 100, 200 agents
+[56:51] productively in a useful way,
+[56:55] it's not going to be even fair compared
+[56:57] to the average person on the street. And
+[56:58] again, most people still don't use any
+[57:00] AI, right? Like most people, your
+[57:02] friends, family, whatever, they're not
+[57:04] locked in at all. But even those that do
+[57:06] use AI, they're using a free plan on
+[57:08] JBT, a free plan on Gemini. They're not
+[57:11] building software factories.
+[57:15] Like the gap is growing. The people who
+[57:17] are locked in, who at the cutting edge
+[57:18] of AI, they're getting further and
+[57:20] further ahead and they're getting like
+[57:22] insanely more productive compared to
+[57:24] everyone else. So really, the cost of
+[57:27] not being on the cutting edge has never
+[57:29] been higher. And uh yeah, the reason why
+[57:31] like these public CEOs of big companies,
+[57:34] they don't say it is because, you know,
+[57:36] they're on a big interview on TV or
+[57:38] whatever and they it would be really bad
+[57:40] PR if they said this, but I don't care.
+[57:43] I'm going to say the truth and the gap
+[57:46] is blowing. So, you might be like,
+[57:47] "Okay, David, how do I see the future?
+[57:49] How do I reason about it?" Right?
+[57:52] The the thing is like a lot of these
+[57:54] things are kind of obvious if you just
+[57:56] sit down and think about them. What we
+[57:57] do at our team is just like we do a 1
+[57:59] hour session and like you know you can
+[58:01] literally do like a voice recording on
+[58:02] your phone or on your computer and we
+[58:04] reason about a specific topic right like
+[58:06] why is this company growing or we notice
+[58:09] this trend behavior of people with AI
+[58:11] what does that imply or when Jeff
+[58:13] released like what do like cheap
+[58:15] decision models imply right and you just
+[58:17] sit down and you don't do anything no
+[58:19] phones no computers you just reason and
+[58:21] talk on a specific direction for 60 to
+[58:24] 90 minutes and that's if you do that
+[58:26] every day for a month for two months you
+[58:29] will have a better understanding of the
+[58:30] future than even most people in AI most
+[58:33] people on the cutting edge because again
+[58:35] thinking is hard right so you need to
+[58:37] reason from first principles about human
+[58:39] behavior market dynamics new
+[58:41] technological breakthroughs what will
+[58:44] change like if if there's something that
+[58:46] happens what are the second order
+[58:47] consequences third order consequences
+[58:49] and really reason through it and and
+[58:50] don't leave the table until ideas start
+[58:52] flowing usually the first five or 10
+[58:54] minutes are not productive and like it's
+[58:56] kind of stuck and there's nothing unique
+[58:57] but after that you have ideas. So that's
+[58:59] also how I reasoned my way into cloud
+[59:01] room cloud room and that cloud agents
+[59:04] are inevitable it's just by reasoning
+[59:07] through it and realizing what is going
+[59:09] to be the bottleneck and realizing that
+[59:10] the models are already strong enough to
+[59:13] run uh hundreds and thousands of agents
+[59:16] but we are not running them. Most of us
+[59:18] are not doing that having thousands of
+[59:19] agents productively. So figuring out
+[59:21] what is the bottlenecks and trying to
+[59:23] solve them one step at a time. And
+[59:25] really you have to allocate time to this
+[59:27] because as Joshua Rol said there is no
+[59:30] expedient to which a man will not resort
+[59:33] to avoid the real labor of thinking. In
+[59:35] other words, people will do anything
+[59:37] else still. They'll happily work at
+[59:38] McDonald's 10 hours a day for 40 years
+[59:41] just to avoid sitting down and thinking
+[59:43] like how do I get a better job or how do
+[59:45] I improve my career or maybe which
+[59:47] industry should I work in. Pinking is
+[59:50] the hard part. Okay, clicking around and
+[59:52] doing stuff is no longer the hard part.
+[59:54] Any agent can do that. You give an agent
+[59:56] a computer use and and a couple of MCPs
+[59:58] and tools,
+[60:00] they can do a lot of things better than
+[60:02] humans. The real labor, the real work,
+[60:05] difficult work right now is going to be
+[60:06] thinking and reasoning about the future
+[60:08] from first principles. So, make sure you
+[60:10] actually do that and uh make sure you're
+[60:13] not avoiding painful work of thinking.
+[60:16] So, with that being said, thank you for
+[60:18] watching. And again, if you're
+[60:19] interested in working with me more
+[60:20] closely, I'm going to be working with
+[60:23] roughly the first 10 people who sign up
+[60:25] on the ultra plan for Cloud Room. I'm
+[60:27] going to personally onboard them to the
+[60:29] platform and help them um really adopt
+[60:32] Cloud Asians in their life and their
+[60:33] company. And yeah, so if that's you, if
+[60:36] you're a business owner, if you're a
+[60:38] real power user that runs at least two
+[60:41] $200 plans, whether it's on Corode, you
+[60:44] are the target avatar. If that's not
+[60:46] you, no worries. This is uh this is not
+[60:49] yet for you. But with that being said,
+[60:50] thank you guys for watching and hope you
+[60:52] find this video valuable and have a
+[60:54] great productive week. the

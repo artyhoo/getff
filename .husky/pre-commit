@@ -11,12 +11,27 @@
 #   - markdownlint-cli2:   structural rules on staged *.md (sub-wave 7.1.a)
 #   - guard-liveness:  ESLint rules in rules-manifest.json have negative-test.input
 
+# ── husky-own-worktree-delegate (begin) ─────────────────────────────────────
+# Run THIS worktree's copy of the hook, whatever core.hooksPath points at. The Claude desktop
+# app writes an absolute `core.hooksPath=<primary>/.husky` into every worktree it opens, so git
+# runs the primary checkout's files — 457 commits stale on 2026-09-30, which let a pre-commit
+# check miss in a worktree and land in CI (#1983). POSIX sh, so the one block also serves
+# post-checkout, which runs under sh.
+# Must stay above any other code; packages/core/hooks/husky-self-delegate.test.ts gates that.
+__own_hook="$(git rev-parse --show-toplevel 2>/dev/null)/.husky/${0##*/}"
+if [ -x "$__own_hook" ] \
+  && [ "$(cd "$(dirname "$__own_hook")" && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
+  exec "$__own_hook" "$@"
+fi
+unset __own_hook
+# ── husky-own-worktree-delegate (end) ───────────────────────────────────────
+
 set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 CHANGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
 
-if [ -z "$CHANGED" ]; then
+if [ -z "$CHANGED" ] && ! git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then  # a merge commit may stage nothing new; the unpushed-merge arm at the end still runs
   exit 0
 fi
 
@@ -51,7 +66,7 @@ while IFS= read -r f; do
       # (2026-08-08: no CI mirror — audit-self.yml carries no 600-line check; this hook is the only channel.)
       case "$f" in
         docs/meta-factory/EXECUTION-PLAN.md)
-          if head -20 "$f" | grep -qi "transient artifact"; then
+          if grep -qi "transient artifact" <<<"$(head -20 "$f")"; then
             : # skip — declared transient, see line 8
           else
             echo "❌ $f is in exempt list but lacks 'transient artifact' marker in first 20 lines"
@@ -64,7 +79,7 @@ while IFS= read -r f; do
         # citations, so it is exempted instead (operator decision 2026-08-08, PR #1282 fork).
         # The marker requirement keeps the exemption self-documenting at the file itself.
         docs/meta-factory/research-patches/2026-05-29-aif-handoff-bridge-variant-b-prime-hybrid.md)
-          if head -20 "$f" | grep -qi "line-limit-exempt"; then
+          if grep -qi "line-limit-exempt" <<<"$(head -20 "$f")"; then
             : # skip — grandfathered, see marker in file header
           else
             echo "❌ $f is in exempt list but lacks 'line-limit-exempt' marker in first 20 lines"
@@ -79,7 +94,7 @@ while IFS= read -r f; do
         # same list∩marker shape as the two entries above.
         .claude/orchestrator-prompts/queue-mode-bootstrap/kickoff.md|\
 .claude/orchestrator-prompts/strategic-clarity-dialogue/kickoff.md)
-          if head -20 "$f" | grep -qi "transient artifact"; then
+          if grep -qi "transient artifact" <<<"$(head -20 "$f")"; then
             : # skip — declared transient in file header (pre-existing)
           else
             echo "❌ $f is in exempt list but lacks 'transient artifact' marker in first 20 lines"
@@ -122,20 +137,20 @@ fi
 # changed since the citing sentence was written) blames the citing line, so it needs a
 # committed baseline and cannot run before pre-push. ARM 2 (the cited line is blank)
 # reads only the working tree, so it is the arm that can refuse a citation WRONG AT
-# BIRTH — the shape of the originating incident (`arch/SKILL.md:94`, an empty line),
+# BIRTH — the shape of the originating incident (`arch/SKILL.md:94`, an empty line), cite:historical line number at incident time
 # and the shape ARM 1 is green on by construction, because its blame commit IS the
 # birth commit. Both arms ran only at pre-push until 2026-09-14, one rung late for this
 # one. Pre-push §9 keeps running BOTH: husky is absent for aif-container commits and
 # `git commit --no-verify` skips this file entirely, so the later channel stays the
 # backstop rather than becoming a duplicate.
 #
-# CITE_SCOPE mirrors LIVE_AUTHORITY_MD in packages/core/hooks/pre-push.ts — the
-# live-authority surface, deliberately NOT the whole markdown corpus: retros,
-# research-patches and specs cite a line as a dated snapshot, and renumbering those
-# rewrites history. A trailing `/` means prefix, anything else is an exact path — the
-# same test the TS side applies. The two lists are compared mechanically by the parity
-# arm in scripts/check-line-citations.test.sh, so keeping them in step is not left to
-# whoever happens to read both files (.claude/rules/attention-is-not-a-mechanism.md §1).
+# SCOPE is the checker's own corpus definition, asked for with `--in-corpus`: every
+# staged path goes in and the checker keeps the corpus members — live-authority Markdown
+# (retros, research-patches and specs cite a line as a dated snapshot, and renumbering
+# those rewrites history) plus code comments, since 2026-09-22. Until then this block
+# kept `CITE_SCOPE`, a hand copy of the Markdown list with a parity arm diffing the two;
+# the code half excludes generated twins, kickoff material and fixture data by rules no
+# flat list here could express, so the copy was retired rather than extended.
 #
 # Two declared limits, measured 2026-09-14 rather than assumed, both backstopped by §9:
 #   · The checker reads the WORKING TREE, not the index — as does every other section of
@@ -144,33 +159,88 @@ fi
 #     claim is «wrong at birth, as it stands on disk», not «cannot enter history».
 #   · A rename-ONLY commit never reaches this block at all: `CHANGED` above is built with
 #     `--diff-filter=ACM`, which is empty for a pure rename, and the hook exits 0 at that
-#     guard before any section runs. A rename that MOVES a doc can break a relative
+#     guard before any section runs (unless MERGE_HEAD exists). A rename that MOVES a doc can break a relative
 #     citation, so this is real — it is simply not this block's to fix.
-CITE_SCOPE='.claude/rules/ .claude/skills/ agents/ CLAUDE.md AGENTS.md CONTRIBUTING.md'
-CITE_MD=$(echo "$STAGED_MD" | while IFS= read -r f; do
-  # `-f` and not just the scope test: a path staged and then deleted from the working
-  # tree makes the checker throw ENOENT, which the `||` below would report as a
-  # blank-landing verdict — a red naming the wrong defect. Same guard as the per-file
-  # loop at the top of this file.
-  [ -f "$f" ] || continue
-  for p in $CITE_SCOPE; do
-    if [ "${p%/}" != "$p" ]; then
-      if [ "${f#"$p"}" != "$f" ]; then printf '%s\n' "$f"; fi
-    else
-      if [ "$f" = "$p" ]; then printf '%s\n' "$f"; fi
-    fi
-  done
-done)
+# An array, not a word-split string: a staged path with a space would otherwise reach the
+# checker as two fragments, which --in-corpus drops, and the file would go unchecked.
+CITE_FILES=()
+while IFS= read -r f; do
+  # `-f`: a path staged and then deleted from the working tree makes the checker throw
+  # ENOENT, which the `||` below would report as a blank-landing verdict — a red naming
+  # the wrong defect. Same guard as the per-file loop at the top of this file.
+  [ -f "$f" ] && CITE_FILES+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
 #
 # Guarded on `command -v node` rather than failing hard, for one reason and not the
 # usual one: letting a missing interpreter fall through the `||` below would print a
 # blank-landing verdict for a machine that has no node, which is an unactionable red.
 # The skip costs no coverage — pre-push §9 runs ARM 2 again, and the sections around it
 # die loudly without node, so nothing reaches origin unchecked.
-if [ -n "$CITE_MD" ] && command -v node &>/dev/null; then
-  # shellcheck disable=SC2086
-  node "$REPO_ROOT/scripts/check-line-citations.mjs" --check --blank-only $CITE_MD \
-    || { echo "❌ blank-landing \`path:line\` citation(s) — the cited line is empty; fix the number, or drop the citation"; fail=1; }
+if [ "${#CITE_FILES[@]}" -gt 0 ] && command -v node &>/dev/null; then
+  cite_rc=0
+  node "$REPO_ROOT/scripts/check-line-citations.mjs" --check --blank-only --in-corpus "${CITE_FILES[@]}" \
+    || cite_rc=$?
+  if [ "$cite_rc" -eq 1 ]; then
+    echo "❌ blank-landing \`path:line\` citation(s) — the cited line is empty; fix the number, or drop the citation"; fail=1
+  elif [ "$cite_rc" -ne 0 ]; then
+    echo "❌ check-line-citations could not run (exit $cite_rc) — see its message above"; fail=1
+  fi
+fi
+
+# ── pipe into an early-exiting grep under pipefail (SIGPIPE race) ──────────
+# spec: header of scripts/check-pipefail-early-exit.mjs; incident: setup.d/99-finalize.sh
+#       _r2_boundary_under returned 141 in 1/400 runs under load (2026-09-29).
+# Change-scoped: the checker keeps only staged paths in its population (installer, setup.d +
+# the companions.manifest detect_cmd column, audit-self, hooks, skill helpers, .husky, scripts,
+# tests/install-sh), so a commit that touches none of them costs one node start. The CI step
+# «pipefail early-exit gate» scans the whole population — the backstop for `--no-verify` and for
+# aif-container commits, where husky is absent.
+if command -v node &>/dev/null; then
+  PF_FILES=()
+  while IFS= read -r f; do [ -n "$f" ] && [ -f "$f" ] && PF_FILES+=("$f"); done <<<"$CHANGED"
+  if [ "${#PF_FILES[@]}" -gt 0 ]; then
+    pf_rc=0
+    node "$REPO_ROOT/scripts/check-pipefail-early-exit.mjs" "${PF_FILES[@]}" >/tmp/pre-commit-pf 2>&1 || pf_rc=$?
+    if [ "$pf_rc" -ne 0 ]; then
+      cat /tmp/pre-commit-pf
+      echo "❌ pipe into an early-exiting grep under pipefail — use a here-string (see the checker's message)"; fail=1
+    fi
+  fi
+fi
+
+# ── ships manifest: every skill/hook/rule/agent/setting/mcp is marked (one-button point 13) ──
+# spec: header of setup.d/ships.manifest + scripts/check-ships-manifest.mjs. Fires only when a
+# population path is staged; the checker then reads the whole population (<1 s, no install).
+# CI step «ships-manifest marking gate» is the backstop; Arm B (a real install) is
+# tests/install-sh/ships-manifest.test.sh.
+SHIPS_HIT=0
+while IFS= read -r f; do
+  case "$f" in
+    skills/*|.claude/skills/*|plugin/skills/*|plugin/agents/*|plugin/hooks/hooks.json|.claude/hooks/*|.claude/rules/*|agents/*|setup.d/ships.manifest|setup.d/companions.manifest|setup.d/lib.sh|.claude/settings.json|.mcp.json) SHIPS_HIT=1 ;;
+  esac
+done <<<"$CHANGED"
+if [ "$SHIPS_HIT" -eq 1 ] && command -v node &>/dev/null; then
+  if ! node "$REPO_ROOT/scripts/check-ships-manifest.mjs" --root "$REPO_ROOT" >/tmp/pre-commit-ships 2>&1; then
+    cat /tmp/pre-commit-ships
+    echo "❌ ships manifest: mark the item in setup.d/ships.manifest (ships or «internal, because …»)"; fail=1
+  fi
+fi
+
+# ── /arch consensus retell — every point names its source ─────────────────
+# spec: header of scripts/check-arch-retell.mjs; contract: .claude/skills/arch/SKILL.md
+#       «Consensus retell». Change-scoped to staged specs (renames included); --staged resolves
+#       a Baseline SHA only when this commit adds that line — the one moment it is certainly
+#       reachable. The CI step «arch consensus-retell gate» scans the whole spec corpus, shape
+#       only (backstop for --no-verify and aif-container commits).
+if command -v node &>/dev/null; then
+  RT_FILES=()
+  while IFS= read -r f; do
+    case "$f" in docs/superpowers/specs/*.md) [ -f "$f" ] && RT_FILES+=("$f") ;; esac
+  done <<<"$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)"
+  if [ "${#RT_FILES[@]}" -gt 0 ]; then
+    node "$REPO_ROOT/scripts/check-arch-retell.mjs" --staged "${RT_FILES[@]}" \
+      || { echo "❌ /arch consensus retell lacks source tags — see the checker's message"; fail=1; }
+  fi
 fi
 
 # ── Prettier on staged SHIPPED files (mirrors CI «Shipped artifacts are Prettier-clean») ──
@@ -276,6 +346,48 @@ if (bad.length) {
 fi
 
 
+# ── Invariants-line render (2026-09-28) ───────────────────────────────
+# The session digest's INVARIANTS_LINE is rendered from README.md «What must not break
+# (invariants)» by scripts/render-invariants.mjs. When README.md or the hook is staged:
+#   - both files match the index (no unstaged edits): re-render and stage the hook, so
+#     nobody has to remember `--write` (the plugin has shipped no twin of this hook since
+#     2026-09-29 — the framework digest is not a consumer's context);
+#   - otherwise (unstaged edits, `git add -p`): auto-staging would sweep unstaged work into
+#     the commit, and the working tree is not what gets committed — so check the STAGED pair
+#     (index README.md against index hook, in a temp root) and fail on drift.
+# Here-strings, not `echo "$CHANGED" | grep -q`: under pipefail the early-exiting grep can
+# SIGPIPE echo on a large $CHANGED, and the test then reads false and skips the block.
+INV_HOOK=".claude/hooks/inject-session-bootstrap.sh"
+INV_RENDER="$REPO_ROOT/scripts/render-invariants.mjs"
+if [ -f "$INV_RENDER" ] && { grep -qx 'README.md' <<<"$CHANGED" || grep -qxF "$INV_HOOK" <<<"$CHANGED"; }; then
+  if ! command -v node >/dev/null 2>&1; then
+    echo "⚠ node not found — invariants-line render skipped (pre-push and CI still check it)"
+  elif git diff --quiet -- README.md "$INV_HOOK"; then
+    if node "$INV_RENDER" --write >/dev/null; then
+      if ! git diff --quiet -- "$INV_HOOK"; then
+        git add "$INV_HOOK"
+        CHANGED=$(printf '%s\n%s' "$CHANGED" "$INV_HOOK")
+        echo "✓ invariants line re-rendered from README.md and staged ($INV_HOOK)"
+      fi
+    else
+      fail=1
+    fi
+  else
+    inv_tmp=$(mktemp -d)
+    mkdir -p "$inv_tmp/.claude/hooks"
+    if git show ":README.md" >"$inv_tmp/README.md" && git show ":$INV_HOOK" >"$inv_tmp/$INV_HOOK"; then
+      if ! node "$INV_RENDER" --check --root "$inv_tmp"; then
+        echo "  (checked the STAGED README.md + $INV_HOOK; run node scripts/render-invariants.mjs --write and stage both)"
+        fail=1
+      fi
+    else
+      echo "❌ could not read the staged README.md / $INV_HOOK for the invariants-line check"
+      fail=1
+    fi
+    rm -rf "$inv_tmp"
+  fi
+fi
+
 # ── Plugin twin regeneration ──────────────────────────────────────────
 # When .claude/hooks/*.sh or agents/*.md changes, regenerate plugin twins and re-stage.
 # Spec: .ai-factory/plans/zcode-parity-s6-twin-generator.md (Stage 6).
@@ -314,6 +426,21 @@ if [ -n "$SKILLS_STAGED" ]; then
     echo "❌ generate-plugin-skills.sh failed"
     fail=1
   fi
+fi
+
+
+# ── Unpushed-merge refusal — the CONFLICTED-merge channel ───────────────────
+# spec: scripts/check-merge-pushed.sh header; test: tests/hooks/merge-unpushed-refusal.test.sh.
+# A clean `git merge` is checked by .husky/pre-merge-commit. A conflicted one (or
+# `merge --no-commit`) never runs that hook: its resolution is committed by `git commit`,
+# which lands here with MERGE_HEAD present. The empty-diff early exit at the top of this
+# file lets a merge through to this arm. Placed LAST so no section above shifts: their
+# line numbers are cited from docs and scripts.
+# The script is resolved next to this hook, not under REPO_ROOT, so a worktree on a branch
+# that predates it still gets the check the hook ships with.
+MP_CHECK="$(cd "$(dirname "$0")" && pwd)/../scripts/check-merge-pushed.sh"
+if [ -f "$MP_CHECK" ] && git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+  bash "$MP_CHECK" pre-commit || exit 1
 fi
 
 exit "$fail"

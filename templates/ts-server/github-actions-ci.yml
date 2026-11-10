@@ -31,25 +31,39 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run lint
-      - run: npm run format:check
+      - run: bash scripts/run-armed.sh npm run lint
+      - run: bash scripts/run-armed.sh npm run format:check
       # Custom ESLint rules (R2 always; R7/R8 under AIF_STRICT_RUNTIME) only fire on files
       # their globs match. If a layout (flat / inline-router / monorepo) leaves a rule matching
       # ZERO files it is SILENTLY INERT — the worst failure for a "no check → no rule" framework.
       # This gate FAILS loudly so the gap can never ship unnoticed. Dependency-free (pure bash).
       - name: Rule-glob liveness (custom ESLint rules must not be silently inert)
-        run: bash scripts/check-rule-globs.sh
+        run: bash scripts/run-armed.sh bash scripts/check-rule-globs.sh
       # GH #535: check:globs proves the rule's globs MATCH files; this proves the rule is actually
       # APPLIED. On a monorepo with per-package eslint configs that re-export a base not wiring R2,
       # `lint` + check:globs pass while R2 is silently inert. Resolves the real config per boundary
       # file via `eslint --print-config` (runs after `npm ci`, when eslint is present).
       - name: Rule actually applied (R2 binds to boundary files, not just glob-matched)
-        run: bash scripts/check-rule-enforced.sh
+        run: bash scripts/run-armed.sh bash scripts/check-rule-enforced.sh
       # Same gate `npm run validate` runs locally — a single root .lintstagedrc.json can leave a
       # per-package binary unresolvable (ENOENT) before the first commit. Pure bash, dependency-free;
       # exits 0 (skips) when node_modules is absent, runs for real after `npm ci`.
       - name: lint-staged config resolves (binaries reachable before first commit)
-        run: bash scripts/check-lintstaged-resolves.sh
+        run: bash scripts/run-armed.sh bash scripts/check-lintstaged-resolves.sh
+      # The fences getff ships must fire on known-bad input (not only be configured). Through the record:
+      # recorded not-armed where it was red at install or where the project does not lint with ESLint.
+      - name: getff's ESLint fences fire on known-bad input
+        run: bash scripts/run-armed.sh bash scripts/check-fences-fire.sh
+      # Every tool install in this repo's workflows pins a version (the pre-push hook's check, run on its
+      # own). Through the record: not-armed where a workflow the project already had was unpinned.
+      - name: tool installs in .github/workflows pin a version
+        run: bash scripts/run-armed.sh bash scripts/check-ci-pins.sh
+      # The generated rules' mutation pass (P5's runner): armed only when it went green at install. It
+      # installs its own linter toolchain from the npm registry when the project lacks one, so on a
+      # runner with no registry access an armed step goes red (exit 2); a runner that ran `npm ci`
+      # has the registry. `npm run validate` is red on that exit 2 too, on purpose.
+      - name: generated rules survive their mutation pass
+        run: bash scripts/run-armed.sh bash scripts/run-generated-rule-mutation.sh
 
   typecheck:
     name: TypeScript
@@ -63,7 +77,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run typecheck
+      - run: bash scripts/run-armed.sh npm run typecheck
 
   architecture:
     name: Architecture rules
@@ -77,13 +91,13 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run arch:check
+      - run: bash scripts/run-armed.sh npm run arch:check
       # GH #534: arch:check enforces the boundaries the config carries, but dependency-cruiser has
       # no "rule matched nothing" report — on a monorepo whose arch config lacks packages↛apps /
       # apps↔apps rules, arch:check is green while the boundary is unguarded. This is the R3
       # inertness alarm (the dependency-cruiser analog of check:globs). Dependency-free; skips on flat.
       - name: Architecture boundary liveness (monorepo packages↛apps rule must not be silently absent)
-        run: bash scripts/check-arch-boundaries.sh
+        run: bash scripts/run-armed.sh bash scripts/check-arch-boundaries.sh
 
   # ─────────────────────────────────────────────
   # TESTS + COVERAGE
@@ -101,7 +115,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run test:coverage
+      - run: bash scripts/run-armed.sh --if-armed 'npm test' npm run test:coverage
         env:
           CI: 'true'
       - name: Upload coverage to Codecov
@@ -207,7 +221,7 @@ jobs:
       - name: Run audit-ai-docs.sh
         run: |
           if [ -x "scripts/audit-ai-docs.sh" ]; then
-            ./scripts/audit-ai-docs.sh
+            bash scripts/run-armed.sh bash scripts/audit-ai-docs.sh
           else
             echo "::warning::scripts/audit-ai-docs.sh not found — skipping"
           fi

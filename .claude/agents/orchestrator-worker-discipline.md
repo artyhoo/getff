@@ -1,0 +1,1 @@
+../../.agents/roles/orchestrator-worker-discipline.md

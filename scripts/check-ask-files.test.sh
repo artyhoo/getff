@@ -247,7 +247,7 @@ fi
 
 # --help must resolve the mailbox for THIS machine, not restate the expression — that is the
 # half a prose doc cannot deliver, and the reason fork C beat a template file.
-if ! CLAUDE_COORDINATION_DIR="$TMP" bash "$CHECK" --help 2>/dev/null | grep -qF "$ASKS"; then
+if ! grep -qF "$ASKS" <<<"$(CLAUDE_COORDINATION_DIR="$TMP" bash "$CHECK" --help 2>/dev/null)"; then
   echo "FAIL: --help did not print the resolved mailbox path ($ASKS)"; fails=$((fails + 1))
 fi
 
@@ -265,7 +265,7 @@ check_enum_documented() {
     fails=$((fails + 1)); return
   fi
   for value in $(printf '%s' "$list" | tr ',' ' '); do
-    printf '%s' "$HELP" | grep -qF "$value" ||
+    grep -qF "$value" <<<"$HELP" ||
       { echo "FAIL: --help does not document legal $label value '$value'"; fails=$((fails + 1)); }
   done
 }
@@ -281,6 +281,131 @@ write_ask '2026-08-17-dispatcher-s2-probe.md' not-a-class open
 run_check
 check_enum_documented class \
   "$(sed -n 's/.*class .* is not one of: //p' "$TMP/err" | head -1)"
+
+# ── ADOPTED-CONTINUITY binding (intent-continuity design §5, slice B1) ──────────────────
+# Rules fire ONLY when `continuity:` is present; every legacy arm above proves the v1
+# contract is untouched. write_adopted_ask $name $target $status → extra answer lines.
+write_adopted_ask() {
+  local name="$1" target="$2" status="$3"; shift 3
+  {
+    echo '---'
+    echo 'asker-role: dispatcher'
+    echo "asker-cwd: $TMP"
+    echo 'class: consult'
+    echo "status: $status"
+    echo 'continuity: intent-continuity'
+    echo "target: $target"
+    echo 'primary-doc: docs/features/prd.md'
+    echo 'primary-doc-sha256: f1a42d1c375b9f4b96dc662da714ed9abf54885fa93716b847d65d0cd7a7ee2a'
+    echo 'decision-ids: IC-D4'
+    echo 'return-to: dispatcher'
+    echo 'proposed-effect: resolve the generation route for this stage'
+    echo '---'
+    echo
+    echo '## Question'
+    echo
+    echo 'Which generation route does the promise actually bind?'
+    echo
+    echo '## Options considered'
+    echo
+    echo '- templates -> faster, not the promise.'
+    echo '- docs-driven -> the promise.'
+    echo
+    echo '## Evidence'
+    echo
+    echo '- docs/features/prd.md:26 — the promise text.'
+    printf '%s\n' "$@"
+  } >"$ASKS/$name"
+}
+
+adopted_answer_block() {
+  printf '%s\n' '' '## Answer' '' 'verdict: docs-driven generation is the bound route' \
+    'rationale: the PRD names it as the distinguishing promise' 'decided-by: intent' \
+    'timestamp: 2026-10-13T10:00:00+03:00' \
+    'decisions-entry: .claude/orchestrator-prompts/x/plan.decisions.md#ask-1' \
+    "target: $1" 'unresolved-remainder: none'
+}
+
+# GREEN: well-formed adopted asks — open and answered.
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-open.md' intent open
+expect_pass "well-formed adopted open consult"
+
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-answered.md' intent answered "$(adopted_answer_block intent)"
+expect_pass "well-formed adopted answered ask with echoed target and remainder"
+
+# RED: the target binding is what adopted status buys.
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-open.md' intent open
+sed '/^target:/d' "$ASKS/2026-10-13-dispatcher-adopted-open.md" >"$TMP/x" && mv "$TMP/x" "$ASKS/2026-10-13-dispatcher-adopted-open.md"
+expect_fail "adopted ask missing target" "needs frontmatter key 'target'"
+
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-open.md' product open
+expect_fail "adopted ask with an out-of-enum target" "is not one of: task, architecture, intent"
+
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-open.md' intent open
+sed '/^primary-doc-sha256:/d' "$ASKS/2026-10-13-dispatcher-adopted-open.md" >"$TMP/x" && mv "$TMP/x" "$ASKS/2026-10-13-dispatcher-adopted-open.md"
+expect_fail "adopted ask missing primary-doc-sha256" "needs frontmatter key 'primary-doc-sha256'"
+
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-open.md' intent open
+sed 's/^primary-doc-sha256: .*/primary-doc-sha256: nothex/' "$ASKS/2026-10-13-dispatcher-adopted-open.md" >"$TMP/x" &&
+  mv "$TMP/x" "$ASKS/2026-10-13-dispatcher-adopted-open.md"
+expect_fail "adopted ask with a non-hex digest binding" "must be 64 hex chars"
+
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-open.md' intent open
+sed 's/^return-to: .*/return-to: \/absolute\/path/' "$ASKS/2026-10-13-dispatcher-adopted-open.md" >"$TMP/x" &&
+  mv "$TMP/x" "$ASKS/2026-10-13-dispatcher-adopted-open.md"
+expect_fail "adopted ask whose return-to does not lead with the asker role" "must LEAD with the asker role"
+
+# RED: an answered adopted ask must echo the target and name the remainder.
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-answered.md' intent answered "$(adopted_answer_block architecture)"
+expect_fail "adopted answer echoing a different target" "does not echo the frontmatter target"
+
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-answered.md' intent answered \
+  "$(printf '%s\n' '' '## Answer' '' 'verdict: docs-driven generation' 'rationale: the PRD promise' \
+    'decided-by: intent' 'timestamp: 2026-10-13T10:00:00+03:00' \
+    'decisions-entry: .claude/orchestrator-prompts/x/plan.decisions.md#ask-1' \
+    'target: intent')"
+expect_fail "adopted answered ask without an unresolved-remainder" "needs 'unresolved-remainder:'"
+
+# GREEN: an adopted answer MAY name a real remainder (value need not be 'none').
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-answered.md' intent answered \
+  "$(printf '%s\n' '' '## Answer' '' 'verdict: docs-driven generation' 'rationale: the PRD promise' \
+    'decided-by: intent' 'timestamp: 2026-10-13T10:00:00+03:00' \
+    'decisions-entry: .claude/orchestrator-prompts/x/plan.decisions.md#ask-1' \
+    'target: intent' 'unresolved-remainder: which documentation mirror is canonical in the consumer install')"
+expect_pass "adopted answered ask naming a real unresolved remainder"
+
+# Authoring half: the adopted skeleton is fileable and the adopted answer block completes it.
+roundtrip "emitted adopted template is a valid ask" '2026-10-13-dispatcher-emitted-adopted.md' \
+  consult dispatcher intent-continuity intent
+if bash "$CHECK" --print-template consult dispatcher intent-continuity product >/dev/null 2>&1; then
+  echo "FAIL: --print-template accepted an unknown adopted target"; fails=$((fails + 1))
+fi
+
+# The emitted adopted skeleton + emitted adopted answer block, status answered, must pass.
+reset
+bash "$CHECK" --print-template consult dispatcher intent-continuity intent >"$ASKS/2026-10-13-dispatcher-emitted-adopted.md" 2>/dev/null
+bash "$CHECK" --print-answer intent >>"$ASKS/2026-10-13-dispatcher-emitted-adopted.md"
+sed 's/^status: open$/status: answered/' "$ASKS/2026-10-13-dispatcher-emitted-adopted.md" >"$TMP/x" &&
+  mv "$TMP/x" "$ASKS/2026-10-13-dispatcher-emitted-adopted.md"
+expect_pass "emitted adopted template + emitted adopted answer block, status answered"
+
+# The target enum must be documented in the authoring half (same mechanism as status/class):
+# parse the RED message, then require --help to state every legal value.
+reset
+write_adopted_ask '2026-10-13-dispatcher-adopted-open.md' product open
+run_check
+check_enum_documented target \
+  "$(sed -n 's/.*target .* is not one of: //p' "$TMP/err" | head -1)"
 
 # ── WIRING: the pre-push section actually runs this script ─────────────────────────────
 # A checker nobody calls is armed-but-not-fired. The registry entry in

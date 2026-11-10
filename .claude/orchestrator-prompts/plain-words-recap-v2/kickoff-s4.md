@@ -146,9 +146,9 @@ twin, `.ai-factory/refresh-baseline.json`, the 8 install fingerprints and
 Umbrella §7 host-verify contract, plus:
 
 ```bash host-verify
-PC_LOCAL=1 npx vitest run packages/core/hooks/end-of-turn-reminder.test.ts --testTimeout=90000
-PC_LOCAL=1 npx vitest run packages/core/skills/emit-story-prompt.test.ts
-PC_LOCAL=1 npx vitest run packages/core/hooks/lang-parity.test.ts
+npx vitest run packages/core/hooks/end-of-turn-reminder.test.ts --testTimeout=90000
+npx vitest run packages/core/skills/emit-story-prompt.test.ts
+npx vitest run packages/core/hooks/lang-parity.test.ts
 bash tests/install-sh/gh-934-ship-eot-hook.test.sh
 bash .claude/hooks/lang/check-parity.sh
 ```

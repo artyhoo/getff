@@ -1,0 +1,626 @@
+[
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-docplan-auditor-runtime-audit.receipts.json",
+    "owner": "docplan-auditor",
+    "snapshot": "cdd1571f4c75e1e20580135cad40e32e94ea9d4d",
+    "sha256": "66340f0b5c22d9db57d1803ff36b791a366d2ead3f6f9dc50875e19566b8c800"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-adverse-postfix.codex.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "343f440a3a95f2b3d42d506c570bc68083771397cf725cf0ca4e18e51386746c"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-missing-deps.codex.rollout-runner.json",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "6b9f1e537263c1387191e382d197d7d17a358a8798f1cf5818a421ab8151b3b8"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-positive.codex.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "1f98e1f90ba479578c1eb519faf386caaca3305b6e28dc97117f45f940d0eaf7"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/install-fixed.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/canonical-baseline.md.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/canonical-baseline.md.gz",
+    "sha256": "4ec6505ced6008364ef850a1dfc2c2c653981ad8a890f6546777d5fdc4332dbb"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/claude-negative-retry.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/claude-negative-retry.final.txt.gz",
+    "sha256": "b7085ea5cb8acde8794e8fcfaaec4c2de9554bd782c296e37b88e8a56df502bd"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/claude-positive.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/claude-positive.final.txt.gz",
+    "sha256": "02604f70b2954fb1bd2bc439a4a51a3b5643a0f146cd8fa74eacd171c6f0881b"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/consumer-codex.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/consumer-codex.final.txt.gz",
+    "sha256": "dfd7c1327afe2afd4746d628a4f3c9789985bc3a3ec4b7a988920f3be9586c51"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/final-claude-negative.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/final-claude-negative.final.txt.gz",
+    "sha256": "d09d91dc73044f08ebe8c8a346ccd006df81bdd8fcea1595f007b652d9d2560f"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/final-codex-negative.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/final-codex-negative.final.txt.gz",
+    "sha256": "4943cf06070e42b0a043330bf61e6e24ed4ef4faa17cbed34ee7c130594e561b"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/fixed-claude-retry.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/fixed-claude-retry.final.txt.gz",
+    "sha256": "795365782eb5591e6c33ec70f5f6b2ba330415fa1239e8de0d7001773d14ecc6"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/fixed-codex.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/fixed-codex.final.txt.gz",
+    "sha256": "565e25d5cdd0d4b7d01005108b26394ba63f0c7306713d071761e410b0dc424a"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/helper-failure.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/helper-failure.final.txt.gz",
+    "sha256": "c51d719a58b672a5e81b325234f88112184180142db0261360a15db832a3b056"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/negative.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/negative.final.txt.gz",
+    "sha256": "0281df9a7e4e023e332bd77bebcb3efb04f8343a3ef1bfdd49b386f205d5a35b"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/positive.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/positive.final.txt.gz",
+    "sha256": "f7567f9050096a017f9df985969164f8cdd86377e0eefd5fe600ba9764d8903d"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/rubric-claude-negative.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/rubric-claude-negative.final.txt.gz",
+    "sha256": "e4573b4108a30d4501918083b771c34964dbbe55e5a15f9e524e4363fa2f99cf"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/rubric-codex-negative.final.txt.gz",
+    "owner": "fidelity-auditor",
+    "source": "/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif/docs/superpowers/plans/2026-10-09-skill-fidelity-auditor-runtime-audit-receipts/rubric-codex-negative.final.txt.gz",
+    "sha256": "9484bfa33e9978d23dc23b11c33ac2fb59a16c97af9d378a45623c10ec71c056"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/runs.json",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/runs.json",
+    "sha256": "1f7fc424498388afd203b36561bd8a7aa6fb1ab9ff93eabea068a71ff5a9a4f8"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/claude-consumer.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/claude-consumer.output.jsonl.gz",
+    "sha256": "cde4911244fe4a11415714d940731ff15815143dbc0109410eb29f3fa75a0dc3"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/claude-failed.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/claude-failed.output.jsonl.gz",
+    "sha256": "566f3a9f6e77827c56fd368ec2c8e82e888a611681e2d799c8c7430700b4d22d"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/claude-fork-fixed.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/claude-fork-fixed.output.jsonl.gz",
+    "sha256": "401b689721a620f858428f04bb72635bf8dd1219ebdfe9a7e02f7fa134bb4a37"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/claude-fork.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/claude-fork.output.jsonl.gz",
+    "sha256": "6d59fd79ec033019e7bf067bd2f85f0456ee3e0eafd96843eb428d55eaf5f680"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/claude-missing-fixed.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/claude-missing-fixed.output.jsonl.gz",
+    "sha256": "1040ed12f7e26db58f8db5d58e8455298da330be65f87e6f680bd2867327511c"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/claude-missing-fixed2.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/claude-missing-fixed2.output.jsonl.gz",
+    "sha256": "4aeb4b2f7bbfc62fb6a1f04192509831d3772a0d5546e671aec5a378d8fd77a8"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/claude-missing.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/claude-missing.output.jsonl.gz",
+    "sha256": "8019e5dd96bb09c3ab6db9569bd062bb26afdc29d6fc14fa8906a8daac461023"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/claude-positive.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/claude-positive.output.jsonl.gz",
+    "sha256": "0c663d133e386cee21b6fcf2ee6579455247be85881d3b995b13deca15c0d3e3"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-consumer-fixed.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-consumer-fixed.output.jsonl.gz",
+    "sha256": "5c9f9a058263cd373140daac4f69670b624d1aa0106fab5c6ad2c8fbc680eed3"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-consumer-fixed2.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-consumer-fixed2.output.jsonl.gz",
+    "sha256": "1948bb1e8bac84de481f4a7d8a05059b04cafd2bd861a384f29de1e61ebbca20"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-consumer.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-consumer.output.jsonl.gz",
+    "sha256": "937b4ca02bb5669695e1f37ae5550e734356fc9d1d0c38771270cae0aeb96b99"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-csv.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-csv.output.jsonl.gz",
+    "sha256": "8ca21734764513034e98a68ed01165eb8021f8b58b9d5bdd77890d2bbbb81a4e"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-failed.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-failed.output.jsonl.gz",
+    "sha256": "8ce46d851991af955f16ceacf421dd3b1e038cd113cb6afd5c330d61b6cb03a7"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-fork-fixed.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-fork-fixed.output.jsonl.gz",
+    "sha256": "8d17a7cba8a2396503b86c276a067ff2367a03235c2d3f55a1742e3b0b3ee273"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-fork.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-fork.output.jsonl.gz",
+    "sha256": "265ba06b626c6c1927ab30ff5da3f0c72880f9f3509d822a7ae76e6e63552203"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-missing-fixed2.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-missing-fixed2.output.jsonl.gz",
+    "sha256": "4000a15b1b5bca8e76d949fedd95e84fa1eee7749da27042ee8f3d6ac1d2e60b"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-missing.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-missing.output.jsonl.gz",
+    "sha256": "d2a362f722174341b1bd6b2e5567675aa6d4a27e29c7e5812d46ea1ff4ff1e7a"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-nested.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-nested.output.jsonl.gz",
+    "sha256": "95305e4d8bb77d8a7660f127c7c7b85312e244c0a32acc518a6dc00850133590"
+  },
+  {
+    "path": "tests/reviewer-runtime-audit/receipts/codex-positive.output.jsonl.gz",
+    "owner": "reviewer",
+    "source": "/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif/tests/reviewer-runtime-audit/receipts/codex-positive.output.jsonl.gz",
+    "sha256": "638b6f0ef1970975e87e725a7319e28d4a361700403b73b67bfee78aa67c2377"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/edited/.ai-factory/ARCHITECTURE.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "9fd51d3a787a81bcf183a599d2612ab3d58a60392e163bf6c43574c27e40c5cf"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/edited/.ai-factory/ARCHITECTURE.ts-server.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/edited/.ai-factory/DESCRIPTION.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "ce0b5a6475a860cec43fef4754da209d6bb8ef8903e65a8aca23d3973d697441"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/AI-USAGE-GUIDE.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "44ad8d8f6f7348b44d0f1cb3fa4a4c73d81ffcdfc01f8b0d48dd1af91afb3b48"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/ARCHITECTURE.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "369614512068a7dcd8ddd71e9a7e5941fbfdd3bad65fb3d9d8b1d98977f4b2b9"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/ARCHITECTURE.ts-server.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/DESCRIPTION.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "25de1621dcfa5fa223f4b05a32d9366d6732825a53fa0e6e23779fa35285939d"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/DESCRIPTION.template.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/RULES.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/refresh-baseline.json",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "a207849dea9781c4724090804c4eec1b58185fa86ac6a715811d20fd9b4546e5"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/rules/integration-rules.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/skill-context/aif-review/SKILL.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/skill-context/aif-rules-check/SKILL.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/installed/.ai-factory/tool-decisions.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "357b2246d4dd67328ba8b1bab4a67b6f286b0e46af540d767f4de1cea98abd50"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/malformed/.ai-factory/ARCHITECTURE.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "8024a3c048b71066d615c65f98d69b58462880cd4a005c456f96e3bcf75ffb2f"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/malformed/.ai-factory/DESCRIPTION.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "3cd864a71609e9f738621cf997d0d2b179d32b83d17371bef71dfe033cd2e683"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/malformed/package.json",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "40b5cafe045b9c9e31a1c3fdcfbc89f934906ff06a6276b55c2a0e517be21655"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/missing/.ai-factory/ARCHITECTURE.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "58b016bf8ce02b4f9280c729c73d9486f91bfc333034d3edd70ab227015dd134"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/missing/.ai-factory/DESCRIPTION.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "b0dfcff6c41296c749515b81bec1d6bebf8220499a30c1670babac6df70a7287"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/monorepo/.ai-factory/ARCHITECTURE.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "0d2a8ad81a4b8c085adbe1841647107db8b6a3b9598290d2de07adde11e7d903"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/monorepo/.ai-factory/DESCRIPTION.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "ead83dfa4a1b5958d2fa8d54c49888ca0fc925bafc135958f9860bfa3a8a0657"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/monorepo/package.json",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "d84f8972638891554a27b7ddf5f0e646937fd1df38638e930ff017012e6b68a9"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/protected/.ai-factory/ARCHITECTURE.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "1fc882f3ee912cb717e411ef65b125f4e152b60cb9a4cdcafb244e6e35b32a10"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-aif-init-runtime-audit/corpus/protected/.ai-factory/DESCRIPTION.md",
+    "owner": "aif-init",
+    "snapshot": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+    "sha256": "ce0b5a6475a860cec43fef4754da209d6bb8ef8903e65a8aca23d3973d697441"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/canonical-tests.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-adverse-postfix.claude.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9d9b18720961e9b4689fd763b85e7b6f36160ccd3a8a1c9ddc5103bb0f66c396"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-adverse-postfix.codex.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-adverse.claude.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-adverse.codex.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-fixed/.agents/procedures/template-audit/SKILL.md",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "c504c2e8130156fd85406f8969cb77ef135ca69a87eb6e78c1fb7e31c50ff53d"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-fixed/.agents/skills/template-audit/SKILL.md",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "64b25f87aaca0121d37002518fbfdd70cc1ed8f1d58e7d3dfea19c5f6dd400ae"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-fixed/.claude/skills/template-audit/SKILL.md",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "c504c2e8130156fd85406f8969cb77ef135ca69a87eb6e78c1fb7e31c50ff53d"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-fixed/AGENTS.md",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "f5e4b395baa096190372cd843864ba82060ae2cb1708c6096082d100b260c146"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-fixed/audit-inputs/faithful.md",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "0609ecfe4deef425e3f3027a731f229998876f8eb8030776fb06d1e0d49a4e26"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-fixed/audit-inputs/forged-receipt.md",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "923369f3b3dd077ff3aa554beb7c5de874e24ba409dbc04ad95f67c4a6316b15"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-fixed/audit-inputs/guidelines.md",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "7c3d31a16eb6f5746393b95337cbe73e25c40c878e04cc56f0d584c8f8f9c775"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-fixed/audit-inputs/late-cue.md",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9ec43ad6680cc6e70899d994e764eef953ff10a79e4d4398898e8b8e1fc5bcdf"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-positive-retry.claude.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-positive.claude.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-positive.codex.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-helper-failure.codex.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-helper-failure.codex.rollout-runner.json",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "42123a1858835b19d694ee3f9bfcf4f0f66d27f85710a2870af40c96dd0e926d"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-missing-deps.codex.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-missing-deps.codex.rollout-runner.json",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "6b9f1e537263c1387191e382d197d7d17a358a8798f1cf5818a421ab8151b3b8"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-positive-retry.claude.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9d9b18720961e9b4689fd763b85e7b6f36160ccd3a8a1c9ddc5103bb0f66c396"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-positive.codex.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-postfix.codex.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/install-fixed.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/install.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/npm-ci.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/receipt-tests.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/refresh-final.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/refresh-fixed.exit",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-adverse-postfix.claude.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "ff914ed56e20422ac909996e244426e8d69b2b0c1a47cea0d5981f42087ba4fd"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-adverse-postfix.codex.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "343f440a3a95f2b3d42d506c570bc68083771397cf725cf0ca4e18e51386746c"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-adverse.claude.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "6b12973308b63d45ee59c60e2a61b7c6eeeb11f905b0be7ecf37da11a5d65776"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-adverse.codex.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "49851d4cbd721021b72cbf39dc0291d36a7f72ddfadc852326661f5f4a1d4d6f"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-positive-retry.claude.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "d215c1df77a980ff3313a9050b5a7fc8e81d0d067a6bec3494df0efce015ad37"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-positive.claude.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/consumer-positive.codex.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "47cd986976e0c37fd1a68aeb14b0f001edd4ba14326a8c2c8c5c55e00d785a75"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-helper-failure.codex.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "8bbdb102ae395a167b9b767c90b8e792e94457e6374dfe00c86537c086233038"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-missing-deps.codex.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "f1b8a0dc4f0db3413d9f43049dbd64dc8b2f208adb1b28c340d0e1a05c505aec"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-positive-retry.claude.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "1069ac2f124d192b8fba3cbc3398e3d752b5738fc101852c4ec6544c08984c31"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-positive.claude.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "e15d631297d13548f77f07e3b099a2185b28b78a6f2d214f8a52dfa1e92c2102"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-positive.codex.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "1f98e1f90ba479578c1eb519faf386caaca3305b6e28dc97117f45f940d0eaf7"
+  },
+  {
+    "path": "docs/superpowers/plans/2026-10-09-skill-template-audit-runtime-audit.receipts/framework-postfix.codex.jsonl",
+    "owner": "template-audit",
+    "snapshot": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+    "sha256": "d9f8b2dbabf5972d5aa128b8fec95e5911ee0af2fc9fec12f74591e5c02c38ec"
+  }
+]

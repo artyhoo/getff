@@ -36,9 +36,10 @@ export interface RuntimeBackend {
 
   /**
    * Block until the task reaches a terminal state (done or error).
-   * MVP: polling every 30s.
-   * @param timeoutMs Optional timeout in ms. If omitted, polls indefinitely
-   *   (documented MVP limitation — see kickoff §3 mn2).
+   * AIF uses subscribed events plus authoritative REST reconciliation and a
+   * finite one-hour default. Timeout/drop is observation uncertainty, not task
+   * cancellation or retry authority. Other backends retain their own wait policy.
+   * @param timeoutMs Backend observation timeout in ms.
    */
   awaitDone(handle: TaskHandle, timeoutMs?: number): Promise<TaskResult>;
 }

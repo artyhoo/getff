@@ -16,6 +16,7 @@ import { readConfig } from './read-config.ts';
 import { toConfidence } from './confidence.ts';
 import { computeMissing } from './known-packages.ts';
 import { detectPatterns } from './patterns.ts';
+import { isDirectRun } from '../install/is-direct-run.ts';
 
 export type { DetectionResult, DetectorOptions, Stack, Framework, Runtime } from './types.ts';
 export type { Confidence, Severity, ConfidenceTuple, Priority } from './confidence.ts';
@@ -66,8 +67,7 @@ export function detectStack(
 }
 
 // Direct invocation: `npx tsx detector/index.ts <projectRoot>` → JSON to stdout.
-const moduleUrl = new URL(import.meta.url).pathname;
-if (process.argv[1] && resolve(process.argv[1]) === resolve(moduleUrl)) {
+if (isDirectRun(process.argv[1], import.meta.url)) {
   const root = process.argv[2] ?? process.cwd();
   const result = detectStack(root);
   process.stdout.write(JSON.stringify(result, null, 2) + '\n');

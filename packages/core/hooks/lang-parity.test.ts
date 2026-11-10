@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const LANG_DIR = resolve(REPO_ROOT, '.claude/hooks/lang');
+const LANG_DIR = resolve(REPO_ROOT, '.agents/hooks/lang');
 
 const boxes: string[] = [];
 afterAll(() => {

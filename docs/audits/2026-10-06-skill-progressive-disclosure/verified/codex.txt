@@ -1,0 +1,1 @@
+✓ harness-config up-to-date with .ai-factory/harness-model.json

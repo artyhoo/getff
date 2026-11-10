@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   SECTIONS,
@@ -20,6 +20,7 @@ import {
   SHIPPED_MD_PREFIXES,
   SHIPPED_SKILL_SLUGS,
   isFrameworkShippedMarkdown,
+  isRetainedNativeLinkFixture,
 } from './pre-push.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -228,7 +229,7 @@ describe('isFrameworkShippedMarkdown — shipped, not "everything under .claude/
       .filter(Boolean);
     expect(
       tiers.length,
-      'tier lists must parse (setup.d/lib.sh:61-63)',
+      'tier lists must parse (setup.d/lib.sh:63-65)',
     ).toBeGreaterThan(0);
     // Match the DESTINATION, not the delivery verb: #1624 replaced the `cp -r` in this
     // file with _copy_tree_with_transform, and a verb-shaped regex went stale the moment
@@ -259,8 +260,8 @@ describe('isFrameworkShippedMarkdown — shipped, not "everything under .claude/
  * because the SHIPPED_SKILL_SLUGS gate above learned the lesson the hard way — #1624
  * replaced 10-skills.sh's `cp -r` with _copy_tree_with_transform and a verb-shaped regex
  * went stale within hours. A path-shape scan of setup.d would also have to distinguish
- * DELIVERIES from mere READS of the same path (install.sh:552-559 probes
- * `.ai-factory/RULES.react-next.md` to detect the stack; 60-ci.sh:72 reads
+ * DELIVERIES from mere READS of the same path (install.sh:766-784 probes
+ * `.ai-factory/RULES.react-next.md` to detect the stack; eslint-wire.sh:98 reads
  * tool-decisions.md), and getting that wrong in the read direction would manufacture a
  * row for a consumer-authored path — the over-reach half of this very finding.
  *
@@ -281,6 +282,19 @@ describe('shipped-markdown classifier — drift gate against the install fingerp
           resolve(root, stack.name, fp),
           'utf8',
         ).split('\n')) {
+          // "link  <native path> -> <canonical target>" — the agents-canonical bind
+          // shape records the LINK identity; the *.md content a consumer lychee walk
+          // reads through it lives at the canonical target, so classify the target
+          // (targets are stored link-relative — resolve against the link's directory).
+          const link = /^link\s{2,}(\S+) -> (\S+)$/.exec(line.trim());
+          if (link) {
+            if (/\.(md|markdown)$/.test(link[2])) {
+              out.add(
+                posix.normalize(posix.join(posix.dirname(link[1]), link[2])),
+              );
+            }
+            continue;
+          }
           // "<sha256>  <consumer-relative path>"
           const path = line.split(/\s{2,}/)[1]?.trim();
           if (path && /\.(md|markdown)$/.test(path)) out.add(path);
@@ -339,5 +353,35 @@ describe('shipped-markdown classifier — drift gate against the install fingerp
         /^[^/]+\/.+\/$/,
       );
     }
+  });
+});
+
+// The original native report is immutable adverse evidence, not a live document.
+describe('retained native link fixture — exact authoring input identity', () => {
+  const path = 'tests/skills/pipeline-final-report/retained-r3.md';
+  const bytes = readFileSync(resolve(REPO_ROOT, path));
+  it('excludes only the original retained bytes in the authoring repo', () => {
+    expect(isRetainedNativeLinkFixture(path, bytes, true)).toBe(true);
+  });
+  it('does not exclude edited bytes at the retained path', () => {
+    expect(
+      isRetainedNativeLinkFixture(
+        path,
+        Buffer.concat([bytes, Buffer.from('edited')]),
+        true,
+      ),
+    ).toBe(false);
+  });
+  it('does not exclude sibling or prefixed lookalike inputs', () => {
+    for (const file of [
+      'tests/skills/pipeline-final-report/valid-overview.md',
+      'other/' + path,
+      'docs/authored.md',
+    ]) {
+      expect(isRetainedNativeLinkFixture(file, bytes, true)).toBe(false);
+    }
+  });
+  it('does not exclude consumer-authored files even with the original path and bytes', () => {
+    expect(isRetainedNativeLinkFixture(path, bytes, false)).toBe(false);
   });
 });

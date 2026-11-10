@@ -1,0 +1,1 @@
+../../.agents/rules/coordinator-seat-delegation.md

@@ -232,6 +232,7 @@ Same pattern as Wave 8:
 **You, the AI who picks this up, are the same agent class that wrote «Checked existing rules R1-R20 — compliant» in PRs #25-#36.** The maintainer is asking you to audit yourself and your peers. The instinct to converge on «looks fine» is the failure mode being audited. Treat it as adversarial.
 
 > **Note for kickoff authors of future R-phases:** the trap catalogue below was extracted to [`.claude/rules/ai-laziness-traps.md`](../../rules/ai-laziness-traps.md) on 2026-05-12 as a project-wide rule. Wave 9 kickoff keeps its inline version (audit-trail of in-flight document); Phase 10 and later kickoffs MUST cite the rule + enumerate active T-numbers + add domain-specific traps per §3 of that rule. Blanket «see ai-laziness-traps.md» without enumeration is anti-pattern `#trap-catalogue-blanket-reference`.
+> Retrofitted 2026-10-06 for the edit-time T-enumeration gate (Wave N8 C2): the inline catalogue below IS the rule's T1–T11 — Trap 1→T1 (sampling floor), 2→T2 (designing ≠ auditing), 3→T3 (evidence per finding), 4→T4 (all declared sections), 5→T5 (no Edit in R-phase), 6→T6 (explicit confidence predicates), 7→T7 (run the actual counter-prompt), 8→T8 (don't ask what this kickoff answers), 9→T9 (stratified sampling), 10→T10 (population enumeration first), 11→T11 (prior-art before custom mechanisms). Active traps for this audit's R-phase: T1–T11. The inline text stays verbatim as the audit trail.
 
 Concrete traps you will be tempted by, with countermeasures:
 
@@ -363,8 +364,8 @@ If R-phase finds clean categories — say so. If R-phase finds widespread theatr
 - [`open-questions.md §13.29 / §13.30 / §13.31 / §13.32`](../../../docs/meta-factory/open-questions.md) — armed triggers tracking the umbrella + residue. **§13.32 (Phase 10 — Foundations Audit) is the natural successor**: Wave 9 audits behavioral compliance (form vs substance in implemented checks); Phase 10 audits foundational adequacy (mechanism choices against external evidence). C6b in this kickoff is scoped narrowly to R-phase methodology; Phase 10 expands to all ~95 architectural decision points including AI-agnostic boundary discipline + AIF integration depth re-evaluation.
 - Wave 8 orchestrator-prompts directory [`.claude/orchestrator-prompts/wave-8-substantive-compliance/`](../wave-8-substantive-compliance/) — full pattern reference: research-patch shape, batch-prompts per sub-wave, continuation-prompt for session rotation.
 - Memory entries (auto-loaded):
-  - [`feedback_worktrees_for_parallel_subwaves.md`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_worktrees_for_parallel_subwaves.md) — Wave 8.1 shared-dir incident.
-  - [`feedback_hook_self_test_pipeline_stubs.md`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_hook_self_test_pipeline_stubs.md) — Wave 8.3 §3 regression class.
+  - `feedback_worktrees_for_parallel_subwaves.md` (`~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/`) — Wave 8.1 shared-dir incident.
+  - `feedback_hook_self_test_pipeline_stubs.md` (`~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/`) — Wave 8.3 §3 regression class.
   - `feedback_pr_s17_header_level.md` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_pr_s17_header_level.md`) — recurring `### §1.7 Forward-check applied` formatting trap.
   - `feedback_no_paid_llm_in_ci.md` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_no_paid_llm_in_ci.md`) — project policy on LLM cost.
   - `feedback_no_drive_by_prs.md` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_no_drive_by_prs.md`) — observation-vs-action discipline.

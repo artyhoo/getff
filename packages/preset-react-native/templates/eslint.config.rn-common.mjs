@@ -37,9 +37,15 @@ const rnCommon = [
       // 2 — AIF framework machinery vendored by install.sh (not consumer code)
       'eslint-rules-local/**',
       'packages/core/**',
+      'scripts/audit-r4.ts',
+      'scripts/prove-rules.mjs',
       'eslint.config.mjs',
       'eslint.config.rn-common.mjs',
       'vitest.config.ts',
+      '.dependency-cruiser.mjs',
+      'scripts/codex-hook-adapter.mjs',
+      'scripts/check-arch-retell.mjs',
+      'scripts/lib/**',
     ],
   },
 

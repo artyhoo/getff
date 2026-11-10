@@ -44,16 +44,24 @@
  * Principle test: packages/core/principles/46-reference-generator-arms.test.ts (arms A-G).
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, dirname, resolve, extname } from 'node:path';
+import { join, dirname, resolve, extname, posix } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { beginMarker, endMarker, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
+import {
+  beginMarker,
+  endMarker,
+  injectRegion,
+  regionsMatch,
+} from '../packages/core/composition/fence.ts';
 import { buildRows } from './render-rule-index.mjs';
 import { shippedAgents } from './render-install-roster.mjs';
 import { readSkillTiers } from './lib/skill-tiers.mjs';
-import { extractHeaderField, extractFrontmatterScalar } from '../packages/core/principles/rule-channel-glob.ts';
+import {
+  extractHeaderField,
+  extractFrontmatterScalar,
+} from '../packages/core/principles/rule-channel-glob.ts';
 import { listScripts, computeWiredSet } from './census.mjs';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const GENERATOR = 'scripts/render-reference.mjs';
 const REFERENCE_DIR = 'docs/site/reference';
@@ -65,7 +73,12 @@ const FINGERPRINT_DIR = 'tests/install-sh/baselines';
 
 /** G18 gated-absence tokens — closed enum; absence-by-construction ONLY (D36). Adding a
  *  reason = the recorded schema decision in the header comment above, never a quiet append. */
-export const ABSENCE_REASONS = ['no-lane', 'no-operator-twin', 'not-byte-copied', 'unregistered'];
+export const ABSENCE_REASONS = [
+  'no-lane',
+  'no-operator-twin',
+  'not-byte-copied',
+  'unregistered',
+];
 
 /**
  * The shared literal header table (§5 + §7 row 6): one anchored regex per glob, the SAME
@@ -75,11 +88,27 @@ export const ABSENCE_REASONS = ['no-lane', 'no-operator-twin', 'not-byte-copied'
  * basename as it is spelled where it lives; `<stem>` = basename without the extension.
  */
 export const HEADER_TABLE = {
-  A: { glob: 'setup.d/[0-9]*.sh', line: 2, pattern: '^# setup\\.d/<b> — .{10,}$' },
-  D: { glob: '.claude/hooks/*.sh (+ plugin-only hooks/<stem>)', line: 'first comment line after the shebang', pattern: '^# <b> — .{10,}$' },
+  A: {
+    glob: 'setup.d/[0-9]*.sh',
+    line: 2,
+    pattern: '^# setup\\.d/<b> — .{10,}$',
+  },
+  D: {
+    glob: '.agents/hooks/*.sh (+ native-only adapters; legacy .claude/hooks fallback)',
+    line: 'first comment line after the shebang',
+    pattern: '^# <b> — .{10,}$',
+  },
   'F-sh': { glob: 'scripts/*.sh', line: 2, pattern: '^# <b> — .{10,}$' },
-  'F-mjs': { glob: 'scripts/*.mjs', line: 3, pattern: '^ \\* <stem> — .{10,}$' },
-  H: { glob: 'packages/runtime-bridge/src/cli/*.ts', line: 2, pattern: '^ \\* <b> — .{10,}$' },
+  'F-mjs': {
+    glob: 'scripts/*.mjs',
+    line: 3,
+    pattern: '^ \\* <stem> — .{10,}$',
+  },
+  H: {
+    glob: 'packages/runtime-bridge/src/cli/*.ts',
+    line: 2,
+    pattern: '^ \\* <b> — .{10,}$',
+  },
 };
 
 /**
@@ -89,12 +118,50 @@ export const HEADER_TABLE = {
  * --check print the deferral on stderr and --check reds the moment the registry lands and
  * the slugs differ (a stale pin is visible, never silent).
  */
-export const KIND_PINS = { sheet: 'reference-sheet', 'family-table': 'family-overview' };
-const KIND_REGISTRY = '.claude/skills/docs-author/references/page-kinds.md';
+export const KIND_PINS = {
+  sheet: 'reference-sheet',
+  'family-table': 'family-overview',
+};
+const KIND_REGISTRY = '.agents/procedures/docs-author/references/page-kinds.md';
 
 /** Plumbing allowlists (§7 row 6 literal pins; a stale pin is visible via arms C/F). */
 const H_ALLOWLIST = ['aifHttp.ts', 'cliEntry.ts', 'openQuestion.ts'];
 const D_ALLOWLIST = ['_zcode-emit', 'run-hook.cmd', 'lang', 'lib'];
+
+/** Depth-gated conditional delivery (setup.d/10-skills.sh) — npm-lane-only, NOT every lane.
+ *  The gates below fire only where the install dispatcher actually reaches the 10-skills
+ *  layer, and it does so only on the npm stacks: install.sh:733-745 dispatches python/
+ *  cargo/go to their own lane bodies (`do_*_lane; exit 0`) BEFORE the layer loop, and those
+ *  lanes get the curated 4-skill/2-role surface (lib.sh `_lane_deliver_agent_surface`)
+ *  instead — so no depth flag (`--profile env|factory`, `--with-aif-suite`) ever delivers
+ *  these members on a toolchain lane. No captured fingerprint is deep enough to list the
+ *  factory roster (harvest appears in none), so lane presence stamps B:harvest `no-lane`,
+ *  which is FALSE here. Stacks are measured, never asserted: the residue pair IS the
+ *  layer's fingerprint-visible witness (the other depth-gated member of the same layer,
+ *  delivered only inside 10-skills.sh), so the stacks carrying it are exactly the stacks
+ *  whose installs reach this layer. The D pair needs no row at all — its own fingerprints
+ *  carry the same npm scope, and plain lane presence keeps it honest (a tier-only override
+ *  here would DISCARD that measured scope — the DOCS001-EXT-DELIVERY-SCOPE regression).
+ *  Each gate is pinned to its exact 10-skills.sh lines by the paired arms in
+ *  packages/core/principles/46-reference-generator-arms.test.ts (DOCS001 R1): a gate that
+ *  moves or drops reds those arms — the drift detection lane-presence cannot provide.
+ *  Tier literals stay inside each family's schema enum (B: core|env|factory|framework;
+ *  D: framework|plugin). */
+const CONDITIONAL_DELIVERY = {
+  // 10-skills.sh:179-192 — the factory gate (profile=factory OR --with-aif-suite) copies the
+  // six-member factory roster and the harvest sweep script. Reachable on the npm stacks only.
+  'B:harvest': { gate: 'setup.d/10-skills.sh:179', tier: 'factory' },
+};
+
+/** Source-proven conditional shipsTo for a table member, else null (caller falls back to
+ *  lane presence). Without fingerprint evidence of stack coverage the tier ships alone —
+ *  a stacks list is never invented (the R1 representation rule). */
+function conditionalShips(key, root) {
+  const row = CONDITIONAL_DELIVERY[key];
+  if (!row) return null;
+  const stacks = laneStacks(root, '.claude/hooks/inject-handoff-on-compact.sh');
+  return stacks.length ? { tier: row.tier, stacks } : { tier: row.tier };
+}
 
 export const FAMILIES = [
   { id: 'A', name: 'installer layers' },
@@ -112,7 +179,8 @@ export const FAMILIES = [
 const FAMILY_NAME = new Map(FAMILIES.map((f) => [f.id, f.name]));
 
 const log = (...m) => console.error('[render-reference]', ...m);
-const sha256 = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
+const sha256 = (p) =>
+  createHash('sha256').update(readFileSync(p)).digest('hex');
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** The D36 error contract: names the file, the missing field, the one-line fix. */
@@ -129,7 +197,9 @@ function memo(key, build) {
   return cache.get(key);
 }
 
-/** Fingerprint rows {stack, lane, hash, path} — input class 5, read by path and by hash. */
+/** Fingerprint rows {stack, lane, hash, path} — input class 5, read by path and by hash. Link rows
+ * (canonical fingerprint format, `link  path -> target`) carry hash:null: the consumer path is
+ * PRESENT on the lane, but the bytes live at the canonical owner the target points at. */
 function fingerprints(root) {
   return memo(`fp:${root}`, () => {
     const dir = join(root, FINGERPRINT_DIR);
@@ -140,9 +210,16 @@ function fingerprints(root) {
       for (const f of readdirSync(stackDir)) {
         if (!f.endsWith('.fingerprint')) continue;
         const lane = f.replace(/\.fingerprint$/, '');
-        for (const line of readFileSync(join(stackDir, f), 'utf8').split('\n')) {
+        for (const line of readFileSync(join(stackDir, f), 'utf8').split(
+          '\n',
+        )) {
           const m = line.match(/^([0-9a-f]{64})  (.+)$/);
-          if (m) rows.push({ stack, lane, hash: m[1], path: m[2] });
+          if (m) {
+            rows.push({ stack, lane, hash: m[1], path: m[2] });
+            continue;
+          }
+          const l = line.match(/^link  (.+?) -> (.+)$/);
+          if (l) rows.push({ stack, lane, hash: null, path: l[1] });
         }
       }
     }
@@ -152,7 +229,13 @@ function fingerprints(root) {
 
 /** Consumer-lane stacks for an installed path (by PATH — presence, any content hash). */
 function laneStacks(root, consumerPath) {
-  return [...new Set(fingerprints(root).filter((r) => r.path === consumerPath).map((r) => r.stack))].sort();
+  return [
+    ...new Set(
+      fingerprints(root)
+        .filter((r) => r.path === consumerPath)
+        .map((r) => r.stack),
+    ),
+  ].sort();
 }
 
 /** shipsTo from lane presence: stacks, else the no-lane token (G18). */
@@ -164,7 +247,8 @@ function shipsByLane(root, tier, consumerPath) {
 /** Tier sets (skills) — existsSync-guarded so synthetic fixture roots degrade to framework. */
 function tiers(root) {
   return memo(`tiers:${root}`, () => {
-    if (!existsSync(join(root, 'setup.d', 'lib.sh'))) return { core: [], env: [], factory: [] };
+    if (!existsSync(join(root, 'setup.d', 'lib.sh')))
+      return { core: [], env: [], factory: [] };
     return readSkillTiers(root);
   });
 }
@@ -174,14 +258,24 @@ function installerSkillLiterals(root) {
   return memo(`literals:${root}`, () => {
     const p = join(root, 'setup.d', '10-skills.sh');
     if (!existsSync(p)) return [];
-    return [...readFileSync(p, 'utf8').matchAll(/(?:cp -r|_copy_tree_with_transform) "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g)].map((m) => m[1]);
+    return [
+      ...readFileSync(p, 'utf8').matchAll(
+        /(?:cp -r|_copy_tree_with_transform) "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g,
+      ),
+    ].map((m) => m[1]);
   });
 }
 
 /** Wired set for scripts/ — the census module is the ONLY classifier (§7 row 7). */
 function wiredSet(root) {
   return memo(`wired:${root}`, () => {
-    const shippedByPath = [...new Set(fingerprints(root).map((r) => r.path.split('/').pop()).filter((b) => /\.(sh|mjs)$/.test(b)))];
+    const shippedByPath = [
+      ...new Set(
+        fingerprints(root)
+          .map((r) => r.path.split('/').pop())
+          .filter((b) => /\.(sh|mjs)$/.test(b)),
+      ),
+    ];
     return computeWiredSet(root, shippedByPath);
   });
 }
@@ -191,36 +285,57 @@ function wiredSet(root) {
  *  synthetic fixture roots behave. */
 function operatorSkillDirs(root) {
   return memo(`opskills:${root}`, () => {
-    const rel = '.claude/skills';
+    const rel = sourceRoot(root, '.agents/procedures', '.claude/skills');
     const abs = join(root, rel);
     if (!existsSync(abs)) return [];
     if (existsSync(join(root, '.git'))) {
       try {
-        const out = execFileSync('git', ['ls-files', rel], { cwd: root, encoding: 'utf8' });
+        const out = execFileSync('git', ['ls-files', rel], {
+          cwd: root,
+          encoding: 'utf8',
+        });
         const dirs = new Set();
         for (const line of out.split('\n')) {
           const parts = line.split('/');
-          if (parts[0] === '.claude' && parts[1] === 'skills' && parts[2]) dirs.add(parts[2]);
+          if (line.startsWith(`${rel}/`) && parts[2]) dirs.add(parts[2]);
         }
-        return [...dirs].filter((d) => existsSync(join(abs, d, 'SKILL.md'))).sort();
+        return [...dirs]
+          .filter((d) => existsSync(join(abs, d, 'SKILL.md')))
+          .sort();
       } catch (e) {
-        log(`git ls-files failed (${e.message.split('\n')[0]}) — falling back to readdir for ${rel}`);
+        log(
+          `git ls-files failed (${e.message.split('\n')[0]}) — falling back to readdir for ${rel}`,
+        );
       }
     }
-    return readdirSync(abs).filter((d) => existsSync(join(abs, d, 'SKILL.md'))).sort();
+    return readdirSync(abs)
+      .filter((d) => existsSync(join(abs, d, 'SKILL.md')))
+      .sort();
   });
 }
 
 function shippedSkillDirs(root) {
-  const abs = join(root, 'skills');
+  const abs = join(root, sourceRoot(root, '.agents/procedures', 'skills'));
   if (!existsSync(abs)) return [];
-  return readdirSync(abs).filter((d) => existsSync(join(abs, d, 'SKILL.md'))).sort();
+  return readdirSync(abs)
+    .filter((d) => existsSync(join(abs, d, 'SKILL.md')))
+    .sort();
+}
+
+/** Authored owner first; minimal legacy fixture roots remain supported. */
+function sourceRoot(root, canonical, legacy) {
+  return existsSync(join(root, canonical)) ? canonical : legacy;
+}
+
+function sourceFile(root, canonical, legacy) {
+  return existsSync(join(root, canonical)) ? canonical : legacy;
 }
 
 function walkFiles(dir, pre = '') {
   const out = [];
   for (const e of readdirSync(dir, { withFileTypes: true })) {
-    if (e.isDirectory()) out.push(...walkFiles(join(dir, e.name), `${pre}${e.name}/`));
+    if (e.isDirectory())
+      out.push(...walkFiles(join(dir, e.name), `${pre}${e.name}/`));
     else out.push(`${pre}${e.name}`);
   }
   return out;
@@ -258,14 +373,20 @@ function headerDescription(headerText, basename) {
 
 function buildA(root) {
   const dir = join(root, 'setup.d');
-  const names = existsSync(dir) ? readdirSync(dir).filter((f) => /^[0-9]+-.*\.sh$/.test(f)).sort() : [];
+  const names = existsSync(dir)
+    ? readdirSync(dir)
+        .filter((f) => /^[0-9]+-.*\.sh$/.test(f))
+        .sort()
+    : [];
   return names.map((name) => {
     const rel = `setup.d/${name}`;
     const src = readFileSync(join(root, rel), 'utf8');
     const lines = src.split('\n');
     const header = lines[1] ?? '';
     if (!new RegExp(`^# setup\\.d/${escapeRe(name)} — .{10,}$`).test(header)) {
-      fail(`${rel}: missing header line 2 matching \`# setup.d/${name} — <one line>\` — add it (HEADER_TABLE.A); every layer states what it does`);
+      fail(
+        `${rel}: missing header line 2 matching \`# setup.d/${name} — <one line>\` — add it (HEADER_TABLE.A); every layer states what it does`,
+      );
     }
     return {
       name,
@@ -284,7 +405,9 @@ function postureOf(src, rel) {
   // and may also be a bare line; the VALUE is the first token, the rest is rationale prose.
   const m = src.match(/@harness-posture:\s*([A-Za-z0-9-]+)/);
   if (!m) {
-    fail(`${rel}: missing \`@harness-posture:\` marker line — add one (§5 #7); the posture is a sourced field, never inferred`);
+    fail(
+      `${rel}: missing \`@harness-posture:\` marker line — add one (§5 #7); the posture is a sourced field, never inferred`,
+    );
   }
   return m[1];
 }
@@ -300,32 +423,47 @@ function buildB(root) {
     const opRel = `.claude/skills/${name}/SKILL.md`;
     const hasShip = existsSync(join(root, shipRel));
     const hasOp = existsSync(join(root, opRel));
-    const srcRel = hasShip ? shipRel : opRel;
+    const srcRel = sourceFile(
+      root,
+      `.agents/procedures/${name}/SKILL.md`,
+      hasShip ? shipRel : opRel,
+    );
     const src = readFileSync(join(root, srcRel), 'utf8');
     const description = extractFrontmatterScalar(src, 'description');
     if (description === null || description.trim() === '') {
-      fail(`${srcRel}: missing frontmatter \`description\` — add one line (Claude Code routes on it); a blank description is absence-by-omission`);
+      fail(
+        `${srcRel}: missing frontmatter \`description\` — add one line (Claude Code routes on it); a blank description is absence-by-omission`,
+      );
     }
     const line = lineOf(src, new RegExp(`^description:`));
-    if (line === null) fail(`${srcRel}: frontmatter \`description\` line not found — the frontmatter block must carry it`);
+    if (line === null)
+      fail(
+        `${srcRel}: frontmatter \`description\` line not found — the frontmatter block must carry it`,
+      );
     // one row per name: the shipped file is the source (P-AC — what consumers receive); the
     // operator twin's path lands in extras; a shipped skill with no operator twin carries the token.
     let operatorTwin;
     if (hasOp) operatorTwin = opRel;
-    else if (hasShip) operatorTwin = { absent: 'no-operator-twin' };
-    else operatorTwin = opRel; // operator-native member: the operator file is its own twin row
-    const tier = tierSets.factory.includes(name) ? 'factory'
-      : tierSets.env.includes(name) ? 'env'
-      : tierSets.core.includes(name) || literals.includes(name) ? 'core'
-      : 'framework';
+    else operatorTwin = { absent: 'no-operator-twin' };
+    const tier = tierSets.factory.includes(name)
+      ? 'factory'
+      : tierSets.env.includes(name)
+        ? 'env'
+        : tierSets.core.includes(name) || literals.includes(name)
+          ? 'core'
+          : 'framework';
     return {
       name,
       kind: 'skill',
-      shipsTo: shipsByLane(root, tier, opRel),
+      shipsTo:
+        conditionalShips(`B:${name}`, root) ?? shipsByLane(root, tier, opRel),
       description,
       source: { path: srcRel, line },
       extras: {
-        invocation: extractFrontmatterScalar(src, 'disable-model-invocation') !== null ? 'slash-only' : 'auto',
+        invocation:
+          extractFrontmatterScalar(src, 'disable-model-invocation') !== null
+            ? 'slash-only'
+            : 'auto',
         posture: postureOf(src, srcRel),
         'operator-twin': operatorTwin,
       },
@@ -341,42 +479,56 @@ function referencedBy(root, name) {
   const scan = (abs, rel) => {
     if (re.test(readFileSync(abs, 'utf8'))) out.push(rel);
   };
-  const skillsDir = join(root, '.claude/skills');
+  const skillRel = sourceRoot(root, '.agents/procedures', '.claude/skills');
+  const skillsDir = join(root, skillRel);
   if (existsSync(skillsDir)) {
-    for (const rel of walkFiles(skillsDir, '.claude/skills/')) {
+    for (const rel of walkFiles(skillsDir, `${skillRel}/`)) {
       if (rel.endsWith('SKILL.md')) scan(join(root, rel), rel);
     }
   }
-  const agentsDir = join(root, 'agents');
+  const roleRel = sourceRoot(root, '.agents/roles', 'agents');
+  const agentsDir = join(root, roleRel);
   if (existsSync(agentsDir)) {
     for (const f of readdirSync(agentsDir).filter((f) => f.endsWith('.md'))) {
-      scan(join(agentsDir, f), `agents/${f}`);
+      scan(join(agentsDir, f), `${roleRel}/${f}`);
     }
   }
-  const rulesDir = join(root, '.claude/rules');
+  const ruleRel = sourceRoot(root, '.agents/rules', '.claude/rules');
+  const rulesDir = join(root, ruleRel);
   if (existsSync(rulesDir)) {
     for (const f of readdirSync(rulesDir).filter((f) => f.endsWith('.md'))) {
-      scan(join(rulesDir, f), `.claude/rules/${f}`);
+      scan(join(rulesDir, f), `${ruleRel}/${f}`);
     }
   }
   return out.sort();
 }
 
 function buildC(root) {
-  const names = shippedAgents(root).map((f) => f.replace(/\.md$/, '')).sort();
+  const names = shippedAgents(root)
+    .map((f) => f.replace(/\.md$/, ''))
+    .sort();
   return names.map((name) => {
-    const rel = `agents/${name}.md`;
+    const rel = sourceFile(
+      root,
+      `.agents/roles/${name}.md`,
+      `agents/${name}.md`,
+    );
     const src = readFileSync(join(root, rel), 'utf8');
     const description = extractFrontmatterScalar(src, 'description');
     if (description === null || description.trim() === '') {
-      fail(`${rel}: missing frontmatter \`description\` — add one line (Claude Code routes on it)`);
+      fail(
+        `${rel}: missing frontmatter \`description\` — add one line (Claude Code routes on it)`,
+      );
     }
     const tools = extractFrontmatterScalar(src, 'tools');
     if (tools === null || tools.trim() === '') {
-      fail(`${rel}: missing frontmatter \`tools\` — add the tool list line (§4 C: 100% of the family declares it)`);
+      fail(
+        `${rel}: missing frontmatter \`tools\` — add the tool list line (§4 C: 100% of the family declares it)`,
+      );
     }
     const line = lineOf(src, /^description:/);
-    if (line === null) fail(`${rel}: frontmatter \`description\` line not found`);
+    if (line === null)
+      fail(`${rel}: frontmatter \`description\` line not found`);
     return {
       name,
       kind: 'agent',
@@ -410,40 +562,66 @@ function hookRegistrations(root) {
     const regs = [];
     const pluginJson = join(root, 'plugin/hooks/hooks.json');
     if (existsSync(pluginJson)) {
-      regs.push(...registryEvents(JSON.parse(readFileSync(pluginJson, 'utf8')).hooks ?? {}, /run-hook\.cmd"\s+([a-z0-9-]+)/));
+      regs.push(
+        ...registryEvents(
+          JSON.parse(readFileSync(pluginJson, 'utf8')).hooks ?? {},
+          /run-hook\.cmd"\s+([a-z0-9-]+)/,
+        ),
+      );
     }
     const settingsJson = join(root, '.claude/settings.json');
     if (existsSync(settingsJson)) {
-      regs.push(...registryEvents(JSON.parse(readFileSync(settingsJson, 'utf8')).hooks ?? {}, /\.claude\/hooks\/([a-z0-9-]+)\.sh/));
+      regs.push(
+        ...registryEvents(
+          JSON.parse(readFileSync(settingsJson, 'utf8')).hooks ?? {},
+          /\.claude\/hooks\/([a-z0-9-]+)\.sh/,
+        ),
+      );
     }
     return regs;
   });
 }
 
 function buildD(root) {
-  const hooksDir = join(root, '.claude/hooks');
+  const hookRel = sourceRoot(root, '.agents/hooks', '.claude/hooks');
+  const hooksDir = join(root, hookRel);
   const stems = existsSync(hooksDir)
-    ? readdirSync(hooksDir).filter((f) => f.endsWith('.sh')).map((f) => f.replace(/\.sh$/, '')).sort()
+    ? readdirSync(hooksDir)
+        .filter((f) => f.endsWith('.sh'))
+        .map((f) => f.replace(/\.sh$/, ''))
+        .sort()
     : [];
   const regs = hookRegistrations(root);
-  const pluginOnly = [...new Set(regs.filter((r) => !stems.includes(r.name)).map((r) => r.name))].sort()
+  const pluginOnly = [
+    ...new Set(regs.filter((r) => !stems.includes(r.name)).map((r) => r.name)),
+  ]
+    .sort()
     .filter((n) => !D_ALLOWLIST.includes(n));
   return [...stems, ...pluginOnly].sort().map((stem) => {
-    const fwRel = `.claude/hooks/${stem}.sh`;
+    const fwRel = `${hookRel}/${stem}.sh`;
     const pluginRel = `plugin/hooks/${stem}`;
     const hasFw = existsSync(join(root, fwRel));
     const hasPlugin = existsSync(join(root, pluginRel));
-    const srcRel = hasFw ? fwRel : pluginRel;
+    const srcRel = hasFw
+      ? fwRel
+      : sourceFile(root, `.agents/hooks/adapters/plugin/${stem}`, pluginRel);
     const src = readFileSync(join(root, srcRel), 'utf8');
     // strict header: FIRST comment line after the shebang, before any @-marker line
     const first = firstCommentLineAfterShebang(src);
-    if (!first) fail(`${srcRel}: missing header line matching \`# ${srcRel.split('/').pop()} — <one line>\` — add it as the first comment line after the shebang (HEADER_TABLE.D, §5 #3)`);
+    if (!first)
+      fail(
+        `${srcRel}: missing header line matching \`# ${srcRel.split('/').pop()} — <one line>\` — add it as the first comment line after the shebang (HEADER_TABLE.D, §5 #3)`,
+      );
     if (/^# @(dual-pair|cc-only-rationale)\b/.test(first.text)) {
-      fail(`${srcRel}: the \`@${first.text.slice(3).split(':')[0]}\` marker block sits BEFORE the header — move the \`# ${srcRel.split('/').pop()} — <one line>\` header above it (§4 D: strict header first)`);
+      fail(
+        `${srcRel}: the \`@${first.text.slice(3).split(':')[0]}\` marker block sits BEFORE the header — move the \`# ${srcRel.split('/').pop()} — <one line>\` header above it (§4 D: strict header first)`,
+      );
     }
     const description = headerDescription(first.text, srcRel.split('/').pop());
     if (!description) {
-      fail(`${srcRel}: first comment line does not match \`# ${srcRel.split('/').pop()} — <one line>\` (HEADER_TABLE.D) — fix it: ${JSON.stringify(first.text)}`);
+      fail(
+        `${srcRel}: first comment line does not match \`# ${srcRel.split('/').pop()} — <one line>\` (HEADER_TABLE.D) — fix it: ${JSON.stringify(first.text)}`,
+      );
     }
     const mine = regs.filter((r) => r.name === stem);
     // `unregistered` (G18 reason #4 — see the recorded schema decision in the header comment):
@@ -451,22 +629,36 @@ function buildD(root) {
     // (absence-by-construction → token); both registries silent + NO marker falls through to
     // the fail below (absence-by-omission names the file, D36).
     const unregistered = mine.length === 0;
-    const events = unregistered ? { absent: 'unregistered' } : [...new Set(mine.map((r) => r.event))].sort();
-    const matchers = unregistered ? { absent: 'unregistered' } : [...new Set(mine.filter((r) => r.matcher).map((r) => r.matcher))].sort();
+    const events = unregistered
+      ? { absent: 'unregistered' }
+      : [...new Set(mine.map((r) => r.event))].sort();
+    const matchers = unregistered
+      ? { absent: 'unregistered' }
+      : [
+          ...new Set(mine.filter((r) => r.matcher).map((r) => r.matcher)),
+        ].sort();
     const delivery = [];
     const dual = src.match(/^#\s*@dual-pair:\s*(.+)$/m);
     if (dual) delivery.push(`@dual-pair:${dual[1].trim()}`);
-    if (/^#\s*@cc-only-rationale\b/m.test(src)) delivery.push('@cc-only-rationale');
+    if (/^#\s*@cc-only-rationale\b/m.test(src))
+      delivery.push('@cc-only-rationale');
     if (delivery.length === 0) {
-      fail(`${srcRel}: ${unregistered
-        ? 'registered in no hooks registry (plugin/hooks/hooks.json, .claude/settings.json) AND carries no `@dual-pair:` / `@cc-only-rationale` marker — a hook nothing registers and no doctrine marker explains never fires (absence-by-omission): register it or remove the file'
-        : 'missing `@dual-pair:` / `@cc-only-rationale` marker — add one (check-hook-marker.sh gates it)'}`);
+      fail(
+        `${srcRel}: ${
+          unregistered
+            ? 'registered in no hooks registry (plugin/hooks/hooks.json, .claude/settings.json) AND carries no `@dual-pair:` / `@cc-only-rationale` marker — a hook nothing registers and no doctrine marker explains never fires (absence-by-omission): register it or remove the file'
+            : 'missing `@dual-pair:` / `@cc-only-rationale` marker — add one (check-hook-marker.sh gates it)'
+        }`,
+      );
     }
     if (hasPlugin) delivery.push('plugin');
     return {
       name: stem,
       kind: 'hook',
-      shipsTo: hasFw ? shipsByLane(root, 'framework', fwRel) : { tier: 'plugin' },
+      shipsTo: hasFw
+        ? (conditionalShips(`D:${stem}`, root) ??
+          shipsByLane(root, 'framework', fwRel))
+        : { tier: 'plugin' },
       description,
       source: { path: srcRel, line: first.line },
       extras: { event: events, matcher: matchers, delivery },
@@ -478,57 +670,100 @@ function buildD(root) {
 function buildE(root) {
   const tplDir = join(root, TEMPLATES_DIR);
   const files = existsSync(tplDir)
-    ? walkFiles(tplDir).filter((f) => f !== 'templates.manifest.json').sort()
+    ? walkFiles(tplDir)
+        .filter((f) => f !== 'templates.manifest.json')
+        .sort()
     : [];
   const manifestRel = TEMPLATE_SIDECAR;
   const manifestPath = join(root, manifestRel);
   if (!existsSync(manifestPath)) {
-    fail(`${manifestRel}: missing sidecar manifest — create one row per template file \`{path, description}\` (§5 #5); the two-way completeness gate fails without it`);
+    fail(
+      `${manifestRel}: missing sidecar manifest — create one row per template file \`{path, description}\` (§5 #5); the two-way completeness gate fails without it`,
+    );
   }
   const raw = readFileSync(manifestPath, 'utf8');
   const rows = JSON.parse(raw);
-  if (!Array.isArray(rows)) fail(`${manifestRel}: sidecar must be a JSON array of {path, description} rows`);
+  if (!Array.isArray(rows))
+    fail(
+      `${manifestRel}: sidecar must be a JSON array of {path, description} rows`,
+    );
   const byPath = new Map();
   const TPL_PREFIX = `${TEMPLATES_DIR}/`;
   for (const row of rows) {
-    if (!row || typeof row !== 'object' || Array.isArray(row)) fail(`${manifestRel}: each sidecar row must be an object \`{path, description}\``);
+    if (!row || typeof row !== 'object' || Array.isArray(row))
+      fail(
+        `${manifestRel}: each sidecar row must be an object \`{path, description}\``,
+      );
     for (const key of Object.keys(row)) {
       if (key !== 'path' && key !== 'description') {
-        fail(`${manifestRel}: row for \`${row.path ?? '?'}\` carries field \`${key}\` — the sidecar carries ONLY \`description\` (G16); \`installed-to\` is derived from fingerprints, never declared`);
+        fail(
+          `${manifestRel}: row for \`${row.path ?? '?'}\` carries field \`${key}\` — the sidecar carries ONLY \`description\` (G16); \`installed-to\` is derived from fingerprints, never declared`,
+        );
       }
     }
-    if (typeof row.path !== 'string' || row.path.trim() === '') fail(`${manifestRel}: a sidecar row is missing its \`path\` — name the template file it describes`);
-    if (!row.path.startsWith(TPL_PREFIX)) fail(`${manifestRel}: row path \`${row.path}\` is not under \`${TPL_PREFIX}\` — sidecar rows carry the repo-relative template path`);
-    if (typeof row.description !== 'string' || row.description.trim() === '') fail(`${manifestRel}: row for \`${row.path}\` is missing \`description\` — add one line`);
-    if (byPath.has(row.path)) fail(`${manifestRel}: two rows describe \`${row.path}\` — one row per template file`);
+    if (typeof row.path !== 'string' || row.path.trim() === '')
+      fail(
+        `${manifestRel}: a sidecar row is missing its \`path\` — name the template file it describes`,
+      );
+    if (!row.path.startsWith(TPL_PREFIX))
+      fail(
+        `${manifestRel}: row path \`${row.path}\` is not under \`${TPL_PREFIX}\` — sidecar rows carry the repo-relative template path`,
+      );
+    if (typeof row.description !== 'string' || row.description.trim() === '')
+      fail(
+        `${manifestRel}: row for \`${row.path}\` is missing \`description\` — add one line`,
+      );
+    if (byPath.has(row.path))
+      fail(
+        `${manifestRel}: two rows describe \`${row.path}\` — one row per template file`,
+      );
     byPath.set(row.path, row);
   }
   for (const rowPath of byPath.keys()) {
-    if (!existsSync(join(root, rowPath))) fail(`${manifestRel}: row describes \`${rowPath}\` which does not exist — fix the path or remove the row (two-way completeness)`);
+    if (!existsSync(join(root, rowPath)))
+      fail(
+        `${manifestRel}: row describes \`${rowPath}\` which does not exist — fix the path or remove the row (two-way completeness)`,
+      );
   }
   // sha256 collision across templates = error naming both (G16: the derivation could not tell
   // which template a fingerprint line came from)
   const seenHash = new Map();
   for (const rel of files) {
     const h = sha256(join(root, TEMPLATES_DIR, rel));
-    if (seenHash.has(h)) fail(`${manifestRel}: template sha256 collision: ${seenHash.get(h)} and ${TEMPLATES_DIR}/${rel} are byte-identical — the installed-to derivation cannot distinguish them`);
+    if (seenHash.has(h))
+      fail(
+        `${manifestRel}: template sha256 collision: ${seenHash.get(h)} and ${TEMPLATES_DIR}/${rel} are byte-identical — the installed-to derivation cannot distinguish them`,
+      );
     seenHash.set(h, rel);
   }
   return files.map((rel) => {
     const rowKey = `${TEMPLATES_DIR}/${rel}`;
-    if (!byPath.has(rowKey)) fail(`${manifestRel}: no sidecar row for \`${rowKey}\` — add \`{path: "${rowKey}", description: "..."}\` (every template file needs exactly one row)`);
+    if (!byPath.has(rowKey))
+      fail(
+        `${manifestRel}: no sidecar row for \`${rowKey}\` — add \`{path: "${rowKey}", description: "..."}\` (every template file needs exactly one row)`,
+      );
     const row = byPath.get(rowKey);
-    const rowLine = lineOf(raw, new RegExp(`"path"\\s*:\\s*"${escapeRe(rowKey.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))}"`));
+    const rowLine = lineOf(
+      raw,
+      new RegExp(
+        `"path"\\s*:\\s*"${escapeRe(rowKey.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))}"`,
+      ),
+    );
     const hash = sha256(join(root, TEMPLATES_DIR, rel));
-    const installs = fingerprints(root).filter((r) => r.hash === hash)
+    const installs = fingerprints(root)
+      .filter((r) => r.hash === hash)
       .map((r) => ({ stack: r.stack, lane: r.lane, path: r.path }))
       .sort((a, b) => (a.stack + a.path).localeCompare(b.stack + b.path));
-    const installedTo = installs.length ? installs : { absent: 'not-byte-copied' };
+    const installedTo = installs.length
+      ? installs
+      : { absent: 'not-byte-copied' };
     const stacks = [...new Set(installs.map((i) => i.stack))].sort();
     return {
       name: rel,
       kind: 'template',
-      shipsTo: stacks.length ? { tier: 'framework', stacks } : { tier: 'framework', absent: 'no-lane' },
+      shipsTo: stacks.length
+        ? { tier: 'framework', stacks }
+        : { tier: 'framework', absent: 'no-lane' },
       description: row.description,
       source: { path: manifestRel, line: rowLine ?? 1 },
       installedTo,
@@ -539,31 +774,46 @@ function buildE(root) {
 }
 
 function buildF1(root) {
-  const rulesDir = join(root, '.claude/rules');
+  const ruleRel = sourceRoot(root, '.agents/rules', '.claude/rules');
+  const rulesDir = join(root, ruleRel);
   const names = existsSync(rulesDir)
-    ? readdirSync(rulesDir).filter((f) => f.endsWith('.md') && f !== '00-rule-index.md').map((f) => f.replace(/\.md$/, '')).sort()
+    ? readdirSync(rulesDir)
+        .filter((f) => f.endsWith('.md') && f !== '00-rule-index.md')
+        .map((f) => f.replace(/\.md$/, ''))
+        .sort()
     : [];
   const indexRows = new Map(buildRows(root).rows.map((r) => [r.name, r]));
   return names.map((name) => {
-    const rel = `.claude/rules/${name}.md`;
+    const rel = `${ruleRel}/${name}.md`;
     const src = readFileSync(join(root, rel), 'utf8');
     const full = extractHeaderField(src, 'Authoritative for');
     if (full === null || full.trim() === '') {
-      fail(`${rel}: missing \`> **Authoritative for:**\` header field — add it (principle 09 gates it; it is the F.1 description source)`);
+      fail(
+        `${rel}: missing \`> **Authoritative for:**\` header field — add it (principle 09 gates it; it is the F.1 description source)`,
+      );
     }
     const row = indexRows.get(name);
-    if (!row) fail(`${rel}: no 00-rule-index.md row — regenerate the index (npx tsx scripts/render-rule-index.mjs --write); F.1 rows are identical to it (G12)`);
+    if (!row)
+      fail(
+        `${rel}: no 00-rule-index.md row — regenerate the index (npx tsx scripts/render-rule-index.mjs --write); F.1 rows are identical to it (G12)`,
+      );
     const line = lineOf(src, /^\s*>\s*\*\*Authoritative for:\*\*/);
-    if (line === null) fail(`${rel}: \`> **Authoritative for:**\` line not found`);
+    if (line === null)
+      fail(`${rel}: \`> **Authoritative for:**\` line not found`);
     const description = full.split(/(?<=\.)\s/)[0].trim();
-    if (description === '') fail(`${rel}: \`> **Authoritative for:**\` first sentence is empty`);
+    if (description === '')
+      fail(`${rel}: \`> **Authoritative for:**\` first sentence is empty`);
     return {
       name,
       kind: 'rule',
       shipsTo: { tier: 'framework' },
       description,
       source: { path: rel, line },
-      extras: { class: row.classLetter, fires: row.fires, channels: row.channels },
+      extras: {
+        class: row.classLetter,
+        fires: row.fires,
+        channels: row.channels,
+      },
       example: null,
     };
   });
@@ -571,30 +821,43 @@ function buildF1(root) {
 
 function buildF2(root) {
   const manifestPath = join(root, RULES_MANIFEST);
-  if (!existsSync(manifestPath)) fail(`${RULES_MANIFEST}: missing rules manifest — family F.2 has no population without it`);
+  if (!existsSync(manifestPath))
+    fail(
+      `${RULES_MANIFEST}: missing rules manifest — family F.2 has no population without it`,
+    );
   const raw = readFileSync(manifestPath, 'utf8');
   const manifest = JSON.parse(raw);
-  return Object.keys(manifest).sort().map((key) => {
-    const row = manifest[key];
-    if (typeof row.title !== 'string' || row.title.trim() === '') {
-      fail(`${RULES_MANIFEST}: rule \`${key}\` is missing \`title\` — add it (the F.2 description source)`);
-    }
-    const checkType = row?.check?.type;
-    if (typeof checkType !== 'string' || checkType.trim() === '') {
-      fail(`${RULES_MANIFEST}: rule \`${key}\` is missing \`check.type\` — add it (§4 F.2: 100% of the family declares it)`);
-    }
-    const line = lineOf(raw, new RegExp(`^\\s*"${escapeRe(key)}"\\s*:`));
-    if (line === null) fail(`${RULES_MANIFEST}: key \`${key}\` line not found`);
-    return {
-      name: key,
-      kind: 'generated-rule',
-      shipsTo: { tier: 'framework', stacks: Array.isArray(row.stack) ? [...row.stack].sort() : [] },
-      description: row.title,
-      source: { path: RULES_MANIFEST, line },
-      extras: { checkType },
-      example: null,
-    };
-  });
+  return Object.keys(manifest)
+    .sort()
+    .map((key) => {
+      const row = manifest[key];
+      if (typeof row.title !== 'string' || row.title.trim() === '') {
+        fail(
+          `${RULES_MANIFEST}: rule \`${key}\` is missing \`title\` — add it (the F.2 description source)`,
+        );
+      }
+      const checkType = row?.check?.type;
+      if (typeof checkType !== 'string' || checkType.trim() === '') {
+        fail(
+          `${RULES_MANIFEST}: rule \`${key}\` is missing \`check.type\` — add it (§4 F.2: 100% of the family declares it)`,
+        );
+      }
+      const line = lineOf(raw, new RegExp(`^\\s*"${escapeRe(key)}"\\s*:`));
+      if (line === null)
+        fail(`${RULES_MANIFEST}: key \`${key}\` line not found`);
+      return {
+        name: key,
+        kind: 'generated-rule',
+        shipsTo: {
+          tier: 'framework',
+          stacks: Array.isArray(row.stack) ? [...row.stack].sort() : [],
+        },
+        description: row.title,
+        source: { path: RULES_MANIFEST, line },
+        extras: { checkType },
+        example: null,
+      };
+    });
 }
 
 /**
@@ -638,46 +901,86 @@ function buildF3(root) {
     if (!s.name.endsWith('.sh')) {
       const rel2 = `scripts/${s.name}`;
       try {
-        execFileSync(process.execPath, ['--check', join(root, rel2)], { stdio: 'pipe' });
+        execFileSync(process.execPath, ['--check', join(root, rel2)], {
+          stdio: 'pipe',
+        });
       } catch (e) {
-        const detail = (String((e && e.stderr) || e.message).split('\n').find((l) => l.trim()) ?? 'node --check failed').trim();
-        fail(`${rel2}: \`node --check\` rejected the file — ${detail} — fix the syntax (F3 parse arm: a tracked script that cannot parse is dead at its first invocation)`);
+        const detail = (
+          String((e && e.stderr) || e.message)
+            .split('\n')
+            .find((l) => l.trim()) ?? 'node --check failed'
+        ).trim();
+        fail(
+          `${rel2}: \`node --check\` rejected the file — ${detail} — fix the syntax (F3 parse arm: a tracked script that cannot parse is dead at its first invocation)`,
+        );
       }
       const open = jsdocHeaderCloses(readFileSync(join(root, rel2), 'utf8'));
       if (open) {
-        fail(`${rel2}: ${open} — close the header block with \` */\` before the first non-comment line; an open \`/**\` silently comments out the code below it (F3 header-closure arm)`);
+        fail(
+          `${rel2}: ${open} — close the header block with \` */\` before the first non-comment line; an open \`/**\` silently comments out the code below it (F3 header-closure arm)`,
+        );
       }
     }
     if (s.testMaterial) continue; // test material: in the population as a gate, never a card
-    if (!wired.has(s.name)) { unwired.push(s.name); continue; }
-    const rel = `scripts/${s.name}`;
+    if (!wired.has(s.name)) {
+      unwired.push(s.name);
+      continue;
+    }
+    const rel = sourceFile(
+      root,
+      `.agents/checks/${s.name}`,
+      `scripts/${s.name}`,
+    );
     const src = readFileSync(join(root, rel), 'utf8');
     const lines = src.split('\n');
     let description = null;
     let headerLine = null;
     if (s.name.endsWith('.sh')) {
       for (const idx of [1, 2]) {
-        const m = (lines[idx] ?? '').match(new RegExp(`^# ${escapeRe(s.name)} — (.+)$`));
-        if (m) { description = m[1].trim(); headerLine = idx + 1; break; }
+        const m = (lines[idx] ?? '').match(
+          new RegExp(`^# ${escapeRe(s.name)} — (.+)$`),
+        );
+        if (m) {
+          description = m[1].trim();
+          headerLine = idx + 1;
+          break;
+        }
       }
       if (!description) {
-        fail(`${rel}: missing header line matching \`# ${s.name} — <one line>\` — add it (HEADER_TABLE['F-sh'], §5 #4); a wired script states what it does`);
+        fail(
+          `${rel}: missing header line matching \`# ${s.name} — <one line>\` — add it (HEADER_TABLE['F-sh'], §5 #4); a wired script states what it does`,
+        );
       }
     } else {
-      if (lines[1] !== '/**' || !new RegExp(`^ \\* ${escapeRe(s.name.replace(/\.mjs$/, ''))} — .{10,}$`).test(lines[2] ?? '')) {
-        fail(`${rel}: missing JSDoc line 3 matching \` * ${s.name.replace(/\.mjs$/, '')} — <one line>\` (line 2 must open \`/**\`) — add it (HEADER_TABLE['F-mjs'])`);
+      if (
+        lines[1] !== '/**' ||
+        !new RegExp(
+          `^ \\* ${escapeRe(s.name.replace(/\.mjs$/, ''))} — .{10,}$`,
+        ).test(lines[2] ?? '')
+      ) {
+        fail(
+          `${rel}: missing JSDoc line 3 matching \` * ${s.name.replace(/\.mjs$/, '')} — <one line>\` (line 2 must open \`/**\`) — add it (HEADER_TABLE['F-mjs'])`,
+        );
       }
       description = (lines[2] ?? '').replace(/^ \* .+? — /, '').trim();
       headerLine = 3;
     }
-    const wiredFrom = wired.get(s.name).map((ev) =>
-      ev.via === 'fingerprint' ? `shipped-by-path (${ev.file})` : ev.via === 'closure' ? `${ev.file}:${ev.line} (${ev.shape}, closure)` : `${ev.file}:${ev.line} (${ev.shape})`,
-    );
+    const wiredFrom = wired
+      .get(s.name)
+      .map((ev) =>
+        ev.via === 'fingerprint'
+          ? `shipped-by-path (${ev.file})`
+          : ev.via === 'closure'
+            ? `${ev.file}:${ev.line} (${ev.shape}, closure)`
+            : `${ev.file}:${ev.line} (${ev.shape})`,
+      );
     const stacks = laneStacks(root, rel);
     cards.push({
       name: s.name,
       kind: 'script',
-      shipsTo: stacks.length ? { tier: 'consumer', stacks } : { tier: 'framework', absent: 'no-lane' },
+      shipsTo: stacks.length
+        ? { tier: 'consumer', stacks }
+        : { tier: 'framework', absent: 'no-lane' },
       description,
       source: { path: rel, line: headerLine },
       extras: { 'wired-from': wiredFrom },
@@ -694,7 +997,9 @@ function buildF3(root) {
 function buildG(root) {
   const pkgDir = join(root, 'packages');
   const dirs = existsSync(pkgDir)
-    ? readdirSync(pkgDir).filter((d) => existsSync(join(pkgDir, d, 'package.json'))).sort()
+    ? readdirSync(pkgDir)
+        .filter((d) => existsSync(join(pkgDir, d, 'package.json')))
+        .sort()
     : [];
   return dirs.map((dir) => {
     const rel = `packages/${dir}/package.json`;
@@ -702,12 +1007,16 @@ function buildG(root) {
     const pkg = JSON.parse(raw);
     const description = pkg.description;
     if (typeof description !== 'string' || description.trim() === '') {
-      fail(`${rel}: missing \`description\` — add one line (npm renders it; §5 #1)`);
+      fail(
+        `${rel}: missing \`description\` — add one line (npm renders it; §5 #1)`,
+      );
     }
     const line = lineOf(raw, /"description"\s*:/);
     if (line === null) fail(`${rel}: \`description\` key line not found`);
     if (typeof pkg.version !== 'string' || pkg.version.trim() === '') {
-      fail(`${rel}: missing \`version\` — add it (§4 G: 100% of the family declares it)`);
+      fail(
+        `${rel}: missing \`version\` — add it (§4 G: 100% of the family declares it)`,
+      );
     }
     return {
       name: dir,
@@ -724,13 +1033,20 @@ function buildG(root) {
 function buildH(root) {
   const cliDir = join(root, 'packages/runtime-bridge/src/cli');
   const files = existsSync(cliDir)
-    ? readdirSync(cliDir).filter((f) => f.endsWith('.ts') && !H_ALLOWLIST.includes(f)).sort()
+    ? readdirSync(cliDir)
+        .filter((f) => f.endsWith('.ts') && !H_ALLOWLIST.includes(f))
+        .sort()
     : [];
   return files.map((file) => {
     const rel = `packages/runtime-bridge/src/cli/${file}`;
     const lines = readFileSync(join(root, rel), 'utf8').split('\n');
-    if (lines[0] !== '/**' || !new RegExp(`^ \\* ${escapeRe(file)} — .{10,}$`).test(lines[1] ?? '')) {
-      fail(`${rel}: missing JSDoc line 2 matching \` * ${file} — <one line>\` (line 1 must open \`/**\`) — add it (HEADER_TABLE.H, §5 #6)`);
+    if (
+      lines[0] !== '/**' ||
+      !new RegExp(`^ \\* ${escapeRe(file)} — .{10,}$`).test(lines[1] ?? '')
+    ) {
+      fail(
+        `${rel}: missing JSDoc line 2 matching \` * ${file} — <one line>\` (line 1 must open \`/**\`) — add it (HEADER_TABLE.H, §5 #6)`,
+      );
     }
     return {
       name: file.replace(/\.ts$/, ''),
@@ -750,14 +1066,21 @@ function buildI(root) {
     const src = readFileSync(join(root, rel), 'utf8');
     const description = extractFrontmatterScalar(src, 'description');
     if (description === null || description.trim() === '') {
-      fail(`${rel}: missing frontmatter \`description\` — add one line (§4 I: 8/8 measured)`);
+      fail(
+        `${rel}: missing frontmatter \`description\` — add one line (§4 I: 8/8 measured)`,
+      );
     }
     const line = lineOf(src, /^description:/);
-    if (line === null) fail(`${rel}: frontmatter \`description\` line not found`);
+    if (line === null)
+      fail(`${rel}: frontmatter \`description\` line not found`);
     // twin-of: byte-identical source (sha256) or the not-byte-copied token (G18 — measured,
     // never declared; a plugin file with no repo source is by construction not a byte-copy)
     let twinOf = { absent: 'not-byte-copied' };
-    if (twinSourceRel && existsSync(join(root, twinSourceRel)) && sha256(join(root, rel)) === sha256(join(root, twinSourceRel))) {
+    if (
+      twinSourceRel &&
+      existsSync(join(root, twinSourceRel)) &&
+      sha256(join(root, rel)) === sha256(join(root, twinSourceRel))
+    ) {
       twinOf = twinSourceRel;
     }
     members.push({
@@ -767,7 +1090,9 @@ function buildI(root) {
       name: (() => {
         const segs = rel.split('/');
         const base = segs[segs.length - 1];
-        return base === 'SKILL.md' ? segs[segs.length - 2] : base.replace(/\.md$/, '');
+        return base === 'SKILL.md'
+          ? segs[segs.length - 2]
+          : base.replace(/\.md$/, '');
       })(),
       kind: 'plugin-component',
       shipsTo: { tier: 'plugin' },
@@ -779,29 +1104,63 @@ function buildI(root) {
   };
   const skillsDir = join(root, 'plugin/skills');
   if (existsSync(skillsDir)) {
-    for (const d of readdirSync(skillsDir).filter((d) => existsSync(join(skillsDir, d, 'SKILL.md'))).sort()) {
-      push(`plugin/skills/${d}/SKILL.md`, 'skill', `skills/${d}/SKILL.md`);
+    for (const d of readdirSync(skillsDir)
+      .filter((d) => existsSync(join(skillsDir, d, 'SKILL.md')))
+      .sort()) {
+      const owner =
+        d === 'tool-bootstrapping' ? 'tool-bootstrapping-consumer' : d;
+      push(
+        `plugin/skills/${d}/SKILL.md`,
+        'skill',
+        sourceFile(
+          root,
+          `.agents/procedures/${owner}/SKILL.md`,
+          `skills/${d}/SKILL.md`,
+        ),
+      );
     }
   }
   const commandsDir = join(root, 'plugin/commands');
   if (existsSync(commandsDir)) {
-    for (const f of readdirSync(commandsDir).filter((f) => f.endsWith('.md')).sort()) push(`plugin/commands/${f}`, 'command', null);
+    for (const f of readdirSync(commandsDir)
+      .filter((f) => f.endsWith('.md'))
+      .sort())
+      push(`plugin/commands/${f}`, 'command', null);
   }
   const agentsDir = join(root, 'plugin/agents');
   if (existsSync(agentsDir)) {
-    for (const f of readdirSync(agentsDir).filter((f) => f.endsWith('.md')).sort()) push(`plugin/agents/${f}`, 'agent', `agents/${f}`);
+    for (const f of readdirSync(agentsDir)
+      .filter((f) => f.endsWith('.md'))
+      .sort())
+      push(
+        `plugin/agents/${f}`,
+        'agent',
+        sourceFile(root, `.agents/roles/${f}`, `agents/${f}`),
+      );
   }
   return members.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 const BUILDERS = {
-  A: buildA, B: buildB, C: buildC, D: buildD, E: buildE,
-  F1: buildF1, F2: buildF2, F3: buildF3, G: buildG, H: buildH, I: buildI,
+  A: buildA,
+  B: buildB,
+  C: buildC,
+  D: buildD,
+  E: buildE,
+  F1: buildF1,
+  F2: buildF2,
+  F3: buildF3,
+  G: buildG,
+  H: buildH,
+  I: buildI,
 };
 
 export function buildFamily(root, id) {
   const build = BUILDERS[id];
-  if (!build) fail(`unknown family id "${id}" — one of ${FAMILIES.map((f) => f.id).join(', ')}`);
+  if (!build)
+    fail(
+      `unknown family id "${id}" — one of ${FAMILIES.map((f) => f.id).join(', ')}`,
+    );
   return build(root);
 }
 
@@ -819,7 +1178,8 @@ export function familyDoc(id, members) {
     generator: GENERATOR,
     members: Array.isArray(members) ? members : [],
   };
-  if (id === 'F3' && members && Array.isArray(members.unwired)) doc.unwired = [...members.unwired].sort();
+  if (id === 'F3' && members && Array.isArray(members.unwired))
+    doc.unwired = [...members.unwired].sort();
   return doc;
 }
 
@@ -839,22 +1199,78 @@ function overviewTable(id, members) {
     I: '| Component | Kind | Twin-of | What it is |',
   }[id];
   const cells = {
-    A: (m) => [`\`${m.name}\``, String(m.extras.order), m.description, 'all stacks'],
-    B: (m) => [`\`${m.name}\``, m.shipsTo.tier, m.extras.invocation, m.description, renderShips(m)],
-    C: (m) => [`\`${m.name}\``, m.extras.tools, m.description, String(m.extras['referenced-by'].length), renderShips(m)],
-    D: (m) => [`\`${m.name}\``, renderEvent(m.extras.event), m.description, m.extras.delivery.join(' + '), renderShips(m)],
-    E: (m) => [`\`${m.name}\``, m.extras.format, m.description, renderInstalled(m)],
-    F1: (m) => [`\`${m.name}\``, m.extras.class, m.extras.fires, m.extras.channels],
-    F2: (m) => [`\`${m.name}\``, m.extras.checkType, (m.shipsTo.stacks ?? []).join(', '), m.description],
-    F3: (m) => [`\`${m.name}\``, m.description, m.extras['wired-from'].join('; '), renderShips(m)],
-    G: (m) => [`\`${m.name}\``, m.extras.version, m.shipsTo.tier, m.description],
+    A: (m) => [
+      `\`${m.name}\``,
+      String(m.extras.order),
+      m.description,
+      'all stacks',
+    ],
+    B: (m) => [
+      `\`${m.name}\``,
+      m.shipsTo.tier,
+      m.extras.invocation,
+      m.description,
+      renderShips(m),
+    ],
+    C: (m) => [
+      `\`${m.name}\``,
+      m.extras.tools,
+      m.description,
+      String(m.extras['referenced-by'].length),
+      renderShips(m),
+    ],
+    D: (m) => [
+      `\`${m.name}\``,
+      renderEvent(m.extras.event),
+      m.description,
+      m.extras.delivery.join(' + '),
+      renderShips(m),
+    ],
+    E: (m) => [
+      `\`${m.name}\``,
+      m.extras.format,
+      m.description,
+      renderInstalled(m),
+    ],
+    F1: (m) => [
+      `\`${m.name}\``,
+      m.extras.class,
+      m.extras.fires,
+      m.extras.channels,
+    ],
+    F2: (m) => [
+      `\`${m.name}\``,
+      m.extras.checkType,
+      (m.shipsTo.stacks ?? []).join(', '),
+      m.description,
+    ],
+    F3: (m) => [
+      `\`${m.name}\``,
+      m.description,
+      m.extras['wired-from'].join('; '),
+      renderShips(m),
+    ],
+    G: (m) => [
+      `\`${m.name}\``,
+      m.extras.version,
+      m.shipsTo.tier,
+      m.description,
+    ],
     H: (m) => [`\`${m.name}\``, m.description, m.shipsTo.tier],
-    I: (m) => [`\`${m.name}\``, m.extras.component, renderTwin(m.extras['twin-of']), m.description],
+    I: (m) => [
+      `\`${m.name}\``,
+      m.extras.component,
+      renderTwin(m.extras['twin-of']),
+      m.description,
+    ],
   };
   // `cells` is the lookup table (never pre-resolved with `[id]` — indexing the resolved cell
   // function again is the bug arm 3 of render-reference.test.sh pins). The per-kind override
   // keeps a plugin-component row landing in a non-I family rendering with the I columns.
-  const rows = members.map((m) => `| ${cells[m.kind === 'plugin-component' ? 'I' : id](m).join(' | ')} |`);
+  const rows = members.map(
+    (m) =>
+      `| ${cells[m.kind === 'plugin-component' ? 'I' : id](m).join(' | ')} |`,
+  );
   const cols = head.split('|').length - 2; // leading + trailing empty segments
   return [head, `|${'---|'.repeat(cols)}`, ...rows].join('\n');
 }
@@ -865,9 +1281,12 @@ function renderEvent(v) {
 }
 
 function renderShips(m) {
-  if (m.shipsTo.absent) return `not installed on any lane (${m.shipsTo.absent})`;
+  if (m.shipsTo.absent)
+    return `not installed on any lane (${m.shipsTo.absent})`;
   const stacks = m.shipsTo.stacks ?? [];
-  return stacks.length ? `${m.shipsTo.tier}: ${stacks.join(', ')}` : m.shipsTo.tier;
+  return stacks.length
+    ? `${m.shipsTo.tier}: ${stacks.join(', ')}`
+    : m.shipsTo.tier;
 }
 
 function renderInstalled(m) {
@@ -881,44 +1300,85 @@ function renderTwin(t) {
 
 /** The card fence block for one member (arm A contract; S0b's gold fixtures pin the bytes). */
 export function renderCardFence(dir, entry) {
-  const member = JSON.parse(readFileSync(join(dir, entry, 'member.json'), 'utf8'));
+  const member = JSON.parse(
+    readFileSync(join(dir, entry, 'member.json'), 'utf8'),
+  );
   const section = `${member.family}-card-${member.name}`;
+  // Descriptions keep source-relative links in JSON; sheets project them at their own depth.
+  const sheetPath = `${REFERENCE_DIR}/${member.family}/${member.name}.md`;
+  const description = member.description.replace(
+    /\]\((\.\.?\/[^)\s]+)\)/g,
+    (_link, target) => {
+      const [, targetPath, suffix] = target.match(/^([^?#]+)(.*)$/);
+      const href = posix.relative(
+        posix.dirname(sheetPath),
+        posix.join(posix.dirname(member.source.path), targetPath),
+      );
+      return `](${href}${suffix})`;
+    },
+  );
   const rows = [
     ['name', `\`${member.name}\``],
     ['kind', member.kind],
     ['ships-to', renderShips(member)],
-    ['description', member.description],
+    ['description', description],
     ['source', `\`${member.source.path}:${member.source.line}\``],
-    ...Object.entries(member.extras ?? {}).map(([k, v]) => [k, typeof v === 'string' ? v : `\`${JSON.stringify(v)}\``]),
+    ...Object.entries(member.extras ?? {}).map(([k, v]) => [
+      k,
+      typeof v === 'string' ? v : `\`${JSON.stringify(v)}\``,
+    ]),
     ...(member.installedTo ? [['installed-to', renderInstalled(member)]] : []),
     ...(member.example ? [['example', `\`${member.example}\``]] : []),
   ];
-  const body = ['| Field | Value |', '|---|---|', ...rows.map(([k, v]) => `| ${k} | ${v} |`)].join('\n');
+  const body = [
+    '| Field | Value |',
+    '|---|---|',
+    ...rows.map(([k, v]) => `| ${k} | ${v} |`),
+  ].join('\n');
   return `${beginMarker(section, GENERATOR)}\n${body}\n${endMarker(section)}\n`;
 }
 
 /** Validate a family doc against its draft-07 schema (arm B contract, in-process backstop). */
 async function validateDoc(root, id, doc) {
-  const schemaPath = join(root, REFERENCE_DIR, SCHEMA_SUBDIR, `${id}.schema.json`);
-  if (!existsSync(schemaPath)) fail(`${REFERENCE_DIR}/${SCHEMA_SUBDIR}/${id}.schema.json: missing schema — every family validates against its draft-07 schema (G8)`);
+  const schemaPath = join(
+    root,
+    REFERENCE_DIR,
+    SCHEMA_SUBDIR,
+    `${id}.schema.json`,
+  );
+  if (!existsSync(schemaPath))
+    fail(
+      `${REFERENCE_DIR}/${SCHEMA_SUBDIR}/${id}.schema.json: missing schema — every family validates against its draft-07 schema (G8)`,
+    );
   const { Ajv } = await import('ajv');
   const ajv = new Ajv({ allErrors: true, strict: false });
   const validate = ajv.compile(JSON.parse(readFileSync(schemaPath, 'utf8')));
   if (!validate(doc)) {
-    fail(`${REFERENCE_DIR}/${id}.json failed ${SCHEMA_SUBDIR}/${id}.schema.json: ${JSON.stringify(validate.errors, null, 2)}`);
+    fail(
+      `${REFERENCE_DIR}/${id}.json failed ${SCHEMA_SUBDIR}/${id}.schema.json: ${JSON.stringify(validate.errors, null, 2)}`,
+    );
   }
 }
 
 async function assertKindPins(root) {
-  const registry = join(root, KIND_REGISTRY);
+  const registryRel = sourceFile(
+    root,
+    KIND_REGISTRY,
+    '.claude/skills/docs-author/references/page-kinds.md',
+  );
+  const registry = join(root, registryRel);
   if (!existsSync(registry)) {
-    log(`kind-pin assertion deferred — ${KIND_REGISTRY} (D30's page-kinds registry) does not exist yet (S0q); pins: ${JSON.stringify(KIND_PINS)}`);
+    log(
+      `kind-pin assertion deferred — ${KIND_REGISTRY} (D30's page-kinds registry) does not exist yet (S0q); pins: ${JSON.stringify(KIND_PINS)}`,
+    );
     return;
   }
   const reg = readFileSync(registry, 'utf8');
   for (const [fenceType, slug] of Object.entries(KIND_PINS)) {
     if (!new RegExp(`(^|\\W)${escapeRe(slug)}(\\W|$)`).test(reg)) {
-      fail(`${KIND_REGISTRY}: the ${fenceType} fence is pinned to kind slug \`${slug}\`, which the registry does not list — update KIND_PINS in ${GENERATOR} (a stale pin is named, never guessed around)`);
+      fail(
+        `${KIND_REGISTRY}: the ${fenceType} fence is pinned to kind slug \`${slug}\`, which the registry does not list — update KIND_PINS in ${GENERATOR} (a stale pin is named, never guessed around)`,
+      );
     }
   }
 }
@@ -928,7 +1388,10 @@ function findRoot(start) {
   for (;;) {
     if (existsSync(join(d, 'setup.d'))) return d;
     const up = dirname(d);
-    if (up === d) throw new Error('setup.d not found (walked to filesystem root). Pass --root <dir>.');
+    if (up === d)
+      throw new Error(
+        'setup.d not found (walked to filesystem root). Pass --root <dir>.',
+      );
     d = up;
   }
 }
@@ -943,21 +1406,42 @@ function censusMode(root) {
   const cards = scripts.filter((s) => wired.has(s.name) && !s.testMaterial);
   const unwired = scripts.filter((s) => !wired.has(s.name) && !s.testMaterial);
   const testMaterial = scripts.filter((s) => s.testMaterial);
-  console.log(`== census (F.3 wiring) over scripts/ — population ${scripts.length}, cards ${cards.length}, unwired ${unwired.length}, test material ${testMaterial.length}`);
+  console.log(
+    `== census (F.3 wiring) over scripts/ — population ${scripts.length}, cards ${cards.length}, unwired ${unwired.length}, test material ${testMaterial.length}`,
+  );
   console.log(`-- cards (${cards.length}) — one evidence line per member:`);
   for (const s of cards) {
-    const ev = wired.get(s.name).map((e) => (e.via === 'fingerprint' ? `shipped-by-path (${e.file})` : `${e.file}:${e.line} (${e.shape}${e.via === 'closure' ? ', closure' : ''})`)).join('; ');
+    const ev = wired
+      .get(s.name)
+      .map((e) =>
+        e.via === 'fingerprint'
+          ? `shipped-by-path (${e.file})`
+          : `${e.file}:${e.line} (${e.shape}${e.via === 'closure' ? ', closure' : ''})`,
+      )
+      .join('; ');
     console.log(`  ${s.name}\n    via ${ev}`);
   }
-  console.log(`-- unwired (${unwired.length}) — no execution-shaped reference on a non-comment line of any wiring surface:`);
-  console.log(unwired.length ? unwired.map((s) => `  ${s.name}`).join('\n') : '  (none)');
-  console.log(`-- test material (${testMaterial.length}) — in the population as a gate, never a card:`);
-  console.log(testMaterial.length ? testMaterial.map((s) => `  ${s.name}`).join('\n') : '  (none)');
+  console.log(
+    `-- unwired (${unwired.length}) — no execution-shaped reference on a non-comment line of any wiring surface:`,
+  );
+  console.log(
+    unwired.length ? unwired.map((s) => `  ${s.name}`).join('\n') : '  (none)',
+  );
+  console.log(
+    `-- test material (${testMaterial.length}) — in the population as a gate, never a card:`,
+  );
+  console.log(
+    testMaterial.length
+      ? testMaterial.map((s) => `  ${s.name}`).join('\n')
+      : '  (none)',
+  );
   console.log('-- per-family build (absence-by-omission = a hole; D36):');
   for (const f of FAMILIES) {
     try {
       const members = buildFamily(root, f.id);
-      console.log(`  ${f.id} ${FAMILY_NAME.get(f.id)}: OK (${members.length} members)`);
+      console.log(
+        `  ${f.id} ${FAMILY_NAME.get(f.id)}: OK (${members.length} members)`,
+      );
     } catch (e) {
       console.log(`  ${f.id} ${FAMILY_NAME.get(f.id)}: HOLES — ${e.message}`);
     }
@@ -969,12 +1453,15 @@ function censusMode(root) {
       const walk = (v) => {
         if (Array.isArray(v)) return v.forEach(walk);
         if (v && typeof v === 'object') {
-          if (typeof v.absent === 'string') counts[v.absent] = (counts[v.absent] ?? 0) + 1;
+          if (typeof v.absent === 'string')
+            counts[v.absent] = (counts[v.absent] ?? 0) + 1;
           for (const x of Object.values(v)) walk(x);
         }
       };
       walk(buildFamily(root, f.id));
-    } catch { /* holes reported above */ }
+    } catch {
+      /* holes reported above */
+    }
   }
   for (const r of ABSENCE_REASONS) console.log(`  ${r}: ${counts[r] ?? 0}`);
   return 0;
@@ -997,7 +1484,10 @@ async function writeMode(root) {
     if (!existsSync(page)) continue;
     const section = `${f.id}-table`;
     const body = overviewTable(f.id, families[f.id]);
-    writeFileSync(page, injectRegion(readFileSync(page, 'utf8'), section, GENERATOR, body));
+    writeFileSync(
+      page,
+      injectRegion(readFileSync(page, 'utf8'), section, GENERATOR, body),
+    );
     fences++;
   }
   // family A's overview page is setup.d/LAYERS.md (§5 #2 — the layer table is a fence target)
@@ -1005,10 +1495,15 @@ async function writeMode(root) {
   if (existsSync(layers)) {
     const section = 'A-table';
     const body = overviewTable('A', families.A);
-    writeFileSync(layers, injectRegion(readFileSync(layers, 'utf8'), section, GENERATOR, body));
+    writeFileSync(
+      layers,
+      injectRegion(readFileSync(layers, 'utf8'), section, GENERATOR, body),
+    );
     fences++;
   }
-  console.log(`render-reference: wrote ${FAMILIES.length} family JSONs + filled ${fences} fence(s)`);
+  console.log(
+    `render-reference: wrote ${FAMILIES.length} family JSONs + filled ${fences} fence(s)`,
+  );
   return 0;
 }
 
@@ -1020,42 +1515,67 @@ async function checkMode(root) {
     const doc = familyDoc(f.id, families[f.id]);
     await validateDoc(root, f.id, doc);
     const outPath = join(root, REFERENCE_DIR, `${f.id}.json`);
-    if (!existsSync(outPath)) { drift.push(`${REFERENCE_DIR}/${f.id}.json missing (run --write)`); continue; }
+    if (!existsSync(outPath)) {
+      drift.push(`${REFERENCE_DIR}/${f.id}.json missing (run --write)`);
+      continue;
+    }
     const expected = `${JSON.stringify(doc, null, 2)}\n`;
-    if (readFileSync(outPath, 'utf8') !== expected) drift.push(`${REFERENCE_DIR}/${f.id}.json drifted from the sources`);
+    if (readFileSync(outPath, 'utf8') !== expected)
+      drift.push(`${REFERENCE_DIR}/${f.id}.json drifted from the sources`);
     const page = join(root, REFERENCE_DIR, `${f.id}.md`);
-    if (existsSync(page) && !regionsMatch(readFileSync(page, 'utf8'), new Map([[`${f.id}-table`, overviewTable(f.id, families[f.id])]]))) {
-      drift.push(`${REFERENCE_DIR}/${f.id}.md: fence \`${f.id}-table\` drifted`);
+    if (
+      existsSync(page) &&
+      !regionsMatch(
+        readFileSync(page, 'utf8'),
+        new Map([[`${f.id}-table`, overviewTable(f.id, families[f.id])]]),
+      )
+    ) {
+      drift.push(
+        `${REFERENCE_DIR}/${f.id}.md: fence \`${f.id}-table\` drifted`,
+      );
     }
   }
   const layers = join(root, 'setup.d/LAYERS.md');
-  if (existsSync(layers) && !regionsMatch(readFileSync(layers, 'utf8'), new Map([['A-table', overviewTable('A', families.A)]]))) {
+  if (
+    existsSync(layers) &&
+    !regionsMatch(
+      readFileSync(layers, 'utf8'),
+      new Map([['A-table', overviewTable('A', families.A)]]),
+    )
+  ) {
     drift.push('setup.d/LAYERS.md: fence `A-table` drifted');
   }
   if (drift.length) {
-    console.error(`✗ reference drift:\n${drift.map((d) => `    - ${d}`).join('\n')}`);
+    console.error(
+      `✗ reference drift:\n${drift.map((d) => `    - ${d}`).join('\n')}`,
+    );
     console.error('  Fix: npx tsx scripts/render-reference.mjs --write');
     return 1;
   }
-  console.log(`✓ reference up-to-date (${FAMILIES.length} family JSONs + fences)`);
+  console.log(
+    `✓ reference up-to-date (${FAMILIES.length} family JSONs + fences)`,
+  );
   return 0;
 }
 
 export async function run(argv) {
   const rootFlag = argv.indexOf('--root');
-  const root = rootFlag !== -1 ? resolve(argv[rootFlag + 1]) : findRoot(process.cwd());
+  const root =
+    rootFlag !== -1 ? resolve(argv[rootFlag + 1]) : findRoot(process.cwd());
   if (argv.includes('--census')) return censusMode(root);
   if (argv.includes('--write')) return writeMode(root);
   if (argv.includes('--check')) return checkMode(root);
-  console.error(`usage: render-reference.mjs (--write | --check | --census) [--root <dir>]`);
+  console.error(
+    `usage: render-reference.mjs (--write | --check | --census) [--root <dir>]`,
+  );
   return 2;
 }
 
-function isMainEntry() {
-  try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-}
-if (isMainEntry()) run(process.argv.slice(2)).then((code) => process.exit(code), (e) => { console.error(`✗ ${e.message}`); process.exit(1); });
+if (isMainEntry(import.meta.url))
+  run(process.argv.slice(2)).then(
+    (code) => process.exit(code),
+    (e) => {
+      console.error(`✗ ${e.message}`);
+      process.exit(1);
+    },
+  );

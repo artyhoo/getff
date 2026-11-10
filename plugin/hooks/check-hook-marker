@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AUTO-GENERATED from .claude/hooks/check-hook-marker.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# AUTO-GENERATED from .agents/hooks/check-hook-marker.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # check-hook-marker.sh — PostToolUse gate — delivery-channel marker + strict header grammar on touched hook files
 # PostToolUse gate — delivery-channel marker on touched hooks (Wave N8 C4).
 # @cc-only-rationale: PostToolUse edit-time gate — fires at the moment a hook file
@@ -100,7 +100,8 @@ REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 # who deliberately vendors the rule opts INTO the gate by that act. Exiting here is
 # NOT-APPLICABLE, not a dependency SKIP — there is no convention in this project for the edit
 # to violate — so unlike the ledger L-2 class it is correctly silent, with nothing to announce.
-[[ -f "$REPO_ROOT/.claude/rules/dual-implementation-discipline.md" ]] || exit 0
+[[ -f "$REPO_ROOT/.agents/rules/dual-implementation-discipline.md" \
+   || -f "$REPO_ROOT/.claude/rules/dual-implementation-discipline.md" ]] || exit 0
 
 if ! command -v jq >/dev/null 2>&1; then
   # jq-less best-effort path extraction (sed on raw stdin) — used ONLY to decide whether
@@ -108,7 +109,7 @@ if ! command -v jq >/dev/null 2>&1; then
   # stdin is unparseable — conservative) instead of on every Edit/Write in a jq-less env.
   _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
   case "$_RAW_PATH" in
-    *.claude/hooks/*.sh | "")
+    *.claude/hooks/*.sh | *.agents/hooks/*.sh | "")
       _emit_skip '⚠ check-hook-marker: jq unavailable — the delivery-channel marker check DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.' ;;
   esac
   exit 0
@@ -124,7 +125,7 @@ case "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac
 REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
 # Narrow: only hook scripts directly under .claude/hooks/.
 case "$REL_PATH" in
-  .claude/hooks/*.sh) ;;
+  .claude/hooks/*.sh | .agents/hooks/*.sh) ;;
   *) exit 0 ;;
 esac
 

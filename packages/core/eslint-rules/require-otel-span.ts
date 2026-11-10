@@ -1,11 +1,4 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-import type { TSESTree } from '@typescript-eslint/utils';
-import { AST_NODE_TYPES } from '@typescript-eslint/utils';
-
-const createRule = ESLintUtils.RuleCreator(
-  () =>
-    `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r8--observability`,
-);
+import type { TSESLint, TSESTree } from '@typescript-eslint/utils';
 
 // Keys that form circular refs or are not AST children
 const SKIP_KEYS = new Set(['parent', 'loc', 'range', 'tokens', 'comments']);
@@ -21,17 +14,17 @@ function functionHasSpan(body: TSESTree.BlockStatement | undefined): boolean {
 
     // tracer.startActiveSpan(...) / x.startActiveSpan(...)
     if (
-      node.type === AST_NODE_TYPES.CallExpression &&
-      node.callee.type === AST_NODE_TYPES.MemberExpression &&
-      node.callee.property.type === AST_NODE_TYPES.Identifier &&
+      node.type === 'CallExpression' &&
+      node.callee.type === 'MemberExpression' &&
+      node.callee.property.type === 'Identifier' &&
       node.callee.property.name === 'startActiveSpan'
     ) {
       return true;
     }
     // withSpan(...)
     if (
-      node.type === AST_NODE_TYPES.CallExpression &&
-      node.callee.type === AST_NODE_TYPES.Identifier &&
+      node.type === 'CallExpression' &&
+      node.callee.type === 'Identifier' &&
       node.callee.name === 'withSpan'
     ) {
       return true;
@@ -59,11 +52,13 @@ function functionHasSpan(body: TSESTree.BlockStatement | undefined): boolean {
 
 // TODO: decorator @span not supported in this version, left for future
 
-export const requireOtelSpan = createRule({
-  name: 'require-otel-span',
+type MessageIds = 'missingSpan';
+
+export const requireOtelSpan: TSESLint.RuleModule<MessageIds> = {
   meta: {
     type: 'problem',
     docs: {
+      url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r8--observability`,
       description:
         'Exported async functions must open an OTel span (tracer.startActiveSpan or withSpan) — R8.',
     },
@@ -83,10 +78,7 @@ export const requireOtelSpan = createRule({
       name: string,
     ): void {
       if (!node.async) return;
-      const body =
-        node.body.type === AST_NODE_TYPES.BlockStatement
-          ? node.body
-          : undefined;
+      const body = node.body.type === 'BlockStatement' ? node.body : undefined;
       if (functionHasSpan(body)) return;
       context.report({
         node,
@@ -107,14 +99,14 @@ export const requireOtelSpan = createRule({
       'ExportNamedDeclaration > VariableDeclaration > VariableDeclarator'(
         node: TSESTree.VariableDeclarator,
       ) {
-        if (node.id.type !== AST_NODE_TYPES.Identifier || !node.init) return;
+        if (node.id.type !== 'Identifier' || !node.init) return;
         if (
-          node.init.type === AST_NODE_TYPES.ArrowFunctionExpression ||
-          node.init.type === AST_NODE_TYPES.FunctionExpression
+          node.init.type === 'ArrowFunctionExpression' ||
+          node.init.type === 'FunctionExpression'
         ) {
           checkFn(node.init, node.id.name);
         }
       },
     };
   },
-});
+};

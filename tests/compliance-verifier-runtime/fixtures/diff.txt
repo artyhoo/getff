@@ -1,0 +1,6 @@
+diff --git a/docs/note.md b/docs/note.md
+--- a/docs/note.md
++++ b/docs/note.md
+@@ -1 +1 @@
+-Old explanation
++Reworded explanation

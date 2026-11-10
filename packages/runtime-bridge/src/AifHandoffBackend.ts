@@ -38,8 +38,8 @@
  *   materialised. `dispatch()` is now literally claim+release with the old rollback, so
  *   the one-shot callers (PostToolUse hook, /dispatcher) are behaviourally unchanged.
  * available(): GET /health reachability probe (1s timeout).
- * getStatus(): REST GET /tasks/:id (non-blocking snapshot via aifWsStatus.getTaskStatus).
- * awaitDone(): WebSocket status event stream (aifWsStatus.awaitTaskDone, :3009/ws).
+ * getStatus(): full REST task observation, including held ownership/result evidence.
+ * awaitDone(): subscribed, bounded authoritative reconciliation on initial open and reconnect.
  *
  * Ports: REST + WS = baseUrl (:3009). MCP (HTTP) = mcpUrl (:3100), RESERVED for the
  * MCP-target phase (ADOPT @modelcontextprotocol/sdk) — NOT used by REST dispatch today.
@@ -47,9 +47,23 @@
  * @dual-pair: runtime-bridge-aif-handoff
  */
 import type { ClaimCapableBackend } from './backend.js';
+import { existsSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
 import { BackendError } from './backend.js';
 import { ensureParallelEnabled } from './cli/ensure-parallel.js';
-import { aifRequest, type AifHttpMethod } from './cli/aifHttp.js';
+import {
+  aifRequest,
+  type AifHttpMethod,
+  type AifTaskFull,
+} from './cli/aifHttp.js';
+import {
+  enforceKickoffAdmission,
+  enforceScope,
+  enforceTaskAdmission,
+  extractIntentScope,
+  recordTaskAdoption,
+  recordLegacyTaskClaim,
+} from './resultReview.js';
 import type {
   KickoffSpec,
   TaskHandle,
@@ -58,7 +72,7 @@ import type {
 } from './types.js';
 import {
   awaitTaskDone,
-  getTaskStatus,
+  readAifTaskResult,
   mapAifStatusToTaskStatus,
   type WebSocketConstructor,
 } from './aifWsStatus.js';
@@ -280,6 +294,17 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * this whole split exists to close lives inside that window.
    */
   async claim(kickoff: KickoffSpec): Promise<TaskHandle> {
+    const admission = enforceKickoffAdmission(kickoff, 'aif-handoff');
+    // Scope branch (intent-first-result §4): a declared `intent-contract` scopes this
+    // task's product intent, so the claim must NOT let the auto-queue carry it past
+    // planning — autoMode:false keeps the task in `plan_ready` until an authorized
+    // PlanReview starts implementation (cli/start-reviewed.ts). This is a branch, not
+    // the enforcement point: full validation runs in dispatch()/release() — a directly
+    // called claim() on a malformed/stale scope still creates the PAUSED task, which
+    // release() then refuses to unpause (the malformed task stays inert; it is never
+    // ordinary scope — `invalid` branches exactly like `scoped`).
+    const scope = extractIntentScope(kickoff.content);
+    const scoped = scope.kind !== 'unscoped';
     // E-3 (#1597 ledger): `spec_invalid`, NOT `dispatch_failed`. The distinction
     // cli/dispatch.ts splits on is "can another backend satisfy this?", and no
     // backend can dispatch to a project that was never named. Classified as
@@ -339,7 +364,10 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     // push `plan` — that is the planner's OUTPUT slot (@planPath), which it
     // overwrites. paused:true so the coordinator does not advance until release().
     // autoMode:true so the auto-queue advances backlog -> planning (where the
-    // worktree is created). Live-verified 2026-06-03: returns 201 + task object.
+    // worktree is created) — EXCEPT on a scoped task (`scoped` above), where
+    // autoMode:false holds the task at plan_ready until cli/start-reviewed.ts posts
+    // start_implementation on an authorized PlanReview. Live-verified 2026-06-03:
+    // returns 201 + task object.
     //
     // `title` is the umbrella/stage slug, and that is what makes the claim
     // FINDABLE: probe-inflight.sh matches a paused, non-terminal task by slug in
@@ -351,7 +379,7 @@ export class AifHandoffBackend implements ClaimCapableBackend {
       description: kickoff.content,
       plannerMode: 'fast',
       paused: true,
-      autoMode: true,
+      autoMode: !scoped,
       skipReview: false, // reviewer runs per reviewer-discipline.md §2
       // Explicit so the loop can survive its first rework verdict even where the
       // container env defaults AGENT_MAX_REVIEW_ITERATIONS to 1 (see the constant).
@@ -372,10 +400,36 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     }
     const taskId = (createResult as { id: string }).id;
 
+    try {
+      if (admission.adopted) {
+        recordTaskAdoption(
+          { id: taskId, description: kickoff.content },
+          admission.repoRoot!,
+        );
+      } else if (admission.repoRoot) {
+        recordLegacyTaskClaim(
+          { id: taskId, description: kickoff.content },
+          admission.repoRoot,
+        );
+      }
+    } catch (err) {
+      try {
+        await this._rest('DELETE', `/tasks/${taskId}`);
+      } catch (rollbackError) {
+        throw new BackendError(
+          `claim ${taskId} has no admission receipt and rollback failed: ${(rollbackError as Error).message}`,
+          'spec_invalid',
+          'aif-handoff',
+        );
+      }
+      throw err;
+    }
+
     return {
       backend: 'aif-handoff',
       taskId,
       dispatchedAt: new Date().toISOString(),
+      ...(admission.repoRoot ? { intentRepoRoot: admission.repoRoot } : {}),
     };
   }
 
@@ -392,7 +446,70 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * losing its place in the queue.
    */
   async release(handle: TaskHandle): Promise<TaskHandle> {
+    if (handle.intentRepoRoot) {
+      const configured =
+        process.env['AIF_INTENT_REPO_ROOT'] ??
+        process.env['RUNTIME_BRIDGE_INTENT_ROOTS']?.split(
+          process.platform === 'win32' ? ';' : ':',
+        )[0];
+      const selector = join(
+        process.env['AIF_INTENT_ORCH_HOME'] ??
+          join(handle.intentRepoRoot, '.claude', 'orchestrator-prompts'),
+        'intent-continuity',
+        'current-decisions.json',
+      );
+      if (
+        !existsSync(selector) ||
+        (configured &&
+          realpathSync(configured) !== realpathSync(handle.intentRepoRoot))
+      ) {
+        throw new BackendError(
+          'claim owner root no longer binds the active selector',
+          'spec_invalid',
+          'aif-handoff',
+        );
+      }
+    }
+    // Release-time scope check against the PERSISTED description (intent-first-result
+    // §4 Task 2): the claim window may be long (Phase -1 cold review sits inside it), so
+    // this re-reads the task row and re-validates the declared contract against the
+    // CURRENT observed bindings — a review valid at preparation but stale now (stale
+    // observedRevision), a child scope that drops a parent essential, or a malformed
+    // persisted block refuses here. A bare task ID does not erase scope. Unscoped
+    // descriptions skip the check entirely (no owner configuration required) and keep
+    // the historical bare-PUT behavior.
+    const persisted = (await this._rest(
+      'GET',
+      `/tasks/${handle.taskId}`,
+    )) as AifTaskFull | null;
+    const admission = enforceTaskAdmission(
+      {
+        id: handle.taskId,
+        description: persisted?.description,
+        createdAt: persisted?.createdAt,
+        projectId: persisted?.projectId,
+      },
+      'aif-handoff',
+      { repoRoot: handle.intentRepoRoot },
+    );
+    enforceScope(persisted?.description ?? '', 'aif-handoff', {
+      requireAdopted: admission.adopted,
+      ...(handle.intentRepoRoot &&
+      process.env['RUNTIME_BRIDGE_INTENT_ROOTS'] === undefined
+        ? { roots: [handle.intentRepoRoot] }
+        : {}),
+    });
     await this._rest('PUT', `/tasks/${handle.taskId}`, { paused: false });
+    // Scoped route: the unpause carries the `start_ai` planning event — planning may
+    // run, but the auto-queue is NOT enabled on this task (claimed autoMode:false), so
+    // implementation waits for cli/start-reviewed.ts to post start_implementation on an
+    // authorized PlanReview. Unscoped releases dispatch no event (unchanged behavior).
+    const scope = extractIntentScope(persisted?.description ?? '');
+    if (scope.kind === 'scoped') {
+      await this._rest('POST', `/tasks/${handle.taskId}/events`, {
+        event: 'start_ai',
+      });
+    }
     return handle;
   }
 
@@ -512,6 +629,12 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * the project and the CLI falls back to ManualBackend (dispatch.ts).
    */
   async dispatch(kickoff: KickoffSpec): Promise<TaskHandle> {
+    // Effect-boundary scope check BEFORE any creation effect (intent-first-result §4
+    // Task 2): a malformed or helper-rejected declared scope is spec_invalid — abort,
+    // zero fetch, no half-created task to delete. Direct claim() callers (two-phase
+    // /pipeline route) get the same protection at release() below, against the task's
+    // PERSISTED description — a bare task ID does not erase scope.
+    enforceScope(kickoff.content, 'aif-handoff');
     const handle = await this.claim(kickoff);
     try {
       return await this.release(handle);
@@ -524,41 +647,30 @@ export class AifHandoffBackend implements ClaimCapableBackend {
 
   async getStatus(handle: TaskHandle): Promise<TaskStatus> {
     // Non-blocking point-in-time snapshot via REST GET /tasks/:id.
-    // Source: aifWsStatus.getTaskStatus -> packages/api/src/routes/tasks.ts GET /:id
+    // Source: packages/api/src/routes/tasks.ts GET /:id, not a status-only projection.
     // REST is used (not WS) because getStatus must NOT block.
     // WS is subscribe-and-wait; REST returns immediately.
-    const { rawStatus, checkedAt } = await getTaskStatus(
-      handle.taskId,
-      this.baseUrl,
-    );
+    const result = await readAifTaskResult(handle.taskId, this.baseUrl);
     return {
-      status: mapAifStatusToTaskStatus(rawStatus),
-      rawStatus,
-      checkedAt,
+      status: result.meta.held ? 'error' : mapAifStatusToTaskStatus(result.finalStatus),
+      rawStatus: result.finalStatus,
+      checkedAt: result.completedAt,
+      meta: result.meta,
     };
   }
 
   async awaitDone(handle: TaskHandle, timeoutMs?: number): Promise<TaskResult> {
-    // Real WebSocket status readback via aif-handoff broadcast stream.
-    // Source: aifWsStatus.awaitTaskDone -> ws://localhost:3009/ws
-    // WS event: { type: "task:updated", payload: { id, title, status } }
-    // taskId filter: payload.id === handle.taskId (client-side, per kickoff §3 SW-C item 2)
-    // Terminal states: done/verified -> success; blocked_external -> !success (resolves, not throws)
-    // Transport failures (disconnect after retries) -> throws BackendError('unavailable')
+    // One bounded observation owns subscription, reconciliation and settlement.
+    // No second REST request outside its deadline can replace the settled generation.
     try {
-      const result = await awaitTaskDone({
+      return await awaitTaskDone({
         taskId: handle.taskId,
         wsUrl: this.wsUrl,
+        apiBaseUrl: this.baseUrl,
         stateFilePath: this.stateFilePath,
         timeoutMs,
         WebSocketImpl: this.WebSocketImpl,
       });
-      return {
-        success: result.success,
-        content: '',
-        finalStatus: result.finalStatus,
-        completedAt: result.completedAt,
-      };
     } catch (err) {
       // Re-throw BackendErrors (unavailable, timeout) as-is.
       // Other errors are wrapped as dispatch_failed.

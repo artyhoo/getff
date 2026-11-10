@@ -6,11 +6,12 @@ import { detectDrift, SELF_APP_SOURCES } from './drift.ts';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = resolve(HERE, 'fixtures', 'drift');
 const REPO_ROOT = resolve(HERE, '..', '..', '..');
+const LEGACY_FIXTURE_SOURCES = SELF_APP_SOURCES.map((path) => path.replace('.agents/procedures/', 'skills/'));
 
 describe('detectDrift — symbolic drift v1 (open-questions §13.7 first half)', () => {
   it('returns zero mismatches on the no-drift fixture', () => {
     const report = detectDrift(resolve(FIXTURES, 'no-drift'));
-    expect(report.sources).toEqual([...SELF_APP_SOURCES]);
+    expect(report.sources).toEqual(LEGACY_FIXTURE_SOURCES);
     expect(report.mismatches).toEqual([]);
   });
 

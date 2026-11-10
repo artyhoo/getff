@@ -54,10 +54,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../../..');
 const HELPER = resolve(REPO_ROOT, '.claude/skills/dispatcher/helpers/advance-frontier.sh');
 const DISPATCHER_SKILL = readFileSync(
-  resolve(REPO_ROOT, '.claude/skills/dispatcher/SKILL.md'),
+  resolve(REPO_ROOT, '.claude/skills/dispatcher/references/execution.md'),
   'utf8',
 );
-const NIGHT_SKILL = readFileSync(resolve(REPO_ROOT, '.claude/skills/night-mode/SKILL.md'), 'utf8');
+const NIGHT_SKILL = readFileSync(resolve(REPO_ROOT, '.claude/skills/night-mode/references/overnight-policy.md'), 'utf8');
 
 const sandboxes: string[] = [];
 afterEach(() => {

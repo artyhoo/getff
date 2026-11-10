@@ -2,8 +2,8 @@
 
 ```yaml
 agent: orchestrator-worker-discipline
-tools-required: Read
-shape: read-only
+tools-required: Read, Bash
+shape: bash-assisted
 ```
 
 ## task-prompt
@@ -75,8 +75,10 @@ TOOL-USING GREEN MARKERS (all required for a LIVE verdict):
 
 ## requires-tools-justification
 
-`Read` is the only tool required. The orchestrator-worker-discipline agent's entire value is
-in applying the EXACT park-vs-proceed contract and REPORT schema from its spec file. Without
-Read, it applies whatever schema it recalls from training data — which may be plausible-sounding
-but will differ from the actual current spec (the spec evolves; training data is frozen).
-This is the simplest possible tool-liveness test: one tool, one Read, one verifiable schema.
+`Read` carries the schema ground truth; `Bash` carries the stage-gate and park commands the
+role's runtime-inputs preflight requires (root resolution via `git rev-parse --show-toplevel`
+plus the stage-gate/park invocations — frontmatter `tools: Read, Bash`). Without Read, the
+worker applies whatever REPORT schema it recalls from training data — plausible-sounding but
+different from the actual current spec (the spec evolves; training data is frozen). Without
+Bash, it cannot run the stage-gate check or record a park, so it narrates them instead of
+executing them.

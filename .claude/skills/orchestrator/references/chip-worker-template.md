@@ -1,0 +1,1 @@
+../../../../.agents/procedures/orchestrator/references/chip-worker-template.md

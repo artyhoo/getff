@@ -1,4 +1,4 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-export declare const requireOtelSpan: ESLintUtils.RuleModule<"missingSpan", [], unknown, ESLintUtils.RuleListener> & {
-    name: string;
-};
+import type { TSESLint } from '@typescript-eslint/utils';
+type MessageIds = 'missingSpan';
+export declare const requireOtelSpan: TSESLint.RuleModule<MessageIds>;
+export {};

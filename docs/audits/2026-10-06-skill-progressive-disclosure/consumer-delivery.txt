@@ -1,0 +1,5 @@
+Fixture: /var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps
+Command: bash <candidate>/install.sh ts-server --force --with-aif-suite
+Exit: 0
+harvest: all source resources delivered, all relative Markdown file links resolve, real missing-resource negative control discriminates
+getff: all source resources delivered, all relative Markdown file links resolve, real missing-resource negative control discriminates

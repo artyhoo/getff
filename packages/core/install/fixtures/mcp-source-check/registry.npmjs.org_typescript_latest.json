@@ -1,0 +1,9 @@
+{
+  "name": "typescript",
+  "version": "7.0.2",
+  "homepage": "https://www.typescriptlang.org/",
+  "repository": {
+    "url": "git+https://github.com/microsoft/TypeScript.git",
+    "type": "git"
+  }
+}

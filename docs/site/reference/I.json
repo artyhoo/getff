@@ -36,7 +36,7 @@
       },
       "extras": {
         "component": "agent",
-        "twin-of": "agents/compliance-verifier.md"
+        "twin-of": ".agents/roles/compliance-verifier.md"
       },
       "example": null
     },
@@ -53,7 +53,7 @@
       },
       "extras": {
         "component": "agent",
-        "twin-of": "agents/docs-form-auditor.md"
+        "twin-of": ".agents/roles/docs-form-auditor.md"
       },
       "example": null
     },
@@ -63,14 +63,16 @@
       "shipsTo": {
         "tier": "plugin"
       },
-      "description": "Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or any version of \"how do I make my codebase resistant to AI agents breaking my conventions\". Also trigger on any mention of ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that \"looks fine but is wrong\" — that is the core problem this skill addresses.",
+      "description": "Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or \"how do I make my codebase resistant to AI agents breaking my conventions\". Also trigger on ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that \"looks fine but is wrong\".",
       "source": {
         "path": "plugin/skills/getff/SKILL.md",
         "line": 3
       },
       "extras": {
         "component": "skill",
-        "twin-of": "skills/getff/SKILL.md"
+        "twin-of": {
+          "absent": "not-byte-copied"
+        }
       },
       "example": null
     },
@@ -106,9 +108,7 @@
       },
       "extras": {
         "component": "skill",
-        "twin-of": {
-          "absent": "not-byte-copied"
-        }
+        "twin-of": ".agents/procedures/installing-enforcement/SKILL.md"
       },
       "example": null
     },
@@ -125,7 +125,7 @@
       },
       "extras": {
         "component": "agent",
-        "twin-of": "agents/living-docs-auditor.md"
+        "twin-of": ".agents/roles/living-docs-auditor.md"
       },
       "example": null
     },
@@ -135,14 +135,14 @@
       "shipsTo": {
         "tier": "plugin"
       },
-      "description": "Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix.",
+      "description": "Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix. Uses read-only Bash for diff inspection (git diff/log/show, ls) — no mutations, no worktrees, no pushes (GH #1516).",
       "source": {
         "path": "plugin/agents/review-sidecar.md",
         "line": 3
       },
       "extras": {
         "component": "agent",
-        "twin-of": "agents/review-sidecar.md"
+        "twin-of": ".agents/roles/review-sidecar.md"
       },
       "example": null
     },
@@ -216,7 +216,9 @@
       },
       "extras": {
         "component": "skill",
-        "twin-of": "skills/tool-bootstrapping/SKILL.md"
+        "twin-of": {
+          "absent": "not-byte-copied"
+        }
       },
       "example": null
     },
@@ -233,9 +235,7 @@
       },
       "extras": {
         "component": "skill",
-        "twin-of": {
-          "absent": "not-byte-copied"
-        }
+        "twin-of": ".agents/procedures/using-getff/SKILL.md"
       },
       "example": null
     }

@@ -19,9 +19,9 @@ const ALLOWLIST_RE =
   /^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):/;
 // Discipline files (direct children only) whose introduction requires the trailer.
 const DISCIPLINE_FILE_RE =
-  /^(\.claude\/rules\/[^/]+\.md|packages\/core\/principles\/[^/]+\.test\.ts|\.claude\/skills\/[^/]+\/SKILL\.md)$/;
+  /^((?:\.claude|\.agents)\/rules\/[^/]+\.md|packages\/core\/principles\/[^/]+\.test\.ts|(?:\.claude\/skills|\.agents\/procedures)\/[^/]+\/SKILL\.md)$/;
 const DISCIPLINE_DIR_RE =
-  /^(\.claude\/rules\/|packages\/core\/principles\/|\.claude\/skills\/)/;
+  /^((?:\.claude|\.agents)\/rules\/|packages\/core\/principles\/|(?:\.claude\/skills|\.agents\/procedures)\/)/;
 // New section heading or top-level export const on an added diff line.
 const SECTION_MARKER_RE = /^\+(## §|export const [A-Z_]+: )/;
 const PLACEHOLDERS = new Set([

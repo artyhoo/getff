@@ -55,6 +55,48 @@ export const DOCS_CARD_SKIP_MIN = 20;
 const TRAILER_RE = /^[ \t]*Docs-card:[ \t]*(.*)$/im;
 
 /**
+ * `Docs-card-for: <sha7-40> <card | skipped — reason>` — a LATER commit in the checked range
+ * carries the card for an earlier range commit that has none. Join incident 2026-09-30: seven
+ * range commits touched docs/site prose without a trailer; this arm already existed in their
+ * parents, but the part branches were never pushed (so no pre-push ran), and the part commits sit
+ * under merges and cannot be amended. It is a claim the arm verifies, not an escape: the named
+ * commit must be in the range, non-merge, prose-touching and without its own trailer; one claim
+ * per commit; the payload passes the same grammar as `Docs-card:`; and the skip form is accepted
+ * only when the named commit's prose diff is mechanical (isMechanicalProseDiff). Sibling of
+ * prior-art.ts ROW_MOVED_RE.
+ */
+const CLAIM_RE = /^[ \t]*Docs-card-for:[ \t]*([0-9a-f]{7,40})[ \t]+(.*)$/gim;
+
+/** A `docs-refresh: deferred …` page marker line (scripts/check-docs-refresh.mjs grammar). */
+const DEFERRAL_MARKER_RE = /^docs-refresh: deferred\b/;
+
+/**
+ * Is a unified diff of docs/site prose mechanical — nothing a reader-comfort card could judge?
+ * Per hunk, after dropping deferral marker lines, the removed and added lines pair up one to one
+ * and each pair differs only in its digit runs (a citation re-point: «line 1271» → «line 1272»).
+ * An unpaired prose line, or any change in words, is not mechanical. An empty diff is not either:
+ * nothing was verified.
+ */
+export function isMechanicalProseDiff(diff: string): boolean {
+  const hunks: { removed: string[]; added: string[] }[] = [];
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('@@')) hunks.push({ removed: [], added: [] });
+    const hunk = hunks[hunks.length - 1];
+    if (!hunk || line.startsWith('---') || line.startsWith('+++')) continue;
+    const text = line.slice(1);
+    if (DEFERRAL_MARKER_RE.test(text)) continue;
+    if (line.startsWith('-')) hunk.removed.push(text);
+    else if (line.startsWith('+')) hunk.added.push(text);
+  }
+  if (hunks.length === 0) return false;
+  const digitless = (s: string): string => s.replace(/\d+/g, '0');
+  return hunks.every(
+    ({ removed, added }) =>
+      removed.length === added.length && removed.every((r, i) => digitless(r) === digitless(added[i] ?? '')),
+  );
+}
+
+/**
  * A prose path: anything under `docs/site/` ending `.md`/`.mdx`. JSON/JSON
  * schema artifacts under `docs/site/reference/` (S0a's family JSONs) are NOT
  * prose — a gate over them would demand a card on every generated artefact.
@@ -102,7 +144,12 @@ export type ParsedCard =
 export function parseDocsCardTrailer(body: string): ParsedCard {
   const m = TRAILER_RE.exec(body);
   if (!m) return { kind: 'absent' };
-  const payload = (m[1] ?? '').trim();
+  return parseDocsCardPayload(m[1] ?? '');
+}
+
+/** The payload grammar shared by `Docs-card:` and `Docs-card-for: <sha>`. */
+function parseDocsCardPayload(raw: string): ParsedCard {
+  const payload = raw.trim();
 
   if (payload.startsWith('skipped')) {
     // `skipped — <reason>`: strip the separator (em dash or `--`), keep the rest.
@@ -171,65 +218,97 @@ export function isMergeCommit(subject: string): boolean {
   return /^Merge /i.test(subject);
 }
 
+/** Why a parsed card or escape fails the grammar, or null when it passes. */
+function payloadProblem(parsed: ParsedCard): { reason: string; message: string } | null {
+  if (parsed.kind === 'absent') return null;
+  if (parsed.kind === 'skipped') {
+    if (parsed.reason.length < DOCS_CARD_SKIP_MIN || PLACEHOLDERS.has(parsed.reason.toLowerCase())) {
+      return {
+        reason: 'escape rationale too short or placeholder',
+        message: `\`Docs-card: skipped — ${parsed.reason}\` — rationale must be >=${DOCS_CARD_SKIP_MIN} chars and say why (not TODO/later/n-a/tbd/fixme/placeholder)`,
+      };
+    }
+    return null;
+  }
+  const problems: string[] = [];
+  if (parsed.missing.length > 0) problems.push(`missing card ids: ${parsed.missing.join(', ')}`);
+  if (parsed.invalid.length > 0)
+    problems.push(`invalid entries (want \`C<n> PASS|FAIL|N/A\`): ${parsed.invalid.join(', ')}`);
+  if (parsed.unknown.length > 0) problems.push(`unknown entries: ${parsed.unknown.join(', ')}`);
+  if (parsed.duplicated.length > 0) problems.push(`duplicated ids: ${parsed.duplicated.join(', ')}`);
+  return problems.length > 0 ? { reason: 'malformed Docs-card trailer', message: problems.join('; ') } : null;
+}
+
 /**
  * The check: walk the range's commits, require a valid `Docs-card:` trailer on
  * every one that touches `docs/site/**` prose. Merge commits are skipped;
- * everything else with a prose path owes the card.
+ * everything else with a prose path owes the card — its own, or a verified
+ * `Docs-card-for:` claim from a later range commit (CLAIM_RE).
  */
 export function runDocsCardCheck(
   commits: readonly string[],
-  git: Pick<GitProvider, 'changedFiles' | 'commitBody' | 'commitSubject'>,
+  git: Pick<GitProvider, 'changedFiles' | 'commitBody' | 'commitSubject' | 'diffForPaths'>,
 ): DocsCardReport {
   const failures: DocsCardFailure[] = [];
+  const isMerge = new Map(commits.map((sha) => [sha, isMergeCommit(git.commitSubject(sha))]));
+  const prosePaths = new Map<string, string[]>();
+  const own = new Map<string, ParsedCard>();
+  for (const sha of commits) {
+    if (isMerge.get(sha)) continue;
+    prosePaths.set(sha, git.changedFiles(sha).map((f) => f.path).filter(isDocsSiteProsePath));
+    own.set(sha, parseDocsCardTrailer(git.commitBody(sha)));
+  }
+
+  // Claims, each checked against the range before it may stand in for a trailer.
+  const claims = new Map<string, ParsedCard>();
+  for (const claimer of commits) {
+    if (isMerge.get(claimer)) continue;
+    for (const m of git.commitBody(claimer).matchAll(CLAIM_RE)) {
+      const prefix = m[1] ?? '';
+      const named = commits.filter((sha) => sha.startsWith(prefix));
+      const target = named.length === 1 ? named[0] : undefined;
+      const fail = (reason: string): void => {
+        failures.push({ sha: claimer, reason, message: `\`Docs-card-for: ${prefix}\` — ${reason}` });
+      };
+      if (target === undefined) fail(named.length > 1 ? 'claim names an ambiguous sha prefix' : 'claim names a commit outside the range');
+      else if (isMerge.get(target)) fail('claim names a merge commit, which owes no card');
+      else if ((prosePaths.get(target) ?? []).length === 0) fail('claim names a commit that touches no docs/site prose');
+      else if (own.get(target)?.kind !== 'absent') fail('claim names a commit that carries its own Docs-card trailer');
+      else if (claims.has(target)) fail('more than one claim names this commit');
+      else claims.set(target, parseDocsCardPayload(m[2] ?? ''));
+    }
+  }
+
   let checked = 0;
   let proseCommits = 0;
   for (const sha of commits) {
-    if (isMergeCommit(git.commitSubject(sha))) continue;
+    if (isMerge.get(sha)) continue;
     checked++;
-    const touchesProse = git
-      .changedFiles(sha)
-      .some((f) => isDocsSiteProsePath(f.path));
-    if (!touchesProse) continue;
+    const paths = prosePaths.get(sha) ?? [];
+    if (paths.length === 0) continue;
     proseCommits++;
-    const parsed = parseDocsCardTrailer(git.commitBody(sha));
-    if (parsed.kind === 'absent') {
+    const ownCard = own.get(sha) ?? { kind: 'absent' };
+    const claim = claims.get(sha);
+    if (ownCard.kind === 'absent' && claim === undefined) {
       failures.push({
         sha,
         reason: 'missing Docs-card trailer',
-        message:
-          'commit touches docs/site/**/*.md prose but carries no `Docs-card:` trailer',
+        message: 'commit touches docs/site/**/*.md prose but carries no `Docs-card:` trailer',
       });
       continue;
     }
-    if (parsed.kind === 'skipped') {
-      if (
-        parsed.reason.length < DOCS_CARD_SKIP_MIN ||
-        PLACEHOLDERS.has(parsed.reason.toLowerCase())
-      ) {
-        failures.push({
-          sha,
-          reason: 'escape rationale too short or placeholder',
-          message: `\`Docs-card: skipped — ${parsed.reason}\` — rationale must be >=${DOCS_CARD_SKIP_MIN} chars and say why (not TODO/later/n-a/tbd/fixme/placeholder)`,
-        });
-      }
+    const parsed = claim ?? ownCard;
+    const problem = payloadProblem(parsed);
+    if (problem) {
+      failures.push({ sha, ...problem });
       continue;
     }
-    const problems: string[] = [];
-    if (parsed.missing.length > 0)
-      problems.push(`missing card ids: ${parsed.missing.join(', ')}`);
-    if (parsed.invalid.length > 0)
-      problems.push(
-        `invalid entries (want \`C<n> PASS|FAIL|N/A\`): ${parsed.invalid.join(', ')}`,
-      );
-    if (parsed.unknown.length > 0)
-      problems.push(`unknown entries: ${parsed.unknown.join(', ')}`);
-    if (parsed.duplicated.length > 0)
-      problems.push(`duplicated ids: ${parsed.duplicated.join(', ')}`);
-    if (problems.length > 0) {
+    if (claim?.kind === 'skipped' && !isMechanicalProseDiff(git.diffForPaths(sha, paths))) {
       failures.push({
         sha,
-        reason: 'malformed Docs-card trailer',
-        message: problems.join('; '),
+        reason: 'skip claim on a commit whose prose diff is not mechanical',
+        message:
+          'a `Docs-card-for:` skip is accepted only when every changed prose line differs from its pair in digits alone, or is a docs-refresh deferral marker — this diff changes words, so the claim must carry the full card',
       });
     }
   }

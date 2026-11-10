@@ -2,8 +2,10 @@
 //
 // The JS live path (FileResearchClient/FileGenerateClient → generate.ts → L4 → install) is
 // eslint-only: `engine:'ast-grep'` is parked in the L4 gates ("reserved but not wired —
-// deferred per generator-forbid-mvp decision (i)", gate-autofix-clean.ts:116) and install()
-// writes `.ai-factory/` which the python lane forbids. The SHIPPED researched-python
+// deferred per generator-forbid-mvp decision (i)", gate-autofix-clean.ts:121) and install()
+// needs Node at install time, which the python lane deliberately does not have. (This sentence
+// used to say the lane forbids `.ai-factory/`; since D8/#1169 it ships the agent surface there.)
+// The SHIPPED researched-python
 // generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →
 // `researchedPracticeToNode` bridge → `renderAstgrep` (both pure, proven LG-S1 INC-1/2).
 // This arm is the MINIMAL glue making that lane invokable for a CONSUMER: practice JSON →
@@ -365,5 +367,36 @@ describe('A7-4 — PF-1 join validated before the first write (park writes nothi
     );
     expect(r.status).toBe(0);
     expect(r.stderr).toMatch(/invalid or unreadable/);
+  });
+});
+
+// P2 G6 (one-button, operator log entry 26 point 4): the LIVE arm used to exit 0 on a rejected
+// research plan, so setup.d/80-rule-bootstrap.sh (which notes NOT wired only on rc≠0) ended the
+// install «✅ complete» with no line naming the rejected plan. A rejected artefact now exits 3;
+// --strict keeps exit 1. RED on base: status 0.
+describe('live arm — a rejected research plan is a non-zero exit, never a silent pass', () => {
+  const CLI = join(REPO_ROOT, 'packages/core/install/rule-bootstrap-cli.ts');
+  const rejectedPlan = (consumer: string): string[] => {
+    const research = join(consumer, 'research.json');
+    const selection = join(consumer, 'selection.json');
+    writeFileSync(research, '{}'); // no framework/version/patterns → ResearchPlanError
+    writeFileSync(selection, '{}');
+    return ['--consumer-root', consumer, '--from-research', research, '--from-selection', selection];
+  };
+
+  it('cli: invalid research plan → exit 3 with the rejection reason on stderr', { timeout: 120_000 }, () => {
+    const consumer = freshConsumer();
+    const r = spawnSync(tsxBin(), [CLI, ...rejectedPlan(consumer)], { cwd: REPO_ROOT, encoding: 'utf8' });
+    expect(r.status).toBe(3);
+    expect(r.stderr).toMatch(/Invalid ResearchPlan: .*framework/);
+  });
+
+  it('cli --strict: the same plan keeps exit 1', { timeout: 120_000 }, () => {
+    const consumer = freshConsumer();
+    const r = spawnSync(tsxBin(), [CLI, ...rejectedPlan(consumer), '--strict'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    expect(r.status).toBe(1);
   });
 });

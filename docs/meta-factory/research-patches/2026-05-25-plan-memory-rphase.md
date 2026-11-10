@@ -467,3 +467,26 @@ T15 satisfied: admission path declared. Row not added in this R-phase (umbrella 
 - [.claude/rules/dual-implementation-discipline.md §5-§7](../../../.claude/rules/dual-implementation-discipline.md) — @dual-pair annotation convention
 - [.claude/rules/memory-codification.md §3](../../../.claude/rules/memory-codification.md) — write-time discipline
 - [.claude/rules/no-paid-llm-in-ci.md §1](../../../.claude/rules/no-paid-llm-in-ci.md) — hard constraint on I-phase mechanisms
+
+---
+
+## Addendum 2026-10-09 — the blanket auto-edit ban is SCOPED to unrestricted writeback; bounded factual reconciliation is now authorized (supersedes part of §2 Q1, §2 Q3, §4)
+
+> Appended per the supersession clause in [doc-authority-hierarchy.md §4.1](../../../.claude/rules/doc-authority-hierarchy.md) (a premise change amends the merged artefact that declares the intent — it does not live only downstream). Sections §1–§9 above are UNCHANGED and remain the historical record; this addendum dates and scopes what lapsed.
+
+**Premise change (what changed, who decided, when).** The verdict above rested on the premise that any automated write to the strategy-bearing `wave-sequencing-plan.md` §0 is unsafe, so §0 stays manual and acknowledgement-gated. On 2026-10-07..09 the operator replaced that gate in `/pipeline` F1: verified, uniquely attributable factual drift (PR state, explicitly evidenced umbrella closure, dated open-queue counts) is now reconciled automatically — see the current rule in the [pipeline planning procedure §1 Step 3](../../../.agents/procedures/pipeline/references/planning.md) and the dated addendum in [wave-sequencing-plan.md](../wave-sequencing-plan.md). Decision record: artyhoo/getff PR #2079 (the reconciliation procedure itself) plus the operator's directive of 2026-10-08/09 to reconcile verified factual drift without acknowledgement; the 2026-10-09 Dot system review on that PR upheld the premise change while requiring the enforcement corrections that produced the deterministic write guard and this addendum.
+
+**Lapsed conclusions (by their IDs above; historical text unchanged):**
+
+- **§2 Q1 verdict** («Direction A … is not safe on the current §0 structure») — lapses AS A BLANKET BAN. Bounded factual row/section edits are now permitted under the deterministic guard (pre-image hash binding, diff confined to a uniquely declared fragment, factual-field + evidence classification, structured receipt). The blast-radius FACTS stand (long dense rows, 6–8 non-unique fragments, no structural test on §0 content) — they are why the guard exists, not why the write is forbidden.
+- **§2 Q3 conclusion** («Direction B's separate cache file eliminates this risk») — the concurrency FACTS stand (19 commits/90d to this file, parallel worktrees); only the inference «therefore the shared file stays write-free» lapses. Concurrent-write risk is now mitigated at the write moment (exact pre-image binding + guard), not avoided by file separation alone.
+- **§4 «Why not Direction A»** — lapses as unconditional. Direction A is conditionally permitted for the verified-factual class only; unrestricted auto-writeback of the strategy-bearing file remains rejected, and this patch is preserved as that historical decision.
+
+**Verified facts that stand (unchanged by this addendum):** the §0 wrong-row blast radius (Q1), the concurrent-session race (Q3), the ~90s scan cost and caching justification (Q4), the strategy-vs-factual boundary table (Q6 — auto-apply stays limited to deterministic factual fields; ordering/weights stay human), and no-paid-LLM compliance (Q7 — the new guard is deterministic bash; the semantic arm is a session-read cold agent, no CI LLM).
+
+**Reopened decisions (deliberately UNDECIDED here, and where they will be decided):**
+
+1. Whether the gitignored Direction-B cache/delta layer remains the supplementary store — today yes (supplementary, never load-bearing, per the planning procedure's cache-reconciliation arm); final placement belongs to a future plan-memory design session.
+2. Whether §0 grows a machine-delimited writable sub-section (the conditional Q1 allowed) — a future `/pipeline` wave-plan design decision, not re-decided by this addendum.
+
+**Current single-source rule (where an auditor should land):** the pipeline planning procedure §1 Step 3 (with its write guard `plan-drift-write-guard.sh` and named cold check `plan-drift-semantic-auditor`) — reached from the live plan doc's 2026-10-07 addendum or from SSOT row #77's updated pointer; this patch supplies the history, not the current rule.

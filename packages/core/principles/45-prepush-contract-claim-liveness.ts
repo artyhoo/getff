@@ -45,21 +45,26 @@ export const REPO_ROOT = resolve(HERE, '../../..');
  * by predicate — and not the five names this list carried when principle 45 shipped.
  * That spelling was the brief's own forbidden shape one level up: the claims inside
  * each listed file were enumerated by predicate, but the list of root canon was picked
- * by hand, so `INSTALL.md:439` («pre-push ← typecheck + tests + arch + audit», the same
- * ASCII-tree shape already caught at `INSTALL-FOR-AI.md:354`) and
- * `AUDIT-CHECKLIST.md:370,:373` sat outside the corpus and read green. Both were found
+ * by hand, so `INSTALL.md:439` («pre-push ← typecheck + tests + arch + audit», the same cite:historical quotes root docs as measured 2026-09-14, since repaired
+ * ASCII-tree shape already caught at `INSTALL-FOR-AI.md:354`) and cite:historical quotes root docs as measured 2026-09-14, since repaired
+ * `AUDIT-CHECKLIST.md:370,:373` sat outside the corpus and read green. Both were found cite:historical quotes root docs as measured 2026-09-14, since repaired
  * by a parallel docs-repair branch, not by this gate — measured 2026-09-14. A root
  * glob also admits each future root canon without an edit here.
  */
 export const CLAIM_CORPUS_PATHSPECS: readonly string[] = [
   // live authority (this repo's canon) — every tracked root markdown, by predicate
   ':(glob)*.md',
+  '.agents/rules/*.md',
   '.claude/rules/*.md',
   // shipped surface
   'packages/**/*.md',
   'packages/**/*.template',
   'templates/**/*.md',
   'templates/**/*.template',
+  '.agents/procedures/**/*.md',
+  '.agents/procedures/**/*.template',
+  '.agents/skills/**/*.md',
+  '.agents/roles/*.md',
   'skills/**/*.md',
   'skills/**/*.template',
   '.claude/skills/**/*.md',
@@ -88,7 +93,7 @@ const SHIPPED_PREFIXES: readonly string[] = [
   'INSTALL-FOR-AI.md',
 ];
 
-export function isShippedSurface(file: string): boolean {
+function isShippedLegacySurface(file: string): boolean {
   if (SHIPPED_PREFIXES.some((p) => file === p || file.startsWith(p)))
     return true;
   // `.claude/skills/` is NOT a shipped prefix wholesale: setup.d/10-skills.sh delivers
@@ -97,6 +102,22 @@ export function isShippedSurface(file: string): boolean {
   // slug list the §8 walk already derives rather than restating it.
   return SHIPPED_SKILL_SLUGS.some((slug) =>
     file.startsWith(`.claude/skills/${slug}/`),
+  );
+}
+
+// Canonical bodies retain the audiences of their delivery entries. In particular,
+// moving a consumer helper behind a shallow loader must not classify its claims
+// as framework-only or remove them from the measured corpus.
+const canonicalEntries: { legacy: string; owner: string }[] = JSON.parse(
+  readFileSync(resolve(REPO_ROOT, 'scripts/canonical-agents-map.json'), 'utf8'),
+).entries;
+
+export function isShippedSurface(file: string): boolean {
+  return (
+    isShippedLegacySurface(file) ||
+    canonicalEntries.some(
+      (entry) => entry.owner === file && isShippedLegacySurface(entry.legacy),
+    )
   );
 }
 
@@ -116,7 +137,7 @@ const MENTION_RE = /(?:\.husky\/)?pre[-‑–]?push/gi;
  */
 const POST_CONNECTIVE_RE = /[:—–←]|<-/;
 /**
- * The other way prose opens the same enumeration: a verb of execution. `README.md:34`
+ * The other way prose opens the same enumeration: a verb of execution. `README.md:34` cite:historical quotes root docs as measured 2026-09-14, since repaired
  * uses the parenthesis arm and `AGENTS.md.template:46` the em-dash arm, but the
  * sentence the operator's brief QUOTES — «the pre-push hook runs typecheck + vitest
  * related + dependency-cruiser» — has neither, and a gate blind to it would miss any
@@ -126,7 +147,7 @@ const POST_VERB_RE =
   /\b(?:runs?|executes?|invokes?|performs?|запускает|прогоняет)\b/i;
 /*
  * KNOWN BLIND SPOT, declared rather than patched: a slash-joined list apposed to the
- * mention with NO connective at all — `AUDIT-CHECKLIST.md:370`, «Earlier channels
+ * mention with NO connective at all — `AUDIT-CHECKLIST.md:370`, «Earlier channels cite:historical quotes root docs as measured 2026-09-14, since repaired
  * (edit-time ESLint custom rules, pre-push `audit-ai-docs.sh`/tsc/depcruise)». The
  * paren arm does not reach it (the mention is INSIDE the parenthetical), and nothing
  * opens an enumeration after it.
@@ -443,7 +464,7 @@ export function resolveItem(token: string): string | null {
  * The gate must not need a curated list of "tools we do not run": that list is the
  * half that goes stale, and its staleness is invisible (a new false claim naming a
  * tool nobody listed is simply missed). So the vocabulary is DERIVED from the
- * installer's own delivery — `setup.d/70-deps.sh`, which writes the consumer's
+ * installer's own delivery — `setup.d/70-deps.sh` + `merge_canonical_scripts` in setup.d/lib.sh, which write the consumer's
  * `package.json` scripts and devDependencies. Everything a consumer-facing doc could
  * plausibly call a check is in there by construction, because the installer is what
  * put it in their project.
@@ -499,7 +520,7 @@ export function deriveToolchainTokens(depsSh: string): Set<string> {
     )
       tokens.add(base);
   };
-  const wantBlock = /const want = \{([\s\S]*?)\n {6}\};/.exec(depsSh);
+  const wantBlock = /const want = \{([\s\S]*?)\n *\};/.exec(depsSh);
   if (wantBlock) {
     for (const m of wantBlock[1].matchAll(
       /"([a-z][a-z0-9:._-]*)"\s*:\s*([^\n]+)/g,
@@ -516,7 +537,7 @@ export function deriveToolchainTokens(depsSh: string): Set<string> {
     }
   }
   // The PROSE spelling of a tool, taken from the CONFIG FILE its script points at.
-  // `arch:check` runs `depcruise --config .dependency-cruiser.cjs`: the binary is
+  // `arch:check` runs `depcruise --config .dependency-cruiser.mjs`: the binary is
   // `depcruise`, but every document that describes the check calls it
   // «dependency-cruiser». Without this the gate missed one of the four checks at the
   // centre of the incident — caught by planting a claim naming it and watching only two
@@ -636,10 +657,21 @@ export function loadCorpus(): { file: string; content: string }[] {
   }));
 }
 
-/** The installer's delivery, read from disk. */
+/**
+ * The installer's delivery, read from disk: `merge_canonical_scripts` in setup.d/lib.sh
+ * (the scripts both the install and `--refresh` merge) plus the rest of setup.d/70-deps.sh.
+ * Only that function's body is read, not all of lib.sh, whose other dotfile names
+ * (`.prettierrc`, `.lintstagedrc`) are no checks.
+ */
 export function toolchainTokens(): Set<string> {
+  const lib = readFileSync(resolve(REPO_ROOT, 'setup.d/lib.sh'), 'utf8');
+  const from = lib.indexOf('\nmerge_canonical_scripts() {');
+  const fn = from < 0 ? '' : lib.slice(from);
+  const end = fn.search(/\n\}\n/);
   return deriveToolchainTokens(
-    readFileSync(resolve(REPO_ROOT, 'setup.d/70-deps.sh'), 'utf8'),
+    (end < 0 ? fn : fn.slice(0, end)) +
+      '\n' +
+      readFileSync(resolve(REPO_ROOT, 'setup.d/70-deps.sh'), 'utf8'),
   );
 }
 
@@ -675,8 +707,8 @@ export interface QuarantineRow {
  * twin, held for a reason the gate cannot decide. `checks-map.md` declares itself
  * authoritative for the GENERIC eight-level enforcement model (`:8`), not for getff's
  * delivery: its levels 5-8 name Stryker, Pact Broker, Datadog and Argo Rollouts, none of
- * which getff installs. Both of the row's claim sites live in that register — `:43` is
- * row 3 of the model table and `:143` is the «minimum pipeline for a new project» — so
+ * which getff installs. Both of the row's claim sites live in that register — `:52` is
+ * row 3 of the model table and `:152` is the «minimum pipeline for a new project» — so
  * they say where a check BELONGS, not what getff wires. Rewriting the model is a product
  * decision for the maintainer. The consumer-confusion half is closed instead: the
  * docs-truth-prepush PR adds a note above the table stating outright that the installed
@@ -699,17 +731,17 @@ export interface QuarantineRow {
  */
 export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
   {
-    file: 'skills/getff/references/checks-map.md',
+    file: '.agents/procedures/getff/references/checks-map.md',
     items: [
       'npm run typecheck',
       'npm run arch:check',
       'dependency-cruiser',
-      'tsc --noemit всего проекта',
+      'tsc --noemit for the whole project',
       'vitest related $changed',
-      'vitest related на изменённых файлах',
+      'vitest related on changed files',
     ],
     owner:
-      'maintainer fork — BOTH sites are the generic 8-level model, not a description of getff: :43 is row 3 of the model table (whose levels 5-8 name Stryker/Pact/Datadog, which getff never installs) and :143 is the «minimum pipeline for a new project». Rewriting the model is a product decision; the consumer-confusion half is closed by the note this PR adds above the table',
+      'maintainer fork — BOTH sites are the generic 8-level model, not a description of getff: :52 is row 3 of the model table (whose levels 5-8 name Stryker/Pact/Datadog, which getff never installs) and :152 is the «minimum pipeline for a new project». Rewriting the model is a product decision; the consumer-confusion half is closed by the note this PR adds above the table',
   },
   {
     file: 'plugin/skills/getff/references/checks-map.md',
@@ -717,11 +749,12 @@ export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
       'npm run typecheck',
       'npm run arch:check',
       'dependency-cruiser',
-      'tsc --noemit всего проекта',
+      'tsc --noemit for the whole project',
       'vitest related $changed',
-      'vitest related на изменённых файлах',
+      'vitest related on changed files',
     ],
-    owner: 'maintainer fork — plugin twin of the row above; regenerated, not hand-edited',
+    owner:
+      'maintainer fork — plugin twin of the row above; regenerated, not hand-edited',
   },
 ];
 

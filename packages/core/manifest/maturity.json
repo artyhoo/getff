@@ -59,7 +59,7 @@
     "go": {
       "label": "alpha",
       "definition": "Installs one-command and fires on verified fixtures; rule generation is partial or deferred.",
-      "caveat": "Rules ship as a golangci config that is inert until you opt in; rule generation is deferred (operator, 2026-09-09).",
+      "caveat": "The forbidigo ban ships as .golangci.yml on a fresh repo, or as getff-golangci.yml when you already have one (inert locally until you opt in); the delivered CI workflow runs it build-failing in both cells; rule generation is deferred (operator, 2026-09-09).",
       "generation": "deferred",
       "verified-at": "2026-09-14"
     }

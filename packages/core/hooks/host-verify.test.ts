@@ -4,11 +4,29 @@
  * that calls it): exit codes, pipefail propagation, timeout bound, and the
  * umbrella-arg path-traversal rejection.
  *
+ * REPO-IDENTITY GUARD (2026-09-30, the deferred half of the getff#1971 backward sweep): the
+ * runner executed a contract from the CURRENT cwd's git toplevel, so `bash /abs/path/scripts/
+ * host-verify.sh <kickoff>` run from a scratch consumer repo executed that contract — and
+ * whatever it writes — inside the foreign repo. Run mode now refuses (exit 3) unless the cwd
+ * is a checkout of the repository the runner lives in (the physical git common dirs match —
+ * the predicate of scripts/link-coordination.sh, #1967). `--list` never executes anything and
+ * stays unguarded, so every programmatic caller (all of them use --list) is unaffected.
+ * Fixtures therefore install the runner into their own throwaway repo — the production shape.
+ *
+ *   (g1) FOREIGN CWD + another checkout's runner: refused (exit 3), no marker anywhere
+ *   (g2) OWN LINKED WORKTREE as cwd + the primary's runner: runs, in the worktree
+ *   (g3) OWN CHECKOUT + a kickoff OUTSIDE any git checkout (the canon-symlink case): runs in the cwd
+ *   (g4) cwd outside any git checkout: refused (exit 3)
+ *   (g5) --list from a foreign cwd: still lists (read-only, unguarded)
+ *   (g6) CDPATH naming a dir with its own scripts/: a relative invocation from the own
+ *        checkout still resolves the runner's repo correctly and runs
+ *   (g-neg) PAIRED-NEGATIVE: with the guard block stripped, the foreign cwd repo IS written
+ *
  * spec: .claude/rules/destination-environment-verification.md §1
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -38,11 +56,22 @@ function writeKickoffInTempRepo(body: string): { kickoff: string; repoRoot: stri
   return { kickoff, repoRoot };
 }
 
+/** Install the runner into `<repo>/scripts/` — the production shape the repo-identity guard expects. */
+function installRunner(repo: string, src: string = readFileSync(RUNNER, 'utf8')): string {
+  mkdirSync(join(repo, 'scripts'), { recursive: true });
+  const p = join(repo, 'scripts', 'host-verify.sh');
+  writeFileSync(p, src, { mode: 0o755 });
+  return p;
+}
+
 function runRunner(
   args: string[],
   env: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [RUNNER, ...args], {
+  // With a fixture cwd, run the fixture's own copy of the runner (run mode refuses a cwd that
+  // is not a checkout of the runner's repository); without one, run this repo's runner.
+  const runner = env.HV_CWD ? installRunner(env.HV_CWD) : RUNNER;
+  const r = spawnSync('bash', [runner, ...args], {
     encoding: 'utf8',
     env: { ...process.env, ...env },
     cwd: env.HV_CWD || undefined,
@@ -50,7 +79,7 @@ function runRunner(
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
-// Mirror the runner's own binary resolution: scripts/host-verify.sh:415 probes
+// Mirror the runner's own binary resolution: scripts/host-verify.sh:490 probes
 // `for _t in timeout gtimeout` and uses whichever it finds first. A skip-probe that
 // checks only `timeout` would silently skip the timeout case on a host with only
 // `gtimeout` (e.g. macOS with Homebrew coreutils) even though the runner would
@@ -133,5 +162,110 @@ describe('host-verify.sh — runner contract', () => {
     expect(r.stdout).toMatch(/touch host-verify-list-mode-probe/);
     // The probe file must NOT exist — --list must not execute commands.
     expect(require('node:fs').existsSync(probePath)).toBe(false);
+  });
+});
+
+describe('host-verify.sh — repo-identity guard (run mode)', () => {
+  const MARKER = 'hv-guard-marker';
+  const CONTRACT = `# k\n\n\`\`\`bash host-verify\ntouch ${MARKER}\n\`\`\`\n`;
+
+  function committedRepo(prefix: string): string {
+    const dir = mkdtempSync(join(tmpdir(), prefix));
+    tmpDirs.push(dir);
+    execSync('git init -q -b main', { cwd: dir });
+    execSync('git config user.email test@example.com && git config user.name test', { cwd: dir });
+    writeFileSync(join(dir, '.gitignore'), `${MARKER}\nwt-*/\nscripts/\n`);
+    const kdir = join(dir, '.claude', 'orchestrator-prompts', 'guard-umbrella');
+    mkdirSync(kdir, { recursive: true });
+    writeFileSync(join(kdir, 'kickoff.md'), CONTRACT, 'utf8');
+    execSync('git add -A && git commit -q -m init', { cwd: dir });
+    return dir;
+  }
+
+  const kickoffOf = (repo: string): string =>
+    join(repo, '.claude', 'orchestrator-prompts', 'guard-umbrella', 'kickoff.md');
+
+  function runWith(
+    runner: string,
+    args: string[],
+    cwd: string,
+    extra: Record<string, string> = {},
+  ): { status: number; out: string } {
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) {
+      if (v !== undefined && !k.startsWith('GIT_')) env[k] = v;
+    }
+    const r = spawnSync('bash', [runner, ...args], { cwd, env: { ...env, ...extra }, encoding: 'utf8' });
+    return { status: r.status ?? -1, out: `${r.stdout}${r.stderr}` };
+  }
+
+  it('(g1) FOREIGN CWD + another checkout\'s runner: refused (exit 3), the contract never runs', () => {
+    const own = committedRepo('hv-own-');
+    const foreign = committedRepo('hv-foreign-');
+    const r = runWith(installRunner(own), [kickoffOf(own)], foreign);
+    expect(r.status, r.out).toBe(3);
+    expect(r.out).toContain('not a checkout of');
+    expect(existsSync(join(foreign, MARKER)), 'nothing may run in the foreign cwd repo').toBe(false);
+    expect(existsSync(join(own, MARKER)), 'a refusal runs nothing anywhere').toBe(false);
+  });
+
+  it('(g2) OWN LINKED WORKTREE as cwd + the primary\'s runner: runs in the worktree', () => {
+    const own = committedRepo('hv-own-');
+    const runner = installRunner(own);
+    const wt = join(own, 'wt-linked');
+    execSync(`git worktree add -q "${wt}" HEAD`, { cwd: own });
+    const r = runWith(runner, [kickoffOf(wt)], wt);
+    expect(r.status, r.out).toBe(0);
+    expect(existsSync(join(wt, MARKER)), r.out).toBe(true);
+    expect(existsSync(join(own, MARKER))).toBe(false);
+  });
+
+  it('(g3) OWN CHECKOUT + a kickoff outside any git checkout: runs in the cwd repo', () => {
+    const own = committedRepo('hv-own-');
+    const canon = mkdtempSync(join(tmpdir(), 'hv-canon-'));
+    tmpDirs.push(canon);
+    writeFileSync(join(canon, 'kickoff.md'), CONTRACT, 'utf8');
+    const r = runWith(installRunner(own), [join(canon, 'kickoff.md')], own);
+    expect(r.status, r.out).toBe(0);
+    expect(existsSync(join(own, MARKER)), r.out).toBe(true);
+  });
+
+  it('(g4) cwd outside any git checkout: refused (exit 3)', () => {
+    const own = committedRepo('hv-own-');
+    const bare = mkdtempSync(join(tmpdir(), 'hv-nogit-'));
+    tmpDirs.push(bare);
+    const r = runWith(installRunner(own), [kickoffOf(own)], bare);
+    expect(r.status, r.out).toBe(3);
+    expect(existsSync(join(bare, MARKER))).toBe(false);
+  });
+
+  it('(g5) --list from a foreign cwd still lists (read-only, unguarded)', () => {
+    const own = committedRepo('hv-own-');
+    const foreign = committedRepo('hv-foreign-');
+    const r = runWith(installRunner(own), ['--list', kickoffOf(own)], foreign);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain(`touch ${MARKER}`);
+    expect(existsSync(join(foreign, MARKER))).toBe(false);
+  });
+
+  it('(g6) CDPATH naming a dir with its own scripts/: a relative run from the own checkout still works', () => {
+    const own = committedRepo('hv-own-');
+    installRunner(own);
+    const decoy = mkdtempSync(join(tmpdir(), 'hv-decoy-'));
+    tmpDirs.push(decoy);
+    mkdirSync(join(decoy, 'scripts'));
+    const r = runWith('scripts/host-verify.sh', [kickoffOf(own)], own, { CDPATH: decoy });
+    expect(r.status, r.out).toBe(0);
+    expect(existsSync(join(own, MARKER)), r.out).toBe(true);
+  });
+
+  it('(g-neg) PAIRED-NEGATIVE: with the guard block stripped, the foreign cwd repo IS written', () => {
+    const src = readFileSync(RUNNER, 'utf8');
+    const stripped = src.replace(/# ── REPO-IDENTITY GUARD[\s\S]*?# ── END REPO-IDENTITY GUARD[^\n]*\n/, '');
+    expect(stripped, 'the REPO-IDENTITY GUARD block must be present to strip').not.toBe(src);
+    const own = committedRepo('hv-own-');
+    const foreign = committedRepo('hv-foreign-');
+    runWith(installRunner(own, stripped), [kickoffOf(own)], foreign);
+    expect(existsSync(join(foreign, MARKER)), 'without the guard the contract runs in the foreign cwd').toBe(true);
   });
 });

@@ -396,6 +396,65 @@ test_ac8() {
   cleanup; ORIGIN=""; WORK=""
 }
 
+# ── AC9: in-container git runs as the OWNER of the container clone, never as root ────
+# Regression, measured 2026-09-30 on the PC aif stack. `docker exec` runs as the container's
+# default user (root on aif) while aif tasks run as `node`. The helper's fetch + ff-merge ran
+# as root, so they left root-owned `refs/heads/feature/`, `refs/heads/staging`, `index`,
+# `logs/HEAD` (reflog: `merge origin/staging: Fast-forward` at 22:04:07 on 2026-09-29) plus
+# every working-tree file the merge rewrote; the next aif task then died at worktree creation
+# with `cannot lock ref 'refs/heads/feature/…': Permission denied`, and aif's own
+# `git pull --ff-only` before each worktree could no longer write `docs/site/`.
+# The stub logs the -u value of every exec, so «ran as root» is observable here even though
+# the fixture is owned by the test user either way.
+test_ac9() {
+  echo ""
+  echo "=== AC9: in-container git runs as the clone's owner (docker exec -u uid:gid) ==="
+  setup_base_fixture
+  local log; log="$(mktemp)"
+  export STUB_EXEC_LOG="$log"
+  run_helper "$SHA_B"
+  unset STUB_EXEC_LOG
+  echo "  exit=$HELPER_EXIT"
+  echo "$HELPER_OUTPUT" | sed 's/^/    /'
+
+  local owner git_lines wrong
+  owner="$(ls -nd "$WORK" | awk '{print $3":"$4}')"
+  git_lines="$(awk -F'\t' '$2 ~ /^git /' "$log" | wc -l | tr -d ' ')"
+  wrong="$(awk -F'\t' -v o="$owner" '$2 ~ /^git / && $1 != o' "$log" | head -3)"
+  echo "  owner=$owner  git execs=$git_lines"
+  [ -z "$wrong" ] || echo "$wrong" | sed 's/^/    not-as-owner: /'
+
+  if [ "$git_lines" -gt 0 ] && [ -z "$wrong" ] && [ "$HELPER_EXIT" -eq 0 ]; then
+    record_pass "every in-container git ran as the clone owner ($owner)"
+  else
+    record_fail "in-container git not run as the clone owner ($owner) — the 2026-09-30 root-owned-refs defect"
+  fi
+  rm -f "$log"
+  cleanup; ORIGIN=""; WORK=""
+}
+
+# ── AC10: AIF_CONTAINER_USER overrides the derived owner verbatim ─────────────────────
+test_ac10() {
+  echo ""
+  echo "=== AC10: AIF_CONTAINER_USER overrides the derived owner ==="
+  setup_base_fixture
+  local log; log="$(mktemp)"
+  export STUB_EXEC_LOG="$log" AIF_CONTAINER_USER="4242:4242"
+  run_helper "$SHA_B"
+  unset STUB_EXEC_LOG AIF_CONTAINER_USER
+  echo "  exit=$HELPER_EXIT"
+
+  local other
+  other="$(awk -F'\t' '$2 ~ /^git / && $1 != "4242:4242"' "$log" | head -3)"
+  if grep -q '^4242:4242	git ' "$log" && [ -z "$other" ]; then
+    record_pass "override user used for every in-container git"
+  else
+    record_fail "AIF_CONTAINER_USER not honoured"
+  fi
+  rm -f "$log"
+  cleanup; ORIGIN=""; WORK=""
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────────────
 echo "refresh-aif-base.sh fixture test"
 echo "Helper:    $HELPER"
@@ -418,6 +477,8 @@ test_ac5
 test_ac6
 test_ac7
 test_ac8
+test_ac9
+test_ac10
 
 echo ""
 echo "================================================================"

@@ -34,10 +34,17 @@ const WIRING_PR_CHANGED = [
 ];
 
 describe('G3 — zero skill/agent/IR edits in a wiring diff (adapter-jig §3.7)', () => {
+  it.each(['.agents/procedures/rule-tests/SKILL.md', '.agents/skills/rule-tests/SKILL.md', '.agents/roles/rule-test-author.md'])('canonical owner is protected: %s', (path) => {
+    expect(checkDiffScope([path])).toHaveLength(1);
+  });
+
   it('grounding: the frozen protected set matches spec §3.7 verbatim, and the in-repo RED anchor exists', () => {
     expect(PROTECTED_SURFACES).toEqual([
       '.claude/skills/rule-tests/',
+      '.agents/procedures/rule-tests/',
+      '.agents/skills/rule-tests/',
       'agents/rule-test-author.md',
+      '.agents/roles/rule-test-author.md',
       'packages/core/ir/types.ts',
     ]);
     // The one protected surface that exists in this repo — the anchor every

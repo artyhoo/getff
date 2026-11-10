@@ -31,11 +31,11 @@
  *
  * Logging: [render-install-roster] stderr traces per source read and gate verdict.
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { findRegions, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
 import { readSkillTiers } from './lib/skill-tiers.mjs';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const TARGET = 'INSTALL-FOR-AI.md';
 const SECTION_ROSTER = 'install-roster';
@@ -54,14 +54,13 @@ function findRoot(start) {
 
 /** Agents shipped at the default depth: agents/*.md minus skip-list minus factory-gated. */
 function shippedAgents(root) {
-  const agentDir = join(root, 'agents');
+  const canonical = join(root, '.agents', 'roles');
+  const agentDir = existsSync(canonical) && statSync(canonical).isDirectory() ? canonical : join(root, 'agents');
   const files = readdirSync(agentDir).filter((f) => f.endsWith('.md'));
   const script = readFileSync(join(root, 'setup.d', '20-agents.sh'), 'utf8');
   const skips = new Set();
-  let factoryGated = new Set();
+  const factoryGated = factoryGatedAgents(root);
   for (const m of script.matchAll(/^\s*([a-z0-9-]+\.md)\)\s*continue\s*;;/gm)) skips.add(m[1]);
-  const pair = script.match(/^\s*([a-z0-9-]+\.md)\|([a-z0-9-]+\.md)\)/m);
-  if (pair) factoryGated = new Set([pair[1], pair[2]]);
   // Fail-loud, never fail-open: zero skip entries means the installer was restructured and
   // these regexes no longer match its shape — rendering would silently list ALL agents as
   // shipped (silent-wrong, the exact lying-doc class this renderer exists to kill).
@@ -74,16 +73,26 @@ function shippedAgents(root) {
   return shipped;
 }
 
+/** Parse the installer factory gate; a changed case shape must fail closed. */
+function factoryGatedAgents(root) {
+  const script = readFileSync(join(root, 'setup.d', '20-agents.sh'), 'utf8');
+  const pair = script.match(/^\s*([a-z0-9-]+\.md)\|([a-z0-9-]+\.md)\)/m);
+  if (!pair) throw new Error('setup.d/20-agents.sh: factory pair parse matched 0 entries');
+  return new Set([pair[1], pair[2]]);
+}
+
 /** Skill slugs per depth, derived from the installer's own literals/constants. */
 function shippedSkills(root) {
   const tenSkills = readFileSync(join(root, 'setup.d', '10-skills.sh'), 'utf8');
+  const activeSkills = tenSkills.split('\n').map((line) => line.replace(/^\s*#.*$/, '').replace(/\s+#.*$/, '')).join('\n');
   // The delivery verb changed when the seven copies of the wipe/copy/transform loop were
   // collapsed onto _copy_tree_with_transform (ledger S-7), so match on the SOURCE literal and
   // accept either verb in front of it. Anchoring on `cp -r` alone made this roster silently
   // render an empty base set the moment the installer stopped open-coding the copy.
   const base = [
-    ...tenSkills.matchAll(/(?:cp -r|_copy_tree_with_transform) "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g),
+    ...activeSkills.matchAll(/(?:cp -r|_copy_tree_with_transform) "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g),
   ].map((m) => m[1]);
+  for (const m of activeSkills.matchAll(/_copy_tree_with_transform "\$\(procedure_source ([a-z0-9-]+)\)"/g)) base.push(m[1]);
   // The tier-constant read lives in ONE module (ref-gen G12: a second JS reader of
   // GETFF_SKILLS_* is the #sync-by-copy-paste shape); this roster keeps only its own
   // 10-skills.sh literal merge.
@@ -149,13 +158,6 @@ function run(argv) {
   return 0;
 }
 
-function isMainEntry() {
-  try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-}
-if (isMainEntry()) process.exit(run(process.argv.slice(2)));
+if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));
 
-export { shippedAgents, shippedSkills, renderAgentsBullet, renderSkillsBullet, SECTION_ROSTER };
+export { shippedAgents, shippedSkills, factoryGatedAgents, renderAgentsBullet, renderSkillsBullet, SECTION_ROSTER };

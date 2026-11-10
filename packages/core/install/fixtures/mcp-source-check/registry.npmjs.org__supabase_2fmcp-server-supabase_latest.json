@@ -1,0 +1,10 @@
+{
+  "name": "@supabase/mcp-server-supabase",
+  "version": "0.13.0",
+  "homepage": "https://github.com/supabase/mcp#readme",
+  "repository": {
+    "url": "git+https://github.com/supabase/mcp.git",
+    "type": "git"
+  },
+  "mcpName": "com.supabase/mcp"
+}

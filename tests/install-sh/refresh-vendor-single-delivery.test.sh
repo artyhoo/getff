@@ -69,7 +69,7 @@ else
   bad "arm 1: consumer-only file under $VENDOR_REL was DELETED despite the .override.md"
 fi
 # The banner at the end of do_refresh promises exactly this; arm 1 is what makes it true.
-if printf '%s\n' "$OUT_1" | grep -qF 'Files with a sibling .override.md were also preserved'; then
+if grep -qF 'Files with a sibling .override.md were also preserved' <<<"$OUT_1"; then
   ok "arm 1: the closing banner still makes the override-preserved promise (and now keeps it)"
 else
   bad "arm 1: the override-preserved banner line vanished — update this probe or the banner"
@@ -119,7 +119,7 @@ TC3=$(make_consumer)
 printf '# consumer override — Layer 3\n' > "$TC3/$VENDOR_REL.override.md"
 printf 'CONSUMER_VENDOR_EDIT_ARM_3\n' > "$TC3/$VENDOR_REL/$PROBE_VENDOR_REL"
 OUT_3=$( cd "$TC3" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_3" | grep -F 'would skip' | grep -qF "$VENDOR_REL"; then
+if grep -qF "$VENDOR_REL" <<<"$(printf '%s\n' "$OUT_3" | grep -F 'would skip')"; then
   ok "arm 3: --dry-run previews a SKIP for the overridden vendor tree"
 else
   bad "arm 3: --dry-run did not preview the vendor-tree skip"

@@ -1,0 +1,34 @@
+[
+  {
+    "skill": "harvest",
+    "before_body_lines": 134,
+    "after_body_lines": 72,
+    "before_body_chars": 19858,
+    "after_body_chars": 9324,
+    "reduction_percent": 53.0
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "before_body_lines": 136,
+    "after_body_lines": 105,
+    "before_body_chars": 24217,
+    "after_body_chars": 11851,
+    "reduction_percent": 51.1
+  },
+  {
+    "skill": "getff",
+    "before_body_lines": 148,
+    "after_body_lines": 96,
+    "before_body_chars": 15320,
+    "after_body_chars": 9121,
+    "reduction_percent": 40.5
+  },
+  {
+    "skill": "self-reflection",
+    "before_body_lines": 128,
+    "after_body_lines": 81,
+    "before_body_chars": 15288,
+    "after_body_chars": 7332,
+    "reduction_percent": 52.0
+  }
+]

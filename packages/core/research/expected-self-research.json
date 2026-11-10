@@ -12,9 +12,9 @@
   ],
   "drift": {
     "sources": [
-      "skills/getff/SKILL.md",
-      "skills/getff/references/overview.md",
-      "skills/getff/references/ai-traps.md"
+      ".agents/procedures/getff/SKILL.md",
+      ".agents/procedures/getff/references/overview.md",
+      ".agents/procedures/getff/references/ai-traps.md"
     ],
     "mismatches": []
   }

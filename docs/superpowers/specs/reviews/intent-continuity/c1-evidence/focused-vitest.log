@@ -1,0 +1,140 @@
+
+ RUN  v4.1.8 /Users/art/.codex/worktrees/0166/rules-as-tests-aif
+
+ ✓ packages/core/skills/intent-result-review.test.ts > intent continuity — current result evidence > an exact matching attempt is current only against the independently supplied brief and observed revision 7ms
+ ✓ packages/core/skills/intent-result-review.test.ts > intent continuity — current result evidence > no observed revision or current brief cannot turn an old attempt into expansion authority 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > intent continuity — immutable result attempt publication > publishes validated observations once and retains the original after a changed attempt 18ms
+ ✓ packages/core/skills/intent-result-review.test.ts > intent continuity — publishing an expanded result > records a new attempt produced under an expansion contract 4ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — passing shapes > a matching produce attempt passes its own contract 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — passing shapes > an inline declared contract passes (parity with the ref-loaded form) 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — passing shapes > produce does NOT require a prior passing review (reviewPath absent) 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — passing shapes > the exact selected matching attempt passes an expansion contract 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — passing shapes > authorized repair passes its own contract — the failed attempt need not match 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — passing shapes > ordinary independent work passes its own contract (feature B is not feature A) 2ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > missing contract and contractRef → contract_missing 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > unsupported contract version → unsupported_version 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > unknown mode → invalid_contract 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > conflicting duplicate essential IDs → duplicate_ids 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > brief file missing → ref_missing 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > brief bytes changed since approval → ref_digest_mismatch (stale binding) 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > ref path escaping the configured roots → path_escapes_roots 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > declared inline scope diverging from the registered contract → declared_scope_mismatch 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > child scope dropping a parent essential → weakens_parent_scope 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — contract-side rejects > child keeping every parent essential passes the parent check 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > review file missing → review_missing 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > unsupported review version → unsupported_version 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > outcome outside the four → invalid_outcome 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > comparison outside the four → invalid_comparison 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > conflicting duplicate promise IDs → duplicate_ids 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > wrong feature → feature_mismatch 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > wrong result → result_mismatch 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > review bound to different brief bytes → brief_mismatch 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > producer contract other than the enforcing one → producer_mismatch 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > review observedRevision behind the current binding → stale_review 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > matches without an essential supported by observations → missing_essential_evidence 2ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > matches with a contradicted promise → contradicted_essential 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — review-side rejects > matches with an unresolved operator checkpoint → outstanding_checkpoint 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — mode semantics (expand / repair) > expansion bound to a different attempt → matching_attempt_mismatch 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — mode semantics (expand / repair) > expansion whose selected attempt did not match → expansion_requires_match 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — mode semantics (expand / repair) > expansion review produced under the expansion contract itself → contract_review_cycle 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — mode semantics (expand / repair) > repair bound to the wrong prior attempt → prior_attempt_mismatch 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — mode semantics (expand / repair) > repair cannot adopt another feature’s failed attempt with the same attempt ID 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — mode semantics (expand / repair) > repair of an attempt that already matched → repair_target_already_matches 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > a semantic matches with every promise supported passes 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > a mismatch naming a contradicted promise passes (the honest wrong-spec verdict) 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > needs-evidence with an unobserved promise passes 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > needs-operator with a needs-operator promise passes 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > a formatting-equivalence rebinding passes (prior attempt named, bounded diff attested) 1ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > unknown kind → spec_review_invalid 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > version other than 1 → unsupported_version 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > semantic review with zero promises → spec_review_invalid 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > reviewer documents omitting the exact PRD → prd_not_primary (advisor saw only the spec) 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > citation source outside prd|spec → spec_review_invalid 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > promise without citations → spec_review_invalid (a verdict needs its evidence tags) 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > matches standing on a contradicted promise → outcome_incoherent 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > mismatch without any contradicted promise → outcome_incoherent 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > needs-evidence over a contradicted promise → outcome_incoherent (a contradiction is a mismatch) 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > needs-operator without a needs-operator promise → outcome_incoherent 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > formatting-equivalence attesting mismatch → spec_review_invalid (semantic findings need the semantic path) 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > formatting-equivalence without priorAttemptId → spec_review_invalid 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > formatting-equivalence binding the SAME spec ref → spec_review_invalid (nothing was rebound) 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > formatting-equivalence without boundedDiff.summary → spec_review_invalid 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > prdRef whose bytes drifted → ref_digest_mismatch (stale binding, shared resolver) 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — specification-review mode > approvalRef outside the configured roots → path_escapes_roots 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — PlanReview structure > a well-formed within-contract review passes and reports its classification 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — PlanReview structure > product-decision and contract-revision are STRUCTURALLY valid — the hold is the adapter call 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — PlanReview structure > review naming another task → plan_review_task_mismatch 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — PlanReview structure > plan bytes changed since review → plan_digest_mismatch 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — PlanReview structure > classification outside the three → invalid_classification 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — PlanReview structure > missing owner reference → owner_reference_missing (a digest alone grants nothing) 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — PlanReview structure > contract ref diverging from the declared scope → contract_ref_mismatch 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review — PlanReview structure > proposed payload digest diverging → payload_digest_mismatch 0ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review CLI > a valid request exits 0 and prints {ok:true} 47ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — repair references the historical failed attempt > allows scoped repair of a recorded mismatch without pretending it is a current match 45ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review CLI > a rejecting request exits 2 and prints the code 46ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review CLI > missing input and parse failures exit 2 (never 0, never a crash) 126ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > holds an unchanged adopted payload after current PRD supersession before effect 77ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > holds an unchanged adopted payload after agreed spec supersession before effect 77ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review CLI > --spec-review parity: a passing attempt exits 0, an incoherent one exits 2 with the code 83ms
+ ✓ packages/core/skills/intent-result-review.test.ts > check-result-review CLI > the helper is read-only: validation writes nothing into the fixture tree 47ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > accepts the same adopted payload while both current decisions match 120ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > an adopted expansion needs a current observed revision and cannot reuse a stale match 566ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > rejects a newly authored kickoff whose scope marker was removed before dispatch 39ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > direct AIF claim refuses marker removal before any network effect 42ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > manual packet and /fire refuse an unknown kickoff with its adopted scope removed 79ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > a persisted adopted task cannot become legacy when its scope is removed 3ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > admits only frozen task IDs or claimed frozen kickoffs as legacy 3ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > intent continuity — independently selected authority at an effect > resumes a changed adopted task only after current product authority and a new plan review bind both payloads 1004ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > extractIntentScope — fail-closed fence parsing > zero blocks → unscoped (ordinary behaviour applies) 2ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > extractIntentScope — fail-closed fence parsing > one well-formed block → scoped with a parsed contract 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > extractIntentScope — fail-closed fence parsing > malformed block → invalid (NEVER falls through to unscoped) 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > extractIntentScope — fail-closed fence parsing > near-miss opener with an info-string tail → invalid, NOT unscoped 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > extractIntentScope — fail-closed fence parsing > near-miss opener with case drift → invalid, NOT unscoped 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > extractIntentScope — fail-closed fence parsing > near-miss opener with a space after the fence → invalid, NOT unscoped 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > extractIntentScope — fail-closed fence parsing > near-miss opener with a word-char suffix → invalid, NOT unscoped (finding 94ac13a2) 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > extractIntentScope — fail-closed fence parsing > the exact opener still parses as scoped (near-miss net does not swallow the documented form) 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > extractIntentScope — fail-closed fence parsing > two blocks → invalid (ambiguous declared scope fails closed) 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/dispatch.ts — a scoped kickoff with a broken contract never dispatches > malformed intent-contract block → exit 2, NO POST /tasks, no manual packet, no dedup record 296ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/dispatch.ts — a scoped kickoff with a broken contract never dispatches > valid declared scope whose brief bytes are missing → exit 2, NO POST (ref resolution at the dispatch seam) 317ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/dispatch.ts — a scoped kickoff with a broken contract never dispatches > --force does NOT bypass the scope gate → exit 2, NO POST, no dedup success line 265ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/dispatch.ts — a scoped kickoff with a broken contract never dispatches > a seeded dedup entry does NOT short-circuit the scope check → scope gate fires first (no dedup success, exit 2) 266ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/dispatch.ts — a scoped kickoff with a broken contract never dispatches > unconfigured intent helper (empty env) → a scoped task still fails CLOSED → exit 2, NO POST (cold-review O2) 265ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/dispatch.ts — a scoped kickoff with a broken contract never dispatches > SCOPED CONTROL: a valid produce contract dispatches with autoMode:false (planning may run, implementation may not) 412ms
+
+╔══════════════════════════════════════════════════════════════════╗
+║  runtime-bridge: ManualBackend — manual run                      ║
+╚══════════════════════════════════════════════════════════════════╝
+  Kickoff written to: /tmp/runtime-bridge-2026-10-13T17-36-16-c416030c.md
+  Open a new Claude Code window and run the task.
+  Put the report in: /tmp/runtime-bridge-2026-10-13T17-36-16-c416030c.response.md
+  Task ID: 2026-10-13T17-36-16-c416030c
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/dispatch.ts — a scoped kickoff with a broken contract never dispatches > UNSCOPED CONTROL: ordinary dispatch is unchanged (exit 0, autoMode:true) 322ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > direct backend invocation — failed scope means zero effects > AifHandoffBackend.dispatch with a malformed scope → spec_invalid and fetch is NEVER called 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > direct backend invocation — failed scope means zero effects > ManualBackend.dispatch with a malformed scope → spec_invalid and NO /tmp packet 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > direct backend invocation — failed scope means zero effects > AifFireBackend.dispatch with a malformed scope → spec_invalid and fetch is NEVER called 0ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > direct backend invocation — failed scope means zero effects > UNSCOPED CONTROL: ManualBackend.dispatch still writes its packet (ordinary behaviour) 3ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > AifHandoffBackend.release — validation against the PERSISTED description > holds a claimed adopted handle after its marker is removed even without root env 4ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > AifHandoffBackend.release — validation against the PERSISTED description > stale delayed release → refused, NO unpause PUT; the paused claim remains paused 46ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > AifHandoffBackend.release — validation against the PERSISTED description > child scope dropping a parent essential in the PERSISTED description → refused, no PUT 45ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > AifHandoffBackend.release — validation against the PERSISTED description > malformed declared scope in the persisted description → refused, NEVER treated as ordinary unscoped 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > AifHandoffBackend.release — validation against the PERSISTED description > SCOPED CONTROL: current review + intact scope → unpause PUT and the start_ai planning event 45ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > AifHandoffBackend.release — validation against the PERSISTED description > UNSCOPED CONTROL: release stays a bare unpause PUT — no event, unchanged behaviour 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/answer.ts pushAnswer — scoped tasks require an authorized within-contract PlanReview > scoped resume WITHOUT a PlanReview → spec_invalid, NO unpause PUT, no plan rewrite 0ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/answer.ts pushAnswer — scoped tasks require an authorized within-contract PlanReview > scoped resume with a contract-revision PlanReview → HELD (S1 default), no PUT 173ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/answer.ts pushAnswer — scoped tasks require an authorized within-contract PlanReview > scoped resume with a PlanReview whose payload digest diverges → held, no PUT 177ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/answer.ts pushAnswer — scoped tasks require an authorized within-contract PlanReview > SCOPED CONTROL: within-contract PlanReview + matching payload → the unpause PUT proceeds 176ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/answer.ts pushAnswer — scoped tasks require an authorized within-contract PlanReview > scoped request_changes WITHOUT a PlanReview → no comment POST, no event POST 1ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/answer.ts pushAnswer — scoped tasks require an authorized within-contract PlanReview > UNSCOPED CONTROL: resume without a contract stays ordinary (unpause PUT proceeds) 0ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/start-reviewed.ts startReviewed — the event POST fires only on an authorized review of a waiting scoped claim > holds a reviewed start when the adopted PRD changed after planning, with no event POST 123ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/start-reviewed.ts startReviewed — the event POST fires only on an authorized review of a waiting scoped claim > UNSCOPED task → refused (this is the scoped route only), NO event POST 44ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/start-reviewed.ts startReviewed — the event POST fires only on an authorized review of a waiting scoped claim > scoped task NOT in plan_ready → held (nothing to start), NO event POST 181ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/start-reviewed.ts startReviewed — the event POST fires only on an authorized review of a waiting scoped claim > autoMode:true (an ordinary auto task) → refused through the reviewed route, NO event POST 169ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/start-reviewed.ts startReviewed — the event POST fires only on an authorized review of a waiting scoped claim > review binding an ANSWER payload while start-reviewed proposes none → HELD (payload binding), NO event POST 173ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/start-reviewed.ts startReviewed — the event POST fires only on an authorized review of a waiting scoped claim > plan bytes changed between validation and the re-read → HELD at the re-read, NO event POST 303ms
+ ✓ packages/runtime-bridge/test/result-review-effects.test.ts > cli/start-reviewed.ts startReviewed — the event POST fires only on an authorized review of a waiting scoped claim > SCOPED CONTROL: current review + waiting scoped claim → exactly one start_implementation event, no other write 301ms
+
+ Test Files  2 passed (2)
+      Tests  123 passed (123)
+   Start at  20:36:11
+   Duration  6.51s (transform 234ms, setup 24ms, import 261ms, tests 6.59s, environment 0ms)
+

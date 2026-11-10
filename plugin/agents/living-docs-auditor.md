@@ -20,6 +20,15 @@ You report. You do **not** fix.
 
 ## Workflow
 
+Bind the audit target before running commands: use the explicitly supplied project
+root, or the current project root when no target is supplied. Resolve a nested cwd
+to that project root; if the target is missing, inaccessible, or ambiguous, report
+`AUDIT-INCOMPLETE` and stop rather than auditing this framework checkout by accident.
+Read the target's `AGENTS.md` and applicable `.ai-factory/RULES*.md`. Run detection,
+script execution and auxiliary checks with that same target as the shell workdir.
+Keep `SCRIPT`, `RUN_AUDIT`, `EXIT` and `AUDIT_LOG` in one Bash invocation (or explicitly
+rebind them in subsequent calls); shell variables do not persist across tool calls.
+
 ### Step 1: Detect which audit script applies
 
 ```bash
@@ -36,21 +45,50 @@ fi
 ### Step 2: Verify the script exists
 
 ```bash
-[ -f "$SCRIPT" ] || {
+RUN_AUDIT=1
+if [ ! -f "$SCRIPT" ]; then
+  RUN_AUDIT=0
   echo "INFO: $SCRIPT not present in this project."
   echo "      Code-vs-docs probes are disabled until the audit script is created."
-  exit 0
-}
+fi
+# Continue to auxiliary checks even when the main script is absent.
 ```
 
 ### Step 3: Run audit
 
 ```bash
-bash "$SCRIPT" 2>&1 | tee /tmp/audit-output.log
-EXIT=$?
+if [ "${RUN_AUDIT:-1}" = 1 ]; then
+  if AUDIT_LOG=$(mktemp "${TMPDIR:-/tmp}/living-docs-audit.XXXXXX"); then
+    if bash "$SCRIPT" > "$AUDIT_LOG" 2>&1; then
+      EXIT=0
+    else
+      EXIT=$?
+    fi
+    cat "$AUDIT_LOG"
+  else
+    AUDIT_LOG="tool transcript (file log unavailable)"
+    echo "INFO: file log unavailable; preserving output in the tool transcript."
+    if bash "$SCRIPT" 2>&1; then
+      EXIT=0
+    else
+      EXIT=$?
+    fi
+  fi
+  printf 'AUDIT_EXIT=%s\nAUDIT_LOG=%s\n' "$EXIT" "$AUDIT_LOG"
+fi
 ```
 
 ### Step 4: Parse output
+
+Preserve the script's actual `EXIT`, stdout/stderr and log path in the report.
+When a read-only sandbox cannot create the log, retain the tool transcript and
+state that limitation; still run the helper and auxiliary checks.
+A nonzero exit without a `FAIL:` finding is `AUDIT-INCOMPLETE` (helper failure),
+not a clean audit. An empty/no-probe output is also incomplete. A missing script
+is a configuration gap: report code-vs-docs as unverified and still report
+auxiliary drift. Never issue `ALL PROBES PASSED` for these cases. A `FAIL:` line
+blocks even if a defective helper exits zero. Run auxiliary checks after failures
+as well as successes. Only classify WARN as non-blocking when the helper completed.
 
 The audit script outputs lines in the format:
 
@@ -146,7 +184,7 @@ awk 'match($0, /skill `[^`]+`/) {
 ```bash
 # Portable: extract paths after `.claude/rules/`.
 awk 'match($0, /\.claude\/rules\/[^[:space:]`)]+/) {
-  print substr($0, RSTART+15, RLENGTH-15)
+  print substr($0, RSTART+14, RLENGTH-14)
 }' AGENTS.md 2>/dev/null \
   | grep -v '<name\|<glob' | while read r; do
     [ -f ".claude/rules/$r" ] || echo "DRIFT: rule '$r' declared but missing"

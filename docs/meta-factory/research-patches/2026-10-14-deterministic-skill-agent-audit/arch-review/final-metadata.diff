@@ -1,0 +1,36 @@
+diff --git a/docs/superpowers/specs/2026-10-14-deterministic-core-design.md b/docs/superpowers/specs/2026-10-14-deterministic-core-design.md
+index 281ed64f87a..1236c2314fb 100644
+--- a/docs/superpowers/specs/2026-10-14-deterministic-core-design.md
++++ b/docs/superpowers/specs/2026-10-14-deterministic-core-design.md
+@@ -1,6 +1,6 @@
+ # Deterministic core — technical design
+ 
+-> **Status:** written technical design, 2026-10-15 checkpoint. The operator accepted sequencing and the implementation platform. Formal artifact reviews and exact-spec agreement remain pending; no implementation authority.
++> **Status:** technical design candidate for exact-content review and subsequent operator agreement, 2026-10-15. The operator accepted sequencing and the implementation platform; this document grants no implementation authority. Actual review verdicts and their content bindings live in the separate review record.
+ > **Authoritative for:** the evolving technical proposal and decision register for feature `deterministic-core`.
+ > **NOT authoritative for:** the project goal, runtime activation, delivery certification, or permission to implement. The approved product brief owns the product promise.
+ 
+@@ -286,9 +286,9 @@ D1–D10 record settled intent and delegated technical decisions. Acceptance of
+ 
+ ## Consensus retell
+ 
+-Baseline: cd9c57bbb0a2a0523a71d3fc86704f5381b8c228
++Baseline: none — first retell
+ 
+-Rows 1–7 retain prior meaning; rows 8–10 add the latest operator decisions. The baseline identifies the recovered draft, not prior exact-spec agreement.
++Rows 1–7 retain prior meaning; rows 8–10 add the latest operator decisions. The recovered draft is archived at `cd9c57bbb0a2a0523a71d3fc86704f5381b8c228`; it is not an operator-confirmed specification baseline. No exact written-spec agreement has yet been recorded.
+ 
+ | # | Claim | Source |
+ | --- | --- | --- |
+@@ -308,9 +308,9 @@ Rows 1–7 retain prior meaning; rows 8–10 add the latest operator decisions.
+ - The proposed simplicity wording, identifier and technical carrier.
+ - The proposed command placement, acceptance matrix and evaluation method.
+ 
+-## Review state and next design round
++## Review and agreement boundary
+ 
+-2026-10-15 writing checkpoint. Sequence, runtime direction, whole-core scope and the distinct simplicity principle are settled. The specification below defines the family contract and completion criteria for kickoff preparation. No artifact-only intent verdict, two-altitude cold design verdict or exact written-spec agreement is claimed. The operator explicitly requested only the written specification and handoff in this turn. Sol resumes with kickoff preparation, reconciles recovered authority paths and current TAK readiness, and completes the existing arch/intent reviews before treating a kickoff as executable. Do not reopen the settled product interview or repeat completed external research. Do not advance currentSpec from this document-writing checkpoint.
++Sequence, runtime direction, whole-core scope and the distinct simplicity principle are settled. This specification defines the family contract and completion criteria for later kickoff preparation. The operator subsequently requested completion of the arch reviews and correction of findings, while preserving the no-implementation/no-kickoff boundary for this turn. Actual verdicts, publication results and candidate digests are recorded separately under the research directory's `arch-review/`; no outcome is inferred from this paragraph. This avoids editing a candidate merely to record a review over its own bytes. Exact written-spec agreement is a separate operator decision, recorded through the existing intent helper only after the presentation gate passes. Sol must check the bound review record, operator agreement and current TAK readiness before preparing an executable kickoff. Do not reopen settled product intent, repeat completed external research, or advance currentSpec on the strength of a review GO alone.
+ 
+ ### §1.7 Forward-check applied
+ 

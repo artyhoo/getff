@@ -30,6 +30,8 @@ import { supportsClaims } from '../backend.js';
 import type { RuntimeBackend } from '../backend.js';
 import type { CancelOutcome } from '../AifHandoffBackend.js';
 import type { TaskHandle } from '../types.js';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
 export type ClaimVerb = 'create' | 'release' | 'cancel';
 
@@ -72,12 +74,46 @@ export function requireClaimBackend(
 }
 
 /** Handle shim for the release/cancel verbs, which are given a bare taskId. */
-export function handleFromTaskId(taskId: string): TaskHandle {
+export function handleFromTaskId(
+  taskId: string,
+  intentRepoRoot?: string,
+): TaskHandle {
   return {
     backend: 'aif-handoff',
     taskId,
     dispatchedAt: new Date().toISOString(),
+    ...(intentRepoRoot ? { intentRepoRoot } : {}),
   };
+}
+
+/** A separate CLI process must rediscover the selector owner before releasing a bare ID. */
+export function releaseOwnerRoot(
+  cwd: string = process.cwd(),
+): string | undefined {
+  const configured =
+    process.env['AIF_INTENT_REPO_ROOT'] ??
+    process.env['RUNTIME_BRIDGE_INTENT_ROOTS']?.split(
+      process.platform === 'win32' ? ';' : ':',
+    )[0];
+  if (configured) return resolve(configured);
+  let dir = resolve(cwd);
+  while (true) {
+    if (
+      existsSync(
+        join(
+          dir,
+          '.claude',
+          'orchestrator-prompts',
+          'intent-continuity',
+          'current-decisions.json',
+        ),
+      )
+    )
+      return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return undefined;
+    dir = parent;
+  }
 }
 
 /** A backend that can say WHY a cancel did not happen, not just that it did not. */
@@ -182,7 +218,12 @@ async function main(): Promise<void> {
       );
       process.stdout.write(JSON.stringify(handle) + '\n');
     } else if (parsed.verb === 'release') {
-      await backend.release(handleFromTaskId(parsed.arg));
+      const ownerRoot = releaseOwnerRoot();
+      if (!ownerRoot)
+        throw new Error(
+          'claim release needs the selector owner root: run from its checkout or set AIF_INTENT_REPO_ROOT',
+        );
+      await backend.release(handleFromTaskId(parsed.arg, ownerRoot));
       process.stderr.write(
         `[runtime-bridge] released claim ${parsed.arg} — coordinator picks it up\n`,
       );

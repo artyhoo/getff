@@ -1,0 +1,168 @@
+{
+  "workloads": [
+    {
+      "id": "docs",
+      "argv": [
+        "env",
+        "-u",
+        "CLAUDE_CODE_ENTRYPOINT",
+        "node",
+        "scripts/render-reference.mjs",
+        "--check"
+      ],
+      "timeoutMs": 120000,
+      "inputChange": {
+        "fixture": "fixtures/docs.patch",
+        "class": "doc-only change (one-line prose edit in CONTRIBUTING.md)",
+        "gate": "rendered reference/doc freshness (11 family JSONs + fences)"
+      },
+      "env": "argv embeds env -u CLAUDE_CODE_ENTRYPOINT; otherwise inherited",
+      "cacheConcurrency": "node single process, no cache layer",
+      "coldSetup": "node startup ~1.4s; no install step",
+      "trials": [
+        {
+          "wallMs": 1538,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/docs-t1.log",
+          "sha256": "ad79324664522e4357f2e25f044d89a165d4f2cf80dbf582d83906f078bb7c65"
+        },
+        {
+          "wallMs": 1433,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/docs-t2.log",
+          "sha256": "ad79324664522e4357f2e25f044d89a165d4f2cf80dbf582d83906f078bb7c65"
+        },
+        {
+          "wallMs": 1437,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/docs-t3.log",
+          "sha256": "ad79324664522e4357f2e25f044d89a165d4f2cf80dbf582d83906f078bb7c65"
+        }
+      ]
+    },
+    {
+      "id": "rule",
+      "argv": [
+        "env",
+        "-u",
+        "CLAUDE_CODE_ENTRYPOINT",
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles/44-kickoff-authoring-traps.test.ts"
+      ],
+      "timeoutMs": 120000,
+      "inputChange": {
+        "fixture": "fixtures/rule.patch",
+        "class": "ordinary rule change (one-line body edit in .agents/rules/effort-worthiness.md)",
+        "gate": "that rule's own principle suite"
+      },
+      "env": "argv embeds env -u CLAUDE_CODE_ENTRYPOINT; otherwise inherited",
+      "cacheConcurrency": "vitest defaults: cache enabled, default worker pool",
+      "coldSetup": "vitest+npx startup; warm node_modules present",
+      "trials": [
+        {
+          "wallMs": 779,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/rule-t1.log",
+          "sha256": "75d6d41165d3398c021048e5ec43e559ae380515eae93e5d45800c9d9e1ae2b1"
+        },
+        {
+          "wallMs": 538,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/rule-t2.log",
+          "sha256": "0145885714bebceba4d76b2d25700d435bac29f174305b990ad3282dee266985"
+        },
+        {
+          "wallMs": 538,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/rule-t3.log",
+          "sha256": "fafefc09a90a4c725c9a6902d1672df61e36c5fc9b7cf7cb0904591cac2ea03d"
+        }
+      ]
+    },
+    {
+      "id": "kernel",
+      "argv": [
+        "env",
+        "-u",
+        "CLAUDE_CODE_ENTRYPOINT",
+        "npm",
+        "--workspace",
+        "packages/core",
+        "run",
+        "test:canonical"
+      ],
+      "timeoutMs": 600000,
+      "inputChange": {
+        "fixture": "fixtures/kernel.patch",
+        "class": "kernel/shared-config change (one-line edit in packages/core/hooks/checks/prior-art.ts)",
+        "gate": "canonical emitted-bindings node--test suite (52 tests)"
+      },
+      "env": "argv embeds env -u CLAUDE_CODE_ENTRYPOINT; otherwise inherited",
+      "cacheConcurrency": "node --test single master, per-file subprocesses; no vitest cache layer",
+      "coldSetup": "npm workspace dispatch + node startup ~6.4s",
+      "trials": [
+        {
+          "wallMs": 6202,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/kernel-t1.log",
+          "sha256": "d60fe702ccd44e5137715230c1cc3d26ba051b0a3cb8af6c51e5570e2c1d3cb0"
+        },
+        {
+          "wallMs": 6231,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/kernel-t2.log",
+          "sha256": "05d462c5862c3ab22e59e6f870bc5866059486f4c891719cfb1a95582b807a28"
+        },
+        {
+          "wallMs": 6299,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/kernel-t3.log",
+          "sha256": "4a8f65dca8b8d9f9e30e9c5aec05eb5b11b5dc2479c5994fb492e7f3e094f679"
+        }
+      ]
+    },
+    {
+      "id": "fallback",
+      "argv": [
+        "env",
+        "-u",
+        "CLAUDE_CODE_ENTRYPOINT",
+        "npx",
+        "vitest",
+        "run",
+        "packages/core/principles"
+      ],
+      "timeoutMs": 1800000,
+      "inputChange": {
+        "fixture": "fixtures/fallback.patch",
+        "class": "broad/unknown-path change (new file at previously untracked path scripts/tmp-unknown-path-helper.mjs)",
+        "gate": "widest green local suite (57 files, 668 tests) — conservative fallback selection"
+      },
+      "env": "argv embeds env -u CLAUDE_CODE_ENTRYPOINT; otherwise inherited",
+      "cacheConcurrency": "vitest defaults: cache enabled, default worker pool (tests 77.7s cpu across workers vs 18.4s wall)",
+      "coldSetup": "vitest+npx startup; warm node_modules present",
+      "trials": [
+        {
+          "wallMs": 18183,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/fallback-t1.log",
+          "sha256": "181e3888809afdc71614a2de3a8ebefec7d7400f1c1d5461fcf25fa13d0b02a2"
+        },
+        {
+          "wallMs": 18281,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/fallback-t2.log",
+          "sha256": "43c731b93cca417ee0a84923d397ca40d8eca41ddef76bba604615eacea3ad30"
+        },
+        {
+          "wallMs": 18366,
+          "exitCode": 0,
+          "rawLog": "docs/test-assurance-kernel/s0/logs/fallback-t3.log",
+          "sha256": "1dd2e2eb16697818c773898db468c31a5258f4184499ac441ddf8fc8fa1d29c6"
+        }
+      ]
+    }
+  ]
+}

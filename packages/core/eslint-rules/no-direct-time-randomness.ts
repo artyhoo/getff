@@ -1,10 +1,4 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-import type { TSESTree } from '@typescript-eslint/utils';
-
-const createRule = ESLintUtils.RuleCreator(
-  () =>
-    `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r7--time-randomness-io`,
-);
+import type { TSESLint, TSESTree } from '@typescript-eslint/utils';
 
 const FORBIDDEN_MODULES = new Set([
   'fs',
@@ -19,11 +13,13 @@ function isExempt(line: string): boolean {
   return line.includes('// audit:exempt');
 }
 
-export const noDirectTimeRandomness = createRule({
-  name: 'no-direct-time-randomness',
+type MessageIds = 'noDateNow' | 'noNewDate' | 'noMathRandom' | 'noDirectIO';
+
+export const noDirectTimeRandomness: TSESLint.RuleModule<MessageIds> = {
   meta: {
     type: 'problem',
     docs: {
+      url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r7--time-randomness-io`,
       description:
         'Forbid Date.now(), new Date(), Math.random(), and direct fs/http/https imports outside infrastructure (R7).',
     },
@@ -72,4 +68,4 @@ export const noDirectTimeRandomness = createRule({
       },
     };
   },
-});
+};

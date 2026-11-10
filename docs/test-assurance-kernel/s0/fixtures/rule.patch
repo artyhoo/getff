@@ -1,0 +1,10 @@
+diff --git a/.agents/rules/effort-worthiness.md b/.agents/rules/effort-worthiness.md
+index 59aa12bc975..2326e02b2b4 100644
+--- a/.agents/rules/effort-worthiness.md
++++ b/.agents/rules/effort-worthiness.md
+@@ -1,4 +1,4 @@
+-# Effort worthiness — rigor must buy goal progress
++# Effort worthiness — rigor must buy verified goal progress
+ 
+ <!-- channel: skill-embed .claude/skills/dispatcher/SKILL.md#effort-worthiness -->
+ <!-- channel: skill-embed .claude/skills/night-mode/SKILL.md#effort-worthiness -->

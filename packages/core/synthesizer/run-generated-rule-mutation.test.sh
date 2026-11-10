@@ -174,6 +174,10 @@ chmod +x "$WT_STUBS/tsx" "$WT_STUBS/eslint"
 bash "$R" >"$L/f2.out" 2>"$L/f2.err"; echo $? >"$L/f2.rc"
 bash "$R" "$M" >"$L/f3.out" 2>"$L/f3.err"; echo $? >"$L/f3.rc"
 bash "$P" "$M" >"$L/p3.out" 2>"$L/p3.err"; echo $? >"$L/p3.rc"
+# An empty manifest intentionally needs no dependencies. A real eligible rule
+# exercises the pre-fix wrong-root dependency lookup instead.
+printf '%s\n' '{"r1":{"check":{"type":"declarative","selector":"Identifier"},"negative-test":{"input":["const a = 1;"]}}}' > "$M"
+bash "$P" "$M" >"$L/p4.out" 2>"$L/p4.err"; echo $? >"$L/p4.rc"
 exit 0
 HOOK
   } > "$WT/.githooks/pre-push"
@@ -200,19 +204,15 @@ HOOK
 
   # Shape 3 — explicit-manifest (the pre-push.ts consumer shape).
   assert_rc "a3 fixed runner, explicit manifest" 0 "$LOG/f3.rc"
-  # Pre-fix expectation: tsx lookup under the WRONG root (<worktree>/scripts) fails
-  # → "tsx not found" rc=2. EXCEPTION: the runner's third search candidate is the
-  # absolute /app/node_modules/.bin — where it resolves (some containers), it masks
-  # the wrong root and the pre-fix run reaches rc=0. The mask is environmental, not
-  # a fix regression: the direct root observation is carried unconditionally by
-  # a1/a1p above. On CI (no /app) the full assertion runs.
+  assert_rc "a3p an explicit empty manifest needs no toolchain even at the pre-fix root" 0 "$LOG/p3.rc"
+  assert_contains "a3p no eligible rules are reported explicitly" "$LOG/p3.out" "No declarative rules with negative-test inputs in manifest"
+  # The root defect remains witnessed unconditionally by a1/a1p. An eligible
+  # explicit-manifest arm additionally rejects missing dependencies at that root.
   if [ -x /app/node_modules/.bin/tsx ] && [ -x /app/node_modules/.bin/eslint ]; then
-    # Uncounted: the mask branch is an environmental acknowledgement, not coverage —
-    # keep the PASS total a coverage signal.
-    echo "  skip: a3p pre-fix mask — /app fallback resolves .bin; wrong-root witness carried by a1p"
+    echo "  skip: a4p /app fallback may mask missing dependencies; wrong-root witness remains a1p"
   else
-    assert_rc "a3p pre-fix runner, explicit manifest" 2 "$LOG/p3.rc"
-    assert_contains "a3p pre-fix dies 'tsx not found' (wrong .bin root)" "$LOG/p3.err" "tsx not found"
+    assert_rc "a4p pre-fix runner with an eligible rule rejects missing project dependencies" 2 "$LOG/p4.rc"
+    assert_contains "a4p rejection names the missing dependencies" "$LOG/p4.err" "the project's dependencies are not installed"
   fi
 }
 
@@ -264,10 +264,114 @@ arm_c() {
   assert_contains "c1 prints the nothing-to-test verdict" "$SCRATCH/c1.out" "No declarative rules with negative-test inputs in manifest"
 }
 
+# Arm (d) — P6 run 2 N1: a project without eslint + typescript-eslint (an oxlint project, a fresh clone)
+# gets the complete generator toolchain into node_modules/.cache/getff/generator-tools,
+# once and only with a rule. The npm stand-in records routing and links installed real
+# dependencies: package.json placeholders cannot satisfy the runner's capability probes.
+arm_d() {
+  echo "arm (d): the runner provisions the generator toolchain when the project lacks it"
+  local D="$SCRATCH/arm-d" BIN="$SCRATCH/arm-d-bin"
+  mkdir -p "$BIN"
+  local nm
+  TOOLCHAIN_FIXTURE_NM=""
+  for nm in "$TEST_ROOT/node_modules" "$TEST_ROOT/packages/core/node_modules" "$TEST_ROOT/node_modules/.cache/getff/generator-tools/node_modules" /app/node_modules; do
+    [ -x "$nm/.bin/tsx" ] || continue
+    node - "$nm" <<'JS' || continue
+const {createRequire}=require('node:module');
+const {resolve}=require('node:path');
+const r=createRequire(resolve(process.argv[2], '../package.json'));
+try {
+  if(String(r('eslint/package.json').version).split('.')[0]!=='9')process.exit(1);
+  r.resolve('eslint/use-at-your-own-risk');
+  const m=r('ts-morph');
+  const p=new m.Project({useInMemoryFileSystem:true,skipLoadingLibFiles:true});
+  const sf=p.createSourceFile('probe.js','export default [];');
+  if(sf.getExportAssignments().length!==1)process.exit(1);
+  if(typeof r('typescript-eslint').parser.parseForESLint!=='function')process.exit(1);
+  createRequire(r.resolve('typescript-eslint')).resolve('typescript');
+} catch {process.exit(1);}
+JS
+    "$nm/.bin/tsx" --version >/dev/null 2>&1 || continue
+    TOOLCHAIN_FIXTURE_NM="$nm"; break
+  done
+  [ -n "$TOOLCHAIN_FIXTURE_NM" ] || { bad "arm (d): install real ESLint 9, TypeScript parser, tsx and ts-morph test prerequisites"; return; }
+  export TOOLCHAIN_FIXTURE_NM
+  cat > "$BIN/npm" <<'EOF'
+#!/bin/sh
+echo "npm $*" >> "$NPM_LOG"
+[ "${NPM_FAIL:-0}" = 1 ] && { echo "npm error code E404" >&2; exit 1; }
+while [ $# -gt 0 ]; do
+  if [ "$1" = --prefix ]; then
+    mkdir -p "$2"
+    rm -rf "$2/node_modules"
+    ln -s "$TOOLCHAIN_FIXTURE_NM" "$2/node_modules" || exit 1
+  fi
+  shift
+done
+exit 0
+EOF
+  chmod +x "$BIN/npm"
+  d_fixture() { # <dir> <manifest-json>
+    rm -rf "$1"; mkdir -p "$1/scripts" "$1/.ai-factory/synthesizer-output"
+    git init -q "$1"
+    cp "$RUNNER" "$1/scripts/run-generated-rule-mutation.sh"
+    printf '%s\n' "$2" > "$1/.ai-factory/synthesizer-output/rules-manifest-additions.json"
+    mkdir -p "$1/node_modules/.bin"; printf '#!/bin/sh\nexit 0\n' > "$1/node_modules/.bin/tsx"; chmod +x "$1/node_modules/.bin/tsx"
+  }
+  d_run() { # <dir> <tag> [npm-fail]
+    ( cd "$1" && env -u GIT_DIR -u GIT_WORK_TREE PATH="$BIN:$PATH" NPM_LOG="$SCRATCH/$2.npm" NPM_FAIL="${3:-0}" \
+        bash scripts/run-generated-rule-mutation.sh >"$SCRATCH/$2.out" 2>&1 ); echo $? > "$SCRATCH/$2.rc"
+  }
+  local ONE='{"r1":{"check":{"type":"declarative","selector":"Identifier"},"negative-test":{"input":["const a = 1;"]}}}'
+  local TOOLS="$D/node_modules/.cache/getff/generator-tools"
+
+  d_fixture "$D" '{}'; : > "$SCRATCH/d0.npm"; d_run "$D" d0
+  assert_rc "d0 a manifest with no rule, rc=0" 0 "$SCRATCH/d0.rc"
+  [ ! -s "$SCRATCH/d0.npm" ] && ok "d0 nothing to test installs nothing" || bad "d0 npm ran with nothing to test: $(cat "$SCRATCH/d0.npm")"
+
+  d_fixture "$D" "$ONE"; : > "$SCRATCH/d1.npm"; d_run "$D" d1
+  grep -q "^npm install --prefix $TOOLS .*eslint@^9 typescript-eslint typescript tsx ts-morph$" "$SCRATCH/d1.npm" \
+    && ok "d1 npm installs eslint@^9 typescript-eslint typescript into node_modules/.cache/getff/generator-tools" \
+    || bad "d1 wrong or no npm install (got: $(cat "$SCRATCH/d1.npm"))"
+  assert_contains "d1 the run says what it installs and where" "$SCRATCH/d1.out" "is not in $TOOLS — installing it there"
+  assert_contains "d1 the rule is then tested" "$SCRATCH/d1.out" "=== generated rule mutation: 1 rule(s)"
+  : > "$SCRATCH/d2.npm"; d_run "$D" d2
+  [ ! -s "$SCRATCH/d2.npm" ] && ok "d2 the second run reuses the toolchain (no npm)" || bad "d2 npm ran again: $(cat "$SCRATCH/d2.npm")"
+
+  # d3: an npm install killed part-way leaves package.json files but no completion marker → reinstall
+  d_fixture "$D" "$ONE"; mkdir -p "$TOOLS/node_modules/eslint" "$TOOLS/node_modules/typescript-eslint"
+  echo '{}' > "$TOOLS/node_modules/eslint/package.json"; echo '{}' > "$TOOLS/node_modules/typescript-eslint/package.json"
+  : > "$SCRATCH/d3.npm"; d_run "$D" d3
+  grep -q "^npm install --prefix $TOOLS " "$SCRATCH/d3.npm" && ok "d3 a half-installed toolchain (no completion marker) is installed again" \
+    || bad "d3 a half-installed toolchain was accepted (npm log: $(cat "$SCRATCH/d3.npm"))"
+
+  # d5: the project has its own eslint + typescript-eslint → nothing is installed
+  d_fixture "$D" "$ONE"
+  rm -rf "$D/node_modules"
+  ln -s "$TOOLCHAIN_FIXTURE_NM" "$D/node_modules"
+  : > "$SCRATCH/d5.npm"; d_run "$D" d5
+  [ ! -s "$SCRATCH/d5.npm" ] && ok "d5 the project's own eslint + typescript-eslint are used (no npm)" || bad "d5 npm ran: $(cat "$SCRATCH/d5.npm")"
+
+  # d6: offline after `npm ci` wiped the cache — the REAL npm against a dead registry must give up fast.
+  # Unbounded it took 211 s inside the push (P6 run 2, measured); the bound is 90 s with margin for PC load.
+  d_fixture "$D" "$ONE"
+  local t0 t1; t0=$(date +%s)
+  ( cd "$D" && env -u GIT_DIR -u GIT_WORK_TREE npm_config_registry=http://127.0.0.1:9/ \
+      npm_config_cache="$SCRATCH/d6-npm-cache" bash scripts/run-generated-rule-mutation.sh >"$SCRATCH/d6.out" 2>&1 ); echo $? > "$SCRATCH/d6.rc"
+  t1=$(date +%s)
+  assert_rc "d6 offline, rc=2 (cannot run)" 2 "$SCRATCH/d6.rc"
+  [ $((t1 - t0)) -lt 90 ] && ok "d6 offline gives up in $((t1 - t0)) s (< 90 s)" || bad "d6 offline took $((t1 - t0)) s (≥ 90 s)"
+
+  d_fixture "$D" "$ONE"; : > "$SCRATCH/d4.npm"; d_run "$D" d4 1
+  assert_rc "d4 npm fails, rc=2 (cannot run, never a pass)" 2 "$SCRATCH/d4.rc"
+  assert_contains "d4 the die line names the toolchain" "$SCRATCH/d4.out" "could not install getff's rule-generator toolchain"
+}
+
 [ -f "$RUNNER" ] || { echo "runner not found: $RUNNER" >&2; exit 2; }
 arm_a
 arm_b
 arm_c
+arm_d
 
 echo
 echo "run-generated-rule-mutation.test.sh: PASS=$PASS FAIL=$FAIL"
