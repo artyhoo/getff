@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -20,4 +24,298 @@ test('finding template carries the required failure scenario and per-axis proven
   assert.match(template, /layer.*corpus-measured/);
   assert.match(template, /whose.*judgment-only, not corpus-validated/);
   assert.match(template, /class.*measured null/);
+});
+
+// --- Trusted native OCR connection card: executable entry-selection + loader proof (getff-ocr-reuse C2) ---
+// The card must select a real producer deployment location and load it through the
+// project's OWN consented tsx bin — never an npx-mediated loader. `npx --no-install tsx`
+// was measured (npm 11.4.2, 2026-11-03) executing a floating copy from the npm executable
+// cache, and an ancestor node_modules bin, when the project's own tsx was absent. Every
+// test below runs the card's REAL extracted prefix (scripts/lib/review-sidecar-card.mjs)
+// under a recording fake-npx PATH: any npx-mediated loader line in any shipped card
+// executes the fake (exit 3) and fails the gate — deterministically, offline.
+
+const { cardBlockOf, cardPreludeOf, cardBadFlagPrefixOf, npxPoison, buildSyntheticNpxCache } = await import('./lib/review-sidecar-card.mjs');
+const ocrDirs = () => (existsSync(join(root, '.ai-factory/ocr'))
+  ? readdirSync(join(root, '.ai-factory/ocr')).sort() : []);
+
+test('card selects the authoring source entry here and reaches the producer parser through its own project-local loader', () => {
+  const poison = npxPoison();
+  const before = ocrDirs();
+  // 1. Execute the card's actual selection prelude verbatim (cwd = this checkout; its
+  //    root node_modules holds the project-local tsx bin the loader guard demands).
+  const sel = spawnSync('bash', ['-c', cardPreludeOf(role) + '\nprintf "SELECTED=%s\\n" "$ENTRY"'],
+    { cwd: root, encoding: 'utf8', timeout: 30_000, env: poison.env });
+  assert.equal(sel.status, 0, `selection prelude must succeed\nstderr: ${sel.stderr}`);
+  assert.match(sel.stdout, /^SELECTED=packages\/runtime-bridge\/src\/cli\/ocrTrustedReview\.ts$/m,
+    'authoring checkout has no .agents/tools — the qualified authoring entry must be selected');
+  assert.match(sel.stderr, /producer entry: packages\/runtime-bridge\/src\/cli\/ocrTrustedReview\.ts; loader: project-local tsx \([^)]*node_modules\/\.bin\/tsx\)/,
+    'the card must record the selected path + explicit project-local loader in its receipt line');
+  // 2. Through the card's own loader + entry (review args replaced by the bad flag), the
+  //    producer's arg parser must be reached — exit 1 + its [runtime-bridge] diagnostic —
+  //    and the poisoned npx must never run (no npx-mediated loader anywhere in the card).
+  const bad = spawnSync('bash', ['-c', cardBadFlagPrefixOf(role)],
+    { cwd: root, encoding: 'utf8', timeout: 60_000, env: poison.env });
+  assert.equal(bad.status, 1,
+    `bad invocation through the card's own prefix must exit 1 (got ${bad.status})\nstderr: ${bad.stderr}\nstdout: ${bad.stdout}`);
+  assert.match(bad.stderr, /\[runtime-bridge\] ocrTrustedReview: Unknown option '--definitely-not-an-option'/);
+  assert.ok(!poison.ran(), 'the card must not hand its loader to npx (poisoned PATH npx stayed untouched)');
+  assert.deepEqual(ocrDirs(), before, 'an arg-parser rejection must not mint a native run dir');
+});
+
+test('missing project-local tsx is explicit non-execution — never a cache or ancestor loader', () => {
+  const block = cardBlockOf(role);
+  const home = mkdtempSync(join(tmpdir(), 'rs-card-loader-')); // parent: LOUD ancestor tsx bin
+  const proj = join(home, 'child'); // cwd: has the real entry, no node_modules of its own
+  const entry = join(proj, '.agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts');
+  mkdirSync(resolve(entry, '..'), { recursive: true });
+  writeFileSync(entry, readFileSync(resolve(root, 'packages/runtime-bridge/src/cli/ocrTrustedReview.ts')));
+  mkdirSync(join(home, 'node_modules/.bin'), { recursive: true });
+  writeFileSync(join(home, 'node_modules/.bin/tsx'), '#!/bin/sh\necho "ANCESTOR-TSX-RAN $*"\nexit 9\n');
+  chmodSync(join(home, 'node_modules/.bin/tsx'), 0o755);
+  const poison = npxPoison();
+  const before = ocrDirs();
+  try {
+    const r = spawnSync('bash', ['-c', cardBadFlagPrefixOf(role)],
+      { cwd: proj, encoding: 'utf8', timeout: 30_000, env: poison.env });
+    assert.equal(r.status, 1,
+      `missing project-local loader must exit 1 (got ${r.status})\nstderr: ${r.stderr}\nstdout: ${r.stdout}`);
+    assert.match(r.stderr, /^producer never executed: no project-local tsx loader at .*node_modules\/\.bin\/tsx /m,
+      'the explicit producer-never-executed loader guard must fire before any invocation');
+    assert.ok(!((r.stderr + r.stdout).includes('ANCESTOR-TSX-RAN')),
+      'an ancestor node_modules loader must not run');
+    assert.ok(!((r.stderr + r.stdout).includes('[runtime-bridge]')),
+      'the producer must not execute when the project-local loader is missing');
+    assert.ok(!poison.ran(), 'npx must not be invoked at all — the npm executable cache route stays closed');
+    assert.deepEqual(ocrDirs(), before, 'a missing loader must never mint a native run');
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('frozen e2 preimage fixture is byte-pinned; its npx-mediated loader is demonstrated only under the poison boundary', () => {
+  const bytes = readFileSync(resolve(root, 'scripts/fixtures/review-sidecar-e2f85267e92.md'));
+  assert.equal(createHash('sha256').update(bytes).digest('hex'),
+    '3032ee1ca4f8f186a304c7109d4242db9e0fad9f982245486172e8e4a73dd974',
+    'frozen fixture bytes must match the sha256 recorded in scripts/fixtures/review-sidecar-e2f85267e92.provenance.json');
+  const oldBlock = cardBlockOf(bytes.toString('utf8'));
+  assert.match(oldBlock, /^npx tsx \.agents\/tools\/runtime-bridge\/src\/cli\/ocrTrustedReview\.ts \\/m,
+    'e2 card must carry the unconditional installed-consumer npx invocation this fixture guards against');
+  // Execute the OLD command's negative safely: the recording fake npx marks and exits 3 —
+  // the registry-acquiring real npx is never reached (offline boundary), yet the hazard
+  // class (the card handing its loader to npx) is made visible as data.
+  const poison = npxPoison();
+  const before = ocrDirs();
+  const old = spawnSync('bash', ['-c',
+    'npx tsx .agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts --definitely-not-an-option'],
+    { cwd: root, encoding: 'utf8', timeout: 60_000, env: poison.env });
+  assert.equal(old.status, 3, 'the old command must exit through the poison boundary, not succeed');
+  assert.ok(poison.ran(), 'the old npx-mediated invocation must hand control to npx — the guarded hazard class');
+  assert.doesNotMatch(old.stderr + old.stdout, /\[runtime-bridge\] ocrTrustedReview: Unknown option/,
+    'the producer must never execute through the old npx-mediated path');
+  assert.deepEqual(ocrDirs(), before, 'the old command must not mint a native run dir');
+});
+
+test('frozen e2 historical route reaches real loader+entry resolution through an offline forwarding shim (C5)', () => {
+  // Native round-1 finding C5: the poison arm above proves only that npx is intercepted
+  // (fake exits before npm resolution) — it never demonstrates the historical route
+  // resolving a LOADER and an ENTRY, so a regression that breaks the old command's
+  // loader/entry reachability would be invisible. Here a PATH-first `npx` shim records
+  // the handoff and forwards verbatim to the deliberately available trusted local loader
+  // (this checkout's own project-local tsx bin); the historical e2 command then runs
+  // against a cwd whose entry path does not exist. The REAL loader must produce node's
+  // missing-module diagnostic and the producer must never run — proving the whole
+  // npx → loader → entry-module chain is live, offline, with no registry access.
+  const shimRoot = mkdtempSync(join(tmpdir(), 'rs-forward-'));
+  const forwardLog = join(shimRoot, 'forwarded.log');
+  const cwd = mkdtempSync(join(tmpdir(), 'rs-forward-cwd-'));
+  writeFileSync(join(shimRoot, 'npx'),
+    ['#!/bin/sh', 'printf "FORWARD %s\\n" "$*" >> "${FORWARD_LOG:?}"',
+      // npx argv is `npx <pkg> <args...>` — the loader takes <args...> only.
+      'shift', `exec "${join(root, 'node_modules/.bin/tsx')}" "$@"`, ''].join('\n'));
+  chmodSync(join(shimRoot, 'npx'), 0o755);
+  const before = ocrDirs();
+  try {
+    const r = spawnSync('bash', ['-c',
+      'npx tsx .agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts --definitely-not-an-option'],
+      { cwd, encoding: 'utf8', timeout: 60_000,
+        env: { ...process.env, PATH: `${shimRoot}:${process.env.PATH}`, FORWARD_LOG: forwardLog } });
+    assert.ok(existsSync(forwardLog),
+      'the old command must hand control to npx (forwarding shim recorded the handoff)');
+    assert.notEqual(r.status, 0, 'a missing entry module must not exit 0');
+    assert.match(r.stderr, /ERR_MODULE_NOT_FOUND[\s\S]*ocrTrustedReview\.ts/,
+      'the real project-local loader must report the missing entry module — the loader/entry resolution chain is live');
+    assert.doesNotMatch(r.stderr + r.stdout, /\[runtime-bridge\] ocrTrustedReview: Unknown option/,
+      'the producer must never execute through the old npx-mediated path');
+    assert.deepEqual(ocrDirs(), before, 'the historical route must not mint a native run dir');
+  } finally {
+    rmSync(shimRoot, { recursive: true, force: true });
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('the measured floating-copy hazard, positively: an isolated populated npm executable cache makes the OLD route execute cached code offline (C4)', () => {
+  // Native round-1 finding C4: the poison shim intercepts npx BEFORE npm resolution, so
+  // nothing demonstrated that `npx --no-install tsx` really executes a FLOATING copy from
+  // the npm executable cache. buildSyntheticNpxCache writes a fully synthetic offline
+  // cache (no reads of ~/.npm, no network) whose executable-cache "tsx" is a recording
+  // loader. Three arms:
+  //   (a) the old route against the populated cache EXECUTES the recording cached loader;
+  //   (b) the same cache WITHOUT the _npx entry refuses ENOTCACHED — the control depends
+  //       on the executable-cache entry, not on ambient state (non-vacuity);
+  //   (c) the SHIPPED card, with the same populated cache in env and a consumer cwd that
+  //       has no project-local tsx, still refuses at its loader guard — npx (poisoned to
+  //       record) is never consulted even though a floating copy sits ready in the cache.
+  const home = mkdtempSync(join(tmpdir(), 'rs-c4-'));
+  const before = ocrDirs();
+  // Hermetic registry resolution (native round-2 comment 1): npx inherits the caller's
+  // registry configuration (~/.npmrc / npm_config_registry), and a configured mirror
+  // redirects the packument cache key away from the synthetic cache's registry.npmjs.org
+  // key — the positive arm then fails ENOTCACHED offline on any mirrored machine. Pin the
+  // registry to the one the synthetic cache is keyed by and neutralize the user config;
+  // BOTH env spellings so no npm case-precedence can resurrect the caller's value.
+  const hermeticNpm = {
+    npm_config_registry: 'https://registry.npmjs.org/',
+    NPM_CONFIG_REGISTRY: 'https://registry.npmjs.org/',
+    npm_config_userconfig: '/dev/null',
+    NPM_CONFIG_USERCONFIG: '/dev/null',
+  };
+  try {
+    // (a) positive control — cached code executes.
+    const full = buildSyntheticNpxCache(join(home, 'full'));
+    const old = spawnSync('npx', ['--no-install', 'tsx', '--version'],
+      { cwd: full.proj, encoding: 'utf8', timeout: 120_000,
+        env: { ...process.env, ...hermeticNpm, npm_config_cache: full.cache,
+          npm_config_offline: 'true', npm_config_prefer_offline: 'true' } });
+    assert.equal(old.status, 43,
+      `the recording cached loader must execute and exit 43 (got ${old.status})\nstderr: ${old.stderr}\nstdout: ${old.stdout}`);
+    assert.match(old.stdout, /RECORDING-NPX-CACHE-LOADER-EXECUTED/,
+      'the old route must execute the floating copy from the npm executable cache');
+
+    // (b) non-vacuity — without the _npx executable-cache entry the route refuses.
+    const bare = buildSyntheticNpxCache(join(home, 'bare'));
+    rmSync(join(bare.cache, '_npx'), { recursive: true, force: true });
+    const noEntry = spawnSync('npx', ['--no-install', 'tsx', '--version'],
+      { cwd: bare.proj, encoding: 'utf8', timeout: 120_000,
+        env: { ...process.env, ...hermeticNpm, npm_config_cache: bare.cache,
+          npm_config_offline: 'true', npm_config_prefer_offline: 'true' } });
+    assert.notEqual(noEntry.status, 0, 'an empty executable cache must not silently succeed');
+    assert.ok(!((noEntry.stdout || '').includes('RECORDING-NPX-CACHE-LOADER-EXECUTED')),
+      'without the executable-cache entry no cached loader may run — the control is non-vacuous');
+
+    // (c) the shipped card refuses BEFORE npx even with a floating copy ready in the cache.
+    const poison = npxPoison();
+    const proj = join(home, 'consumer'); // consumer cwd: real entry, no node_modules of its own
+    const entry = join(proj, '.agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts');
+    mkdirSync(resolve(entry, '..'), { recursive: true });
+    writeFileSync(entry, readFileSync(resolve(root, 'packages/runtime-bridge/src/cli/ocrTrustedReview.ts')));
+    const card = spawnSync('bash', ['-c', cardBadFlagPrefixOf(role)],
+      { cwd: proj, encoding: 'utf8', timeout: 60_000,
+        env: { ...poison.env, ...hermeticNpm, npm_config_cache: full.cache,
+          npm_config_offline: 'true', npm_config_prefer_offline: 'true' } });
+    assert.equal(card.status, 1,
+      `missing project-local loader must exit 1 (got ${card.status})\nstderr: ${card.stderr}`);
+    assert.match(card.stderr, /^producer never executed: no project-local tsx loader at /m,
+      'the loader guard must fire before any invocation');
+    assert.ok(!poison.ran(),
+      'npx must stay untouched even with a populated executable cache in npm_config_cache');
+    assert.ok(!((card.stderr + card.stdout).includes('RECORDING-NPX-CACHE-LOADER-EXECUTED')),
+      'the floating cached copy must never execute through the shipped card');
+    assert.deepEqual(ocrDirs(), before, 'none of these arms may mint a native run dir');
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('invocation recognition is exact — a malformed loader/entry line is never silently accepted (C3)', () => {
+  // Native round-1 finding C3: startsWith('"$LOADER" "$ENTRY"') accepted corrupted lines
+  // like `"$LOADER" "$ENTRY"-broken \`, so the extractor would silently slice a damaged
+  // invocation instead of refusing. Recognition must be the exact supported line and
+  // nothing else; a mutated card must fail extraction loudly.
+  const mutations = [
+    ['suffix-glued', /^"\$LOADER" "\$ENTRY" \\$/m, '"$LOADER" "$ENTRY"-broken \\'],
+    ['trailing junk', /^"\$LOADER" "\$ENTRY" \\$/m, '"$LOADER" "$ENTRY" --extra \\'],
+    ['missing continuation', /^"\$LOADER" "\$ENTRY" \\$/m, '"$LOADER" "$ENTRY"'],
+  ];
+  for (const [name, pattern, replacement] of mutations) {
+    const mutated = role.replace(pattern, replacement);
+    assert.notEqual(mutated, role, `${name}: mutation must actually change the card`);
+    assert.throws(() => cardPreludeOf(mutated),
+      { message: 'card invocation must be the explicit project-local loader bin running the selected entry ("$LOADER" "$ENTRY" …)' },
+      `${name}: cardPreludeOf must refuse a corrupted invocation line`);
+    assert.throws(() => cardBadFlagPrefixOf(mutated), /card invocation must be the explicit/,
+      `${name}: cardBadFlagPrefixOf must refuse a corrupted invocation line`);
+  }
+  // The unmutated canonical card still extracts (all other tests execute it; pinned here
+  // so strictness can never reject the real form).
+  assert.doesNotThrow(() => cardPreludeOf(role));
+  assert.doesNotThrow(() => cardBadFlagPrefixOf(role));
+});
+
+test('card reports producer-never-executed when neither deployment location exists', () => {
+  const poison = npxPoison();
+  const dir = mkdtempSync(join(tmpdir(), 'rs-card-none-'));
+  const before = ocrDirs();
+  try {
+    const none = spawnSync('bash', ['-c', cardPreludeOf(role)],
+      { cwd: dir, encoding: 'utf8', timeout: 30_000, env: poison.env });
+    assert.equal(none.status, 1,
+      `missing-entry guard must exit 1 (got ${none.status})\nstderr: ${none.stderr}`);
+    assert.match(none.stderr, /^producer never executed: no ocrTrustedReview\.ts at either deployment location$/m,
+      'the explicit producer-never-executed line must be the guard output');
+    assert.ok(!((none.stderr + none.stdout).includes('producer entry:')),
+      'no entry may be reported selected when neither location exists');
+    assert.ok(!poison.ran(), 'no loader may be fetched when no entry exists');
+    assert.deepEqual(ocrDirs(), before, 'a missing entry must never mint a native run or fetch a loader');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('card prefers the installed consumer entry when present', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'rs-card-inst-'));
+  try {
+    const entry = join(dir, '.agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts');
+    mkdirSync(resolve(entry, '..'), { recursive: true });
+    writeFileSync(entry, '// installed-consumer entry marker (not executed by this test)\n');
+    mkdirSync(join(dir, 'node_modules/.bin'), { recursive: true });
+    writeFileSync(join(dir, 'node_modules/.bin/tsx'), '#!/bin/sh\nexit 0\n'); // stub: the -x guard only
+    chmodSync(join(dir, 'node_modules/.bin/tsx'), 0o755);
+    const sel = spawnSync('bash', ['-c', cardPreludeOf(role) + '\nprintf "SELECTED=%s\\n" "$ENTRY"'],
+      { cwd: dir, encoding: 'utf8', timeout: 30_000 });
+    assert.equal(sel.status, 0, `selection with an installed entry present must succeed\nstderr: ${sel.stderr}`);
+    assert.match(sel.stdout, /^SELECTED=\.agents\/tools\/runtime-bridge\/src\/cli\/ocrTrustedReview\.ts$/m,
+      'installed consumer entry must be preferred over the authoring source location');
+    assert.match(sel.stderr, /loader: project-local tsx \([^)]*node_modules\/\.bin\/tsx\)/,
+      'the receipt names the project-local loader that passed the guard');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('every canonical card (role, plugin twin, aif-review skill-context) executes its real loader+entry prefix', () => {
+  const twin = readFileSync(resolve(root, 'plugin/agents/review-sidecar.md'), 'utf8');
+  assert.equal(twin, role, 'plugin twin must stay byte-identical to the canonical role');
+  const skillCtx = readFileSync(
+    resolve(root, 'packages/core/templates/shared/skill-context/aif-review/SKILL.md'), 'utf8');
+  const cards = [['role', role], ['plugin twin', twin], ['aif-review skill-context', skillCtx]];
+  const before = ocrDirs();
+  for (const [name, md] of cards) {
+    const poison = npxPoison();
+    // cardBadFlagPrefixOf asserts the "$LOADER" "$ENTRY" invocation shape on extraction.
+    const r = spawnSync('bash', ['-c', cardBadFlagPrefixOf(md)],
+      { cwd: root, encoding: 'utf8', timeout: 60_000, env: poison.env });
+    assert.equal(r.status, 1,
+      `${name}: bad flag through the card's own loader+entry prefix must reach the producer parser (got ${r.status})\nstderr: ${r.stderr}\nstdout: ${r.stdout}`);
+    assert.match(r.stderr, /\[runtime-bridge\] ocrTrustedReview: Unknown option '--definitely-not-an-option'/,
+      `${name}: producer parser diagnostic`);
+    assert.ok(!poison.ran(), `${name}: no canonical card may hand its loader to npx`);
+  }
+  assert.deepEqual(ocrDirs(), before, 'arg-parser rejections must not mint native run dirs');
+  for (const line of [
+    'ENTRY=".agents/tools/runtime-bridge/src/cli/ocrTrustedReview.ts"',
+    '[ -f "$ENTRY" ] || ENTRY="packages/runtime-bridge/src/cli/ocrTrustedReview.ts"',
+    'LOADER="$PWD/node_modules/.bin/tsx"',
+    '"$LOADER" "$ENTRY" \\',
+  ]) assert.ok(skillCtx.includes(line), `aif-review skill-context card must carry the same selection: ${line}`);
 });

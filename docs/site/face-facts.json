@@ -387,7 +387,7 @@
       "H": {
         "familyName": "bridge CLI",
         "path": "docs/site/reference/H.json",
-        "members": 11
+        "members": 12
       },
       "I": {
         "familyName": "plugin",
@@ -405,7 +405,7 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 316
+      "count": 317
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
