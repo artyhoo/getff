@@ -1,0 +1,162 @@
+{
+  "batchId": "B1",
+  "status": "DONE_WITH_CONCERNS",
+  "decisionIds": [
+    "D06",
+    "RC2"
+  ],
+  "inputSHA": "35bb1a22fb1809e78408881583285a5fe470d5de",
+  "acceptedS1": "9098d3c5",
+  "specificationSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+  "finalCommit": "controller records after commit to avoid self-reference",
+  "exactFiles": [
+    "scripts/run-local-ci-sweep.sh",
+    "scripts/run-local-ci-sweep.test.sh",
+    "docs/ci-test-effectiveness/batches/b1.json",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl",
+    "docs/ci-test-effectiveness/evidence/b1-conformance.json",
+    "docs/ci-test-effectiveness/evidence/b1-conformance.py",
+    "docs/ci-test-effectiveness/evidence/b1-control-cost.json",
+    "docs/ci-test-effectiveness/evidence/b1-detector-disable.txt",
+    "docs/ci-test-effectiveness/evidence/b1-green.txt",
+    "docs/ci-test-effectiveness/evidence/b1-host.json",
+    "docs/ci-test-effectiveness/evidence/b1-red.txt",
+    "docs/ci-test-effectiveness/evidence/b1-restoration.txt",
+    "docs/ci-test-effectiveness/evidence/b1-setup-failures.txt",
+    "docs/ci-test-effectiveness/evidence/b1-times-after.json",
+    "docs/ci-test-effectiveness/evidence/b1-times-before.json",
+    "docs/ci-test-effectiveness/evidence/b1-trials.py",
+    "docs/ci-test-effectiveness/evidence/b1-weakening.txt",
+    "docs/ci-test-effectiveness/evidence/b1-workload.json",
+    "docs/ci-test-effectiveness/evidence/b1-final.txt"
+  ],
+  "outputSourceHashes": {
+    "scripts/run-local-ci-sweep.sh": "99b922bbee439afa0a8c1e3e070726e812a9ea4eb2f697f32d973f2e809ec263",
+    "scripts/run-local-ci-sweep.test.sh": "c0d4a85633b6fd7037b0dec5e780c7629bf506a762642c7211729a8a5572f1ad"
+  },
+  "inputSourceHashes": {
+    "scripts/run-local-ci-sweep.sh": "68ba4d42330ea3ccd084ed1d43570ded2e6a4de32f82e3a38379f19e9f22d747",
+    "scripts/run-local-ci-sweep.test.sh": "508a9a6874f08aebc7a57d337d3f4cae85eb68ec2cb2b4470f3b0bdd3f4daa87"
+  },
+  "invariant": "RC2: A command that ran and rejected must propagate failure; unavailable tools have a separate explicit state.",
+  "repair": "Replace availability-and-check || warning with if availability then checker else warning; no generic runner change.",
+  "protectedCases": [
+    "installed exit0 PASS",
+    "installed exit1 FAIL and original diagnostic archived/displayed",
+    "installed exit42 FAIL and original diagnostic archived/displayed",
+    "absent WARN-SKIP/NOT a real run, no PASS",
+    "real valid workflow PASS",
+    "unexpected root key FAIL",
+    "undefined expression context FAIL",
+    "all preexisting selftest cases/output retained",
+    "hosted/prepush actionlint remain byte-identical"
+  ],
+  "actualCarriers": [
+    "scripts/run-local-ci-sweep.test.sh -> actual --list-gates actionlint row -> disposable repo copy of delivered sweep --full",
+    ".github/workflows/audit-self.yml:796 principles-meta-tests invokes existing harness",
+    "scripts/run-local-ci-sweep.sh script-selftests derives CI shell selftests (existing carrier)",
+    "packages/core/hooks/pre-push.ts actionlintSection retained",
+    ".github/workflows/audit-self.yml actionlint job -> ci-success retained"
+  ],
+  "commands": [
+    {
+      "command": "PATH=/workspace/getff-tools/bin:$PATH bash scripts/run-local-ci-sweep.test.sh",
+      "phase": "RED before source repair",
+      "exitStatus": 1,
+      "evidence": "evidence/b1-red.txt",
+      "result": "12 intended failures; four rejecting controls incorrectly green"
+    },
+    {
+      "command": "PATH=/workspace/getff-tools/bin:$PATH bash scripts/run-local-ci-sweep.test.sh",
+      "phase": "GREEN after source repair",
+      "exitStatus": 0,
+      "evidence": "evidence/b1-green.txt"
+    },
+    {
+      "command": "python3 docs/ci-test-effectiveness/evidence/b1-trials.py before|after",
+      "exitStatus": 0,
+      "evidence": [
+        "evidence/b1-times-before.json",
+        "evidence/b1-times-after.json"
+      ]
+    },
+    {
+      "command": "python3 docs/ci-test-effectiveness/evidence/b1-conformance.py",
+      "exitStatus": 0,
+      "evidence": "evidence/b1-conformance.json",
+      "results": "weakening1/restoration0 with identical held tests; detector-disable0 rejected by held expected1"
+    },
+    {
+      "command": "bash -n scripts/run-local-ci-sweep.sh scripts/run-local-ci-sweep.test.sh",
+      "exitStatus": 0,
+      "evidence": "evidence/b1-host.json"
+    },
+    {
+      "command": "actionlint .github/workflows/*.yml",
+      "exitStatus": 0,
+      "evidence": "evidence/b1-host.json"
+    },
+    {
+      "command": "PATH=/workspace/getff-tools/bin:$PATH bash scripts/run-local-ci-sweep.test.sh",
+      "phase": "final live restoration after disposable weakening/disable",
+      "exitStatus": 0,
+      "evidence": "evidence/b1-final.txt"
+    }
+  ],
+  "rawEvidenceRefs": [
+    "docs/ci-test-effectiveness/evidence/b1-conformance.json",
+    "docs/ci-test-effectiveness/evidence/b1-conformance.py",
+    "docs/ci-test-effectiveness/evidence/b1-control-cost.json",
+    "docs/ci-test-effectiveness/evidence/b1-detector-disable.txt",
+    "docs/ci-test-effectiveness/evidence/b1-green.txt",
+    "docs/ci-test-effectiveness/evidence/b1-host.json",
+    "docs/ci-test-effectiveness/evidence/b1-red.txt",
+    "docs/ci-test-effectiveness/evidence/b1-restoration.txt",
+    "docs/ci-test-effectiveness/evidence/b1-setup-failures.txt",
+    "docs/ci-test-effectiveness/evidence/b1-times-after.json",
+    "docs/ci-test-effectiveness/evidence/b1-times-before.json",
+    "docs/ci-test-effectiveness/evidence/b1-trials.py",
+    "docs/ci-test-effectiveness/evidence/b1-weakening.txt",
+    "docs/ci-test-effectiveness/evidence/b1-workload.json",
+    "docs/ci-test-effectiveness/evidence/b1-final.txt"
+  ],
+  "recurringCost": {
+    "workload": "evidence/b1-workload.json frozen before edits",
+    "beforeSeconds": [
+      0.03554991100099869,
+      0.025371546000314993,
+      0.03195572799995716
+    ],
+    "afterSeconds": [
+      0.028559402999235317,
+      0.027806802001578035,
+      0.035602201000074274
+    ],
+    "beforeMedianSeconds": 0.03195572799995716,
+    "afterMedianSeconds": 0.028559402999235317,
+    "medianDeltaSeconds": -0.003396325000721845,
+    "optimizationClaim": false,
+    "controlOverheadSeconds": 0.37461481200080016,
+    "controlCostLimits": "one illustrative paired same-prefix sample; overhead is repair protection, not optimization",
+    "other": "No installs, paid LLM, hosted queue/retry measurement or unrelated full-suite work. One-shot audit/probe costs do not recur in CI."
+  },
+  "newInventoryItems": [
+    "B1-status-controls",
+    "B1-real-workflow-controls",
+    "B1-held-conformance"
+  ],
+  "categoryChallenge": {
+    "prompt": "Which status, availability branch, wrapper, host or new metacheck was omitted; which combined change could restore a false green?",
+    "answer": "Enumerated 0/1/42 and deliberate absence, valid/root/expression workflows, real row extraction plus actual wrapper and archived/displayed diagnostics. Signals/timeouts, execution permission/race after command-v, shellcheck integration, Darwin and hosted provision state are not separately certified. Removing the row and its test together or altering fixed expectations can restore false green; disabled-test one-shot exposes this and independent review/TAK remain required. No universal category completion claim."
+  },
+  "selfApplication": "Seven criteria in append-only S2 inventory; expectations fixed; reached old-row fault, restore and detector-disable evidence; bounded one-shot stops at externally reviewed oracle, no recursive driver layers.",
+  "noLoss": "Only actionlint availability branch changes. Existing harness cases/output preserved; final harness prints 229 passing checks including 25 B1 checks. Hosted/prepush sources untouched. No removal depends on another witness.",
+  "limits": [
+    "B1 only; no E9 campaign completion or self-acceptance.",
+    "Accepted TAK Q4/P52/verification-driver runtime/owner integration pending; no competing kernel created.",
+    "Native Linux x86_64 Bash and actionlint1.7.7 only; no Darwin/hosted semantic run.",
+    "Real fixture controls explicitly skip if actionlint absent; status0/1/42 and deliberate absence controls always run. No assertion that principles-meta-tests provisions actionlint.",
+    "One-shot expectation/oracle and Bash/git/utilities/tool correctness are finite trusted boundary; independent review still required."
+  ],
+  "rollback": "Revert B1 commit with normal hooks; restores old behavior and removes only B1 supplemental evidence/controls. Warning: reverting repair reopens known D06 false green."
+}

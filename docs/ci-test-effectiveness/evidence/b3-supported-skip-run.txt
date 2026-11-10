@@ -1,0 +1,27 @@
+{
+  "characters": 58078,
+  "UTF8Bytes": 116079,
+  "bodySHA256": "652d0d9201d5d76c03e81b5cb15307f5244460890099958f22b269bc7ac1d4df",
+  "results": [
+    {
+      "phase": "preimage",
+      "command": "bash scripts/check-discipline-pr-body.sh",
+      "envBinding": "PR_BODY contains exact fixed UTF-8 body, same as recurring workflow controls",
+      "sourceSHA256": "795a8644a96f8caf147667a91cf63ef577c4f6a7eae50bfbe50d4e433bcb7773",
+      "exit": 0,
+      "stdout": "✅ §1.7 Skipped marker present with ≥60-char rationale.\n",
+      "stderr": ""
+    },
+    {
+      "phase": "here-string",
+      "command": "bash scripts/check-discipline-pr-body.sh",
+      "envBinding": "PR_BODY contains exact fixed UTF-8 body, same as recurring workflow controls",
+      "sourceSHA256": "86e1c2835b5a89f16a560e60b33351afc26393f29f3b0b01d3af2f2d734472c6",
+      "exit": 0,
+      "stdout": "✅ §1.7 Skipped marker present with ≥60-char rationale.\n",
+      "stderr": ""
+    }
+  ],
+  "publicRED": false,
+  "interpretation": "Single supported-size public probe; no repetitions or scheduling/tool changes. If preimage passes, scanner-required transport repair has no demonstrated public runtime RED and must not claim one."
+}

@@ -1,0 +1,21 @@
+{
+  "method": "one illustrative paired prefix run on final source; compare same existing setup+first four cases with/without exact added B1 block; setup fixture copies excluded; no optimization claim",
+  "samples": [
+    {
+      "label": "common-prefix",
+      "seconds": 0.143537842999649,
+      "exitStatus": 0,
+      "stdout": "  \u2713 all-green exits 0\n  \u2713 all-green reports PASS\n  \u2713 one-fail exits 1\n  \u2713 failing gate reported FAIL\n  \u2713 fail-fast: later gate skipped\n  \u2713 md diff exits 0\n  \u2713 md diff ran doc gate\n  \u2713 md diff skipped the path-scoped gate\n  \u2713 unmapped path escalated to full (ran all gates)\n",
+      "stderr": ""
+    },
+    {
+      "label": "common-prefix-plus-B1",
+      "seconds": 0.5181526550004492,
+      "exitStatus": 0,
+      "stdout": "  \u2713 all-green exits 0\n  \u2713 all-green reports PASS\n  \u2713 one-fail exits 1\n  \u2713 failing gate reported FAIL\n  \u2713 fail-fast: later gate skipped\n  \u2713 md diff exits 0\n  \u2713 md diff ran doc gate\n  \u2713 md diff skipped the path-scoped gate\n  \u2713 unmapped path escalated to full (ran all gates)\n  \u2713 actionlint: exactly one delivered row\n  \u2713 actionlint: installed exit0 propagates\n  \u2713 actionlint: installed exit0 verdict\n  \u2713 actionlint: installed exit0 diagnostic retained\n  \u2713 actionlint: installed exit1 propagates\n  \u2713 actionlint: installed exit1 verdict\n  \u2713 actionlint: installed exit1 diagnostic retained\n  \u2713 actionlint: exit1 diagnostic displayed\n  \u2713 actionlint: installed exit42 propagates\n  \u2713 actionlint: installed exit42 verdict\n  \u2713 actionlint: installed exit42 diagnostic retained\n  \u2713 actionlint: exit42 diagnostic displayed\n  \u2713 actionlint: absent exits 0\n  \u2713 actionlint: absence is explicit\n  \u2713 actionlint: absence never labelled PASS\n  \u2713 actionlint: real valid status\n  \u2713 actionlint: real valid verdict\n  \u2713 actionlint: real root-key status\n  \u2713 actionlint: real root-key verdict\n  \u2713 actionlint: real root-key diagnostic retained\n  \u2713 actionlint: real root-key diagnostic displayed\n  \u2713 actionlint: real expression status\n  \u2713 actionlint: real expression verdict\n  \u2713 actionlint: real expression diagnostic retained\n  \u2713 actionlint: real expression diagnostic displayed\n",
+      "stderr": ""
+    }
+  ],
+  "controlOverheadSeconds": 0.37461481200080016,
+  "limits": "One sample; process scheduling and filesystem noise. Three matched delivered-row trials are recorded separately. No hosted queue or Darwin result."
+}

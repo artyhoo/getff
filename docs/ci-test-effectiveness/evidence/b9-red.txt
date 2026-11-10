@@ -1,0 +1,629 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts unrelated docs without a review record 93ms
+   → expected 1 to be +0 // Object.is equality
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > requires a record even when author claims skipped/applicable=false 77ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'protection-review'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts zero findings with scoped basis and consumed original report 56ms
+   → expected 1 to be +0 // Object.is equality
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base ref 62ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'BASE_REF'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing head 70ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'HEAD_SHA'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base sha 65ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'BASE_SHA'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unavailable Git base 43ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'Git'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > preserves main promotion exemption 49ms
+   → expected 1 to be +0 // Object.is equality
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale base 81ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'base'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale full head 80ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'head'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > wrong scope 97ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'scope'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unconsumed 53ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'consumedBy'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unresolved material 50ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'unresolved'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unaccepted deferral 48ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'ownerAcceptance'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports fixed (schema only) 60ms
+   → expected 1 to be +0 // Object.is equality
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports retained-with-evidence (schema only) 149ms
+   → expected 1 to be +0 // Object.is equality
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports owner-accepted-deferral (schema only) 118ms
+   → expected 1 to be +0 // Object.is equality
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > rejects duplicate stable finding IDs 109ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > rejects duplicate records and malformed JSON 206ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > does not borrow commented or quoted code examples as an actual record 114ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: deleted test 77ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: renamed test 87ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: runner 104ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: schedule 94ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: package scripts 79ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: unknown file 113ms
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > still rejects a missing fidelity verdict with an otherwise valid record 76ms
+   → expected 'node:internal/modules/cjs/loader:1520…' to contain 'Fidelity verdict'
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > keeps edited/unfiltered events, full history, and actual base/head/body bindings 1ms
+   → expected undefined to be +0 // Object.is equality
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > executes the actual run block and propagates edited-body repair and failure 118ms
+   → expected 1 to be +0 // Object.is equality
+ × packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > resolves a fresh named base through a local origin and fails on fetch errors 1ms
+   → expected undefined to be defined
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 21 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts unrelated docs without a review record
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:49:59
+     47| describe('actual fidelity CLI diff binding and consumed dispositions',…
+     48|   it('accepts unrelated docs without a review record', () => {
+     49|     expect(run(skipped, { HEAD_SHA: docsHead }).exitCode).toBe(0);
+       |                                                           ^
+     50|   }, 15000);
+     51|   it('requires a record even when author claims skipped/applicable=fal…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > requires a record even when author claims skipped/applicable=false
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'protection-review'
+
+- Expected
++ Received
+
+- protection-review
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:53:50
+     51|   it('requires a record even when author claims skipped/applicable=fal…
+     52|     const r = run(skipped + '\napplicable=false\n');
+     53|     expect(r.exitCode).toBe(1); expect(r.stderr).toContain('protection…
+       |                                                  ^
+     54|   }, 15000);
+     55|   it('accepts zero findings with scoped basis and consumed original re…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts zero findings with scoped basis and consumed original report
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:56:53
+     54|   }, 15000);
+     55|   it('accepts zero findings with scoped basis and consumed original re…
+     56|     expect(run(skipped + block(record())).exitCode).toBe(0);
+       |                                                     ^
+     57|   }, 15000);
+     58|   for (const [name, env, message] of [
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base ref
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'BASE_REF'
+
+- Expected
++ Received
+
+- BASE_REF
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:64:79
+     62|     ['unavailable Git base', { BASE_SHA: 'f'.repeat(40) }, 'Git'],
+     63|   ] as const) it(name, () => {
+     64|     const r = run(skipped, env); expect(r.exitCode).toBe(1); expect(r.…
+       |                                                                               ^
+     65|   }, 15000);
+     66|   it('preserves main promotion exemption', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing head
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'HEAD_SHA'
+
+- Expected
++ Received
+
+- HEAD_SHA
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:64:79
+     62|     ['unavailable Git base', { BASE_SHA: 'f'.repeat(40) }, 'Git'],
+     63|   ] as const) it(name, () => {
+     64|     const r = run(skipped, env); expect(r.exitCode).toBe(1); expect(r.…
+       |                                                                               ^
+     65|   }, 15000);
+     66|   it('preserves main promotion exemption', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base sha
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'BASE_SHA'
+
+- Expected
++ Received
+
+- BASE_SHA
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:64:79
+     62|     ['unavailable Git base', { BASE_SHA: 'f'.repeat(40) }, 'Git'],
+     63|   ] as const) it(name, () => {
+     64|     const r = run(skipped, env); expect(r.exitCode).toBe(1); expect(r.…
+       |                                                                               ^
+     65|   }, 15000);
+     66|   it('preserves main promotion exemption', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unavailable Git base
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'Git'
+
+- Expected
++ Received
+
+- Git
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:64:79
+     62|     ['unavailable Git base', { BASE_SHA: 'f'.repeat(40) }, 'Git'],
+     63|   ] as const) it(name, () => {
+     64|     const r = run(skipped, env); expect(r.exitCode).toBe(1); expect(r.…
+       |                                                                               ^
+     65|   }, 15000);
+     66|   it('preserves main promotion exemption', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > preserves main promotion exemption
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:67:94
+     65|   }, 15000);
+     66|   it('preserves main promotion exemption', () => {
+     67|     expect(run('', { BASE_REF: 'main', BASE_SHA: undefined, HEAD_SHA: …
+       |                                                                                              ^
+     68|   }, 15000);
+     69|   for (const [name, change, message] of [
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale base
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'base'
+
+- Expected
++ Received
+
+- base
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:77:100
+     75|     ['unaccepted deferral', () => ({ findings: [{ id: 'M1', failureSce…
+     76|   ] as const) it(name, () => {
+     77|     const r = run(skipped + block(record(change()))); expect(r.exitCod…
+       |                                                                                                    ^
+     78|   }, 15000);
+     79|   for (const disposition of ['fixed', 'retained-with-evidence', 'owner…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale full head
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'head'
+
+- Expected
++ Received
+
+- head
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:77:100
+     75|     ['unaccepted deferral', () => ({ findings: [{ id: 'M1', failureSce…
+     76|   ] as const) it(name, () => {
+     77|     const r = run(skipped + block(record(change()))); expect(r.exitCod…
+       |                                                                                                    ^
+     78|   }, 15000);
+     79|   for (const disposition of ['fixed', 'retained-with-evidence', 'owner…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > wrong scope
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'scope'
+
+- Expected
++ Received
+
+- scope
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:77:100
+     75|     ['unaccepted deferral', () => ({ findings: [{ id: 'M1', failureSce…
+     76|   ] as const) it(name, () => {
+     77|     const r = run(skipped + block(record(change()))); expect(r.exitCod…
+       |                                                                                                    ^
+     78|   }, 15000);
+     79|   for (const disposition of ['fixed', 'retained-with-evidence', 'owner…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unconsumed
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'consumedBy'
+
+- Expected
++ Received
+
+- consumedBy
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:77:100
+     75|     ['unaccepted deferral', () => ({ findings: [{ id: 'M1', failureSce…
+     76|   ] as const) it(name, () => {
+     77|     const r = run(skipped + block(record(change()))); expect(r.exitCod…
+       |                                                                                                    ^
+     78|   }, 15000);
+     79|   for (const disposition of ['fixed', 'retained-with-evidence', 'owner…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unresolved material
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'unresolved'
+
+- Expected
++ Received
+
+- unresolved
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:77:100
+     75|     ['unaccepted deferral', () => ({ findings: [{ id: 'M1', failureSce…
+     76|   ] as const) it(name, () => {
+     77|     const r = run(skipped + block(record(change()))); expect(r.exitCod…
+       |                                                                                                    ^
+     78|   }, 15000);
+     79|   for (const disposition of ['fixed', 'retained-with-evidence', 'owner…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unaccepted deferral
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'ownerAcceptance'
+
+- Expected
++ Received
+
+- ownerAcceptance
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:77:100
+     75|     ['unaccepted deferral', () => ({ findings: [{ id: 'M1', failureSce…
+     76|   ] as const) it(name, () => {
+     77|     const r = run(skipped + block(record(change()))); expect(r.exitCod…
+       |                                                                                                    ^
+     78|   }, 15000);
+     79|   for (const disposition of ['fixed', 'retained-with-evidence', 'owner…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports fixed (schema only)
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports retained-with-evidence (schema only)
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports owner-accepted-deferral (schema only)
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:82:76
+     80|     const finding = { id: 'M1', failureScenario: 'fixture failure', cl…
+     81|       evidence: ['controlled fixture only; not semantic repair evidenc…
+     82|     expect(run(skipped + block(record({ findings: [finding] }))).exitC…
+       |                                                                            ^
+     83|   }, 15000);
+     84|   it('rejects duplicate stable finding IDs', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > still rejects a missing fidelity verdict with an otherwise valid record
+AssertionError: expected 'node:internal/modules/cjs/loader:1520…' to contain 'Fidelity verdict'
+
+- Expected
++ Received
+
+- Fidelity verdict
++ node:internal/modules/cjs/loader:1520
++   throw err;
++   ^
++
++ Error: Cannot find module '/workspace/getff-native/packages/core/node_modules/tsx/dist/cli.mjs'
++     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
++     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
++     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
++     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
++     at Module._load (node:internal/modules/cjs/loader:1294:5)
++     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
++     at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
++     at node:internal/main/run_main_module:33:47 {
++   code: 'MODULE_NOT_FOUND',
++   requireStack: []
++ }
++
++ Node.js v24.19.0
++
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:109:82
+    107|   }, 15000);
+    108|   it('still rejects a missing fidelity verdict with an otherwise valid…
+    109|     const r = run(block(record())); expect(r.exitCode).toBe(1); expect…
+       |                                                                                  ^
+    110|   }, 15000);
+    111| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > keeps edited/unfiltered events, full history, and actual base/head/body bindings
+AssertionError: expected undefined to be +0 // Object.is equality
+
+- Expected:
+0
+
++ Received:
+undefined
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:118:42
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > executes the actual run block and propagates edited-body repair and failure
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:131:56
+    129|       env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, BASE_…
+    130|     expect(invoke(skipped).exitCode).toBe(1);
+    131|     expect(invoke(skipped + block(record())).exitCode).toBe(0);
+       |                                                        ^
+    132|   }, 25000);
+    133|   it('resolves a fresh named base through a local origin and fails on …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/21]⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > resolves a fresh named base through a local origin and fails on fetch errors
+AssertionError: expected undefined to be defined
+ ❯ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts:134:76
+    132|   }, 25000);
+    133|   it('resolves a fresh named base through a local origin and fails on …
+    134|     const step = steps.find((s: any) => s.id === 'pr_range'); expect(s…
+       |                                                                            ^
+    135|     git('branch', '-f', 'staging', docsHead); git('remote', 'add', 'or…
+    136|     const output = resolve(dir, 'outputs');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/21]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  21 failed | 9 passed (30)
+   Start at  19:40:04
+   Duration  3.01s (transform 58ms, setup 40ms, import 56ms, tests 2.51s, environment 0ms)

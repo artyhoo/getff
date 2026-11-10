@@ -1,0 +1,82 @@
+{
+  "head": "acdc333110b396c72545546f5305e8b25fc5c00d",
+  "push2Head": "0a6a39a105cae46095e91f5bca4e55363d13e93c",
+  "files": [
+    {
+      "path": "packages/core/principles/20-bundle-classification.test.ts",
+      "currentSha256": "915c7ed8d0f465b97908036cbfc18d9cd146f3b17c9d7d02763af39175e3af92",
+      "push2Sha256": "915c7ed8d0f465b97908036cbfc18d9cd146f3b17c9d7d02763af39175e3af92",
+      "equal": true
+    },
+    {
+      "path": "packages/core/principles/20-bundle-classification.paired-negative.test.ts",
+      "currentSha256": "1d8916cc18a3cd25b6baca8bf6043e3e057de61c72f59f339012b63b69992dc6",
+      "push2Sha256": "1d8916cc18a3cd25b6baca8bf6043e3e057de61c72f59f339012b63b69992dc6",
+      "equal": true
+    },
+    {
+      "path": "packages/core/principles/20-bundle-classification.ts",
+      "currentSha256": "e2f5946b61c466c165673ae8d6c1efe4d772fac34515b5db798cb13d147ed594",
+      "push2Sha256": "e2f5946b61c466c165673ae8d6c1efe4d772fac34515b5db798cb13d147ed594",
+      "equal": true
+    },
+    {
+      "path": ".agents/procedures/pipeline/helpers/bundle-curate.sh",
+      "currentSha256": "7298ef71fe47ddb71083e8fc8f52163bf965d7abd4222f5a05fc533107db55dd",
+      "push2Sha256": "7298ef71fe47ddb71083e8fc8f52163bf965d7abd4222f5a05fc533107db55dd",
+      "equal": true
+    },
+    {
+      "path": ".agents/procedures/pipeline/helpers/classify-work.sh",
+      "currentSha256": "316f94d907fcf2a21f07d143dbeda0386702114936ab4ad5093784f91ea63b70",
+      "push2Sha256": "316f94d907fcf2a21f07d143dbeda0386702114936ab4ad5093784f91ea63b70",
+      "equal": true
+    },
+    {
+      "path": ".agents/procedures/pipeline/helpers/assign-skill.sh",
+      "currentSha256": "2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf",
+      "push2Sha256": "2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf",
+      "equal": true
+    },
+    {
+      "path": ".agents/procedures/pipeline/helpers/lib/common.sh",
+      "currentSha256": "0cae123932f656c5a53d463b914f92e8026874bcacbd8b75f4caecb6ff24a150",
+      "push2Sha256": "0cae123932f656c5a53d463b914f92e8026874bcacbd8b75f4caecb6ff24a150",
+      "equal": true
+    },
+    {
+      "path": "packages/core/skills/assign-skill.test.ts",
+      "currentSha256": "e728559ef694ad259c59d81613c17ecbe87d3a8646a90064f5c91744e33cf31a",
+      "push2Sha256": "e728559ef694ad259c59d81613c17ecbe87d3a8646a90064f5c91744e33cf31a",
+      "equal": true
+    },
+    {
+      "path": "packages/core/vitest.host-env.ts",
+      "currentSha256": "3be7cebbaab055e48c0c38ecbee73a59f69075fd1a6f781a32caf551c7d0131b",
+      "push2Sha256": "3be7cebbaab055e48c0c38ecbee73a59f69075fd1a6f781a32caf551c7d0131b",
+      "equal": true
+    },
+    {
+      "path": "packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt",
+      "currentSha256": "946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980",
+      "push2Sha256": "946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980",
+      "equal": true
+    },
+    {
+      "path": "packages/core/principles/__fixtures__/bundle/backlog-2-mixed.txt",
+      "currentSha256": "e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3",
+      "push2Sha256": "e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3",
+      "equal": true
+    },
+    {
+      "path": "packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt",
+      "currentSha256": "b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5",
+      "push2Sha256": "b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5",
+      "equal": true
+    }
+  ],
+  "catalogCount": {
+    "skills": 19,
+    "agents": 21
+  }
+}

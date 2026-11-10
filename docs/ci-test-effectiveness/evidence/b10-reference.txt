@@ -1,0 +1,3 @@
+[render-install-roster] 20-agents.sh: 7 skip-list + 2 factory-gated entries
+[render-install-roster] agents/: 21 files -> 12 shipped at default depth
+✓ reference up-to-date (11 family JSONs + fences)

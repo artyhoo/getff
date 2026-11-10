@@ -1,0 +1,47 @@
+{
+  "id": "B6-D10",
+  "kind": "changed-deadline-disposition",
+  "decisionIds": ["D10"],
+  "status": "DONE_WITH_CONCERNS",
+  "inputCommit": "4044007fd1b1cdcd6ae6fe804c14f3ab96899986",
+  "source": "packages/core/hooks/glossary-counters.test.ts#concurrent sessions",
+  "disposition": "Apply the existing per-case SLOW_SHELL_MS=30000 to the three existing actual-process tests; preserve N=10, callbacks, counter/lock assertions and availability policy.",
+  "criteria": {
+    "relevance": "The required shared-counter race and lock-release obligations are already embodied in the three concurrent-sessions cases; the existing default 5s ceiling was previously reached by the sequential actual-process control.",
+    "effectiveness": "Focused existing carrier passed all three unchanged real-process assertions. The final full hooks carrier reached 2308 passing tests and 3 explicit skips but failed one separate advisor-role-reminders case at its existing 5s deadline.",
+    "theatre": "No reduced N, mock, quarantine, skip, altered assertion or forced load was used. Full failure and explicit skips are retained in raw output.",
+    "tautology": "Independent observations are the exact N=10 counter values and absence of the lock directory; only Vitest's third timeout argument changed. Source comparison is b6-source-diff.txt.",
+    "duplication": "Reuses the same-file SLOW_SHELL_MS constant and same test family; no generic timeout layer or new test was introduced.",
+    "costEffectiveness": "Passing focused cases completed in 5.37s wall with 4.94s test duration; 30s is only the per-case failure ceiling. Full suite took 159.61s and ended with one failure; no speedup is claimed.",
+    "sufficiency": "All three protections remain delivered through the normal Vitest hooks carrier. Scoped test contract passes; accumulated full carrier acceptance remains unresolved because the single required run had an unrelated timeout."
+  },
+  "delivery": [
+    "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/glossary-counters.test.ts -t 'concurrent sessions'",
+    "npm --prefix packages/core run test:hooks",
+    "bash scripts/build-getff-dist.sh --check"
+  ],
+  "verification": {
+    "focusedExit": 0,
+    "fullHooksExit": 1,
+    "fullHooksFailure": "hooks/advisor-role-reminders.test.ts timed out at 5000ms",
+    "finalManifestCheckExit": 0
+  },
+  "evidenceRefs": [
+    "evidence/b3-baseline-glossary.txt",
+    "evidence/b3-core-hooks.txt",
+    "evidence/b6-focused.txt",
+    "evidence/b6-full-hooks.txt",
+    "evidence/b6-source-diff.txt",
+    "evidence/b6-no-loss.json",
+    "evidence/b6-environment.json",
+    "evidence/b6-manifest-initial-check.txt",
+    "evidence/b6-manifest-generate.txt",
+    "evidence/b6-manifest-final-check.txt"
+  ],
+  "limits": [
+    "30s is a failure ceiling, not a performance target; a failing case may wait longer than before.",
+    "The full hooks suite is not green; its advisor-role-reminders timeout was not repaired or attributed to this change.",
+    "Local ast-grep is absent, and three existing skips remain explicit.",
+    "One focused and one full run do not establish universal flake absence, causal timing regression, hosted behavior, or Darwin behavior."
+  ]
+}

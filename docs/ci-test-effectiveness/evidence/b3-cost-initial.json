@@ -1,0 +1,28 @@
+{
+  "note": "Initial collector timings, retained to avoid selecting between observations. Collector was run again after simplifying the after-command reference; command executed was equivalent. No speedup claim, no further timing runs. Primary matched3-trial observation; repeat is verification overhead, separately retained in b3-cost-and-no-loss.json.",
+  "before-inline": {
+    "seconds": [
+      0.03918214599980274,
+      0.040898507000747486,
+      0.03595240299910074
+    ],
+    "medianSeconds": 0.03918214599980274
+  },
+  "after-script": {
+    "seconds": [
+      0.035302288000821136,
+      0.03934246099925076,
+      0.03786281499924371
+    ],
+    "medianSeconds": 0.03786281499924371
+  },
+  "new-recurring-core-file": {
+    "seconds": [
+      2.1583425520002493,
+      1.9576099360001535,
+      2.0578136710009858
+    ],
+    "medianSeconds": 2.0578136710009858
+  },
+  "evidenceOrigin": "Exact first collector result inspected in tool output before second run. No hosted results inferred."
+}

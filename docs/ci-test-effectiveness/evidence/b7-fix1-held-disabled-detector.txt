@@ -1,0 +1,146 @@
+
+> @rules-as-tests/core@0.1.0 test:principles
+> vitest run principles/ -t ^Principle (38|41) --exclude **/principles/!(38-vitest*|41-shell*).test.ts
+
+
+ RUN  v4.1.8 <DISPOSABLE>/packages/core
+
+ ❯ principles/41-shell-test-ci-coverage.test.ts (27 tests | 23 failed) 1352ms
+     × (b) non-vacuity: source and invocation populations stay real 128ms
+     × (c) fixed command corpus: direct 7ms
+     × (c) fixed command corpus: quoted 1ms
+     × (c) fixed command corpus: env 1ms
+     × (c) fixed command corpus: and 1ms
+     × (c) fixed command corpus: cwd 1ms
+     × (c) fixed command corpus: echo 1ms
+     × (c) fixed command corpus: printf 1ms
+     × (c) fixed command corpus: comment 1ms
+     × (c) fixed command corpus: dead 1ms
+     × (c) fixed command corpus: heredoc 1ms
+     × (c) fixed command corpus: misleading 1ms
+     × (c) fixed command corpus: shell glob is not a battery 1ms
+     × (c) fixed command corpus: wrong runner 0ms
+     × (c) fixed command corpus: Node restricted suite 1ms
+     × (c) fixed command corpus: negated 1ms
+     × (c) fixed command corpus: function body 2ms
+     × (c) fixed command corpus: outside cwd 1ms
+     × (c) fixed command corpus: dynamic cwd 0ms
+     × (c) fixed command corpus: unknown 0ms
+     × (d) data and disabled steps do not register execution 1ms
+     × (e) actual nested package scripts, Node globs and missing targets are resolved 2ms
+     × (I2) Node test options must precede the script or test operands 1ms
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  23 failed | 23 passed (46)
+   Start at  18:58:23
+   Duration  2.37s (transform 603ms, setup 74ms, import 1.33s, tests 1.80s, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 23 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (b) non-vacuity: source and invocation populations stay real
+AssertionError: expected 0 to be greater than 50
+ ❯ principles/41-shell-test-ci-coverage.test.ts:241:32
+    239|     );
+    240|     expect(workflowRegistry().calls.length).toBeGreaterThan(100);
+    241|     expect(missing([]).length).toBeGreaterThan(50);
+       |                                ^
+    242|   });
+    243|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/23]⎯
+
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: direct
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: quoted
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: env
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: and
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: cwd
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: echo
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: printf
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: comment
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: dead
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: heredoc
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: misleading
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: shell glob is not a battery
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: wrong runner
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: Node restricted suite
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: negated
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: function body
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: outside cwd
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: dynamic cwd
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (c) fixed command corpus: unknown
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ principles/41-shell-test-ci-coverage.test.ts:273:7
+    271|         commands('node --test --test-name-pattern=one tests/a.test.mjs…
+    272|       ),
+    273|     ).toBe(false);
+       |       ^
+    274|     expect(
+    275|       nativeCovered(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/23]⎯
+
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (d) data and disabled steps do not register execution
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ principles/41-shell-test-ci-coverage.test.ts:296:9
+    294|       expect(
+    295|         nativeCovered('tests/a.test.sh', workflowRegistry([source]).ca…
+    296|       ).toBe(false);
+       |         ^
+    297|     expect(
+    298|       nativeCovered(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/23]⎯
+
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (e) actual nested package scripts, Node globs and missing targets are resolved
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ principles/41-shell-test-ci-coverage.test.ts:320:70
+    318|       ),
+    319|     ).toBe(true);
+    320|     expect(nativeCovered('tests/new-unwired.test.py', result.calls)).t…
+       |                                                                      ^
+    321|       false,
+    322|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/23]⎯
+
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (I2) Node test options must precede the script or test operands
+AssertionError: node /dev/null --test scripts/codex-hook-compatibility.test.mjs: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ principles/41-shell-test-ci-coverage.test.ts:335:62
+    333|     ]) {
+    334|       const registry = commands(command);
+    335|       expect(nativeCovered(target, registry.calls), command).toBe(fals…
+       |                                                              ^
+    336|       expect(registry.unsupported.join(), command).toContain(
+    337|         'Node option position',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/23]⎯
+

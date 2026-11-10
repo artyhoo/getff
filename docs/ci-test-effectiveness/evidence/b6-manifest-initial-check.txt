@@ -1,0 +1,3 @@
+DRIFT: packages/getff/MANIFEST.sha256 differs from a fresh assembly of the repo root:
+  committed  packages/core/hooks/glossary-counters.test.ts
+  fresh      packages/core/hooks/glossary-counters.test.ts

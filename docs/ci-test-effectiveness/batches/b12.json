@@ -1,0 +1,237 @@
+{
+  "id": "B12-RC1-RC6-D15",
+  "status": "IMPLEMENTED and locally verified; normal commit and parent independent scoped review/publication/final hosted acceptance pending",
+  "inputCommit": "47101f3e6ab276a26091c32e45c50cf39da1acfb",
+  "authority": {
+    "specSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+    "beforeEffectsDecision": "D15 committed before effects; task13 brief and kickoff-s2l"
+  },
+  "criteria": {
+    "relevance": "Actual hosted run42532386292 failed the original coownership test40PASS/2FAIL because B9 changed the current104-line template without its shipped revision tuple. D15 precedes effects. Moving the same step addresses late failure detection in the existing shard.",
+    "effectiveness": "Original hosted RED is retained; unchanged full42-case suite now passes, including literal one-template/note counts and both evolved rules after stripped-marker refresh, all legacy/CRLF/override/dry-run cases and real npm/Python install+refresh. Existing \u00a70 enforces all current/history tuples.",
+    "theatre": "Actual existing helper derived the tuple, independently hashed raw/body bytes agree, and the same original behavioral/integration test runs real install.sh. Pinned actionlint and normal assembler+actual npm archive passed; no algorithm/test weakening or availability substitute.",
+    "tautology": "Actual hosted failure predates repair. Independent literal template-count/evolved-byte assertions remain byte-identical; immutable base source, prior tuples and raw template are separate preservation oracles. No new hash-mirroring regression test.",
+    "duplication": "One registry row and one complete existing step moved from index41 to4; all57 step objects, four setup prerequisites, workflow metadata and commands preserved. No new standing test, installer abstraction, job, CI checker or duplicate invocation.",
+    "costEffectiveness": "All measured local commands are verification overhead. Reused admitted hosted RED; one full existing42-case GREEN plus scoped lint/delivery/preservation/citation work. All15 actual maps omit changed delivery inputs, so no blind capture/compare/fullhooks/census. Earlier placement permits earlier failure; no successful-run speed or compute-savings claim.",
+    "sufficiency": "Bounded Linux/Node24 local behavior and packaging proof; source template/tests/functions/old tuples remain exact. Current final published head still needs independent review and hosted acceptance; partial prior shardC cannot support completed AFTER timings. Six required contexts/app15368 already resolved separately. Scoped citation check0 before commit explicitly defers4 citing-line checks pending committed blame; exact actual target bytes verified in preservation. Committed citation result will be recorded in task13 report."
+  },
+  "oneShotDriverCriteria": {
+    "relevance": "B12 evidence must bind actual tuple/body, source preservation, exact step relocation, installed-baseline applicability and command costs; one-shot tools record only those obligations.",
+    "effectiveness": "Preservation driver asserts inverse exact lib edit, all11 old tuples, actual current+hosted template equality, no tests/template differences, exact text move plus parsed workflow equality/step multiset/setup prefix,15 immutable actual maps and exactly two normal manifest hash changes after approved numeric citation closure. Command runner records real child exit/output/time.",
+    "theatre": "Reads actual Git objects, source files, normal snapshot harness baseline default, installed maps and generated manifest; real commands provide behavioral and archive evidence. Source checks are supplementary, not claims of runtime success.",
+    "tautology": "Immutable preimage and fixed expected tuple/step/test command/population are independent references; suite literal one-template/evolved-rule assertions stay independent of helper. Independent raw/body calculation compares actual helper output without new recurring mirrored implementation.",
+    "duplication": "Two finite evidence drivers reuse existing B11 command-recording pattern and normal tools; no generic registry or recurring CI hierarchy. Behavioral proof remains the existing42-case carrier.",
+    "costEffectiveness": "Subsecond/one-second bounded source inspection and one invocation per named carrier; retained command-specific wall times and failed citation cost, no repeat broad installed capture or unchanged RED battery.",
+    "sufficiency": "Finite trusted evidence scripts may assert/fail and are independently reviewed; they do not certify arbitrary workflow/YAML/hashing behavior, hosted semantics, reviewer competence or financial payback."
+  },
+  "primaryBehaviorEvidence": "evidence/b12-coownership-green.json",
+  "admittedRedEvidence": "evidence/b12-first-hosted-failure.json",
+  "preservationEvidence": "evidence/b12-preservation-result.json",
+  "statusEvidence": "evidence/b12-status.json",
+  "limits": [
+    "No completed hosted AFTER timing: full53 jobs had50success/2failure/1skip; shardC stopped at coownership and remaining steps never executed.",
+    "Admin all6contexts/app15368 native0 and hosted observer attempt2GREEN were coordinator-verified before this task; implementer performed no settings work.",
+    "No push, source publication or final hosted acceptance in this task.",
+    "Scoped source citation check exposed2 causally shifted numeric backrefs; coordinator granted exactly their repair before effects; normal final citation check0 with baseline omissions explicit. Post-commit scoped result recorded in task report."
+  ],
+  "commands": {
+    "actionlint": {
+      "command": [
+        "/workspace/getff-tools/bin/actionlint",
+        ".github/workflows/audit-self.yml"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.045123,
+      "log": "docs/ci-test-effectiveness/evidence/b12-actionlint.txt",
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "archive-check-final": {
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh",
+        "--check"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 9.179899,
+      "log": "docs/ci-test-effectiveness/evidence/b12-archive-check-final.txt",
+      "logSHA256": "318d1bfaf704c0f58904f45d1a84db9c228d7ab220a418ca1f313b49838298d7"
+    },
+    "archive-check": {
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh",
+        "--check"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 11.63505,
+      "log": "docs/ci-test-effectiveness/evidence/b12-archive-check.txt",
+      "logSHA256": "318d1bfaf704c0f58904f45d1a84db9c228d7ab220a418ca1f313b49838298d7"
+    },
+    "citations-green": {
+      "command": [
+        "node",
+        "scripts/check-line-citations.mjs",
+        "--check",
+        "--corpus",
+        "--affected-by=setup.d/lib.sh",
+        "--affected-by=.github/workflows/audit-self.yml",
+        "--affected-by=.agents/rules/evidence-regeneration.md"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 16.007442,
+      "log": "docs/ci-test-effectiveness/evidence/b12-citations-green.txt",
+      "logSHA256": "bc77d385db533af786f8f4494785260d4e82e2df4a7952c30e3d2b1a5e41edfa"
+    },
+    "citations": {
+      "command": [
+        "node",
+        "scripts/check-line-citations.mjs",
+        "--check",
+        "--corpus",
+        "--affected-by=setup.d/lib.sh",
+        "--affected-by=.github/workflows/audit-self.yml"
+      ],
+      "exit": 1,
+      "elapsedSeconds": 20.067224,
+      "log": "docs/ci-test-effectiveness/evidence/b12-citations.txt",
+      "logSHA256": "8cc21410debd50498f88a8e6c659a94cc0e1c3f26a345280c683eb7ff250d7e0"
+    },
+    "coownership-green": {
+      "command": [
+        "bash",
+        "tests/install-sh/skill-context-evolve-coownership.test.sh"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 114.089965,
+      "log": "docs/ci-test-effectiveness/evidence/b12-coownership-green.txt",
+      "logSHA256": "666a988cab5a6a57216117437758c2246c8d60653a84825dbc282b513c527c54"
+    },
+    "derived-row": {
+      "command": [
+        "bash",
+        "-c",
+        "source setup.d/lib.sh; _skill_context_revision_row aif-review packages/core/templates/shared/skill-context/aif-review/SKILL.md"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.118824,
+      "log": "docs/ci-test-effectiveness/evidence/b12-derived-row.txt",
+      "logSHA256": "dce0aac627dd2fd60f3059a542fecdaa6216dd77155fb3edfe0bc0c05ab64996"
+    },
+    "harness-check": {
+      "command": [
+        "node",
+        "scripts/render-harness-config.mjs",
+        "--check"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.407325,
+      "log": "docs/ci-test-effectiveness/evidence/b12-harness-check.txt",
+      "logSHA256": "19a3bf674455ede9d14068716294ea05c1cc6be248ccb295888bad40ea635c94"
+    },
+    "manifest-generate-citations": {
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 1.566557,
+      "log": "docs/ci-test-effectiveness/evidence/b12-manifest-generate-citations.txt",
+      "logSHA256": "723fb8525ebf6ba82a9b9f7e82c9bff8f119929413d9c17b2201531055e8415c"
+    },
+    "manifest-generate": {
+      "command": [
+        "bash",
+        "scripts/build-getff-dist.sh"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 3.001077,
+      "log": "docs/ci-test-effectiveness/evidence/b12-manifest-generate.txt",
+      "logSHA256": "723fb8525ebf6ba82a9b9f7e82c9bff8f119929413d9c17b2201531055e8415c"
+    },
+    "preservation-final": {
+      "command": [
+        "python3",
+        "docs/ci-test-effectiveness/evidence/b12-preservation.py"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.738113,
+      "log": "docs/ci-test-effectiveness/evidence/b12-preservation-final.txt",
+      "logSHA256": "2b45721cde2c76485dfbf32a100e7a2b0869d6ed9407aa6e663050648edbc783"
+    },
+    "preservation": {
+      "command": [
+        "python3",
+        "docs/ci-test-effectiveness/evidence/b12-preservation.py"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 1.038373,
+      "log": "docs/ci-test-effectiveness/evidence/b12-preservation.txt",
+      "logSHA256": "756b87ccf9e0de2c646533987fe1d7e0f81edbe0b6cdeaa8e3aa6a51acb5a4ae"
+    }
+  },
+  "measuredCommandWallSeconds": 177.894972,
+  "sourceHashes": {
+    "setup.d/lib.sh": {
+      "beforeSHA256": "7440f6fc16824279eafc1ee2975c29a04e54b09ceeed8c21344d4e0bc1a67aaf",
+      "afterSHA256": "e766d5ffecc124668a8e91c3c12760f8f3e110862fd29adb3470acdb2f75b2e3"
+    },
+    ".github/workflows/audit-self.yml": {
+      "beforeSHA256": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+      "afterSHA256": "bda7e930f308b38e7ab4ba9be6b8a9bb8c7b8c12145cc55336d3e54c4e949385"
+    },
+    "packages/getff/MANIFEST.sha256": {
+      "beforeSHA256": "bb3a7de43117b9abeb82627d9ae78f2c24440dc17b8804088dbcb392e4987095",
+      "afterSHA256": "3b475825150277d04df54d84b83d7f75dfb4af6a224241507f3e947549e10913"
+    },
+    ".agents/rules/evidence-regeneration.md": {
+      "beforeSHA256": "33f213b0e2f1b65abd89d8c1f89a2c1ec7e345b4b7f28ac6e786caef45c64fe9",
+      "afterSHA256": "9d89cd06fb8e3c5909695fd0b5675901eb4ef65fcff75f2114a79be2d6cbb2e6"
+    },
+    "packages/core/templates/shared/skill-context/aif-review/SKILL.md": {
+      "beforeSHA256": "79e563f5fa2d3a76e34ecb2b7e922134fc74122cd4581986f3444134dc402b43",
+      "afterSHA256": "79e563f5fa2d3a76e34ecb2b7e922134fc74122cd4581986f3444134dc402b43"
+    },
+    "tests/install-sh/skill-context-evolve-coownership.test.sh": {
+      "beforeSHA256": "8f598b2a3cd6e4861bb6b664e147aa36b98fc5ff130533e8deacbf08e355223f",
+      "afterSHA256": "8f598b2a3cd6e4861bb6b664e147aa36b98fc5ff130533e8deacbf08e355223f"
+    }
+  },
+  "driverHashes": {
+    "docs/ci-test-effectiveness/evidence/b12-command.py": "aef12e3c834b411896f2e78e5299985d93a786c5bc1c8a7d907b8bbca123d53a",
+    "docs/ci-test-effectiveness/evidence/b12-preservation.py": "72812669d6375cc9aa6fa87cd5455a5ec5e44b8448c36365a3ec7cac251cf3a4"
+  },
+  "citationScopeGrant": "Coordinator granted before effects exactly evidence-regeneration.md backrefs astgrep1159\u21921161 and ruff1157\u21921159; inverse exact/digit-only proof and unchanged symlink twin. No generated twin mutation required; normal harness check passes.",
+  "evidenceRefs": [
+    "evidence/b12-actionlint.json",
+    "evidence/b12-actionlint.txt",
+    "evidence/b12-archive-check-final.json",
+    "evidence/b12-archive-check-final.txt",
+    "evidence/b12-archive-check.json",
+    "evidence/b12-archive-check.txt",
+    "evidence/b12-citations-green.json",
+    "evidence/b12-citations-green.txt",
+    "evidence/b12-citations.json",
+    "evidence/b12-citations.txt",
+    "evidence/b12-command.py",
+    "evidence/b12-coownership-green.json",
+    "evidence/b12-coownership-green.txt",
+    "evidence/b12-derived-row.json",
+    "evidence/b12-derived-row.txt",
+    "evidence/b12-first-hosted-failure.json",
+    "evidence/b12-first-hosted-failure.log.gz",
+    "evidence/b12-harness-check.json",
+    "evidence/b12-harness-check.txt",
+    "evidence/b12-manifest-generate-citations.json",
+    "evidence/b12-manifest-generate-citations.txt",
+    "evidence/b12-manifest-generate.json",
+    "evidence/b12-manifest-generate.txt",
+    "evidence/b12-preservation-final.json",
+    "evidence/b12-preservation-final.txt",
+    "evidence/b12-preservation-initial-result.json",
+    "evidence/b12-preservation-result.json",
+    "evidence/b12-preservation.json",
+    "evidence/b12-preservation.py",
+    "evidence/b12-preservation.txt",
+    "evidence/b12-status.json"
+  ]
+}

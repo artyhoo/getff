@@ -1,0 +1,26 @@
+{
+  "batch": "B4",
+  "task": 5,
+  "status": "ACCEPTED_FOR_INTEGRATION",
+  "reviewedBase": "9a738611146e6e995826dde486776599e4611d55",
+  "reviewedHead": "9f74fab924d52f86c61d1b5e8d946c20795f4e59",
+  "decisionIds": [
+    "D02",
+    "D03"
+  ],
+  "specCompliance": "PASS",
+  "taskQuality": "PASS",
+  "review": {
+    "path": "docs/ci-test-effectiveness/acceptance/b4-review.md",
+    "sha256": "4d1763172d7fbc81a7ded8bdaa966e67a114969806ea3155df8f7a2aacb493c5"
+  },
+  "at": "2026-11-08T17:45:27.764453+00:00",
+  "findings": [],
+  "resolvedPriorMinor": "B3 M2 current held-driver delivery omits stale prose count and links actual fault set.",
+  "validation": "Four declared native commands passed: actionlint,34principles,2wiring controls,224root auditor cases. Combined witness/source/prerequisite maps reviewed.",
+  "cost": "Three held BEFORE traces support31\u201339percent installer critical-path forecast; unchanged aggregate work. No actual AFTER speed, compute or developer-latency claim.",
+  "limits": [
+    "Final hostedNode22 after behavior and campaign cost await final source publication.",
+    "RC5/RC6 future prevention, SG/glossary, E9/TAK and other campaign acceptance remain open."
+  ]
+}

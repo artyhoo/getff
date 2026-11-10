@@ -1,0 +1,11 @@
+{
+  "head": "76e5e8b5c72d40423aac5adfb810747f15f764c4",
+  "run": 42532386292,
+  "job": 128889239797,
+  "step": "bash tests/install-sh/skill-context-evolve-coownership.test.sh",
+  "rawExcerpt": "b12-first-hosted-failure.log.gz",
+  "rawExcerptSHA256": "a25d00ffe181ccb12ab7cb393aa73fddf7402355ea2d30620e5ccabea31652e6",
+  "scope": "Exact decoded-tool failing-step substring, not complete job log; original public job retains full output.",
+  "actual": "PASS40/FAIL2: absent current/history revision row and duplicated stripped-marker template. All other29 main jobs succeeded.",
+  "cause": "B9 changed aif-review104line template blob37534d2 without append-only shipped-revision row; current source unchanged from actual failedhead."
+}

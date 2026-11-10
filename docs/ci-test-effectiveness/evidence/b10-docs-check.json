@@ -1,0 +1,11 @@
+{
+  "command": [
+    "node",
+    "scripts/docs-check.mjs",
+    "--changed"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 0.11,
+  "log": "/workspace/scratch/b10-docs-check.txt"
+}

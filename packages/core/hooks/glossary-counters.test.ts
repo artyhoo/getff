@@ -868,6 +868,7 @@ describe('concurrent sessions — the counters file is machine-shared, so the in
   //
   // PAIRED: the sequential arm is the control. A fix that broke counting outright would make
   // the concurrent arm pass by counting nothing, so the control has to hold at the same time.
+  // Real subprocesses share this file's slow-shell correctness budget.
   const N = 10;
 
   function spawnInjects(dir: string, parallel: boolean): void {
@@ -924,6 +925,7 @@ describe('concurrent sessions — the counters file is machine-shared, so the in
       spawnInjects(sb.dir, true);
       expect(readCounts(sb.counts).terms.Land?.usages).toBe(N);
     },
+    SLOW_SHELL_MS,
   );
 
   it.skipIf(!JQ)(
@@ -934,6 +936,7 @@ describe('concurrent sessions — the counters file is machine-shared, so the in
       spawnInjects(sb.dir, false);
       expect(readCounts(sb.counts).terms.Land?.usages).toBe(N);
     },
+    SLOW_SHELL_MS,
   );
 
   it.skipIf(!JQ)(
@@ -944,6 +947,7 @@ describe('concurrent sessions — the counters file is machine-shared, so the in
       spawnInjects(sb.dir, true);
       expect(existsSync(`${sb.counts}.lock`)).toBe(false);
     },
+    SLOW_SHELL_MS,
   );
 });
 

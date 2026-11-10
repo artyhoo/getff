@@ -1,0 +1,67 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ❯ packages/core/principles/38-vitest-include-ci-coverage.test.ts (19 tests | 1 failed) 656ms
+     × (I1) explicit config does not move the effective runner cwd 16ms
+ ❯ packages/core/principles/41-shell-test-ci-coverage.test.ts (27 tests | 2 failed) 1736ms
+     × (I2) Node test options must precede the script or test operands 11ms
+     × (I3) advisor requires the ordered direct spawn and assertion without control flow 111ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/principles/38-vitest-include-ci-coverage.test.ts > Principle 38 — workspace Vitest population reaches actual CI invocations > (I1) explicit config does not move the effective runner cwd
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/core/principles/38-vitest-include-ci-coverage.test.ts:113:68
+    111|     const target = 'packages/core/hooks/advisor-role-reminders.test.ts…
+    112|     const wrongCwd = commands('vitest run --config packages/core/vites…
+    113|     expect(wrongCwd.calls.some(call => selected(target, call, p))).toB…
+       |                                                                    ^
+    114|     expect(wrongCwd.unsupported.join()).toContain('cross-cwd');
+    115|     const rightCwd = commands('vitest run --config "./vitest.config.ts…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  packages/core/principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (I2) Node test options must precede the script or test operands
+AssertionError: node /dev/null --test scripts/codex-hook-compatibility.test.mjs: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/core/principles/41-shell-test-ci-coverage.test.ts:329:62
+    327|     ]) {
+    328|       const registry = commands(command);
+    329|       expect(nativeCovered(target, registry.calls), command).toBe(fals…
+       |                                                              ^
+    330|       expect(registry.unsupported.join(), command).toContain('Node opt…
+    331|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  packages/core/principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (I3) advisor requires the ordered direct spawn and assertion without control flow
+AssertionError: expected [ …(2) ] to not include 'tests/advisor-role-reminders/test_rem…'
+ ❯ packages/core/principles/41-shell-test-ci-coverage.test.ts:347:81
+    345|       (s: string) => s.replace('const run =', 'if (true) return; const…
+    346|       (s: string) => s.replace('const run =', 'throw new Error("stoppe…
+    347|     ]) expect(wrapperTargets(p => p === path ? mutation(source) : read…
+       |                                                                                 ^
+    348|     const commented = source.replace('const run =', '// literal straig…
+    349|     expect(wrapperTargets(p => p === path ? commented : read(p))).toCo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 43 passed (46)
+   Start at  18:56:18
+   Duration  3.22s (transform 656ms, setup 80ms, import 2.02s, tests 2.39s, environment 0ms)
+

@@ -1,0 +1,155 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (a) non-vacuity: the parsers see the real workflows, not an empty parse 89ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (b) every declarable job carries a `# required-context:` marker with a substantive rationale 13ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (c) real-tree: both in-repo lists equal the declared set exactly 30ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (d) paired-negative (seeded flip): a job flipped to `yes` must break both lists 2ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (e) paired-negative (seeded removal): a job with no marker must be detected, never defaulted 1ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (f) paired-negative (seeded list edit): dropping an entry from either list must be detected 17ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (g) fail-closed: an unparseable list yields null, never a vacuous pass 2ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (h) the audit-self carve-out is covered by its sibling gate 3ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (i) every declared-required context sits behind an UNFILTERED pull_request: trigger 13ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (j) paired-negative (seeded filter): GREEN on the real tree, RED once a declared-required workflow is filtered 16ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (k) the filter parser is scoped to pull_request, and reads the inline trigger grammar 4ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper changes reach the existing observer with repository passed through env 4ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: complete classic contexts => 0 34ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: complete classic contexts => 0 52ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: complete real checks schema => 0 34ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: known missing three => 1 55ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > passes a complete GO block whose SHA matches head 21ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > passes a 12+-char SHA prefix 6ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > passes with CRLF line endings (GitHub API bodies are CRLF) 10ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > passes skipped with rationale >=20 chars 7ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > accepts an ASCII hyphen as the skipped separator 10ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section structure > fails when the section is missing 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section structure > fails when a second Fidelity section exists (first-wins would hide a later STOP) 21ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section structure > ignores HTML-commented content (a section that renders empty must not pass) 10ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section structure > does not read past an H1 heading into unrelated body text 5ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: known missing three => 1 56ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: unprotected known empty => 1 76ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: protected without status requirement => 1 70ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: inactive ruleset known missing => 1 53ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails a recorded REVISE even when the rest of the block is complete 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails a recorded STOP even when the rest of the block is complete 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails when a skipped line is appended below a recorded REVISE (no neutralising by append) 6ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails when a round-2 GO is appended below the round-1 REVISE (replace, do not append) 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails a lowercase verdict token (case-sensitive by design) 3ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails skipped with short rationale (template default stays red) 8ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails GO whose Audited-SHA mismatches head (staleness guard) 7ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails GO with no Audited-SHA line 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails GO without file:line evidence 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > does not accept the Basis path as evidence (vacuous-evidence guard) 3ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails GO missing Basis and Round, reporting both 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails when headSha is empty (bin guards this, but the check must not pass a GO blind) 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > two-file contract: the shipped PR template matches the checker > template ships exactly one `## Fidelity verdict` heading with the red-by-default line 86ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section boundary (any heading closes it) > does not borrow file:line evidence from a neighbouring §1.7 block 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section boundary (any heading closes it) > is not confused by a FIDELITY line living under a later H3 3ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > rejects skipped when Provenance declares a substrate 7ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > allows skipped when Provenance is the unfilled template placeholder 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > allows skipped when Provenance is explicitly n/a 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > allows skipped when there is no Provenance section at all 2ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > still accepts a real GO on a stage PR 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — stage detector cannot be decoyed > rejects skipped when a decoy placeholder Provenance precedes the real one 26ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — stage detector cannot be decoyed > rejects skipped when the real Provenance comes after the verdict section 8ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — fenced blocks do not truncate the section > reads Evidence that follows a fenced block containing a # comment 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — fenced blocks do not truncate the section > still closes the section on a real heading after a fenced block 3ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — evidence exclusion is case-insensitive > does not accept a lowercase basis: path as evidence 1ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > fails a MAJOR-graded entry without a Failure-scenario line 10ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > fails a BLOCKER-graded bare-line entry without a scenario 7ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > passes when the scenario sits on the same line 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > passes when the scenario is an indented sub-bullet of the entry 7ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: active uninspected ruleset => 2 64ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch HTTP failure despite valid complete body => 2 35ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch HTTP failure despite valid complete body => 2 30ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > does not let one scenario cover a following scenario-less entry 8ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > ignores digit-led summary count lines 6ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > exempts ESCALATED and MINOR entries 10ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > is not satisfied by a Failure-scenario mention inside an HTML comment 8ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > fails a NUMBERED-LIST BLOCKER entry without a scenario (A4-3: digit-led opener was invisible) 10ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > fails a TABLE-ROW BLOCKER entry without a scenario (A4-3: leading-pipe opener was invisible) 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > passes a numbered-list entry whose indented continuation carries the scenario 7ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > passes a table-row entry whose later row carries the scenario 10ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > reports the arm error alongside the skipped path too 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > exempts the review-sidecar tally shape `- BLOCKER: 1` / `- MAJOR: 3` 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > exempts the digit zero-tally `- BLOCKER: 0` (control — pre-A4-5 behavior) 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > exempts the natural zero-form `- BLOCKER: none` / `- MAJOR: none` (A4-5) 3ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > still gates a bare grade word with trailing prose after `none` (`- BLOCKER: none found so far`) 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > still gates a real finding whose text follows the colon 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — ONE shared FILE_LINE_RE (R-8 contract pin) > the shared s17.ts regex judges each citation as declared 1ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — ONE shared FILE_LINE_RE (R-8 contract pin) > the fidelity gate accepts evidence exactly when the shared regex does 22ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch malformed JSON => 2 40ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch unknown schema => 2 59ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: protected branch missing required checks schema => 2 48ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts unrelated docs without a review record 824ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch wrong JSON type => 2 37ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch contexts wrong type => 2 33ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch checks malformed => 2 29ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch multiple JSON documents => 2 26ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > an unbalanced `<!--` inside an INLINE code span does not swallow the section 7ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > an unbalanced `<!--` inside a FENCED block does not swallow the section 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > CONTROL: a commented-out verdict is still ignored (the original invariant) 2ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > CONTROL: a commented-out verdict inside a fence is still ignored (no widening) 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > an unterminated `<!--` in PROSE hides the rest of the body, as GitHub renders it 2ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not borrow evidence after literal or list-contained     ``` 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not borrow evidence after literal or list-contained      ~~~ 3ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not borrow evidence after literal or list-contained 	``` 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not borrow evidence after literal or list-contained - example
+
+    ``` 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts a real fence with  indentation 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts a real fence with   indentation 3ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts a real fence with    indentation 3ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts a real fence with     indentation 5ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts evidence after a closed list-nested fence 7ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not close a four-backtick fence with ~~~ 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not close a four-backtick fence with ``` 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not close a four-backtick fence with ```` trailing text 2ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — quoted section headings > does not accept an entire quoted verdict as a real section 1ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — quoted section headings > does not count a quoted verdict as a duplicate 4ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — quoted section headings > ignores quoted sibling section ## Provenance
+Substrate: quoted example 2ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — quoted section headings > ignores quoted sibling section ## Review findings
+- MAJOR: quoted example 2ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — merged indented-fence compatibility corpus > preserves merged PR #1639 (9e6c778fafad) 176ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules API failure despite valid empty body => 2 73ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules API failure despite valid empty body => 2 93ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules malformed JSON => 2 51ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules unknown schema => 2 45ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules unknown enforcement => 2 35ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: paginated later active ruleset => 2 62ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: classic complete needs no rules API => 0 46ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > requires a record even when author claims skipped/applicable=false 713ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > accepts zero findings with scoped basis and consumed original report 610ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base ref 438ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing head 556ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > missing base sha 425ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unavailable Git base 460ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > preserves main promotion exemption 470ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale base 538ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > stale full head 622ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > wrong scope 537ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unconsumed 612ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unresolved material 626ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > unaccepted deferral 614ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports fixed (schema only) 506ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports retained-with-evidence (schema only) 553ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > transports owner-accepted-deferral (schema only) 661ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > rejects duplicate stable finding IDs 567ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > rejects duplicate records and malformed JSON 1095ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > does not borrow commented or quoted code examples as an actual record 1071ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: deleted test 632ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: renamed test 540ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: runner 483ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: schedule 595ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: package scripts 473ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > actual diff trigger: unknown file 629ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity CLI diff binding and consumed dispositions > still rejects a missing fidelity verdict with an otherwise valid record 554ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > keeps edited/unfiltered events, full history, and actual base/head/body bindings 3ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > executes the actual run block and propagates edited-body repair and failure 970ms
+ ✓ packages/core/hooks/checks/pr-body-fidelity-bin.test.ts > actual fidelity workflow transport > resolves a fresh named base through a local origin and fails on fetch errors 52ms
+
+ Test Files  3 passed (3)
+      Tests  143 passed (143)
+   Start at  19:42:47
+   Duration  18.17s (transform 473ms, setup 183ms, import 694ms, tests 19.69s, environment 1ms)

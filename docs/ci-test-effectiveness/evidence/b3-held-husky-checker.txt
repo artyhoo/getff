@@ -1,0 +1,73 @@
+
+ RUN  v4.1.8 /tmp/b3-held-an4vr477
+
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 2 failed) 416ms
+     ✓ binds the required non-main PR gate, including body edits, to the shared checker 7ms
+     ✓ Incident-1 uncited prose 28ms
+     ✓ cited valid body 28ms
+     ✓ empty body 7ms
+     ✓ missing backward section 22ms
+     ✓ short forward 16ms
+     ✓ short backward 29ms
+     ✓ distinct uncited backward 24ms
+     ✓ malformed citation 21ms
+     ✓ citation outside section 26ms
+     ✓ Skip at 60 characters 15ms
+     ✓ Skip with supported-size UTF-8 content 26ms
+     ✓ Skip below 60 characters 22ms
+     ✓ section length exactly 40 25ms
+     ✓ section length below 40 17ms
+     × has a safe manual fixture carrier in the recurring core hook suite 74ms
+     × propagates missing hooks and accepts actual checkout shapes through the workflow command 18ms
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 15 passed (17)
+   Start at  17:09:25
+   Duration  903ms (transform 46ms, setup 42ms, import 99ms, tests 416ms, environment 1ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production husky checker > has a safe manual fixture carrier in the recurring core hook suite
+AssertionError: FAIL: missing pre-commit expected status 1 and diagnostic: missing /tmp/tmp.e311bPcb4w/missing-pre-commit/pre-commit (got 0)
+B3_REACHED_HUSKY_BYPASS
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ status packages/core/hooks/ci-checker-oracles.test.ts:29:56
+     27|   expect(result.error).toBeUndefined();
+     28|   expect(result.signal).toBeNull();
+     29|   expect(result.status, result.stdout + result.stderr).toBe(expected);
+       |                                                        ^
+     30|   expect(result.stdout + result.stderr).toContain(diagnostic);
+     31| }
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:76:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production husky checker > propagates missing hooks and accepts actual checkout shapes through the workflow command
+AssertionError: B3_REACHED_HUSKY_BYPASS
+: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ status packages/core/hooks/ci-checker-oracles.test.ts:29:56
+     27|   expect(result.error).toBeUndefined();
+     28|   expect(result.signal).toBeNull();
+     29|   expect(result.status, result.stdout + result.stderr).toBe(expected);
+       |                                                        ^
+     30|   expect(result.stdout + result.stderr).toContain(diagnostic);
+     31| }
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:96:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+

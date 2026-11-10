@@ -1,0 +1,273 @@
+{
+  "status": "PASS",
+  "beforeWorkflowSHA256": "0f21c5a1e9d0adc7b399b707ae640a86c08877b3fd9f701907a9390b1fcc190c",
+  "afterWorkflowSHA256": "70f4d8c49079f1115d1adec64e3aede423bac87954ee9d4290feef044afbe2e0",
+  "unchangedOutsideFiveJobs": true,
+  "unchangedJobMetadataEventsAggregate": true,
+  "unchangedShardStepMultiset": true,
+  "placements": [
+    {
+      "suite": "synth-wire-consumer-config",
+      "before": "install-sh-b",
+      "after": "install-sh-a",
+      "step": {
+        "name": "install-sh \u2014 synth-wire adds getff's block to a consumer's own eslint config by insertions only, original kept (Q4.7; getff's own config still wired)",
+        "run": "bash tests/install-sh/synth-wire-consumer-config.test.sh"
+      },
+      "destinationPrerequisites": [
+        {
+          "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "with": {
+            "persist-credentials": false,
+            "fetch-depth": 0
+          }
+        },
+        {
+          "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "with": {
+            "node-version": "22",
+            "cache": "npm",
+            "cache-dependency-path": "package-lock.json\npackages/core/package-lock.json\n"
+          }
+        },
+        {
+          "name": "Install packages/core deps",
+          "run": "npm ci --prefix packages/core --silent"
+        },
+        {
+          "name": "Install workspace deps (hoists tsx to root)",
+          "run": "npm install --silent"
+        }
+      ]
+    },
+    {
+      "suite": "first-commit-passable",
+      "before": "install-sh-b",
+      "after": "install-sh-a",
+      "step": {
+        "name": "install-sh \u2014 first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)",
+        "run": "bash tests/install-sh/first-commit-passable.test.sh"
+      },
+      "destinationPrerequisites": [
+        {
+          "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "with": {
+            "persist-credentials": false,
+            "fetch-depth": 0
+          }
+        },
+        {
+          "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "with": {
+            "node-version": "22",
+            "cache": "npm",
+            "cache-dependency-path": "package-lock.json\npackages/core/package-lock.json\n"
+          }
+        },
+        {
+          "name": "Install packages/core deps",
+          "run": "npm ci --prefix packages/core --silent"
+        },
+        {
+          "name": "Install workspace deps (hoists tsx to root)",
+          "run": "npm install --silent"
+        }
+      ]
+    },
+    {
+      "suite": "r2-glob-reach",
+      "before": "install-sh-b",
+      "after": "install-sh-c",
+      "step": {
+        "name": "Run install-sh R2 glob-reach test \u2014 CI-orphan WARN + per-package shadow + globals (GH",
+        "run": "bash tests/install-sh/r2-glob-reach.test.sh"
+      },
+      "destinationPrerequisites": [
+        {
+          "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "with": {
+            "persist-credentials": false,
+            "fetch-depth": 0
+          }
+        },
+        {
+          "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "with": {
+            "node-version": "22",
+            "cache": "npm",
+            "cache-dependency-path": "package-lock.json\npackages/core/package-lock.json\n"
+          }
+        },
+        {
+          "name": "Install packages/core deps",
+          "run": "npm ci --prefix packages/core --silent"
+        },
+        {
+          "name": "Install workspace deps (hoists tsx to root)",
+          "run": "npm install --silent"
+        }
+      ]
+    },
+    {
+      "suite": "r2-auto-wire",
+      "before": "install-sh-b",
+      "after": "install-sh-c",
+      "step": {
+        "name": "install-sh \u2014 r2-auto-wire (GH",
+        "run": "bash tests/install-sh/r2-auto-wire.test.sh"
+      },
+      "destinationPrerequisites": [
+        {
+          "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "with": {
+            "persist-credentials": false,
+            "fetch-depth": 0
+          }
+        },
+        {
+          "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "with": {
+            "node-version": "22",
+            "cache": "npm",
+            "cache-dependency-path": "package-lock.json\npackages/core/package-lock.json\n"
+          }
+        },
+        {
+          "name": "Install packages/core deps",
+          "run": "npm ci --prefix packages/core --silent"
+        },
+        {
+          "name": "Install workspace deps (hoists tsx to root)",
+          "run": "npm install --silent"
+        }
+      ]
+    }
+  ],
+  "sourceIdentities": [
+    {
+      "path": ".github/workflows/audit-self.yml",
+      "currentSHA256": "70f4d8c49079f1115d1adec64e3aede423bac87954ee9d4290feef044afbe2e0",
+      "9a738611146e6e995826dde486776599e4611d55": "0f21c5a1e9d0adc7b399b707ae640a86c08877b3fd9f701907a9390b1fcc190c",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "856f48da8398f80e84e7554d26c0d05ca1329033bcd98b3175177a0339c134f7"
+    },
+    {
+      "path": "vitest.config.ts",
+      "currentSHA256": "435fec04768c888772e88b2ef4d4357f0f0b5db5c62367951209f43c052a7164",
+      "9a738611146e6e995826dde486776599e4611d55": "435fec04768c888772e88b2ef4d4357f0f0b5db5c62367951209f43c052a7164",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "435fec04768c888772e88b2ef4d4357f0f0b5db5c62367951209f43c052a7164",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "435fec04768c888772e88b2ef4d4357f0f0b5db5c62367951209f43c052a7164"
+    },
+    {
+      "path": "packages/core/vitest.config.ts",
+      "currentSHA256": "3efe27aa66656f4b21fe126db6010e5157165ac00750f950fb3969957ee9ac50",
+      "9a738611146e6e995826dde486776599e4611d55": "3efe27aa66656f4b21fe126db6010e5157165ac00750f950fb3969957ee9ac50",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "3efe27aa66656f4b21fe126db6010e5157165ac00750f950fb3969957ee9ac50",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "3efe27aa66656f4b21fe126db6010e5157165ac00750f950fb3969957ee9ac50"
+    },
+    {
+      "path": "packages/core/vitest.setup.ts",
+      "currentSHA256": "dda4a4a8cf5ab15602457d5184634247f9217437458cb3c4cadf4872918f2893",
+      "9a738611146e6e995826dde486776599e4611d55": "dda4a4a8cf5ab15602457d5184634247f9217437458cb3c4cadf4872918f2893",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "dda4a4a8cf5ab15602457d5184634247f9217437458cb3c4cadf4872918f2893",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "dda4a4a8cf5ab15602457d5184634247f9217437458cb3c4cadf4872918f2893"
+    },
+    {
+      "path": "packages/core/package.json",
+      "currentSHA256": "d592ea104be227123adb0d058e9b690f4b215776664b1c9ff1634511269cd40c",
+      "9a738611146e6e995826dde486776599e4611d55": "d592ea104be227123adb0d058e9b690f4b215776664b1c9ff1634511269cd40c",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "d592ea104be227123adb0d058e9b690f4b215776664b1c9ff1634511269cd40c",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "d592ea104be227123adb0d058e9b690f4b215776664b1c9ff1634511269cd40c"
+    },
+    {
+      "path": "packages/core/audit-self/audit-ai-docs.test.ts",
+      "currentSHA256": "296cb2035258b98e4f0f0a0758659ebd467ef966a40a1ff85d2c393b33a7c2d1",
+      "9a738611146e6e995826dde486776599e4611d55": "296cb2035258b98e4f0f0a0758659ebd467ef966a40a1ff85d2c393b33a7c2d1",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "296cb2035258b98e4f0f0a0758659ebd467ef966a40a1ff85d2c393b33a7c2d1",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "296cb2035258b98e4f0f0a0758659ebd467ef966a40a1ff85d2c393b33a7c2d1"
+    },
+    {
+      "path": "packages/core/audit-self/audit-ai-docs.ts",
+      "currentSHA256": "eebfea270a7517f224c4d8abef932dbd90cc7711d8ce7d6e027b5d66556f35ed",
+      "9a738611146e6e995826dde486776599e4611d55": "eebfea270a7517f224c4d8abef932dbd90cc7711d8ce7d6e027b5d66556f35ed",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "eebfea270a7517f224c4d8abef932dbd90cc7711d8ce7d6e027b5d66556f35ed",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "eebfea270a7517f224c4d8abef932dbd90cc7711d8ce7d6e027b5d66556f35ed"
+    },
+    {
+      "path": "tests/install-sh/synth-wire-consumer-config.test.sh",
+      "currentSHA256": "7f3a57241137822161d0fe9d442f40a4c5bb96c2b60482467ac8e4e046b1e1ef",
+      "9a738611146e6e995826dde486776599e4611d55": "7f3a57241137822161d0fe9d442f40a4c5bb96c2b60482467ac8e4e046b1e1ef",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "7f3a57241137822161d0fe9d442f40a4c5bb96c2b60482467ac8e4e046b1e1ef",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "7f3a57241137822161d0fe9d442f40a4c5bb96c2b60482467ac8e4e046b1e1ef"
+    },
+    {
+      "path": "tests/install-sh/first-commit-passable.test.sh",
+      "currentSHA256": "d8012b6e0e32f53984f703e279067a9e47f5f4c4918cf497c8b6ab13774aea46",
+      "9a738611146e6e995826dde486776599e4611d55": "d8012b6e0e32f53984f703e279067a9e47f5f4c4918cf497c8b6ab13774aea46",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "d8012b6e0e32f53984f703e279067a9e47f5f4c4918cf497c8b6ab13774aea46",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "d8012b6e0e32f53984f703e279067a9e47f5f4c4918cf497c8b6ab13774aea46"
+    },
+    {
+      "path": "tests/install-sh/r2-glob-reach.test.sh",
+      "currentSHA256": "7f67d48039ae78d7ed691102dc0caa4f97df87d4b58271cb3322a2810c0480d6",
+      "9a738611146e6e995826dde486776599e4611d55": "7f67d48039ae78d7ed691102dc0caa4f97df87d4b58271cb3322a2810c0480d6",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "7f67d48039ae78d7ed691102dc0caa4f97df87d4b58271cb3322a2810c0480d6",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "7f67d48039ae78d7ed691102dc0caa4f97df87d4b58271cb3322a2810c0480d6"
+    },
+    {
+      "path": "tests/install-sh/r2-auto-wire.test.sh",
+      "currentSHA256": "dd04f83baf8712abcf721ccb4fcb60e06a2c279b1bf347efac443f781d345692",
+      "9a738611146e6e995826dde486776599e4611d55": "dd04f83baf8712abcf721ccb4fcb60e06a2c279b1bf347efac443f781d345692",
+      "01b25d78b11083fb6e463fdf9de61299aff8972a": "dd04f83baf8712abcf721ccb4fcb60e06a2c279b1bf347efac443f781d345692",
+      "346e3daf3255a431100c6fa2298727cca36e3bc7": "dd04f83baf8712abcf721ccb4fcb60e06a2c279b1bf347efac443f781d345692"
+    }
+  ],
+  "jointSurvivor": {
+    "name": "Negative tests for audit probes",
+    "needs": "path-scope",
+    "if": "needs.path-scope.outputs.runtime == 'true'",
+    "runs-on": "ubuntu-latest",
+    "permissions": {
+      "contents": "read"
+    },
+    "steps": [
+      {
+        "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+        "with": {
+          "persist-credentials": false
+        }
+      },
+      {
+        "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+        "with": {
+          "node-version": "22",
+          "cache": "npm",
+          "cache-dependency-path": "package-lock.json\npackages/core/package-lock.json\n"
+        }
+      },
+      {
+        "name": "Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)",
+        "run": "npm ci --prefix packages/core --silent"
+      },
+      {
+        "name": "Run packages/core/audit-self/audit-ai-docs.test.ts (Wave 10.4 \u2014 vitest)",
+        "run": "if [ -f packages/core/audit-self/audit-ai-docs.test.ts ]; then\n  npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts\nelse\n  echo \"::error::packages/core/audit-self/audit-ai-docs.test.ts missing\"\n  exit 1\nfi\n"
+      },
+      {
+        "name": "Run audit-ai-docs.sh live on this repo",
+        "run": "bash packages/core/audit-self/audit-ai-docs.sh"
+      },
+      {
+        "name": "Run audit-ai-docs.ts live on this repo",
+        "run": "npx --prefix packages/core tsx packages/core/audit-self/audit-ai-docs.ts"
+      },
+      {
+        "name": "Run packages/core/audit-self/first-steps-parity.test.ts (beta-ai-docs-agnosticism S1)",
+        "run": "if [ -f packages/core/audit-self/first-steps-parity.test.ts ]; then\n  npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/first-steps-parity.test.ts\nelse\n  echo \"::error::packages/core/audit-self/first-steps-parity.test.ts missing\"\n  exit 1\nfi\n"
+      }
+    ]
+  },
+  "additionalWitness": "principles-meta-tests npm --prefix packages/core run test:units uses core config; not the exact root-config survivor",
+  "limits": "Static placement/source proof plus existing functional tests. Final hosted destination required. No claim of future economic prevention.",
+  "elapsedSeconds": 0.9331850319995283
+}

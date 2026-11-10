@@ -1,0 +1,74 @@
+[
+  {
+    "case": "c4",
+    "head": "8eb048c67a28f463e3a100ad558bc85797a9d111",
+    "expectedExit": 0,
+    "actualExit": 0,
+    "seconds": 0.953,
+    "findings": [],
+    "record": "c4-original-record.json",
+    "log": "c4-original-cli.txt",
+    "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+  },
+  {
+    "case": "c1",
+    "head": "788a5d512b543ad561998a6ec2ad6c6c3f31eda3",
+    "expectedExit": 1,
+    "actualExit": 1,
+    "seconds": 0.643,
+    "findings": [
+      "C1-TQ-01"
+    ],
+    "record": "c1-original-record.json",
+    "log": "c1-original-cli.txt",
+    "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+  },
+  {
+    "case": "c5",
+    "head": "a065cc4fbb977186f57a31b28a67a458c0652359",
+    "expectedExit": 0,
+    "actualExit": 0,
+    "seconds": 0.9,
+    "findings": [],
+    "record": "c5-original-record.json",
+    "log": "c5-original-cli.txt",
+    "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+  },
+  {
+    "case": "c0",
+    "head": "e3a397d668a2df8f8385d21bf0cc940ea31b46ed",
+    "expectedExit": 1,
+    "actualExit": 1,
+    "seconds": 0.738,
+    "findings": [
+      "C0-TQ-01"
+    ],
+    "record": "c0-original-record.json",
+    "log": "c0-original-cli.txt",
+    "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+  },
+  {
+    "case": "c3",
+    "head": "3617339f2e5dda1f2eac7a887efe3aaeabdccf05",
+    "expectedExit": 0,
+    "actualExit": 0,
+    "seconds": 0.701,
+    "findings": [],
+    "record": "c3-original-record.json",
+    "log": "c3-original-cli.txt",
+    "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+  },
+  {
+    "case": "c2",
+    "head": "24b59f7599d2ab7f291de08320449fdd8ed641af",
+    "expectedExit": 1,
+    "actualExit": 1,
+    "seconds": 0.645,
+    "findings": [
+      "C2-TQ-01"
+    ],
+    "record": "c2-original-record.json",
+    "log": "c2-original-cli.txt",
+    "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+  }
+]

@@ -1,0 +1,13 @@
+diff --git a/.github/workflows/checks.yml b/.github/workflows/checks.yml
+index 43b77a4..61098f8 100644
+--- a/.github/workflows/checks.yml
++++ b/.github/workflows/checks.yml
+@@ -1,7 +1,8 @@
+ name: checks
+ on: pull_request
+ jobs:
+   cold-install:
+     runs-on: ubuntu-latest
+     steps:
+       - run: bash tests/install-sh/warm-contract.test.sh
++      - run: bash tests/install-sh/empty-cache-supported-stacks.test.sh

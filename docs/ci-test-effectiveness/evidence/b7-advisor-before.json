@@ -1,0 +1,27 @@
+{
+  "command": [
+    "npx",
+    "--prefix",
+    "packages/core",
+    "vitest",
+    "run",
+    "--reporter=default",
+    "packages/core/hooks/advisor-role-reminders.test.ts"
+  ],
+  "exit": 0,
+  "seconds": 6.620632576999924,
+  "output": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/advisor-timeout-focused.txt",
+  "sources": {
+    "packages/core/hooks/advisor-role-reminders.test.ts": "12305e5f96ff040e05177887e098f0baa6d5a0ac861b6a3f4a1aefd647406c95",
+    "tests/advisor-role-reminders/test_reminders.py": "14f3600fdc077089a7ce278b0c9574dc1687c6a05bae6f3d6677b603e07043b9",
+    "scripts/advisor-role-reminders/reminders.py": "54b6c86507d5fd4360e5417927394d23f6a83a5fbbef108fd64202ea20ec4426",
+    "scripts/advisor-role-reminders/hook.sh": "c7e17b357736f700b077a8417ad9a412e1a623084c22d1e2bbb2957756924afd"
+  },
+  "sameAsB6Input": {
+    "packages/core/hooks/advisor-role-reminders.test.ts": true,
+    "tests/advisor-role-reminders/test_reminders.py": true,
+    "scripts/advisor-role-reminders/reminders.py": true,
+    "scripts/advisor-role-reminders/hook.sh": true
+  },
+  "claim": "Unchanged wrapper focused observation only; does not establish matched-load regression causality."
+}

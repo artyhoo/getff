@@ -1,0 +1,777 @@
+{
+  "status": "PASS: all15 normal captures and all15 comparisons; every changed installed path mapped",
+  "baseline": "4ad4540fee94c23e063b1982a2511baeb2a58d23",
+  "controllerB5Authorization": "Explicit parent reply during B9: normal B5 hash and derived refresh baseline within granted15 fingerprints; no source change",
+  "changedPathCounts": {
+    ".ai-factory/skill-context/aif-review/SKILL.md": 15,
+    ".ai-factory/refresh-baseline.json": 11,
+    "scripts/run-rule-tests-firing.sh": 11,
+    ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs": 8,
+    ".agents/roles/review-sidecar.md": 8,
+    ".agents/skills/review-sidecar/SKILL.md": 8,
+    ".claude/agents/review-sidecar.md": 8,
+    ".claude/skills/pipeline/helpers/autonomy-binding.test.mjs": 8,
+    ".zcode/agents/review-sidecar.md": 8,
+    ".zcode/skills/pipeline/helpers/autonomy-binding.test.mjs": 8
+  },
+  "cells": [
+    {
+      "fingerprint": "tests/install-sh/baselines/cargo/brownfield-clippy.fingerprint",
+      "beforeSHA256": "8eaef6b6dd42a24fb3de0c62d6af1a9baf27367cf00dfbfae443392ed82ce4f5",
+      "afterSHA256": "8f9f5856f579f04d2ce258d07697cd77b668b64b4725885e8c938c37c037b099",
+      "changes": [
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/cargo/greenfield.fingerprint",
+      "beforeSHA256": "75add379c6fc9127e51db8a9a682febdbf412a460c748c40493872c519a50018",
+      "afterSHA256": "993d57e2c962f577fc064814dde65eb03ed7addba896ddc454dcb6c9fc8eb27d",
+      "changes": [
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/go/brownfield-golangci.fingerprint",
+      "beforeSHA256": "cdef9156d3bf171b076ca219ca84bfcb69244048fd3d8c5dc08d21008b69c94e",
+      "afterSHA256": "d87939a33465d7499e06090b9b415dd811cf45a13adb25d3e617c08581f812c8",
+      "changes": [
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/go/greenfield.fingerprint",
+      "beforeSHA256": "3f3a9bb5f60194d7f0074df43f552baa06d65e6ed171808ca00655aa901251ab",
+      "afterSHA256": "ddef381ad5a7c1a99f5271448a289bac066f2f05bb031fbbed9e3dea25d26ae4",
+      "changes": [
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/python/brownfield-ruff.fingerprint",
+      "beforeSHA256": "005266acaa4fda9fa505bef3e229492ea2e87e24b016259990dccc99f17901d6",
+      "afterSHA256": "9428aa211aee401b75c6824d7d3d1282297525ca17f16e696246e2e8890a98ec",
+      "changes": [
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "b93bc92484de0f55661fa5033a291542b21d1960b3ca8c7a91410ac08db100ce",
+          "afterSHA256": "20881c540b87c58f12ebb1b030d9af4195ffefd59845a37cfdd7e94c49dfeb1e",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/python/brownfield-sgconfig.fingerprint",
+      "beforeSHA256": "4e786c067ca3a75b3d4bbda04deba8c0782917c529545edf598d0e9949c02748",
+      "afterSHA256": "34f0cecefbb6ddcec15ac3f4c562df5e74933dc6e0ee17710f7b9d6d3e3ed41a",
+      "changes": [
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "cb6842a6b78f58db5f5d62e0bf55378056ceda8ad036fb4ee05f59e42c287f0d",
+          "afterSHA256": "91aab60ead55ff45a34d58f6db51f7629d5e3b26fa7663b4b4282005b03ce1a5",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/python/greenfield.fingerprint",
+      "beforeSHA256": "ac88232dbfa74eb7e5059118135944fb10eed3770d13e68e4cd5dd8e36497247",
+      "afterSHA256": "57ec4b804ecef2e991ea8a2ecc6849757f13e674715070ed5b6aa03e88eedfb3",
+      "changes": [
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "b885407dbdf88379f215bccc5b45c2fe47dabe3e164b961e2ad930354f196caa",
+          "afterSHA256": "cea456970215d4b5a8c4d4fd5496f866bf0d6c7726738995a13d198dd62d2fdb",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/react-native/brownfield.fingerprint",
+      "beforeSHA256": "c386fdaaa99b9142c4554d1f9ce121e91216f42f9ff741f88a5f763288f81c13",
+      "afterSHA256": "a00f931b73ef3567c340d08554230f65d626cda374857f0511642f22515e2f72",
+      "changes": [
+        {
+          "installedPath": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".agents/roles/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".agents/skills/review-sidecar/SKILL.md",
+          "beforeSHA256": "fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed",
+          "afterSHA256": "f5f4c1af2cf36a2c79ba5e98c0826f748d172a28c4b259ec69e2aaf2a47d8ab6",
+          "approvedSource": ".agents/skills/review-sidecar/SKILL.md",
+          "derivedReason": "Normal description card renderer plus existing portable-binding transform"
+        },
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "6ab94a727d218c8077d61c2b06581737c58f7e06d90ff6047c36c67e15d2a4fc",
+          "afterSHA256": "4df71f1e08a1e03abf8d1f0813c7c8012898478a29965b3a55f213a0d9a7aab9",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": ".claude/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".claude/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".zcode/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".zcode/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/react-native/greenfield.fingerprint",
+      "beforeSHA256": "ff6ac1bbcc40c96ac2d1e3ed6330a84c5a40c828762a0d5c68d02967419f3aa1",
+      "afterSHA256": "20a62e9fd942c90d0639c7cb713cf0f8ba3a8d20bb1c16c9e4ef315ec9ffb4f5",
+      "changes": [
+        {
+          "installedPath": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".agents/roles/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".agents/skills/review-sidecar/SKILL.md",
+          "beforeSHA256": "fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed",
+          "afterSHA256": "f5f4c1af2cf36a2c79ba5e98c0826f748d172a28c4b259ec69e2aaf2a47d8ab6",
+          "approvedSource": ".agents/skills/review-sidecar/SKILL.md",
+          "derivedReason": "Normal description card renderer plus existing portable-binding transform"
+        },
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "fa34c9e157aa3d41a5dd2127a1267d5de2b8eca1c8daf2f0168665f96c2ea3f9",
+          "afterSHA256": "8f65aaeb0bcb3846016501bb4888ab58e8525937d0b1b83ca206cb6c04651e61",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": ".claude/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".claude/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".zcode/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".zcode/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/react-next/brownfield.fingerprint",
+      "beforeSHA256": "d4c99946ead13f2c91f8fbde76b1e0530402a9ce6fba99ddd52bb916ef7353a6",
+      "afterSHA256": "01e2fd4c41052b01431bda6f3e466ed91a235dbe2205d162b96920f31c244a2e",
+      "changes": [
+        {
+          "installedPath": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".agents/roles/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".agents/skills/review-sidecar/SKILL.md",
+          "beforeSHA256": "fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed",
+          "afterSHA256": "f5f4c1af2cf36a2c79ba5e98c0826f748d172a28c4b259ec69e2aaf2a47d8ab6",
+          "approvedSource": ".agents/skills/review-sidecar/SKILL.md",
+          "derivedReason": "Normal description card renderer plus existing portable-binding transform"
+        },
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "e7e2e7ea53f60c82cf89c017c35b5eacd25f2093e080a8ce807ae9f224ff7988",
+          "afterSHA256": "d0f3f3ab97c063dd7072bfd295832364b4d1d92968a0480d19f1406dd98c9588",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": ".claude/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".claude/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".zcode/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".zcode/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/react-next/greenfield.fingerprint",
+      "beforeSHA256": "475392a0ecf6878898357bb39b9563443f05ba3b2a588072599ab673c79f1aac",
+      "afterSHA256": "db24c4c8a8d234bc1bb6cc855247b63f246c6dadf42206d85f66213442291216",
+      "changes": [
+        {
+          "installedPath": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".agents/roles/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".agents/skills/review-sidecar/SKILL.md",
+          "beforeSHA256": "fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed",
+          "afterSHA256": "f5f4c1af2cf36a2c79ba5e98c0826f748d172a28c4b259ec69e2aaf2a47d8ab6",
+          "approvedSource": ".agents/skills/review-sidecar/SKILL.md",
+          "derivedReason": "Normal description card renderer plus existing portable-binding transform"
+        },
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "bad808a1885a38e7ec23d3fe8fa7604675eaef111ea4a51ada3578c44826867a",
+          "afterSHA256": "e759c695df31dabd32c154e9f506370120280ecb23a63071db75263a444d90cf",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": ".claude/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".claude/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".zcode/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".zcode/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/react-spa/brownfield.fingerprint",
+      "beforeSHA256": "20369c8aaa038982d94bc25d5f4b96fb9b7e21e65426958ff99d3dbcc8bc7b02",
+      "afterSHA256": "c08e88b666ce0599564cc861813134899b627768248b7667262686142c8aed6c",
+      "changes": [
+        {
+          "installedPath": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".agents/roles/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".agents/skills/review-sidecar/SKILL.md",
+          "beforeSHA256": "fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed",
+          "afterSHA256": "f5f4c1af2cf36a2c79ba5e98c0826f748d172a28c4b259ec69e2aaf2a47d8ab6",
+          "approvedSource": ".agents/skills/review-sidecar/SKILL.md",
+          "derivedReason": "Normal description card renderer plus existing portable-binding transform"
+        },
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "8eaa7e69a864f6e18689f40027b715c68005ebe75dd5933957f36ec57d238cac",
+          "afterSHA256": "cb0ef3b33c0510744ee206bc3edbbd38bbf70b6b76ea35c55aebdebb2012e01f",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": ".claude/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".claude/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".zcode/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".zcode/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/react-spa/greenfield.fingerprint",
+      "beforeSHA256": "c49f8f28a270710402b9612752b679a1c6036166477c5e44342d9a7344dba32f",
+      "afterSHA256": "235190f3f464ce29f93e885b8701227223625ad3a95f24b056cfbc9642e9c042",
+      "changes": [
+        {
+          "installedPath": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".agents/roles/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".agents/skills/review-sidecar/SKILL.md",
+          "beforeSHA256": "fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed",
+          "afterSHA256": "f5f4c1af2cf36a2c79ba5e98c0826f748d172a28c4b259ec69e2aaf2a47d8ab6",
+          "approvedSource": ".agents/skills/review-sidecar/SKILL.md",
+          "derivedReason": "Normal description card renderer plus existing portable-binding transform"
+        },
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "75cc59570ee1d5df9cadc0f0329c289e6a45f9bc357d0cfcf9c2f496a838a86e",
+          "afterSHA256": "c84b00d37783439cbc5a64dae785911ce8e1a15446e96606f2195c14e4306a80",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": ".claude/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".claude/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".zcode/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".zcode/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/ts-server/brownfield.fingerprint",
+      "beforeSHA256": "e8540d094ecdf1a29e6e5af369fbf6e3edc1d05491ef282313290ea418538e86",
+      "afterSHA256": "415a006a6990b285308ed68ee0991bc740c30ec1387750adef2a67bfa55bff98",
+      "changes": [
+        {
+          "installedPath": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".agents/roles/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".agents/skills/review-sidecar/SKILL.md",
+          "beforeSHA256": "fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed",
+          "afterSHA256": "f5f4c1af2cf36a2c79ba5e98c0826f748d172a28c4b259ec69e2aaf2a47d8ab6",
+          "approvedSource": ".agents/skills/review-sidecar/SKILL.md",
+          "derivedReason": "Normal description card renderer plus existing portable-binding transform"
+        },
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "131b9f9b8f4974bcbc7f9f16b76dcd32a69477f139761f22ca7c39a732f1b4f5",
+          "afterSHA256": "78b949d7f8c558e2d6305c9561acb0b0dcfebd9cbfb801fa86cba35c0f2803d1",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": ".claude/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".claude/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".zcode/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".zcode/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    },
+    {
+      "fingerprint": "tests/install-sh/baselines/ts-server/greenfield.fingerprint",
+      "beforeSHA256": "80e83978662eec0bfd5175bbf2381d7bdd116272314dce5c93f81d1aec1e82ee",
+      "afterSHA256": "cbc0dc581a697c50660bd4f10a5a3ce9e87f236a6092a0061a012d4960ea1794",
+      "changes": [
+        {
+          "installedPath": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".agents/roles/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".agents/skills/review-sidecar/SKILL.md",
+          "beforeSHA256": "fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed",
+          "afterSHA256": "f5f4c1af2cf36a2c79ba5e98c0826f748d172a28c4b259ec69e2aaf2a47d8ab6",
+          "approvedSource": ".agents/skills/review-sidecar/SKILL.md",
+          "derivedReason": "Normal description card renderer plus existing portable-binding transform"
+        },
+        {
+          "installedPath": ".ai-factory/refresh-baseline.json",
+          "beforeSHA256": "2ab8e287043df81c01e3fb7a63f42e94d5bfb92793e3e4b1df5d52513b95e316",
+          "afterSHA256": "c682f54a831ad836d4de4131396bc412ea91e9ca7fbd3ac3b0874a97334f4997",
+          "approvedSource": "setup.d/lib.sh:310,895-940",
+          "derivedReason": "Existing deterministic sorted per-delivered-path hash ledger derived from approved installed files, no timestamp; same-cell compare required"
+        },
+        {
+          "installedPath": ".ai-factory/skill-context/aif-review/SKILL.md",
+          "beforeSHA256": "f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193",
+          "afterSHA256": "59b794876f91eb46eab17cc4fdcc452ba62ef2099f2cf3e729152b90913f44f3",
+          "approvedSource": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+          "derivedReason": "B9 shared binding through existing install_skill_context"
+        },
+        {
+          "installedPath": ".claude/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".claude/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": ".zcode/agents/review-sidecar.md",
+          "beforeSHA256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+          "afterSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+          "approvedSource": ".agents/roles/review-sidecar.md",
+          "derivedReason": "B9 canonical role, normal agent copy"
+        },
+        {
+          "installedPath": ".zcode/skills/pipeline/helpers/autonomy-binding.test.mjs",
+          "beforeSHA256": "79ed3219cdfde6bcb50a5b48ab445cab776d408f23316eb99b300367824541a4",
+          "afterSHA256": "aa77c4d048d5d7738ffb1a1b1c9c892de3e99fe0e76037de96c083b925403d52",
+          "approvedSource": ".agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+          "derivedReason": "Approved B2 stale installed-source closure"
+        },
+        {
+          "installedPath": "scripts/run-rule-tests-firing.sh",
+          "beforeSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+          "afterSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+          "approvedSource": "packages/core/synthesizer/run-rule-tests-firing.sh",
+          "derivedReason": "Controller explicitly approved existing B5 immutable99faad8d installed-hash closure"
+        }
+      ]
+    }
+  ],
+  "limits": "Transforms use normal installer; no manual hash edits, source repair, excluded paths, or version/environment changes accepted.",
+  "compareEvidence": "evidence/b9-host-7.txt"
+}

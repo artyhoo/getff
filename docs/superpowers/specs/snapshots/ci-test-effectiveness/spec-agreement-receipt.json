@@ -1,0 +1,17 @@
+{
+  "featureId": "ci-test-effectiveness",
+  "decision": "agreed",
+  "operatorEvidence": "пиши кикоф и го",
+  "context": "Direct reply to the request to agree the linked specification and proceed to writing the kickoff.",
+  "date": "2026-11-08",
+  "specRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a.md",
+    "sha256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a"
+  },
+  "parentPrdSha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4",
+  "expectedRevision": 2,
+  "agreementRecordRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/spec-agreement-2026-11-08.json",
+    "sha256": "c4b526f12f3b05f9207846b9f714c88048f9ef45a12774ed02aeba999ace2c08"
+  }
+}

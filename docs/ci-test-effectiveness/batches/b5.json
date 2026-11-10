@@ -1,0 +1,221 @@
+{
+  "id": "B5",
+  "decisionIds": [
+    "D09"
+  ],
+  "status": "IMPLEMENTED-VERIFIED-LOCAL; independent review and hosted actual-tool execution pending",
+  "inputCommit": "960e980e9a60cc5196976339eb1d3754184c8b7b",
+  "integrationInput": "origin/staging 5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d unchanged; TAK2144 no overlap and no accepted runtime per dispatch",
+  "authority": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2e.md",
+  "specSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+  "decisionPrecedesRepair": "D09 in decisions-s2.jsonl at inputCommit, unchanged",
+  "files": [
+    "packages/core/synthesizer/run-rule-tests-firing.sh",
+    "packages/core/synthesizer/run-rule-tests-firing.test.sh",
+    "packages/core/hooks/pre-push.consumer-layout.test.ts",
+    "packages/getff/MANIFEST.sha256",
+    "docs/ci-test-effectiveness/batches/b5.json",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl",
+    "docs/ci-test-effectiveness/evidence/b5-build.txt",
+    "docs/ci-test-effectiveness/evidence/b5-environment.json",
+    "docs/ci-test-effectiveness/evidence/b5-final-corpus-preimage.txt",
+    "docs/ci-test-effectiveness/evidence/b5-green.txt",
+    "docs/ci-test-effectiveness/evidence/b5-held-identity-removed.txt",
+    "docs/ci-test-effectiveness/evidence/b5-held-run.txt",
+    "docs/ci-test-effectiveness/evidence/b5-held-scan-help-removed.txt",
+    "docs/ci-test-effectiveness/evidence/b5-held-version-status-ignored.txt",
+    "docs/ci-test-effectiveness/evidence/b5-held.json",
+    "docs/ci-test-effectiveness/evidence/b5-held.py",
+    "docs/ci-test-effectiveness/evidence/b5-host-verify.txt",
+    "docs/ci-test-effectiveness/evidence/b5-no-loss.json",
+    "docs/ci-test-effectiveness/evidence/b5-original-corpus.txt",
+    "docs/ci-test-effectiveness/evidence/b5-red.txt",
+    "docs/ci-test-effectiveness/evidence/b5-restored.txt"
+  ],
+  "outputCommit": "Controller records final immutable commit; source hashes bind output without self-reference",
+  "outputSourceIdentities": {
+    "packages/core/synthesizer/run-rule-tests-firing.sh": {
+      "sha256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+      "bytes": 25692
+    },
+    "packages/core/synthesizer/run-rule-tests-firing.test.sh": {
+      "sha256": "ef79d4d83c7bbe6c6dee44418c524915549c2165ac39f104f6acadc1301a2559",
+      "bytes": 28722
+    },
+    "packages/core/hooks/pre-push.consumer-layout.test.ts": {
+      "sha256": "75d4b0dc9430b90caff9ce7e3408d93beadd91f98c7f2682451bff5e5429c5ba",
+      "bytes": 100517
+    },
+    "packages/getff/MANIFEST.sha256": {
+      "sha256": "7280aff9783fc5bdcf6b911bace278400f9ebdfefaf9e39b0ee881a29aa082c5",
+      "bytes": 197627
+    }
+  },
+  "dispatchReport": ".superpowers/sdd/ci-test-effectiveness/task-6-report.md (ignored local handoff)",
+  "commands": [
+    {
+      "command": "bash scripts/host-verify.sh --list .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2e.md",
+      "exit": 0,
+      "outcome": "4 expected commands enumerated"
+    },
+    {
+      "command": "bash packages/core/synthesizer/run-rule-tests-firing.test.sh (test-first before production repair)",
+      "exit": 1,
+      "rawRef": "evidence/b5-red.txt",
+      "outcome": "60pass5fail; wrong alias help0 causes actual scan and false invalid-artifact rejection"
+    },
+    {
+      "command": "bash packages/core/synthesizer/run-rule-tests-firing.test.sh (first green, before2 probe companions)",
+      "exit": 0,
+      "rawRef": "evidence/b5-green.txt",
+      "outcome": "69pass0fail"
+    },
+    {
+      "command": "PATH=/workspace/getff-tools/bin:$PATH bash scripts/build-getff-dist.sh",
+      "exit": 0,
+      "rawRef": "evidence/b5-build.txt",
+      "outcome": "normal1667-entry manifest generator"
+    },
+    {
+      "command": "PATH=/workspace/getff-tools/bin:$PATH bash scripts/host-verify.sh .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2e.md",
+      "exit": 0,
+      "rawRef": "evidence/b5-host-verify.txt",
+      "outcome": "4/4pass; shell75; S5 11pass51skipped(49filtered+2real-ast-grep-absent); package parity1672archive/1667manifest"
+    },
+    {
+      "command": "python3 docs/ci-test-effectiveness/evidence/b5-held.py > docs/ci-test-effectiveness/evidence/b5-held-run.txt 2>&1",
+      "exit": 0,
+      "rawRef": "evidence/b5-held.json",
+      "outcome": "preimage and3 held probe faults caught; frozen corpus; default restoration75pass"
+    },
+    {
+      "command": "native tools/version probes; actual Bash runner sound consumer fixture; original preimage runner+harness comparison",
+      "exit": 0,
+      "rawRef": "evidence/b5-environment.json",
+      "outcome": "sg help0/versionutil-linux2.41.5; ast-grep absent; real wrong sg now explicit DEGRADED0; original42pass"
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0,
+      "outcome": "no whitespace errors"
+    }
+  ],
+  "tdd": {
+    "red": "b5-red.txt captured before production edit; final corpus-preimage receipt also RED8",
+    "green": "b5-host-verify.txt and b5-restored.txt75pass",
+    "held": "b5-held.json3 reached defects, statuses1 and5/3/3 assertion failures; original tracked source/corpus unchanged; restored75pass"
+  },
+  "retainedProtection": {
+    "inputCommit": "960e980e9a60cc5196976339eb1d3754184c8b7b",
+    "unchangedAstgrepDiagnosticAndOtherLaneTailSHA256": "02ec829f3cd07bc4ec84accf8d9f6e23ad511e6bb2902d0a90c41409ef4cb0b2",
+    "s5OutsideAvailabilityBlock": "byte-identical to input",
+    "originalHarnessAssertionsRetained": 42,
+    "originalHarnessSummary": "42 pass,0 fail; all original recorded diagnostics and expected semantic outcomes unchanged",
+    "manifest": {
+      "sameEntries": 1667,
+      "changedEntries": [
+        "packages/core/hooks/pre-push.consumer-layout.test.ts",
+        "packages/core/synthesizer/run-rule-tests-firing.sh",
+        "packages/core/synthesizer/run-rule-tests-firing.test.sh"
+      ],
+      "generator": "PATH=/workspace/getff-tools/bin:$PATH bash scripts/build-getff-dist.sh",
+      "check": "host contract archive parity1672 entries / manifest1667"
+    },
+    "fixtureChange": "sg transport answers --version ast-grep0.44.1 and scan --help0 without consuming diagnostic shots. Canonical/ruff/cargo shims retain prior semantics; no expectations weakened.",
+    "unchangedCI": "principles-meta-tests hard installs @ast-grep/cli@0.44.1 at step5 before test:hooks at17; workflow byte-identical",
+    "actualBoundary": "Actual Bash runner receives isolated consumer tree, uses fixed recorded JSON or incompatible sg stdout/status; no duplicate runner/predicate used by expected results."
+  },
+  "cost": {
+    "recurring": "9 additional actual runner invocations/33 assertions on existing recurring harness; one extra version probe on legitimate fallback; canonical unchanged; unrelated sg replaces old help probe with version. S5 follows same lazy fallback.",
+    "observations": "Original42 assertions5.1271s; final75 assertions7.8934s (single native samples, not matched statistical speedup). S5 focused15.50s, 11pass2realtoolskips49filtered.",
+    "oneShot": "Held5 subprocesses41.2507s plus baseline5.1271s/native0.0994s and recorded RED/GREEN/host verification; no full hooks.",
+    "claim": "Identity correctness repair with added bounded regression cost; no speedup/net-hosted-cost claim"
+  },
+  "selfReview": {
+    "domainTrap": "T-B5-A: help0 and nonJSON scan are a wrong executable, not evidence of broken rule material; test exact classification and wrong-tool non-invocation.",
+    "activeTraps": [
+      "T3",
+      "T7",
+      "T10",
+      "T14",
+      "T15",
+      "T18",
+      "T19",
+      "T20",
+      "T22"
+    ],
+    "categoryChallenge": "Enumerated canonical, absent, util-linux-like nonAST help0, valid alias sound/blind/overfire/invalid, failed version and help. Canonical/ruff/cargo and original42 assertions retained. Unknown future identity formats, malicious spoofing and joint oracle/subject edits can evade bounded evidence; no universal claim.",
+    "sevenCriteria": "B5-D09/B5-recurring-controls/B5-held-conformance appended to inventory-s2.jsonl; earlier prefix unchanged",
+    "formatting": "Full-file Prettier check reports pre-existing unrelated formatting; exploratory write reverted outside exact S5 availability block. No unrelated formatting retained. Existing build emits npm gitignore-fallback warning.",
+    "independentAcceptance": "Root review after normal-hook commit; source reads/tests here are implementer evidence, not independent acceptance"
+  },
+  "limits": [
+    "Actual ast-grep absent locally; controlled fixtures transport recorded diagnostics, not real parser execution. Hosted principles exactpin retained; actual hosted-after pending.",
+    "Full hooks not run by task instruction: separate glossary unmatched-load budget issue remains open; hydration rsync provisioning unchanged and not rerun.",
+    "No TAK runtime assumed; broader RC2 principle/review/TAK integration and campaign E9 remain pending.",
+    "No dependency/config/global changes, no new CLI, nested agents or push."
+  ],
+  "rollback": "Revert B5 source/test+derived-manifest commit via normal Git flow; retain evidence and append rollback disposition.",
+  "evidenceHashes": {
+    "docs/ci-test-effectiveness/evidence/b5-build.txt": {
+      "sha256": "91d291c6740a908c335580d7c8f04c158de3142bbc975d6493b8c50e16528248",
+      "bytes": 83
+    },
+    "docs/ci-test-effectiveness/evidence/b5-environment.json": {
+      "sha256": "9f61d1317306316538a6fdc765f828e4ad0e4b75f4f46c4d54685d8c15256e2a",
+      "bytes": 6840
+    },
+    "docs/ci-test-effectiveness/evidence/b5-final-corpus-preimage.txt": {
+      "sha256": "0b83c69dc4aa0dd9eb97ae007378e6a907252f73aca006b59b215d26e1d9f76b",
+      "bytes": 5300
+    },
+    "docs/ci-test-effectiveness/evidence/b5-green.txt": {
+      "sha256": "19dd32b420775d12b52d56f9e9e823c034242b47f25bc8cb26271026217a7b88",
+      "bytes": 4153
+    },
+    "docs/ci-test-effectiveness/evidence/b5-held-identity-removed.txt": {
+      "sha256": "dd35d482a9f893a1ad296ed965cc744035e65c6ea0596703da5906f974c3a942",
+      "bytes": 5045
+    },
+    "docs/ci-test-effectiveness/evidence/b5-held-run.txt": {
+      "sha256": "8a5f8c7e3448fab0ae7f062d93b42eea53690485be41de7a20e59993c17f5d61",
+      "bytes": 3839
+    },
+    "docs/ci-test-effectiveness/evidence/b5-held-scan-help-removed.txt": {
+      "sha256": "6eeb3ff15b6850f043d9c173b6a30d7391e98f5f97ce008bdd4553b2e95acfc2",
+      "bytes": 4816
+    },
+    "docs/ci-test-effectiveness/evidence/b5-held-version-status-ignored.txt": {
+      "sha256": "b2d64329ec98d21cbe043d98bde9ef6c611214201e6c96be1fb47f0d15fa1cef",
+      "bytes": 4816
+    },
+    "docs/ci-test-effectiveness/evidence/b5-held.json": {
+      "sha256": "8a5f8c7e3448fab0ae7f062d93b42eea53690485be41de7a20e59993c17f5d61",
+      "bytes": 3839
+    },
+    "docs/ci-test-effectiveness/evidence/b5-held.py": {
+      "sha256": "fb7a72b3faf02f35ccd49b3194878ea2820fb16ff841c46ad92b24df57f685c7",
+      "bytes": 3744
+    },
+    "docs/ci-test-effectiveness/evidence/b5-host-verify.txt": {
+      "sha256": "95e562c9e67d161db227d57a70fe8d0aa70154f03af77f34106aab35927063f0",
+      "bytes": 13970
+    },
+    "docs/ci-test-effectiveness/evidence/b5-no-loss.json": {
+      "sha256": "05b5df1040f79487fae4cd8dc00a033b3e4fcb935f6a7a1070e39a3a30f8ab9a",
+      "bytes": 1357
+    },
+    "docs/ci-test-effectiveness/evidence/b5-original-corpus.txt": {
+      "sha256": "6d41a74e3defe239451f37b6396b0f30b68459d66017d5d61b50ac3622524ede",
+      "bytes": 2895
+    },
+    "docs/ci-test-effectiveness/evidence/b5-red.txt": {
+      "sha256": "7554615ee75cd26f5649a4b8665ea3ac57c38177fc3ce42aa4c33bb2cfb7b0fe",
+      "bytes": 4482
+    },
+    "docs/ci-test-effectiveness/evidence/b5-restored.txt": {
+      "sha256": "98410d253c1c9169635e9981ecc3bedceca95b9c9e01b680226adfe0812d96bd",
+      "bytes": 4561
+    }
+  }
+}

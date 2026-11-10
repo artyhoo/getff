@@ -1,0 +1,19 @@
+{
+  "phase": "husky-first-hook-shape",
+  "command": [
+    "/workspace/getff-native/node_modules/.bin/vitest",
+    "run",
+    "--root",
+    "/tmp/b3-held-k_edrwq9",
+    "--reporter=default",
+    "packages/core/hooks/ci-checker-oracles.test.ts"
+  ],
+  "exit": 0,
+  "seconds": 1.6777883439990546,
+  "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+  "faultSourceSHA256": "0df4dd8cc4766a01031dacb4cb1f54b8cfb0ac7fd05d60a3e2274ca6ef72b06e",
+  "reachedMarker": "B3_REACHED_FIRST_HOOK_SHAPE_BYPASS",
+  "markerObserved": true,
+  "firstHookTrace": "B3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\n",
+  "heldManualSHA256": "e4c0b972054d2b7d31b2db50bf1517da6eefc9731ce7aa2397312981cc39fc4f"
+}

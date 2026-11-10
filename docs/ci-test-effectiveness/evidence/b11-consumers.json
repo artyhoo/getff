@@ -1,0 +1,21 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "packages/core",
+    "run",
+    "test",
+    "--",
+    "hooks/checks/pr-body-fidelity-bin.test.ts",
+    "principles/37-required-context-completeness.test.ts",
+    "principles/38-vitest-include-ci-coverage.test.ts",
+    "principles/41-shell-test-ci-coverage.test.ts"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 24.490362,
+  "log": "docs/ci-test-effectiveness/evidence/b11-consumers.txt",
+  "rawLog": "docs/ci-test-effectiveness/evidence/b11-consumers.txt.gz",
+  "rawLogSHA256": "3bf3846917e756b128920dc1d8f659c3adb9efb336be23c01e94cc3482c92a24",
+  "displayLogSHA256": "949b71d8d4d4790122340fe61b0fea01ac292d95e8aedc0ae902f9828cd88769",
+  "displayNote": "Only excess terminal newlines trimmed for git whitespace; exact raw output preserved in deterministic gzip."
+}

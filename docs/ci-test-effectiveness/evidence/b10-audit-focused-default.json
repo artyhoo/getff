@@ -1,0 +1,8 @@
+{
+  "command": "npx vitest run principles/20-bundle-classification.test.ts principles/20-bundle-classification.paired-negative.test.ts",
+  "cwd": "/workspace/getff-native/packages/core",
+  "exitCode": 0,
+  "wallSeconds": 31.872,
+  "envOverride": "MO_SKILLS_DIR/MO_AGENTS_DIR/MO_SKILLS_GLOBAL unset",
+  "log": "/workspace/scratch/p20-diagnosis-focused-default.log"
+}

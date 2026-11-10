@@ -1,0 +1,45 @@
+[
+  {
+    "command": [
+      "bash",
+      "-n",
+      "scripts/run-local-ci-sweep.sh",
+      "scripts/run-local-ci-sweep.test.sh"
+    ],
+    "exitStatus": 0,
+    "stdout": "",
+    "stderr": "",
+    "elapsedSeconds": 0.01300477099903219
+  },
+  {
+    "command": [
+      "bash",
+      "-c",
+      "actionlint .github/workflows/*.yml"
+    ],
+    "exitStatus": 0,
+    "stdout": "",
+    "stderr": "",
+    "elapsedSeconds": 0.07456372500018915
+  },
+  {
+    "command": [
+      "actionlint",
+      "--version"
+    ],
+    "exitStatus": 0,
+    "stdout": "1.7.7\ninstalled by downloading from release page\nbuilt with go1.23.4 compiler for linux/amd64\n",
+    "stderr": "",
+    "elapsedSeconds": 0.005394990999775473
+  },
+  {
+    "command": [
+      "uname",
+      "-a"
+    ],
+    "exitStatus": 0,
+    "stdout": "Linux fe503b716067 6.18.57 #1 SMP Tue Oct 20 21:56:04 UTC 2026 x86_64 GNU/Linux\n",
+    "stderr": "",
+    "elapsedSeconds": 0.0017700389998935862
+  }
+]

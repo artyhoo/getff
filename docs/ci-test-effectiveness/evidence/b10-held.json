@@ -1,0 +1,47 @@
+{
+  "fixedExpectedCarrierExit": 1,
+  "rows": [
+    {
+      "name": "catalog-wiring-dropped",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/20-bundle-classification.test.ts"
+      ],
+      "carrierExit": 1,
+      "declaredExpectedCarrierExit": 1,
+      "fixedHeldExpectedCarrierExit": 1,
+      "fixedHeldCheckExit": 0,
+      "wallSeconds": 12.65,
+      "log": "/workspace/scratch/b10-held-catalog-wiring-dropped.txt"
+    },
+    {
+      "name": "guards-omitted",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/20-bundle-classification.test.ts"
+      ],
+      "carrierExit": 0,
+      "declaredExpectedCarrierExit": 0,
+      "fixedHeldExpectedCarrierExit": 1,
+      "fixedHeldCheckExit": 1,
+      "wallSeconds": 9.457,
+      "log": "/workspace/scratch/b10-held-guards-omitted.txt"
+    }
+  ],
+  "restoration": {
+    "packages/core/principles/20-bundle-classification.ts": "0484882288c58cbd7f2d412826c601302d98d084025717a3df681ab8129bfdf9",
+    "packages/core/principles/20-bundle-classification.test.ts": "62a874fc61e5681e85f3d2d675f9c77be0f463def2f6318145af0a1b17de3d77"
+  },
+  "frozenExpectationsSha256": "5198aa0ad28a8c7f7e889b576141f349700bb47236be5463eeb288b265396f01",
+  "sourceAndOracleRestored": true
+}

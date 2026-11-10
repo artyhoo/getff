@@ -1,0 +1,12 @@
+{
+  "os": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "node": "v24.19.0",
+  "npm": "11.9.0",
+  "actionlint": "1.7.7\ninstalled by downloading from release page\nbuilt with go1.23.4 compiler for linux/amd64",
+  "python": "3.12.14",
+  "yaml": "6.0.3",
+  "vitest": "4.1.8",
+  "destination": "Ubuntu latest, Node22 preserved; native checks are Linux Node24.19.0 and do not establish hosted Node22 after behavior",
+  "dependencies": "Existing linked workspace/core dependencies; no installs/global configuration writes",
+  "quarantine": "No local installer matrix or parallel installer execution; existing wiring test uses temporary workflow fixture only"
+}

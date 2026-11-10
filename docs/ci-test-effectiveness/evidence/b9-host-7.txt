@@ -1,0 +1,17 @@
+▶ Snapshot harness: SNAPSHOT_MODE=compare
+  ✓ PASS: ts-server/greenfield — byte-identical
+  ✓ PASS: ts-server/brownfield — byte-identical
+  ✓ PASS: react-next/greenfield — byte-identical
+  ✓ PASS: react-next/brownfield — byte-identical
+  ✓ PASS: react-spa/greenfield — byte-identical
+  ✓ PASS: react-spa/brownfield — byte-identical
+  ✓ PASS: react-native/greenfield — byte-identical
+  ✓ PASS: react-native/brownfield — byte-identical
+  ✓ PASS: python/greenfield — byte-identical
+  ✓ PASS: python/brownfield-ruff — byte-identical
+  ✓ PASS: python/brownfield-sgconfig — byte-identical
+  ✓ PASS: cargo/greenfield — byte-identical
+  ✓ PASS: cargo/brownfield-clippy — byte-identical
+  ✓ PASS: go/greenfield — byte-identical
+  ✓ PASS: go/brownfield-golangci — byte-identical
+Result: 15 pass / 0 fail

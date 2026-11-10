@@ -1,0 +1,11 @@
+{
+  "command": [
+    "node",
+    "scripts/render-harness-config.mjs",
+    "--check"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 0.336,
+  "log": "/workspace/scratch/b10-harness.txt"
+}

@@ -1,0 +1,113 @@
+{
+  "fixRound": 1,
+  "reviewedHead": "6e429b0966837541693eb743e54a3402d8695d8c",
+  "status": "DONE_WITH_CONCERNS_PENDING_SCOPED_REVIEW",
+  "addressed": [
+    "I1",
+    "M1"
+  ],
+  "cause": "valid() used caller-global hook, leaving outer subject pre-push; old six adverse calls duplicated pre-push and omitted pre-commit nonexec/stub.",
+  "repair": "valid() owns local fixture_hook; manual prints already-matched actual checker output; core wrapper requires six independently literal hook/shape diagnostic paths.",
+  "RED": {
+    "command": "python3 docs/ci-test-effectiveness/evidence/b3-conformance.py --first-hook-only",
+    "driverExit": 1,
+    "childCoreExit": 0,
+    "heldCoreSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "markerReached": true,
+    "evidence": [
+      "evidence/b3-fix-1-red.txt",
+      "evidence/b3-fix-1-red.json"
+    ]
+  },
+  "additionalRecurringRED": {
+    "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/ci-checker-oracles.test.ts",
+    "exit": 1,
+    "meaning": "exact reviewed manual emitted no actual diagnostics; held six-path expectation fails,1failed/16passed",
+    "evidence": "evidence/b3-fix-1-path-controls-red.txt"
+  },
+  "sameOracleCausalProof": "b3-fix-1-intermediate-held.json retains corrected manual catching narrowed fault with original core94c before recurring assertions were strengthened. No changed expectations manufactured the original fault detection.",
+  "commands": [
+    {
+      "command": "bash tests/hooks/test-enforce-husky-presence.sh",
+      "exit": 0,
+      "controls": 9,
+      "evidence": [
+        "evidence/b3-fix-1-manual.txt",
+        "evidence/b3-fix-1-manual.json"
+      ]
+    },
+    {
+      "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/ci-checker-oracles.test.ts",
+      "exit": 0,
+      "cases": 17,
+      "evidence": "evidence/b3-fix-1-core.txt"
+    },
+    {
+      "command": "python3 docs/ci-test-effectiveness/evidence/b3-conformance.py",
+      "exit": 0,
+      "meaning": "six reached child faults exit1; restoration0; exact final core+manual hashes held",
+      "evidence": [
+        "evidence/b3-held.json",
+        "evidence/b3-fix-1-held-run.txt"
+      ]
+    },
+    {
+      "command": "bash -n tests/hooks/test-enforce-husky-presence.sh scripts/check-husky-presence.sh scripts/check-discipline-pr-body.sh",
+      "exit": 0,
+      "evidence": "evidence/b3-fix-1-syntax.txt"
+    },
+    {
+      "command": "bash scripts/build-getff-dist.sh",
+      "exit": 0,
+      "evidence": "evidence/b3-fix-1-dist-regeneration.txt"
+    },
+    {
+      "command": "bash scripts/build-getff-dist.sh --check",
+      "exit": 0,
+      "evidence": "evidence/b3-fix-1-dist-check.txt"
+    }
+  ],
+  "criteria": {
+    "relevance": "I1 demonstrates shared fixture state can silently change the subject of a passing oracle. Six fixed identities and a first-hook-only fault directly cover that hole. M1 restores truthful delivery count.",
+    "effectiveness": "Reviewed corpus false-greens with first-hook shape checks bypassed (child0, reached trace). Local variable repair catches same fault under original core94c; final strengthened corpus9ca requires six actual diagnostics and catches all6 held faults, restoration0.",
+    "theatre": "Manual asserts actual checker statuses+diagnostics; core requires six literal diagnostic path/shape expectations. First-hook-only fault must fail non-executable pre-commit expected1/got0, not any arbitrary exception.",
+    "tautology": "Case identity expectations are literal and independent of helper loop state/production regex. Original false-green and intermediate corrected-manual proofs share exact core94c. Final core9ca bytes held across faults/restoration.",
+    "duplication": "Extend existing core wrapper and one-shot conformance collector; no registry, parser, dependency or recurring CI job.",
+    "costEffectiveness": "17 core cases,9 manual calls retained; six cheap regex expectations and diagnostic printing only. One final core sample613ms tests/1.28s Vitest; final held7 subprocesses11.660s. Historical16 timings remain untouched, no hosted saving claim.",
+    "sufficiency": "Six distinct actual hook/path diagnostics plus narrowed first-hook fault and restoration establish bounded structural coverage. Marker semantics, all source+oracle co-edits, other hosts and full campaign suite remain outside this fix."
+  },
+  "actualSixDiagnostics": [
+    "::error::missing /tmp/tmp.CUOErV5bm5/missing-pre-commit/pre-commit",
+    "::error::/tmp/tmp.CUOErV5bm5/nonexec-pre-commit/pre-commit not executable",
+    "::error::/tmp/tmp.CUOErV5bm5/stub-pre-commit/pre-commit lacks expected probes (looks empty/stub)",
+    "::error::missing /tmp/tmp.CUOErV5bm5/missing-pre-push/pre-push",
+    "::error::/tmp/tmp.CUOErV5bm5/nonexec-pre-push/pre-push not executable",
+    "::error::/tmp/tmp.CUOErV5bm5/stub-pre-push/pre-push lacks expected probes (looks empty/stub)"
+  ],
+  "finalCoreSHA256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
+  "finalManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4",
+  "checkerUnchanged": true,
+  "hooksUnchanged": true,
+  "M1": "Current B3-ci-oracles.delivery16→17 only; historical16 timing/verification receipts retained. I1 assessment/evidence fields refreshed in three affected B3 records; all other inventory records unchanged.",
+  "distribution": "Normal generator changes exactly one existing core test hash.1667 manifest members/1672 archive members including5metadata, exact source parity.",
+  "limits": [
+    "No full hook suite, baseline, hydration or other-host rerun in this fix. Original full-suite RED remains explicit campaign limit.",
+    "Controller later reports unchanged hydration5/5PASS after real rsync provisioning, with matching four dependency hashes; this is attributed external environment evidence, not B3 fix validation or a fixture ownership diagnosis.",
+    "Checker remains structural presence/executable/marker claim; hook runtime execution, arbitrary source+oracle co-edits and campaign/TAK completion not certified."
+  ],
+  "outputHashes": {
+    "tests/hooks/test-enforce-husky-presence.sh": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4",
+    "packages/core/hooks/ci-checker-oracles.test.ts": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
+    "docs/ci-test-effectiveness/evidence/b3-conformance.py": "84d61e44ac473c709c0b13ea93e839d3749770b1d63f03f6af56dba74885a76d",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl": "a1ebd1cddfc506e312bc7c8f5923736886f1d5c4ad5c5369200bc4fe178f2cd7",
+    "packages/getff/MANIFEST.sha256": "3eca2e9f94a71c5b4879875a028d487d683732dd62c991382f3560b13170ac0d"
+  },
+  "inputHashes": {
+    "tests/hooks/test-enforce-husky-presence.sh": "e4c0b972054d2b7d31b2db50bf1517da6eefc9731ce7aa2397312981cc39fc4f",
+    "packages/core/hooks/ci-checker-oracles.test.ts": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "docs/ci-test-effectiveness/evidence/b3-conformance.py": "fd30d11fba504b1f4bf52ff77d046d898371d19a65076207877841a2d94ad539",
+    "docs/ci-test-effectiveness/inventory-s2.jsonl": "07e039e4baadf3477e73690c3d7b2384636b20300b1e639e7ccc62490a19c33b",
+    "packages/getff/MANIFEST.sha256": "3adee5916ca7b9b251fe8a37c264525e33d2974843d89ad960ada5f49f25ab56"
+  },
+  "commit": "controller records fix commit; no self-referential hash"
+}

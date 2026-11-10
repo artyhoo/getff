@@ -1,0 +1,11 @@
+▶ A1 rework regression arms (CODE-02..06 + HOST-01)
+  ﹣ HOST-01 real: on a real non-Linux host the CLI init exits 2 unsupported_pending_prerequisite with no record (3.30719ms) # Skipped — NOT passed on this host (linux): this arm verifies the REAL non-Linux fail-closed hold through the real CLI/engine, which a Linux host cannot exercise. On Linux the same fixtures are proven valid by the Linux-functional arms, so a non-Linux hold is attributable to the platform gate alone.
+✔ A1 rework regression arms (CODE-02..06 + HOST-01) (5.349422ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 0
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 397.188408

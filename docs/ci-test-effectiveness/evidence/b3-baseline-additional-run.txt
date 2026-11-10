@@ -1,0 +1,130 @@
+
+ RUN  v4.1.8 /tmp/b3-baseline-i5gohtvi
+
+ ✓ packages/core/hooks/glossary-counters.test.ts (31 tests | 30 skipped) 3506ms
+     ✓ control: the same 10 prompts run SEQUENTIALLY also count 10  3503ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 30 skipped (31)
+   Start at  16:36:08
+   Duration  4.03s (transform 100ms, setup 37ms, import 100ms, tests 3.51s, environment 0ms)
+
+
+
+ RUN  v4.1.8 /tmp/b3-baseline-i5gohtvi
+
+ ❯ packages/core/hooks/worktree-setup-hydration.test.ts (5 tests | 3 failed | 2 skipped) 500ms
+     × POSITIVE: state.md present AS A SYMLINK in worktree after creation 226ms
+     ↓ PAIRED-NEGATIVE: without link-coordination.sh call, state.md is ABSENT (T-coord-sync)
+     × POSITIVE: state.md present AS A SYMLINK in worktree after script run 140ms
+     ↓ PAIRED-NEGATIVE (script): without link-coordination.sh call, state.md absent (T-coord-sync)
+     × DUAL-PAIR PARITY: hook and script both produce symlinks (when jq available) 130ms
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 2 skipped (5)
+   Start at  16:36:14
+   Duration  941ms (transform 67ms, setup 46ms, import 72ms, tests 500ms, environment 0ms)
+
+bash: /tmp/j5-hyd-test-HhVzhD/scripts/worktree-node-modules.sh: No such file or directory
+bash: /tmp/j5-hyd-test-DGVDd5/scripts/worktree-node-modules.sh: No such file or directory
+bash: /tmp/j5-hyd-test-l6KPX1/scripts/worktree-node-modules.sh: No such file or directory
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/worktree-setup-hydration.test.ts > worktree-setup.sh — coordination-sync via link-coordination.sh (hook) > POSITIVE: state.md present AS A SYMLINK in worktree after creation
+AssertionError: state.md must exist: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ packages/core/hooks/worktree-setup-hydration.test.ts:204:60
+    202|       const wt = `${repo}/.claude/worktrees/hyd-pos`;
+    203|       const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrell…
+    204|       expect(existsSync(statePath), 'state.md must exist').toBe(true);
+       |                                                            ^
+    205|       // With symlink-to-canonical, state.md is a symlink (adopted fro…
+    206|       expect(lstatSync(statePath).isSymbolicLink(), 'state.md must be …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  packages/core/hooks/worktree-setup-hydration.test.ts > create-worktree.sh — coordination-sync via link-coordination.sh (portable script) > POSITIVE: state.md present AS A SYMLINK in worktree after script run
+AssertionError: state.md must exist: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ packages/core/hooks/worktree-setup-hydration.test.ts:266:60
+    264|       const wt = `${repo}/.claude/worktrees/hyd-script-pos`;
+    265|       const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrell…
+    266|       expect(existsSync(statePath), 'state.md must exist').toBe(true);
+       |                                                            ^
+    267|       expect(lstatSync(statePath).isSymbolicLink(), 'state.md must be …
+    268|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  packages/core/hooks/worktree-setup-hydration.test.ts > create-worktree.sh — coordination-sync via link-coordination.sh (portable script) > DUAL-PAIR PARITY: hook and script both produce symlinks (when jq available)
+AssertionError: state.md must exist: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ packages/core/hooks/worktree-setup-hydration.test.ts:304:60
+    302|       const wt = `${repo}/.claude/worktrees/hyd-parity`;
+    303|       const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrell…
+    304|       expect(existsSync(statePath), 'state.md must exist').toBe(true);
+       |                                                            ^
+    305|       expect(lstatSync(statePath).isSymbolicLink(), 'state.md must be …
+    306|       const content = readFileSync(statePath, 'utf8');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+{
+  "base": "9baa971338598082e4b261703cde1d1a2989b094",
+  "sourceClosure": "entire git archive of B3 input; unchanged real source, bundle and all fixture/import files; provisioned node_modules linked read-only by usage (no install)",
+  "archiveSHA256": "d9375a51c1fbc7b75644609b6f2937ab43e0544b5f8ea906338c1b1b9ac747ca",
+  "results": [
+    {
+      "name": "glossary",
+      "command": [
+        "/workspace/getff-native/node_modules/.bin/vitest",
+        "run",
+        "--root",
+        "/tmp/b3-baseline-i5gohtvi",
+        "--reporter=default",
+        "packages/core/hooks/glossary-counters.test.ts",
+        "-t",
+        "control: the same 10 prompts run SEQUENTIALLY also count 10"
+      ],
+      "exit": 0,
+      "seconds": 6.304126283999722,
+      "output": "evidence/b3-baseline-glossary.txt"
+    },
+    {
+      "name": "hydration",
+      "command": [
+        "/workspace/getff-native/node_modules/.bin/vitest",
+        "run",
+        "--root",
+        "/tmp/b3-baseline-i5gohtvi",
+        "--reporter=default",
+        "packages/core/hooks/worktree-setup-hydration.test.ts",
+        "-t",
+        "POSITIVE: state.md present AS A SYMLINK|DUAL-PAIR PARITY"
+      ],
+      "exit": 1,
+      "seconds": 2.461912144000962,
+      "output": "evidence/b3-baseline-hydration.txt"
+    }
+  ]
+}

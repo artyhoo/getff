@@ -1,0 +1,154 @@
+{
+  "base": "4ad4540fee94c23e063b1982a2511baeb2a58d23",
+  "before": {
+    "packages/core/hooks/checks/pr-body-fidelity.ts": "d4c00552b5a42823897f7c05f0a6910e4544f5e3f3d9720793cdf141c5d80339",
+    "packages/core/hooks/checks/pr-body-fidelity-bin.ts": "f94b307dd8ebfd60803e215afcf873b36285b2b03325a5a655b81be396807ca1",
+    ".github/workflows/pr-body-fidelity.yml": "2e5447536a6c9746906d54782c761600bade17e98776de4cd89d37c0b46c7e5b"
+  },
+  "expectations": {
+    "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts": "d5d2ec81ba3be660962013241e6b379ace7ea84ba759134b850a70574e425914"
+  },
+  "runs": [
+    {
+      "name": "causal-preimages",
+      "command": [
+        "npx",
+        "--prefix",
+        "packages/core",
+        "vitest",
+        "run",
+        "--reporter=verbose",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts"
+      ],
+      "status": 1,
+      "expected": 1,
+      "seconds": 22.696,
+      "log": "docs/ci-test-effectiveness/evidence/b9-held-final-causal-preimages.txt",
+      "subjectHashes": {
+        "packages/core/hooks/checks/pr-body-fidelity.ts": "36f4e0008871a0fe00fb0130b3f5e3e1fcfc9ef98a1da00bce4af6828ef0627f",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.ts": "70629451b86cb9594b5f55ee15a377c6a9ee800b6b868f68dcb3257ae02a8ff7",
+        ".github/workflows/pr-body-fidelity.yml": "fe9aaee9ff6c66fffebbaa311eabc9c72f6555c1b2cb0174c4c3c91804e66632"
+      }
+    },
+    {
+      "name": "trigger-disabled",
+      "command": [
+        "npx",
+        "--prefix",
+        "packages/core",
+        "vitest",
+        "run",
+        "--reporter=verbose",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+        "-t",
+        "requires a record|actual diff trigger"
+      ],
+      "status": 1,
+      "expected": 1,
+      "seconds": 15.827,
+      "log": "docs/ci-test-effectiveness/evidence/b9-held-final-trigger-disabled.txt",
+      "subjectHashes": {
+        "packages/core/hooks/checks/pr-body-fidelity.ts": "9500b68c224741fa5bfa221b60b260ba8a457da41acdaaef398a5cc8ae1fc95d",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.ts": "f94b307dd8ebfd60803e215afcf873b36285b2b03325a5a655b81be396807ca1",
+        ".github/workflows/pr-body-fidelity.yml": "2e5447536a6c9746906d54782c761600bade17e98776de4cd89d37c0b46c7e5b"
+      }
+    },
+    {
+      "name": "binding-disabled",
+      "command": [
+        "npx",
+        "--prefix",
+        "packages/core",
+        "vitest",
+        "run",
+        "--reporter=verbose",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+        "-t",
+        "stale base|stale full head"
+      ],
+      "status": 1,
+      "expected": 1,
+      "seconds": 11.439,
+      "log": "docs/ci-test-effectiveness/evidence/b9-held-final-binding-disabled.txt",
+      "subjectHashes": {
+        "packages/core/hooks/checks/pr-body-fidelity.ts": "3a70e029aa9bbab2d714e3089ba47ff196198beaba7bc0adf703efdb86bacd14",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.ts": "f94b307dd8ebfd60803e215afcf873b36285b2b03325a5a655b81be396807ca1",
+        ".github/workflows/pr-body-fidelity.yml": "2e5447536a6c9746906d54782c761600bade17e98776de4cd89d37c0b46c7e5b"
+      }
+    },
+    {
+      "name": "disposition-disabled",
+      "command": [
+        "npx",
+        "--prefix",
+        "packages/core",
+        "vitest",
+        "run",
+        "--reporter=verbose",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+        "-t",
+        "unresolved material|unaccepted deferral"
+      ],
+      "status": 1,
+      "expected": 1,
+      "seconds": 4.19,
+      "log": "docs/ci-test-effectiveness/evidence/b9-held-final-disposition-disabled.txt",
+      "subjectHashes": {
+        "packages/core/hooks/checks/pr-body-fidelity.ts": "726df5d19353938df93b1058d697b7a513bdb700543bba3c074d1782e87259d0",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.ts": "f94b307dd8ebfd60803e215afcf873b36285b2b03325a5a655b81be396807ca1",
+        ".github/workflows/pr-body-fidelity.yml": "2e5447536a6c9746906d54782c761600bade17e98776de4cd89d37c0b46c7e5b"
+      }
+    },
+    {
+      "name": "invocation-disabled",
+      "command": [
+        "npx",
+        "--prefix",
+        "packages/core",
+        "vitest",
+        "run",
+        "--reporter=verbose",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+        "-t",
+        "executes the actual run block"
+      ],
+      "status": 1,
+      "expected": 1,
+      "seconds": 1.78,
+      "log": "docs/ci-test-effectiveness/evidence/b9-held-final-invocation-disabled.txt",
+      "subjectHashes": {
+        "packages/core/hooks/checks/pr-body-fidelity.ts": "d4c00552b5a42823897f7c05f0a6910e4544f5e3f3d9720793cdf141c5d80339",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.ts": "f94b307dd8ebfd60803e215afcf873b36285b2b03325a5a655b81be396807ca1",
+        ".github/workflows/pr-body-fidelity.yml": "7eb61e42cde4cc1597a3673917cf9d73094482d7fa5b6cdbf4b7f45f16d8d89b"
+      }
+    },
+    {
+      "name": "restored",
+      "command": [
+        "npx",
+        "--prefix",
+        "packages/core",
+        "vitest",
+        "run",
+        "--reporter=verbose",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts"
+      ],
+      "status": 0,
+      "expected": 0,
+      "seconds": 20.819,
+      "log": "docs/ci-test-effectiveness/evidence/b9-held-final-restored.txt",
+      "subjectHashes": {
+        "packages/core/hooks/checks/pr-body-fidelity.ts": "d4c00552b5a42823897f7c05f0a6910e4544f5e3f3d9720793cdf141c5d80339",
+        "packages/core/hooks/checks/pr-body-fidelity-bin.ts": "f94b307dd8ebfd60803e215afcf873b36285b2b03325a5a655b81be396807ca1",
+        ".github/workflows/pr-body-fidelity.yml": "2e5447536a6c9746906d54782c761600bade17e98776de4cd89d37c0b46c7e5b"
+      }
+    }
+  ],
+  "after": {
+    "packages/core/hooks/checks/pr-body-fidelity.ts": "d4c00552b5a42823897f7c05f0a6910e4544f5e3f3d9720793cdf141c5d80339",
+    "packages/core/hooks/checks/pr-body-fidelity-bin.ts": "f94b307dd8ebfd60803e215afcf873b36285b2b03325a5a655b81be396807ca1",
+    ".github/workflows/pr-body-fidelity.yml": "2e5447536a6c9746906d54782c761600bade17e98776de4cd89d37c0b46c7e5b"
+  },
+  "restored": true,
+  "expectationsUnchanged": true
+}

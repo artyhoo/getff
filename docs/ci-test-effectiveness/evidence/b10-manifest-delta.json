@@ -1,0 +1,33 @@
+{
+  "base": "97660705318614ca0318a672ab44f736c07289cb",
+  "beforeEntries": 1668,
+  "afterEntries": 1670,
+  "actualArchiveFiles": 1675,
+  "delta": [
+    {
+      "path": "packages/core/principles/20-bundle-classification.test.ts",
+      "before": "915c7ed8d0f465b97908036cbfc18d9cd146f3b17c9d7d02763af39175e3af92",
+      "after": "62a874fc61e5681e85f3d2d675f9c77be0f463def2f6318145af0a1b17de3d77"
+    },
+    {
+      "path": "packages/core/principles/20-bundle-classification.ts",
+      "before": "e2f5946b61c466c165673ae8d6c1efe4d772fac34515b5db798cb13d147ed594",
+      "after": "0484882288c58cbd7f2d412826c601302d98d084025717a3df681ab8129bfdf9"
+    },
+    {
+      "path": "packages/core/principles/__fixtures__/bundle/catalog/agents/p20-agent.md",
+      "before": null,
+      "after": "217e9a42978beeb341d68eac882153fe007f2a9b55d423ab05c5c26d4358748a"
+    },
+    {
+      "path": "packages/core/principles/__fixtures__/bundle/catalog/skills/p20-fixture/SKILL.md",
+      "before": null,
+      "after": "0e12414168f51be7484a4dbd4c6bf460fa45a210e5b3e7f8f894cfde868c09ba"
+    },
+    {
+      "path": "packages/core/skills/assign-skill.test.ts",
+      "before": "e728559ef694ad259c59d81613c17ecbe87d3a8646a90064f5c91744e33cf31a",
+      "after": "b1f66c5883c6b29bff6a5611b8dd63055d621fa7aee3d9fde34dcb6f3a95bf5e"
+    }
+  ]
+}

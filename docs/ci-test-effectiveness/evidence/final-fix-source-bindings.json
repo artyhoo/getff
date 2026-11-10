@@ -1,0 +1,157 @@
+{
+  "baseHead": "7defdb78ba1a4c74713e10787cdc8917ebf1dbdc",
+  "sourceBindings": [
+    {
+      "path": "packages/core/principles/41-shell-test-ci-coverage.test.ts",
+      "baseSha256": "cbbf4595ce0e89058b7efe12b10c1244e6784bb7b959e27f5efe5be2f8dc4aa0",
+      "finalSha256": "f03ca44ebba29efbbf4489b09cbea9c65fe35398c18fd49048b2fd506e6e2eb5",
+      "changed": true
+    },
+    {
+      "path": "packages/core/principles/ci-test-invocations.ts",
+      "baseSha256": "4ad9e1935adc11c033873c73b225bb206c5789ee1a742ab4727faaa8ae5f5115",
+      "finalSha256": "4ad9e1935adc11c033873c73b225bb206c5789ee1a742ab4727faaa8ae5f5115",
+      "changed": false
+    },
+    {
+      "path": "packages/core/principles/38-vitest-include-ci-coverage.test.ts",
+      "baseSha256": "9aee92c313e8e1bea0a12fc79d5fcfe34ec2a6cc89f6e5ab74ef46b69a8f6d62",
+      "finalSha256": "9aee92c313e8e1bea0a12fc79d5fcfe34ec2a6cc89f6e5ab74ef46b69a8f6d62",
+      "changed": false
+    },
+    {
+      "path": "packages/core/hooks/ci-checker-oracles.test.ts",
+      "baseSha256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
+      "finalSha256": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
+      "changed": false
+    },
+    {
+      "path": ".github/workflows/pr-body-fidelity.yml",
+      "baseSha256": "2e5447536a6c9746906d54782c761600bade17e98776de4cd89d37c0b46c7e5b",
+      "finalSha256": "873757ff9878f203e311ef0d7e5ebd030d05290b34b15a703f916712e3236ead",
+      "changed": true
+    },
+    {
+      "path": "docs/site/face-facts.json",
+      "baseSha256": "986a73df2ea009cd3f627a9d02fb78f118bb33cf8470ee7d1c202d51f385cc74",
+      "finalSha256": "c1bf7f1cb8a8a1045b469446ab52d23c7f0551359cd69fe701edecc58e79e6dd",
+      "changed": true
+    },
+    {
+      "path": "packages/getff/MANIFEST.sha256",
+      "baseSha256": "d0ff6a3d03a285f7bae74683d044a68dc5d2665b4a0bfd2f068193ddcb10c7a1",
+      "finalSha256": "693b1c2eecc504ecaea2f5810c150d26f686921bb4cc8de31dae3e8934c22517",
+      "changed": true
+    }
+  ],
+  "huskyWrapperRestoredExactly": true,
+  "workflowParsedBeforeAfterEqual": true,
+  "faceFactsCompleteSemanticDelta": [
+    {
+      "path": "/rosters/families/F3/members",
+      "before": 39,
+      "after": 42
+    }
+  ],
+  "referenceGenerator": "normal --check passed all11 families; no causally changed output, no write",
+  "installedFingerprintMap": [
+    {
+      "path": "tests/install-sh/baselines/cargo/brownfield-clippy.fingerprint",
+      "sha256": "8f9f5856f579f04d2ce258d07697cd77b668b64b4725885e8c938c37c037b099",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/cargo/greenfield.fingerprint",
+      "sha256": "993d57e2c962f577fc064814dde65eb03ed7addba896ddc454dcb6c9fc8eb27d",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/go/brownfield-golangci.fingerprint",
+      "sha256": "d87939a33465d7499e06090b9b415dd811cf45a13adb25d3e617c08581f812c8",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/go/greenfield.fingerprint",
+      "sha256": "ddef381ad5a7c1a99f5271448a289bac066f2f05bb031fbbed9e3dea25d26ae4",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/brownfield-ruff.fingerprint",
+      "sha256": "9428aa211aee401b75c6824d7d3d1282297525ca17f16e696246e2e8890a98ec",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/brownfield-sgconfig.fingerprint",
+      "sha256": "34f0cecefbb6ddcec15ac3f4c562df5e74933dc6e0ee17710f7b9d6d3e3ed41a",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/greenfield.fingerprint",
+      "sha256": "57ec4b804ecef2e991ea8a2ecc6849757f13e674715070ed5b6aa03e88eedfb3",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-native/brownfield.fingerprint",
+      "sha256": "a00f931b73ef3567c340d08554230f65d626cda374857f0511642f22515e2f72",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-native/greenfield.fingerprint",
+      "sha256": "20a62e9fd942c90d0639c7cb713cf0f8ba3a8d20bb1c16c9e4ef315ec9ffb4f5",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-next/brownfield.fingerprint",
+      "sha256": "01e2fd4c41052b01431bda6f3e466ed91a235dbe2205d162b96920f31c244a2e",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-next/greenfield.fingerprint",
+      "sha256": "db24c4c8a8d234bc1bb6cc855247b63f246c6dadf42206d85f66213442291216",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-spa/brownfield.fingerprint",
+      "sha256": "c08e88b666ce0599564cc861813134899b627768248b7667262686142c8aed6c",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-spa/greenfield.fingerprint",
+      "sha256": "235190f3f464ce29f93e885b8701227223625ad3a95f24b056cfbc9642e9c042",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/ts-server/brownfield.fingerprint",
+      "sha256": "415a006a6990b285308ed68ee0991bc740c30ec1387750adef2a67bfa55bff98",
+      "changedSourcesPresent": []
+    },
+    {
+      "path": "tests/install-sh/baselines/ts-server/greenfield.fingerprint",
+      "sha256": "cbc0dc581a697c50660bd4f10a5a3ce9e87f236a6092a0061a012d4960ea1794",
+      "changedSourcesPresent": []
+    }
+  ],
+  "whyNoInstalledReplay": "All15 exact installed path maps exclude every changed source; no installed dependency changed. P41 is shipped in distribution archive and verified there, but absent from installed fingerprints.",
+  "frozenCopies": [
+    {
+      "path": "docs/ci-test-effectiveness/acceptance/final-review.md.gz",
+      "sha256": "6cfd7094b456885b5b5447fa4dc4897d0fcc26299120747de0246792a2e15866",
+      "decompressedSha256": "b71a28c39fd9422ab6350ed0876908186c78ea5c2e4aa3ae41e303ff10c8893f"
+    },
+    {
+      "path": "docs/ci-test-effectiveness/evidence/final-preflight.json",
+      "sha256": "d2e469e2997893de9a7ffd13c643d8d73bc804aa53da09a0b01275e44bc21292"
+    }
+  ],
+  "reviewTransport": {
+    "authority": "Root coordinator explicit transport ruling in same final-fix wave",
+    "privateOriginalPath": ".superpowers/sdd/ci-test-effectiveness/final-review.md",
+    "originalSha256": "b71a28c39fd9422ab6350ed0876908186c78ea5c2e4aa3ae41e303ff10c8893f",
+    "originalGzipPath": "docs/ci-test-effectiveness/acceptance/final-review.md.gz",
+    "originalGzipSha256": "6cfd7094b456885b5b5447fa4dc4897d0fcc26299120747de0246792a2e15866",
+    "gzipDecompressedSha256": "b71a28c39fd9422ab6350ed0876908186c78ea5c2e4aa3ae41e303ff10c8893f",
+    "displayPath": "docs/ci-test-effectiveness/acceptance/final-review.md",
+    "normalizedDisplaySha256": "96b7869cd3b54a71ae55978b2d88fe57a5f42d09fabc6f3a54c240a1e23aa53c",
+    "onlyDisplayTransformation": "Remove exactly two trailing Markdown hard-break spaces from original lines3,4,5; all other bytes equal. Original private report and gzip decompression preserve exact bytes."
+  }
+}

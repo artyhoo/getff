@@ -1,0 +1,39 @@
+{
+  "batch": "B7",
+  "task": 8,
+  "status": "ACCEPTED_FOR_INTEGRATION",
+  "reviewedBase": "e38d6db008bdbb1153e9ed803a3330296108852f",
+  "reviewedHead": "f262c9df777c88b0bee757ffbf3e4802c568aaec",
+  "decisionIds": [
+    "D01",
+    "D07",
+    "D11"
+  ],
+  "specCompliance": "PASS after fix1",
+  "taskQuality": "PASS after fix1",
+  "reviews": {
+    "initial-review": {
+      "path": "docs/ci-test-effectiveness/acceptance/b7-initial-review.md",
+      "sha256": "2a38dd8aa898f1ca451777173a04d4c160ba0111d2ac19c5f7175e83f3096b6f"
+    },
+    "fix1-review": {
+      "path": "docs/ci-test-effectiveness/acceptance/b7-fix1-review.md",
+      "sha256": "0421d8e74384d77c041e1572cc4623c507f4b63e9ad71cb6a887a991712f8958"
+    }
+  },
+  "at": "2026-11-08T19:06:18.840672+00:00",
+  "closedFindings": [
+    "I1 Vitest config location is not effective cwd/root; cross-cwd shapes conservatively unsupported.",
+    "I2 Node test-runner options must precede any script/operand.",
+    "I3 Advisor wrapper requires live ordered three-statement supported form; exits/unknown statements get no credit."
+  ],
+  "validation": "65 focused P36/P37/P38/P41 pass; three intended REDs, real native config/noop companions; actual npmprinciples held I1/I2/I3/disable/restore sixprobes22.2s finalhashesmatch. Normalmanifest/archivePASS. Earlier unchanged native/routing evidence independently reconciled, not rerun.",
+  "cost": "Useful native execution added203.208s sample, existing canonical unchanged. 12workloads retain all old selections/fullfallback; four new rows. Fast coverage group3.72s final, no recurring native listing/fullmutation.",
+  "limits": [
+    "Final fullhooks after D11 still needed; focused wrapper is not full-load acceptance.",
+    "HostedNode22/Windows HOST-01 actual acceptance pending. Existing live-AIF optin skip remains explicit, no AIF launched.",
+    "Exact advisor grammar rejects future PR2116 win32-skip prelude until reviewed integration/extension; owner code is not assumed landed/compatible.",
+    "TAK2144/OCR2146 ownership and campaign E9/final acceptance remain separate.",
+    "Retained historical fixture/WARN output is not a pristine-output claim; no new correctness gap established."
+  ]
+}

@@ -1,0 +1,734 @@
+{
+  "status": "Current citation publication closure verified on actual committed source; normal delivery checks pass; root publication/transport remains pending",
+  "baseHead": "a8f52c04cfa8e36ab903a837579301080025706b",
+  "sourcePaths": [
+    ".agents/procedures/dispatcher/references/execution.md",
+    ".agents/rules/ci-tool-pinning.md",
+    ".agents/rules/cold-seat-economy.md",
+    ".agents/rules/evidence-regeneration.md",
+    ".agents/rules/git-conflict-merge-forward.md",
+    ".agents/rules/reviewer-discipline.md",
+    ".github/workflows/context7-refresh.yml",
+    ".github/workflows/discipline-self-check.yml",
+    "docs/site/reference/B/template-audit.md",
+    "docs/site/reference/F1/companion-install-principle.md",
+    "docs/site/reference/F1/evidence-regeneration.md",
+    "packages/core/backends/astgrep/render-astgrep.test.ts",
+    "packages/core/backends/golangci/capability-matrix.test.ts",
+    "packages/core/backends/golangci/firing.test.ts",
+    "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
+    "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+    "packages/core/hooks/checks/pr-stale-revert.test.ts",
+    "packages/core/hooks/checks/pr-stale-revert.ts",
+    "packages/core/hooks/harness-config-drift.test.ts",
+    "packages/core/hooks/rule-channel-degradation.test.ts",
+    "packages/core/principles/11-build-first-reuse-default.test.ts",
+    "packages/core/principles/36-ci-needs-completeness.test.ts",
+    "packages/core/principles/37-required-context-completeness.test.ts",
+    "packages/core/principles/39-skill-fence-orch-home.test.ts",
+    "scripts/format-shipped.sh",
+    "scripts/run-local-ci-sweep-coverage.test.sh",
+    "scripts/run-local-ci-sweep.sh",
+    "tests/consumer-matrix/python-unfamiliar-stack-cell.sh"
+  ],
+  "sourceChanges": [
+    {
+      "path": ".agents/procedures/dispatcher/references/execution.md",
+      "beforeSha256": "4e7a28fad61e69689f7019bc926d6daf9b72f6ae3f23a2a579ed17e04f6d45f5",
+      "afterSha256": "46b0fa44229fbafead659c6f2b62fc046e3057ef71e929ae30b09a1fcff93088",
+      "equivalence": {
+        "proof": "Full Markdown bytes equal after replacing numeric runs; prose meaning unchanged and line targets inspected",
+        "equal": true
+      }
+    },
+    {
+      "path": ".agents/rules/ci-tool-pinning.md",
+      "beforeSha256": "66752e5a204d711ff82a384275a363ad21c722139eb38136255d9e214e4812e0",
+      "afterSha256": "683e7ac774236d0e297433b367118b9264b9e2fa684613059f512de9c86e471b",
+      "equivalence": {
+        "proof": "Full Markdown bytes equal after replacing numeric runs; prose meaning unchanged and line targets inspected",
+        "equal": true
+      }
+    },
+    {
+      "path": ".agents/rules/cold-seat-economy.md",
+      "beforeSha256": "20d67f366ce30b176bc96e3fd7e2e5e591023a1d839fbcb10dbe2c66fad1d0f6",
+      "afterSha256": "3c76defae42a4f3488ab0c854b87a457295a137ec13c689ca4e60a6664e1b831",
+      "equivalence": {
+        "proof": "Full Markdown bytes equal after replacing numeric runs; prose meaning unchanged and line targets inspected",
+        "equal": true
+      }
+    },
+    {
+      "path": ".agents/rules/evidence-regeneration.md",
+      "beforeSha256": "d5640e9e1dc8ba6a316a7f2b041f50f12ee13971af9df1fb6a8ebf0e550e5e3d",
+      "afterSha256": "33f213b0e2f1b65abd89d8c1f89a2c1ec7e345b4b7f28ac6e786caef45c64fe9",
+      "equivalence": {
+        "proof": "Full Markdown bytes equal after replacing numeric runs; prose meaning unchanged and line targets inspected",
+        "equal": true
+      }
+    },
+    {
+      "path": ".agents/rules/git-conflict-merge-forward.md",
+      "beforeSha256": "1a8e1223308b9fe1c12fd02bfdc214c2ead82401fd34fd66604ef8fd5d17346b",
+      "afterSha256": "2222f7b320faacf455482ee76209e6888cbd169ee3fdd6818beb1caf9b841161",
+      "equivalence": {
+        "proof": "Full Markdown bytes equal after replacing numeric runs; prose meaning unchanged and line targets inspected",
+        "equal": true
+      }
+    },
+    {
+      "path": ".agents/rules/reviewer-discipline.md",
+      "beforeSha256": "ca3a01dd24b38f1dc4d6518b9bd51560786984ab0b556203afe277587d0483fe",
+      "afterSha256": "55a4e890ebfb2d658f99549199b963e39ac97cd1923f95357c68d9a9b411299a",
+      "equivalence": {
+        "proof": "Full Markdown bytes equal after replacing numeric runs; prose meaning unchanged and line targets inspected",
+        "equal": true
+      }
+    },
+    {
+      "path": ".github/workflows/context7-refresh.yml",
+      "beforeSha256": "1e4b16469f3ae66fa3c5f9c810a993133a4019126a1737ed217ce694f16d9c3a",
+      "afterSha256": "3f13aa20ea47ada4da726823e38f3770947eea76de8cef278e2ce4d3dbae4c7c",
+      "equivalence": {
+        "proof": "YAML parsed mappings before and after equal",
+        "equal": true
+      }
+    },
+    {
+      "path": ".github/workflows/discipline-self-check.yml",
+      "beforeSha256": "ee53c06ff4991f666de50c00ac9da687fb26dd0960b6e9744e177f1ab06e2607",
+      "afterSha256": "efdefac932ab28a57c287a3e28f083fd0d23967baa3b0dcefb17a182c9231fba",
+      "equivalence": {
+        "proof": "YAML parsed mappings before and after equal",
+        "equal": true
+      }
+    },
+    {
+      "path": "docs/site/reference/B/template-audit.md",
+      "beforeSha256": "253ebb7dfb2acb19d32a0febdd2ff9e8dee92a3c2d7f4786aa5199d93dcd47d3",
+      "afterSha256": "8e7439df80b8f0022a5664bd1c6508266204856ef780dd999453dca147c0bbd8",
+      "equivalence": {
+        "proof": "Full Markdown bytes equal after replacing numeric runs; prose meaning unchanged and line targets inspected",
+        "equal": true
+      }
+    },
+    {
+      "path": "docs/site/reference/F1/companion-install-principle.md",
+      "beforeSha256": "2096eef35017db6daeab604e467b7c8eec6faa3f5c7132f83c49549df75c6586",
+      "afterSha256": "6137a04dc50d231f6f9b7e8be0c6fc690f9e84d0826aa9267f52b56d44c213eb",
+      "equivalence": {
+        "proof": "Full Markdown bytes equal after replacing numeric runs; prose meaning unchanged and line targets inspected",
+        "equal": true
+      }
+    },
+    {
+      "path": "docs/site/reference/F1/evidence-regeneration.md",
+      "beforeSha256": "6c3748e42e531e6d9a1d4ae8cd71d3be797a61a30283db4a77c978f13c08a8f0",
+      "afterSha256": "4c4b70f55ccd13432ba1524d460436e374931187627873e440e75e4994345683",
+      "equivalence": {
+        "proof": "Full Markdown bytes equal after replacing numeric runs; prose meaning unchanged and line targets inspected",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/backends/astgrep/render-astgrep.test.ts",
+      "beforeSha256": "c408f1d77c17645246701ae71f3c55726e3a55647296cdedeb44edb5fb1a2e22",
+      "afterSha256": "26361eb437d2188a389f4392f6a3a2ac0924e5ec25d56e71ccf5400b271bde89",
+      "equivalence": {
+        "path": "packages/core/backends/astgrep/render-astgrep.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "932bf3eadb1de007dd64c1a2e245371000595351e8fd6a9edac728ee92b8488d",
+        "bodySha256After": "932bf3eadb1de007dd64c1a2e245371000595351e8fd6a9edac728ee92b8488d",
+        "emittedJsSha256Before": "1ed2b3a2732517624e8eb555fbc20076ac28caacc394e51714bf87892ea559da",
+        "emittedJsSha256After": "1ed2b3a2732517624e8eb555fbc20076ac28caacc394e51714bf87892ea559da",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/backends/golangci/capability-matrix.test.ts",
+      "beforeSha256": "799f77609c11fa7ad45b20f74d06a22158737e68147f594fd615059015bdf27c",
+      "afterSha256": "f90efd1594278d87daa974d8b50a89b396994c7e0d6cc96b492195ea9d7b39d0",
+      "equivalence": {
+        "path": "packages/core/backends/golangci/capability-matrix.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "a65bcecef102f18f06cb168cfe6d91c15086732bdb6343d4ea8fd98e1576d8c2",
+        "bodySha256After": "a65bcecef102f18f06cb168cfe6d91c15086732bdb6343d4ea8fd98e1576d8c2",
+        "emittedJsSha256Before": "767ad1724df7de3b40302953ed467bce6d1fb6068d96b1cf7f864bce9b064b5c",
+        "emittedJsSha256After": "767ad1724df7de3b40302953ed467bce6d1fb6068d96b1cf7f864bce9b064b5c",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/backends/golangci/firing.test.ts",
+      "beforeSha256": "a42762741645dc877a2d19774ba4892e2283509fb9fb7fdcfeedc8cd47802a32",
+      "afterSha256": "bc9cb0f6e19f3f921aaeb4a497a5551a98d95cdeb26b97e95048c46cec7841d2",
+      "equivalence": {
+        "path": "packages/core/backends/golangci/firing.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "23e7b50b451bb0c6d482dbfea6de0220b91144353d437a92a3a5dbc0dca5b854",
+        "bodySha256After": "23e7b50b451bb0c6d482dbfea6de0220b91144353d437a92a3a5dbc0dca5b854",
+        "emittedJsSha256Before": "34ca383c6dbdc04e9cdba79ff70909be04602ceb562f90fd4fbdfcdaa41fccb6",
+        "emittedJsSha256After": "34ca383c6dbdc04e9cdba79ff70909be04602ceb562f90fd4fbdfcdaa41fccb6",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
+      "beforeSha256": "44cb113cf1fd4307538cc0d806f183e59f665654942afb19676114d6faf84d09",
+      "afterSha256": "154cfdff35267ed8be5773b79f01ad0005d8570ab80a69d7499f9f06d7929bb8",
+      "equivalence": {
+        "path": "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "6d7a1c296bf5bb9d0075f2a0acc2b1b571546ae307ebe1ec999f60b984c976f3",
+        "bodySha256After": "6d7a1c296bf5bb9d0075f2a0acc2b1b571546ae307ebe1ec999f60b984c976f3",
+        "emittedJsSha256Before": "c1b886eb696e694ae889cf8d5c5544b4885602fbed3319a80988785c9225b354",
+        "emittedJsSha256After": "c1b886eb696e694ae889cf8d5c5544b4885602fbed3319a80988785c9225b354",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+      "beforeSha256": "730722f2bd939bd3731ce6f18eb2df7d9269403213d3f18b2b687349a5501e16",
+      "afterSha256": "edcfa1debd2235546654bef498fae8b8bc735a86f1e1c482562bb1b81248e14d",
+      "equivalence": {
+        "path": "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "9a4f65a3e504f490af6049dfaef3081a3d112c3293921b3ece6e43ca74f441be",
+        "bodySha256After": "9a4f65a3e504f490af6049dfaef3081a3d112c3293921b3ece6e43ca74f441be",
+        "emittedJsSha256Before": "aea215eeb3df586e7136948b6bbffd3015d02fc364fc9beff1769ee9f51298e9",
+        "emittedJsSha256After": "aea215eeb3df586e7136948b6bbffd3015d02fc364fc9beff1769ee9f51298e9",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/hooks/checks/pr-stale-revert.test.ts",
+      "beforeSha256": "613273221f5dfc672380ded30742b5991bbaf52d994087afa31ba2332683ce40",
+      "afterSha256": "1be33eca8a180e02e7f594ef67cca30593c9085f7f5ab6ca35004366f28824b5",
+      "equivalence": {
+        "path": "packages/core/hooks/checks/pr-stale-revert.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "1207680beadf39f3ea5292da3e07c2d453c317d005a51a48019710cb0367106d",
+        "bodySha256After": "1207680beadf39f3ea5292da3e07c2d453c317d005a51a48019710cb0367106d",
+        "emittedJsSha256Before": "0a9bbb392f107075b4a5b33a001f06fde472806146b19a4d87ee6240a8793970",
+        "emittedJsSha256After": "0a9bbb392f107075b4a5b33a001f06fde472806146b19a4d87ee6240a8793970",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/hooks/checks/pr-stale-revert.ts",
+      "beforeSha256": "164b0f95c4338296801449c1e67ae69c3afebec59881f289dd2e5ea8056e6f41",
+      "afterSha256": "62ac31c273af508fe2092d36185c572cb2f9a122f68f9604be7f8e97506e1cd7",
+      "equivalence": {
+        "path": "packages/core/hooks/checks/pr-stale-revert.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "c33e85dd2b0f071c969835679b7aaa27e4995bb993a07623c1f128a4b163a051",
+        "bodySha256After": "c33e85dd2b0f071c969835679b7aaa27e4995bb993a07623c1f128a4b163a051",
+        "emittedJsSha256Before": "16481522e1a1e31e491f88b6b1509a78e6107518de24d094fa16edeaf9f061b0",
+        "emittedJsSha256After": "16481522e1a1e31e491f88b6b1509a78e6107518de24d094fa16edeaf9f061b0",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/hooks/harness-config-drift.test.ts",
+      "beforeSha256": "3752d389a0f3d4087b5d797d7c9db4ba0e2f10eeed2779592cde8afed624186b",
+      "afterSha256": "5cda3bf166603b71ec045417bbd47b46f72dac16037d642107145ebe933802c2",
+      "equivalence": {
+        "path": "packages/core/hooks/harness-config-drift.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "96e309b6cc3f49439f981bf1c8bb8bc3b35db17dc488ab0047c3277b0fc0d76c",
+        "bodySha256After": "96e309b6cc3f49439f981bf1c8bb8bc3b35db17dc488ab0047c3277b0fc0d76c",
+        "emittedJsSha256Before": "34936a61ee76184a2e6c2200b737a399127fb5cc531bdf378c82248cb27dcf83",
+        "emittedJsSha256After": "34936a61ee76184a2e6c2200b737a399127fb5cc531bdf378c82248cb27dcf83",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/hooks/rule-channel-degradation.test.ts",
+      "beforeSha256": "740432479c56c35841ab666bf7261668ab78c2facd665f9c8ca786b9a125decb",
+      "afterSha256": "25e19ec4102e15d50b74e92dce91e070c3f0b81efca18ebef751c2c87594c6fc",
+      "equivalence": {
+        "path": "packages/core/hooks/rule-channel-degradation.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "c441ac8615e501048e56dc0fffcb1cadc081f5820f02c3584e5792781a8298f1",
+        "bodySha256After": "c441ac8615e501048e56dc0fffcb1cadc081f5820f02c3584e5792781a8298f1",
+        "emittedJsSha256Before": "2e77bb4ec982ffbf956f4ae9ee8e2c44b6ea6881a4ed2ca0216253ba0056cf0a",
+        "emittedJsSha256After": "2e77bb4ec982ffbf956f4ae9ee8e2c44b6ea6881a4ed2ca0216253ba0056cf0a",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/principles/11-build-first-reuse-default.test.ts",
+      "beforeSha256": "998c6980c5ff77ad6e7815adbd489a65a5bb87db725d6fd226f36ad32510e4ae",
+      "afterSha256": "72d2c8bac316dbefb6d7fe9b6c0b647bf1021ad26f31f0831a0593c6e4d23243",
+      "equivalence": {
+        "path": "packages/core/principles/11-build-first-reuse-default.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "3f60db15ec91b9c9f459b84365460503ed4cf9548a74eb122017901d9572edba",
+        "bodySha256After": "3f60db15ec91b9c9f459b84365460503ed4cf9548a74eb122017901d9572edba",
+        "emittedJsSha256Before": "15ac50340c0643b40a4cfb398fb21a0e2bea871f7621916bf4c383ad39f7620b",
+        "emittedJsSha256After": "15ac50340c0643b40a4cfb398fb21a0e2bea871f7621916bf4c383ad39f7620b",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/principles/36-ci-needs-completeness.test.ts",
+      "beforeSha256": "82209c725f43abceae5d0fe1effaca01823b88434f022366beebe240bb898f28",
+      "afterSha256": "950c8bfce8432a3bc1f26702170be12e0da8b59867c387bf347b2e19c2768b90",
+      "equivalence": {
+        "path": "packages/core/principles/36-ci-needs-completeness.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "e450a2e70905ec78383a903518ecbe54b57781edabb0028707722720b16a65b8",
+        "bodySha256After": "e450a2e70905ec78383a903518ecbe54b57781edabb0028707722720b16a65b8",
+        "emittedJsSha256Before": "7cb63a611e3792931c6c811287f0a4b4ccc4f1231d5be0f5abda20c989f1de15",
+        "emittedJsSha256After": "7cb63a611e3792931c6c811287f0a4b4ccc4f1231d5be0f5abda20c989f1de15",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/principles/37-required-context-completeness.test.ts",
+      "beforeSha256": "d98339ab8d106e318a094466ed710199a8a5ab8f05229ccad3ee1ee46b30f414",
+      "afterSha256": "faf48f2baace3600f9baafa09fd2b313c650c7bc07374af369a1feb66a64ccb2",
+      "equivalence": {
+        "path": "packages/core/principles/37-required-context-completeness.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "b5429ab1847d8d12b93dea253a5fd970b34f43dfa3d142601eb83ea8e8de576b",
+        "bodySha256After": "b5429ab1847d8d12b93dea253a5fd970b34f43dfa3d142601eb83ea8e8de576b",
+        "emittedJsSha256Before": "f716243ca11a0a9231b6d997357af322a4fa65d0f07125fb725dcc9c2a70f482",
+        "emittedJsSha256After": "f716243ca11a0a9231b6d997357af322a4fa65d0f07125fb725dcc9c2a70f482",
+        "equal": true
+      }
+    },
+    {
+      "path": "packages/core/principles/39-skill-fence-orch-home.test.ts",
+      "beforeSha256": "2da93bb3d34e9e60a15919b17b8a37fd64464f201c61cf70ddf6cc9a8939d81f",
+      "afterSha256": "2cb9edb1a039f3a366ed6ef5502fde25aded6d8e62c0eeaeebac9913dbcb1807",
+      "equivalence": {
+        "path": "packages/core/principles/39-skill-fence-orch-home.test.ts",
+        "proof": "TypeScript AST printer removeComments equality plus emitted JavaScript removeComments equality",
+        "bodySha256Before": "bf7dc09e2f27aeb34303c4ed6cd2505f656d9d595d4b496b33be18c2919d6081",
+        "bodySha256After": "bf7dc09e2f27aeb34303c4ed6cd2505f656d9d595d4b496b33be18c2919d6081",
+        "emittedJsSha256Before": "919828815c169c88645941388838cfaec83a7ea4a4a07338784f268c92a5375c",
+        "emittedJsSha256After": "919828815c169c88645941388838cfaec83a7ea4a4a07338784f268c92a5375c",
+        "equal": true
+      }
+    },
+    {
+      "path": "scripts/format-shipped.sh",
+      "beforeSha256": "adc77ff97da3686a8c5ef6a837f70d567c37dc5ee21c2a0f63caf5ef71dc5ca2",
+      "afterSha256": "b9abfcf33caa002af7bec43c8a80d5792a90676ef7829828d6342f7ce5ef247a",
+      "equivalence": {
+        "proof": "All non-comment shell lines and shebang byte-identical; only full comment lines changed",
+        "equal": true,
+        "executableLinesSha256Before": "6bbbf47076f020aac0365c1e961e57d0b9f22a36fa463adade16f029bfdc7cd3",
+        "executableLinesSha256After": "6bbbf47076f020aac0365c1e961e57d0b9f22a36fa463adade16f029bfdc7cd3"
+      }
+    },
+    {
+      "path": "scripts/run-local-ci-sweep-coverage.test.sh",
+      "beforeSha256": "2cc5bd1715e2f7755f4cbf3ad67f3db35a638d4a6c89d4bfcdc1a14ec7f5d4b1",
+      "afterSha256": "81697e2e7a720564d5b56248680932dd145e443d12d46c570b52d8341d29ba32",
+      "equivalence": {
+        "proof": "All non-comment shell lines and shebang byte-identical; only full comment lines changed",
+        "equal": true,
+        "executableLinesSha256Before": "612547a906f26b03a7ddcb9ecdd78bcb4ff352938ce11db04f42a59b5d84cb09",
+        "executableLinesSha256After": "612547a906f26b03a7ddcb9ecdd78bcb4ff352938ce11db04f42a59b5d84cb09"
+      }
+    },
+    {
+      "path": "scripts/run-local-ci-sweep.sh",
+      "beforeSha256": "4d456dd8bf5916fd8e45f52fc5a880db1debfe687bca1a0246308cb000a1ce88",
+      "afterSha256": "5cdcd128c01adde2267ec5b34629f9f6f03c505d7048f1faa27113af728e79e0",
+      "equivalence": {
+        "proof": "All non-comment shell lines and shebang byte-identical; only full comment lines changed",
+        "equal": true,
+        "executableLinesSha256Before": "b4609405d1641110e8aa94aca23fe816bb669e4c16eca1116a8c7f6becae554a",
+        "executableLinesSha256After": "b4609405d1641110e8aa94aca23fe816bb669e4c16eca1116a8c7f6becae554a"
+      }
+    },
+    {
+      "path": "tests/consumer-matrix/python-unfamiliar-stack-cell.sh",
+      "beforeSha256": "57202f6cee1b2e565c4ea422bb44fcab320ec02228ea0077df79cf57765d3998",
+      "afterSha256": "cc37fdfa575d5dde2e6b991d84b282e3299518c7a81200f49c356bf7be98d0ed",
+      "equivalence": {
+        "proof": "All non-comment shell lines and shebang byte-identical; only full comment lines changed",
+        "equal": true,
+        "executableLinesSha256Before": "1468892c8f9d69fde008fe50d11e67edaa943a0469c69529a50d2e6a7b11dfab",
+        "executableLinesSha256After": "1468892c8f9d69fde008fe50d11e67edaa943a0469c69529a50d2e6a7b11dfab"
+      }
+    }
+  ],
+  "scope": "Exactly28 granted current source paths; comments/prose/reference numbers only; no runtime logic, check implementation or frozen evidence changes",
+  "manualMappingEvidence": "evidence/publication-manual-citation-mapping.json",
+  "installedMapBeforeCapture": [
+    {
+      "baseline": "tests/install-sh/baselines/cargo/brownfield-clippy.fingerprint",
+      "baselineSha256": "8f9f5856f579f04d2ce258d07697cd77b668b64b4725885e8c938c37c037b099",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/cargo/greenfield.fingerprint",
+      "baselineSha256": "993d57e2c962f577fc064814dde65eb03ed7addba896ddc454dcb6c9fc8eb27d",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/go/brownfield-golangci.fingerprint",
+      "baselineSha256": "d87939a33465d7499e06090b9b415dd811cf45a13adb25d3e617c08581f812c8",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/go/greenfield.fingerprint",
+      "baselineSha256": "ddef381ad5a7c1a99f5271448a289bac066f2f05bb031fbbed9e3dea25d26ae4",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/python/brownfield-ruff.fingerprint",
+      "baselineSha256": "9428aa211aee401b75c6824d7d3d1282297525ca17f16e696246e2e8890a98ec",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/python/brownfield-sgconfig.fingerprint",
+      "baselineSha256": "34f0cecefbb6ddcec15ac3f4c562df5e74933dc6e0ee17710f7b9d6d3e3ed41a",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/python/greenfield.fingerprint",
+      "baselineSha256": "57ec4b804ecef2e991ea8a2ecc6849757f13e674715070ed5b6aa03e88eedfb3",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/react-native/brownfield.fingerprint",
+      "baselineSha256": "a00f931b73ef3567c340d08554230f65d626cda374857f0511642f22515e2f72",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/react-native/greenfield.fingerprint",
+      "baselineSha256": "20a62e9fd942c90d0639c7cb713cf0f8ba3a8d20bb1c16c9e4ef315ec9ffb4f5",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/react-next/brownfield.fingerprint",
+      "baselineSha256": "01e2fd4c41052b01431bda6f3e466ed91a235dbe2205d162b96920f31c244a2e",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/react-next/greenfield.fingerprint",
+      "baselineSha256": "db24c4c8a8d234bc1bb6cc855247b63f246c6dadf42206d85f66213442291216",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/react-spa/brownfield.fingerprint",
+      "baselineSha256": "c08e88b666ce0599564cc861813134899b627768248b7667262686142c8aed6c",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/react-spa/greenfield.fingerprint",
+      "baselineSha256": "235190f3f464ce29f93e885b8701227223625ad3a95f24b056cfbc9642e9c042",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/ts-server/brownfield.fingerprint",
+      "baselineSha256": "415a006a6990b285308ed68ee0991bc740c30ec1387750adef2a67bfa55bff98",
+      "sourceHashMatches": []
+    },
+    {
+      "baseline": "tests/install-sh/baselines/ts-server/greenfield.fingerprint",
+      "baselineSha256": "cbc0dc581a697c50660bd4f10a5a3ce9e87f236a6092a0061a012d4960ea1794",
+      "sourceHashMatches": []
+    }
+  ],
+  "installedDecision": "All15 exact baselines contain no original source-hash, same-path or same-basename candidate for any of the28 granted sources. Dispatcher and sweep are factory-only; framework rules/checkers are absent in these core snapshot cells. No changed source has a plugin-skill/twin owner. Harness/reference/face/rule-index checks show no derived change. No installed capture/compare is justified; normal archive verifies the changed shipped distribution bytes.",
+  "sourceToInstalledPathMap": [
+    {
+      "source": ".agents/procedures/dispatcher/references/execution.md",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": ".agents/rules/ci-tool-pinning.md",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": ".agents/rules/cold-seat-economy.md",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": ".agents/rules/evidence-regeneration.md",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": ".agents/rules/git-conflict-merge-forward.md",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": ".agents/rules/reviewer-discipline.md",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": ".github/workflows/context7-refresh.yml",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": ".github/workflows/discipline-self-check.yml",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "docs/site/reference/B/template-audit.md",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "docs/site/reference/F1/companion-install-principle.md",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "docs/site/reference/F1/evidence-regeneration.md",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/backends/astgrep/render-astgrep.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/backends/golangci/capability-matrix.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/backends/golangci/firing.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/hooks/checks/pr-stale-revert.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/hooks/checks/pr-stale-revert.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/hooks/harness-config-drift.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/hooks/rule-channel-degradation.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/principles/11-build-first-reuse-default.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/principles/36-ci-needs-completeness.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/principles/37-required-context-completeness.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "packages/core/principles/39-skill-fence-orch-home.test.ts",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "scripts/format-shipped.sh",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "scripts/run-local-ci-sweep-coverage.test.sh",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "scripts/run-local-ci-sweep.sh",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    },
+    {
+      "source": "tests/consumer-matrix/python-unfamiliar-stack-cell.sh",
+      "installedCandidatesByOriginalHashSamePathOrBasename": []
+    }
+  ],
+  "manifestDelta": [
+    {
+      "payloadPath": ".agents/procedures/dispatcher/references/execution.md",
+      "sourcePath": ".agents/procedures/dispatcher/references/execution.md",
+      "beforeSha256": "4e7a28fad61e69689f7019bc926d6daf9b72f6ae3f23a2a579ed17e04f6d45f5",
+      "afterSha256": "46b0fa44229fbafead659c6f2b62fc046e3057ef71e929ae30b09a1fcff93088",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": ".agents/rules/ci-tool-pinning.md",
+      "sourcePath": ".agents/rules/ci-tool-pinning.md",
+      "beforeSha256": "66752e5a204d711ff82a384275a363ad21c722139eb38136255d9e214e4812e0",
+      "afterSha256": "683e7ac774236d0e297433b367118b9264b9e2fa684613059f512de9c86e471b",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": ".agents/rules/cold-seat-economy.md",
+      "sourcePath": ".agents/rules/cold-seat-economy.md",
+      "beforeSha256": "20d67f366ce30b176bc96e3fd7e2e5e591023a1d839fbcb10dbe2c66fad1d0f6",
+      "afterSha256": "3c76defae42a4f3488ab0c854b87a457295a137ec13c689ca4e60a6664e1b831",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": ".agents/rules/evidence-regeneration.md",
+      "sourcePath": ".agents/rules/evidence-regeneration.md",
+      "beforeSha256": "d5640e9e1dc8ba6a316a7f2b041f50f12ee13971af9df1fb6a8ebf0e550e5e3d",
+      "afterSha256": "33f213b0e2f1b65abd89d8c1f89a2c1ec7e345b4b7f28ac6e786caef45c64fe9",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": ".agents/rules/git-conflict-merge-forward.md",
+      "sourcePath": ".agents/rules/git-conflict-merge-forward.md",
+      "beforeSha256": "1a8e1223308b9fe1c12fd02bfdc214c2ead82401fd34fd66604ef8fd5d17346b",
+      "afterSha256": "2222f7b320faacf455482ee76209e6888cbd169ee3fdd6818beb1caf9b841161",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": ".agents/rules/reviewer-discipline.md",
+      "sourcePath": ".agents/rules/reviewer-discipline.md",
+      "beforeSha256": "ca3a01dd24b38f1dc4d6518b9bd51560786984ab0b556203afe277587d0483fe",
+      "afterSha256": "55a4e890ebfb2d658f99549199b963e39ac97cd1923f95357c68d9a9b411299a",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": ".claude/skills/dispatcher/references/execution.md",
+      "sourcePath": ".agents/procedures/dispatcher/references/execution.md",
+      "beforeSha256": "4e7a28fad61e69689f7019bc926d6daf9b72f6ae3f23a2a579ed17e04f6d45f5",
+      "afterSha256": "46b0fa44229fbafead659c6f2b62fc046e3057ef71e929ae30b09a1fcff93088",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/backends/astgrep/render-astgrep.test.ts",
+      "sourcePath": "packages/core/backends/astgrep/render-astgrep.test.ts",
+      "beforeSha256": "c408f1d77c17645246701ae71f3c55726e3a55647296cdedeb44edb5fb1a2e22",
+      "afterSha256": "26361eb437d2188a389f4392f6a3a2ac0924e5ec25d56e71ccf5400b271bde89",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/backends/golangci/capability-matrix.test.ts",
+      "sourcePath": "packages/core/backends/golangci/capability-matrix.test.ts",
+      "beforeSha256": "799f77609c11fa7ad45b20f74d06a22158737e68147f594fd615059015bdf27c",
+      "afterSha256": "f90efd1594278d87daa974d8b50a89b396994c7e0d6cc96b492195ea9d7b39d0",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/backends/golangci/firing.test.ts",
+      "sourcePath": "packages/core/backends/golangci/firing.test.ts",
+      "beforeSha256": "a42762741645dc877a2d19774ba4892e2283509fb9fb7fdcfeedc8cd47802a32",
+      "afterSha256": "bc9cb0f6e19f3f921aaeb4a497a5551a98d95cdeb26b97e95048c46cec7841d2",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
+      "sourcePath": "packages/core/backends/shared/no-stray-hoist-markers.test.ts",
+      "beforeSha256": "44cb113cf1fd4307538cc0d806f183e59f665654942afb19676114d6faf84d09",
+      "afterSha256": "154cfdff35267ed8be5773b79f01ad0005d8570ab80a69d7499f9f06d7929bb8",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+      "sourcePath": "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+      "beforeSha256": "730722f2bd939bd3731ce6f18eb2df7d9269403213d3f18b2b687349a5501e16",
+      "afterSha256": "edcfa1debd2235546654bef498fae8b8bc735a86f1e1c482562bb1b81248e14d",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/hooks/checks/pr-stale-revert.test.ts",
+      "sourcePath": "packages/core/hooks/checks/pr-stale-revert.test.ts",
+      "beforeSha256": "613273221f5dfc672380ded30742b5991bbaf52d994087afa31ba2332683ce40",
+      "afterSha256": "1be33eca8a180e02e7f594ef67cca30593c9085f7f5ab6ca35004366f28824b5",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/hooks/checks/pr-stale-revert.ts",
+      "sourcePath": "packages/core/hooks/checks/pr-stale-revert.ts",
+      "beforeSha256": "164b0f95c4338296801449c1e67ae69c3afebec59881f289dd2e5ea8056e6f41",
+      "afterSha256": "62ac31c273af508fe2092d36185c572cb2f9a122f68f9604be7f8e97506e1cd7",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/hooks/harness-config-drift.test.ts",
+      "sourcePath": "packages/core/hooks/harness-config-drift.test.ts",
+      "beforeSha256": "3752d389a0f3d4087b5d797d7c9db4ba0e2f10eeed2779592cde8afed624186b",
+      "afterSha256": "5cda3bf166603b71ec045417bbd47b46f72dac16037d642107145ebe933802c2",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/hooks/rule-channel-degradation.test.ts",
+      "sourcePath": "packages/core/hooks/rule-channel-degradation.test.ts",
+      "beforeSha256": "740432479c56c35841ab666bf7261668ab78c2facd665f9c8ca786b9a125decb",
+      "afterSha256": "25e19ec4102e15d50b74e92dce91e070c3f0b81efca18ebef751c2c87594c6fc",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/principles/11-build-first-reuse-default.test.ts",
+      "sourcePath": "packages/core/principles/11-build-first-reuse-default.test.ts",
+      "beforeSha256": "998c6980c5ff77ad6e7815adbd489a65a5bb87db725d6fd226f36ad32510e4ae",
+      "afterSha256": "72d2c8bac316dbefb6d7fe9b6c0b647bf1021ad26f31f0831a0593c6e4d23243",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/principles/36-ci-needs-completeness.test.ts",
+      "sourcePath": "packages/core/principles/36-ci-needs-completeness.test.ts",
+      "beforeSha256": "82209c725f43abceae5d0fe1effaca01823b88434f022366beebe240bb898f28",
+      "afterSha256": "950c8bfce8432a3bc1f26702170be12e0da8b59867c387bf347b2e19c2768b90",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/principles/37-required-context-completeness.test.ts",
+      "sourcePath": "packages/core/principles/37-required-context-completeness.test.ts",
+      "beforeSha256": "d98339ab8d106e318a094466ed710199a8a5ab8f05229ccad3ee1ee46b30f414",
+      "afterSha256": "faf48f2baace3600f9baafa09fd2b313c650c7bc07374af369a1feb66a64ccb2",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "packages/core/principles/39-skill-fence-orch-home.test.ts",
+      "sourcePath": "packages/core/principles/39-skill-fence-orch-home.test.ts",
+      "beforeSha256": "2da93bb3d34e9e60a15919b17b8a37fd64464f201c61cf70ddf6cc9a8939d81f",
+      "afterSha256": "2cb9edb1a039f3a366ed6ef5502fde25aded6d8e62c0eeaeebac9913dbcb1807",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    },
+    {
+      "payloadPath": "scripts/run-local-ci-sweep.sh",
+      "sourcePath": "scripts/run-local-ci-sweep.sh",
+      "beforeSha256": "4d456dd8bf5916fd8e45f52fc5a880db1debfe687bca1a0246308cb000a1ce88",
+      "afterSha256": "5cdcd128c01adde2267ec5b34629f9f6f03c505d7048f1faa27113af728e79e0",
+      "reason": "Normal assembler follows canonical/compatibility source aliases; only approved current citation prose/comment changed."
+    }
+  ],
+  "normalDerivedChecks": {
+    "harness": "pass; unchanged",
+    "reference": "pass11 families; unchanged",
+    "faceFacts": "pass; unchanged",
+    "ruleIndex": "pass; unchanged",
+    "archive": "pass1673 entries/1668 payload; only mapped hashes changed"
+  },
+  "sourceCommit": "c1930af47de3ff4932527972d8abec9a19e47923",
+  "committedCitationGate": {
+    "id": "committed-citation-gate",
+    "command": [
+      "env",
+      "PREPUSH_ONLY=line-citations",
+      "PREPUSH_UPSTREAM_REF=5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+      "node_modules/.bin/tsx",
+      "packages/core/hooks/pre-push.ts"
+    ],
+    "exitCode": 0,
+    "expectedExitCode": 0,
+    "wallSeconds": 11.400779,
+    "output": "docs/ci-test-effectiveness/evidence/publication-committed-citation-gate.txt",
+    "outputSha256": "74c6bed8e528bf2c02905078ca0d7323d8846abd9b1cb94c14a5ad4848a4b262",
+    "sourceHead": "c1930af47de3ff4932527972d8abec9a19e47923",
+    "rangeBase": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+    "resolved": 1273,
+    "unresolvableReported": 415,
+    "deferredToGenerator": 86,
+    "noBlameBaselineReported": 6,
+    "claimLimit": "Existing default gate passes; no claim that unresolvable/deferred/no-baseline citations were semantically certified."
+  }
+}

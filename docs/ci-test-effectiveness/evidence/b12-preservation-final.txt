@@ -1,0 +1,135 @@
+{
+  "base": "47101f3e6ab276a26091c32e45c50cf39da1acfb",
+  "hostedFailedHead": "76e5e8b5c72d40423aac5adfb810747f15f764c4",
+  "tuple": "aif-review 104 79e563f5fa2d3a76e34ecb2b7e922134fc74122cd4581986f3444134dc402b43 100 742958cdc895f9a9fad8c908dd32d5b415fecb5fb516f0c287569e6f177278c9",
+  "independentTemplateAndBodyHashes": true,
+  "helperMatches": true,
+  "exactOldLibReconstructed": true,
+  "previousTuplesPreserved": 11,
+  "templateAndAllTestsUnchanged": true,
+  "hostedTemplateIdentical": true,
+  "workflow": {
+    "oldTestIndex": 41,
+    "newTestIndex": 4,
+    "setupPrefixPreserved": 4,
+    "steps": 57,
+    "stepObjectMultisetUnchanged": true,
+    "exactMoveOnly": true,
+    "allOtherWorkflowDataUnchanged": true
+  },
+  "installedHarness": {
+    "path": "tests/install-sh/snapshot.sh",
+    "sha256": "77264f65c5eff2186c0bd813a96202dcbbecb1716c75117a69418ad6e97cb21d",
+    "derivedBaselineDirectory": "tests/install-sh/baselines"
+  },
+  "installedMaps": [
+    {
+      "path": "tests/install-sh/baselines/cargo/brownfield-clippy.fingerprint",
+      "sha256": "8f9f5856f579f04d2ce258d07697cd77b668b64b4725885e8c938c37c037b099",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/cargo/greenfield.fingerprint",
+      "sha256": "993d57e2c962f577fc064814dde65eb03ed7addba896ddc454dcb6c9fc8eb27d",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/go/brownfield-golangci.fingerprint",
+      "sha256": "d87939a33465d7499e06090b9b415dd811cf45a13adb25d3e617c08581f812c8",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/go/greenfield.fingerprint",
+      "sha256": "ddef381ad5a7c1a99f5271448a289bac066f2f05bb031fbbed9e3dea25d26ae4",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/brownfield-ruff.fingerprint",
+      "sha256": "9428aa211aee401b75c6824d7d3d1282297525ca17f16e696246e2e8890a98ec",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/brownfield-sgconfig.fingerprint",
+      "sha256": "34f0cecefbb6ddcec15ac3f4c562df5e74933dc6e0ee17710f7b9d6d3e3ed41a",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/python/greenfield.fingerprint",
+      "sha256": "57ec4b804ecef2e991ea8a2ecc6849757f13e674715070ed5b6aa03e88eedfb3",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-native/brownfield.fingerprint",
+      "sha256": "a00f931b73ef3567c340d08554230f65d626cda374857f0511642f22515e2f72",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-native/greenfield.fingerprint",
+      "sha256": "20a62e9fd942c90d0639c7cb713cf0f8ba3a8d20bb1c16c9e4ef315ec9ffb4f5",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-next/brownfield.fingerprint",
+      "sha256": "01e2fd4c41052b01431bda6f3e466ed91a235dbe2205d162b96920f31c244a2e",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-next/greenfield.fingerprint",
+      "sha256": "db24c4c8a8d234bc1bb6cc855247b63f246c6dadf42206d85f66213442291216",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-spa/brownfield.fingerprint",
+      "sha256": "c08e88b666ce0599564cc861813134899b627768248b7667262686142c8aed6c",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/react-spa/greenfield.fingerprint",
+      "sha256": "235190f3f464ce29f93e885b8701227223625ad3a95f24b056cfbc9642e9c042",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/ts-server/brownfield.fingerprint",
+      "sha256": "415a006a6990b285308ed68ee0991bc740c30ec1387750adef2a67bfa55bff98",
+      "affectedEntries": []
+    },
+    {
+      "path": "tests/install-sh/baselines/ts-server/greenfield.fingerprint",
+      "sha256": "cbc0dc581a697c50660bd4f10a5a3ce9e87f236a6092a0061a012d4960ea1794",
+      "affectedEntries": []
+    }
+  ],
+  "installedBaselineRegenerationRequired": false,
+  "manifestChangedEntries": [
+    ".agents/rules/evidence-regeneration.md",
+    "setup.d/lib.sh"
+  ],
+  "citationDigitOnlyPreservation": true,
+  "compatibilityTwinUnchangedSymlink": true,
+  "sourceHashes": {
+    "setup.d/lib.sh": {
+      "beforeSHA256": "7440f6fc16824279eafc1ee2975c29a04e54b09ceeed8c21344d4e0bc1a67aaf",
+      "afterSHA256": "e766d5ffecc124668a8e91c3c12760f8f3e110862fd29adb3470acdb2f75b2e3"
+    },
+    ".github/workflows/audit-self.yml": {
+      "beforeSHA256": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+      "afterSHA256": "bda7e930f308b38e7ab4ba9be6b8a9bb8c7b8c12145cc55336d3e54c4e949385"
+    },
+    "packages/getff/MANIFEST.sha256": {
+      "beforeSHA256": "bb3a7de43117b9abeb82627d9ae78f2c24440dc17b8804088dbcb392e4987095",
+      "afterSHA256": "3b475825150277d04df54d84b83d7f75dfb4af6a224241507f3e947549e10913"
+    },
+    ".agents/rules/evidence-regeneration.md": {
+      "beforeSHA256": "33f213b0e2f1b65abd89d8c1f89a2c1ec7e345b4b7f28ac6e786caef45c64fe9",
+      "afterSHA256": "9d89cd06fb8e3c5909695fd0b5675901eb4ef65fcff75f2114a79be2d6cbb2e6"
+    },
+    "packages/core/templates/shared/skill-context/aif-review/SKILL.md": {
+      "beforeSHA256": "79e563f5fa2d3a76e34ecb2b7e922134fc74122cd4581986f3444134dc402b43",
+      "afterSHA256": "79e563f5fa2d3a76e34ecb2b7e922134fc74122cd4581986f3444134dc402b43"
+    },
+    "tests/install-sh/skill-context-evolve-coownership.test.sh": {
+      "beforeSHA256": "8f598b2a3cd6e4861bb6b664e147aa36b98fc5ff130533e8deacbf08e355223f",
+      "afterSHA256": "8f598b2a3cd6e4861bb6b664e147aa36b98fc5ff130533e8deacbf08e355223f"
+    }
+  }
+}

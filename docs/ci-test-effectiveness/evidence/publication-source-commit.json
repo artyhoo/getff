@@ -1,0 +1,9 @@
+{
+  "command": "git commit (normal configured hooks)",
+  "exitCode": 0,
+  "wallSeconds": 2.829188,
+  "output": "docs/ci-test-effectiveness/evidence/publication-source-commit.txt",
+  "sourceHead": "c1930af47de3ff4932527972d8abec9a19e47923",
+  "outputSha256": "4370691ee3f13a4d08112e1b4ff1936f5b55de9569215a43db2eeebf9d7cd173",
+  "hookResult": "Normal configured .husky hooks; markdownlint0 issues, blank-citation resolved97/skipped2, no bypass."
+}

@@ -1,0 +1,16 @@
+{
+  "featureId": "ci-test-effectiveness",
+  "decision": "approved",
+  "date": "2026-11-08",
+  "timezone": "Europe/Moscow",
+  "approver": "operator in this chat",
+  "operatorEvidence": {
+    "quote": "Да Го теперь подумаем над тем как это лучше сделать над /arch",
+    "context": "Direct reply to the request to confirm the linked PRD as the basis for /arch."
+  },
+  "approvedSha256": "d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117",
+  "gitBlob": "b8e1fd48f138c4da723913daf72707527c3f6c94",
+  "snapshotPath": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md",
+  "sourcePath": "docs/superpowers/specs/2026-11-08-ci-test-effectiveness-product-brief.md",
+  "note": "Snapshot bytes retain their pre-approval Draft wording. This later approval record establishes their approval; the approved content was not edited."
+}

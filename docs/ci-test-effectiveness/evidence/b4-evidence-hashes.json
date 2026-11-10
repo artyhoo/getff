@@ -1,0 +1,54 @@
+{
+  "docs/ci-test-effectiveness/evidence/b4-analysis-run.txt": {
+    "sha256": "a8d3b52e88ca24f54efd96b3754c1e9b5a043e1a3adb44d88c6c7e952050d8e2",
+    "bytes": 6383
+  },
+  "docs/ci-test-effectiveness/evidence/b4-analysis.py": {
+    "sha256": "191de675c2b7521ba21a570048004003443168d858b9364771240460189f4bb8",
+    "bytes": 7569
+  },
+  "docs/ci-test-effectiveness/evidence/b4-before-42489342075-ci.json.gz": {
+    "sha256": "49b82abecbd664cbcd99f7059c9254653b59cec65c592b6a99be8bd55f4f075f",
+    "bytes": 21103,
+    "uncompressedSHA256": "c6db73269856b4c67efa73aa24e96a1a88c492d800113e8ccc720e89bcf1bac9",
+    "uncompressedBytes": 515603
+  },
+  "docs/ci-test-effectiveness/evidence/b4-before-42489342075-jobs-rest.json.gz": {
+    "sha256": "638de49f14058e4953efa2b20cfbc7819a70d7db3fd31ae1327eeeef2151c7c8",
+    "bytes": 21998,
+    "uncompressedSHA256": "2f6ddc98e1612e84c6b238dca4c3ae71146cfc22de80fc4940e5b9f338a02ddf",
+    "uncompressedBytes": 212565
+  },
+  "docs/ci-test-effectiveness/evidence/b4-d02-observations.json": {
+    "sha256": "c2e60bd9514d6f734e0ee68343256789c6d048a28833aeae056d195170836bb1",
+    "bytes": 1983
+  },
+  "docs/ci-test-effectiveness/evidence/b4-environment.json": {
+    "sha256": "6b969d325c61466c29fbb7aadce15149f863e01255dfab1ef8f4e3fdc139dfc6",
+    "bytes": 650
+  },
+  "docs/ci-test-effectiveness/evidence/b4-host-verify.txt": {
+    "sha256": "0e20dfe447752171a9da62296acdb039c9bd4ec80ab2ba6f33674688019c4c5e",
+    "bytes": 2510
+  },
+  "docs/ci-test-effectiveness/evidence/b4-no-loss.json": {
+    "sha256": "90b19087962bbeea14351f3226382779e99b500dde3280e2835b4d6732f050a6",
+    "bytes": 12807
+  },
+  "docs/ci-test-effectiveness/evidence/b4-timing-forecast.json": {
+    "sha256": "33bc190e8f1e6072586c4604db67431025184c6f44215c4b69108df9b593fd19",
+    "bytes": 5960
+  },
+  "docs/ci-test-effectiveness/evidence/b4-workflow-before.yml.gz": {
+    "sha256": "2acfd585514e539244b05636cb4c555fd9b94dc8ecec7367f8994e2e9784b3c5",
+    "bytes": 56379,
+    "uncompressedSHA256": "0f21c5a1e9d0adc7b399b707ae640a86c08877b3fd9f701907a9390b1fcc190c",
+    "uncompressedBytes": 200744
+  },
+  "docs/ci-test-effectiveness/evidence/b4-workflow-maps.json.gz": {
+    "sha256": "1e99d555627a5a719cd2730d9efe4cf8de96ee56fd1c4e4ca07ad7d76e6db58b",
+    "bytes": 57101,
+    "uncompressedSHA256": "4de579a42a48e967042d8efdaf13ee75f271639b38c557adba32e594cbeaa6b6",
+    "uncompressedBytes": 290148
+  }
+}

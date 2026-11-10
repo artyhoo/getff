@@ -1,0 +1,45 @@
+── host-verify: .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2d.md
+   host=Linux  repo=/workspace/getff-native
+
+▶ [1] actionlint .github/workflows/audit-self.yml
+✅ [1] PASS — actionlint .github/workflows/audit-self.yml
+
+▶ [2] npx --prefix packages/core vitest run --reporter=default packages/core/principles/36-ci-needs-completeness.test.ts packages/core/principles/37-required-context-completeness.test.ts packages/core/principles/38-vitest-include-ci-coverage.test.ts packages/core/principles/41-shell-test-ci-coverage.test.ts
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/principles/37-required-context-completeness.test.ts (11 tests) 252ms
+ ✓ packages/core/principles/36-ci-needs-completeness.test.ts (8 tests) 222ms
+ ✓ packages/core/principles/38-vitest-include-ci-coverage.test.ts (7 tests) 280ms
+ ✓ packages/core/principles/41-shell-test-ci-coverage.test.ts (8 tests) 160ms
+
+ Test Files  4 passed (4)
+      Tests  34 passed (34)
+   Start at  17:24:43
+   Duration  1.39s (transform 329ms, setup 186ms, import 451ms, tests 915ms, environment 1ms)
+
+✅ [2] PASS — npx --prefix packages/core vitest run --reporter=default packages/core/principles/36-ci-needs-completeness.test.ts packages/core/principles/37-required-context-completeness.test.ts packages/core/principles/38-vitest-include-ci-coverage.test.ts packages/core/principles/41-shell-test-ci-coverage.test.ts
+
+▶ [3] bash tests/install-sh/meta-all-wired.test.sh
+  ✓ every tests/install-sh/*.test.sh is wired in audit-self.yml (no armed-but-not-fired)
+  ✓ neg: removing aif-guided-install-gating.test.sh's wiring flips the gate to detect it missing (non-vacuous)
+
+PASS=2 FAIL=0
+✅ [3] PASS — bash tests/install-sh/meta-all-wired.test.sh
+
+▶ [4] npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/audit-self/audit-ai-docs.test.ts (224 tests) 5093ms
+     ✓ WARN(skip): tsconfig.json exists but ts-morph missing → still skips OR proceeds  1090ms
+
+ Test Files  1 passed (1)
+      Tests  224 passed (224)
+   Start at  17:24:48
+   Duration  6.01s (transform 260ms, setup 51ms, import 442ms, tests 5.09s, environment 0ms)
+
+✅ [4] PASS — npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts
+
+── host-verify result: 4/4 passed on Linux
+✅ host-verify passed for .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2d.md

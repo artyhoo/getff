@@ -1,0 +1,230 @@
+  ✓ all-green exits 0
+  ✓ all-green reports PASS
+  ✓ one-fail exits 1
+  ✓ failing gate reported FAIL
+  ✓ fail-fast: later gate skipped
+  ✓ md diff exits 0
+  ✓ md diff ran doc gate
+  ✓ md diff skipped the path-scoped gate
+  ✓ unmapped path escalated to full (ran all gates)
+  ✓ actionlint: exactly one delivered row
+  ✓ actionlint: installed exit0 propagates
+  ✓ actionlint: installed exit0 verdict
+  ✓ actionlint: installed exit0 diagnostic retained
+  ✗ actionlint: installed exit1 propagates (want rc=1 got rc=0)
+  ✗ actionlint: installed exit1 verdict (missing: [sweep] FAIL actionlint)
+  ✓ actionlint: installed exit1 diagnostic retained
+  ✗ actionlint: exit1 diagnostic displayed (missing: actionlint-control-status-1)
+  ✗ actionlint: installed exit42 propagates (want rc=1 got rc=0)
+  ✗ actionlint: installed exit42 verdict (missing: [sweep] FAIL actionlint)
+  ✓ actionlint: installed exit42 diagnostic retained
+  ✗ actionlint: exit42 diagnostic displayed (missing: actionlint-control-status-42)
+  ✓ actionlint: absent exits 0
+  ✓ actionlint: absence is explicit
+  ✓ actionlint: absence never labelled PASS
+  ✓ actionlint: real valid status
+  ✓ actionlint: real valid verdict
+  ✗ actionlint: real root-key status (want rc=1 got rc=0)
+  ✗ actionlint: real root-key verdict (missing: [sweep] FAIL actionlint)
+  ✓ actionlint: real root-key diagnostic retained
+  ✗ actionlint: real root-key diagnostic displayed (missing: unexpected key "unexpected-b1-key")
+  ✗ actionlint: real expression status (want rc=1 got rc=0)
+  ✗ actionlint: real expression verdict (missing: [sweep] FAIL actionlint)
+  ✓ actionlint: real expression diagnostic retained
+  ✗ actionlint: real expression diagnostic displayed (missing: undefined variable "b1_unknown_context")
+  ✓ empty diff exits 0
+  ✓ ALWAYS gate ran on an empty diff
+  ✓ empty diff did not run the path-scoped gate
+  ✓ unmapped path still escalates despite an ALWAYS row
+  ✓ escalation ran the path-scoped gate too
+  ✓ dot-prefix trigger matched as prefix (wf gate ran)
+  ✓ dot-prefix trigger did NOT escalate to full (other gate skipped)
+  ✓ retired SHIPPED token no longer selects by shipped root
+  ✓ the .md row covered that path (no escalation masking the negative)
+  ✓ a path spelled exactly SHIPPED still matches it as a literal
+  ✓ exit-in-gate-cmd exits 1
+  ✓ exit-in-gate-cmd reports FAIL (no self-truncation)
+  ✓ exit-in-gate-cmd reports stopped-at
+  ✓ exit-in-gate-cmd keeps fail-fast (later gate skipped)
+  ✓ not-run: a stop still exits 1
+  ✓ not-run: names exactly the selected gates after the stop
+  ✓ not-run: the line lists no unselected, passed or failed gate
+  ✓ not-run: the named gate really did not run
+  ✓ not-run: a stop on the last gate prints an explicit empty list
+  ✓ keep-going: a run with failures exits 1
+  ✓ keep-going: the gate after the first FAIL still ran
+  ✓ keep-going: first failure reported
+  ✓ keep-going: second failure reported
+  ✓ keep-going: the gate after the last FAIL ran
+  ✓ keep-going: summary names every failure
+  ✓ keep-going: nothing was left unrun
+  ✓ keep-going: no stopped-at line
+  ✓ keep-going: an all-green run still exits 0
+  ✓ keep-going: an all-green run keeps the pass summary
+  ✓ comma-trigger matched via second entry (workflows)
+  ✓ comma-trigger matched via first entry (install-sh)
+  ✓ stdin-eating gate exits 0
+  ✓ stdin-eating gate did NOT truncate the loop (later gate ran)
+  ✓ stdin-eating gate: both gates accounted for
+  ✓ degraded gate still exits 0
+  ✓ degraded gate reported WARN-SKIP, not PASS
+  ✓ degraded gate did not print a bare PASS
+  ✓ bare-WARN output is a genuine PASS, not a degrade
+  ✓ failing gate still exits 1
+  ✓ FAIL line names the log path
+  ✓ failing gate's output written to disk
+  ✓ the log file holds the failing gate's output
+  ✓ failing output ALSO printed inline (no second command needed)
+  ✓ summary points at the log directory
+  ✓ a PASSING gate's output is logged too (flake diagnosable on the run that caught it)
+  ✓ the passing gate's log holds its output
+  ✓ all-green run with logging exits 0
+  ✓ all-green run announces the log directory
+  ✓ all-green gate output is on disk
+  ✓ --list-gates still exits 0
+  ✓ --list-gates created no log directory
+  ✓ slash-named gate still exits 0
+  ✓ slash in a gate name is sanitised into the log filename
+  ✓ slash-named gate did NOT write through the directory separator
+  ✓ --capture is rejected as an unknown arg
+  ✓ --capture rejection names the arg
+  ✓ usage no longer advertises --capture
+  ✓ dirty tree with zero gates selected exits non-zero
+  ✓ refusal names the modified tracked path
+  ✓ refusal names the untracked path
+  ✓ dirty tree did not print the false-green 'no gates selected' line
+  ✓ clean tree with an empty diff still exits 0
+  ✓ clean tree keeps the 'no gates selected' answer
+  ✓ dirty tree with a gate-selecting committed diff still exits 0
+  ✓ harvest shape ran its selected gate
+  ✓ gate writing to fd 3 still exits 0
+  ✓ fd 3 reaches the operator live (sweep stderr)
+  ✓ fd 3 output did not leak into the captured stdout
+  ✓ ordinary gate stdout is still captured, not echoed live
+  ✓ offload: all green exits 0
+  ✓ offload: routed row ran on the runner
+  ✓ offload: non-routable row ran here
+  ✓ offload: each row ran exactly once
+  ✓ offload: PASS line names the runner
+  ✓ offload: the kept row's PASS line is unlabelled
+  ✓ offload: summary counts the routed row
+  ✓ offload: a red receipt fails the sweep
+  ✓ offload: red routed row reported FAIL with its label
+  ✓ offload: a red receipt is not retried here
+  ✓ offload: a runner that ran nothing cannot turn a red row green
+  ✓ offload: the row ran here after the empty runner
+  ✓ offload: the fallback is labelled
+  ✓ offload: empty runner + green row still exits 0 (ran here)
+  ✓ offload: green fallback says where it ran
+  ✓ offload: summary counts the fallback
+  ✓ offload: runner fallback to the origin exits 0
+  ✓ offload: origin fallback ran the routed row once, here
+  ✓ offload: origin fallback is labelled
+  ✓ offload: PC_LOCAL=1 with a reason still exits 0
+  ✓ offload: PC_LOCAL=1 with a reason never calls the runner
+  ✓ offload: PC_LOCAL=1 with a reason ran both rows here
+  ✓ offload: PC_LOCAL=1 with a reason prints no offload summary
+  ✓ offload: PC_LOCAL=1 with a reason says the escape and its reason
+  ✓ offload: PC_LOCAL=1 with reason '' still exits 0
+  ✓ offload: PC_LOCAL=1 with reason '': the routed row ran on the runner
+  ✓ offload: PC_LOCAL=1 with reason '': the kept row ran here
+  ✓ offload: PC_LOCAL=1 with reason '' makes no escape claim
+  ✓ offload: PC_LOCAL=1 with reason 'too short' still exits 0
+  ✓ offload: PC_LOCAL=1 with reason 'too short': the routed row ran on the runner
+  ✓ offload: PC_LOCAL=1 with reason 'too short': the kept row ran here
+  ✓ offload: PC_LOCAL=1 with reason 'too short' makes no escape claim
+  ✓ offload: PC_LOCAL=1 with reason '   too    short   padded   ' still exits 0
+  ✓ offload: PC_LOCAL=1 with reason '   too    short   padded   ': the routed row ran on the runner
+  ✓ offload: PC_LOCAL=1 with reason '   too    short   padded   ': the kept row ran here
+  ✓ offload: PC_LOCAL=1 with reason '   too    short   padded   ' makes no escape claim
+  ✓ offload: pc_local_escape is byte-identical in run-local-ci-sweep.sh and run-install-sh-suite.sh
+  ✓ offload: a missing runner exits 2
+  ✓ offload: the missing runner is named
+  ✓ offload: a missing runner runs no gate
+  ✓ offload: a remote degrade exits 0
+  ✓ offload: a remote degrade re-ran here
+  ✓ offload: the real local run is a PASS, not a WARN-SKIP
+  ✓ offload: a stale far end still exits 0 (ran here)
+  ✓ offload: the stale far end ran nothing
+  ✓ offload: the routed row ran here instead
+  ✓ offload: a remote timeout that is green here exits 0
+  ✓ offload: a remote timeout re-ran here
+  ✓ offload: the timeout fallback is labelled
+  ✓ offload: a hang that times out here too still fails
+  ✓ offload: the local hang is the FAIL
+  ✓ offload: one strike still exits 0 (both ran here)
+  ✓ offload: the runner was called once, then skipped
+  ✓ offload: the skipped row says why
+  ✓ offload: the summary names the strike
+  ✓ offload: a timeout stops routing for the rest of the sweep
+  ✓ offload: the timeout strike is named
+  ✓ offload: degrade then green exits 0
+  ✓ offload: a degrade does not stop routing
+  ✓ offload: a degrade is not reported as a strike
+  ✓ offload: origin strike still exits 0
+  ✓ offload: after an origin fallback the runner was not called again
+  ✓ offload: the origin strike is named
+  ✓ offload: a loud skip of a tool this host has exits 0
+  ✓ offload: the loud skip re-ran here
+  ✓ offload: the loud-skip rerun is labelled
+  ✓ offload: a loud skip of a tool absent here too is not re-run
+  ✓ offload: that verdict stays the runner's
+  ✓ offload: another tracked-file list still exits 0 (ran here)
+  ✓ offload: the far end with another file list ran nothing
+  ✓ offload: the row ran here instead
+  ✓ offload: shell row + unparsed vitest row exit 0
+  ✓ offload: neither row called the runner
+  ✓ offload: both rows ran here
+  ✓ offload: a non-zero runner exit after a green receipt still passes
+  ✓ offload: that PASS is the runner's
+  ✓ offload: the runner's exit is in the row's log
+  ✓ offload: a degraded green receipt with a non-zero runner exit still passes
+  ✓ offload: the row's log keeps the runner's exit and the degrade
+  ✓ arms: --route-plan names every in-scope shell file, and only those
+  ✓ arms: a row whose every file starts a shell stays here
+  ✓ arms: routed suite + green arms exits 0
+  ✓ arms: the suite itself ran on the runner
+  ✓ arms: the shell files ran here
+  ✓ arms: only the in-scope shell files ran here
+  ✓ arms: PASS line says the arms ran here
+  ✓ arms: a red shell arm fails the row even though the runner passed
+  ✓ arms: the red arm is reported as the row's FAIL
+  ✓ reasons: --route-plan exits 0
+  ✓ reasons: npm-hop → local runs-a-shell
+  ✓ reasons: npm-deep → local runs-a-shell
+  ✓ reasons: npm-ws → local runs-a-shell
+  ✓ reasons: npm-prefix-eq → local runs-a-shell
+  ✓ reasons: node-wrapper → local starts-a-shell:scripts/wrapper.mjs
+  ✓ reasons: bin-sh → local runs-a-shell
+  ✓ reasons: vitest-then-bash → local runs-a-shell
+  ✓ reasons: clean → route 
+  ✓ reasons: reader → route 
+  ✓ reasons: reader-short → local starts-a-shell:scripts/reader-short.mjs
+  ✓ reasons: reader-imports → local starts-a-shell:scripts/reader-imports.mjs
+  ✓ reasons: elsewhere → local unscanned-script:tools/elsewhere.mjs
+  ✓ reasons: npm-exec → local unparsed-npm-call
+  ✓ reasons: npm-b → route 
+  ✓ reasons: npm-pre → local runs-a-shell
+  ✓ reasons: npm-nosuch-ws → local unknown-workspace:nosuch
+  ✓ reasons: npm-cycle → local npm-nested-too-deep
+  ✓ reasons: npm-behind-timeout → local unparsed-npm-call
+  ✓ reasons: bg-then-npm → local runs-a-shell
+  ✓ reasons: ws-glob → local unparsed-workspace-glob:apps/**
+  ✓ reasons: node-eval → local node-eval
+  ✓ reasons: node-noext → local starts-a-shell:scripts/wrapper.mjs
+  ✓ reasons: node-after-cd → local unresolved-script:clean.mjs
+  ✓ reasons: extless-shell → local runs-a-shell
+  ✓ reasons: stub-writer → local starts-a-shell:scripts/stubber.mjs
+  ✓ reasons: spawns-npm → local starts-a-shell:scripts/npm-spawner.mjs
+  ✓ reasons: names-extless → local starts-a-shell:scripts/runs-doctor.mjs
+  ✓ reasons: imports-outside → local starts-a-shell:scripts/imports-outside.mjs
+  ✓ reasons: reader-spawns → local reader-starts-more-than-git:scripts/reader-spawns.mjs
+  ✓ reasons: setup-computed → local setup-starts-a-shell:packages/core/setup-computed.ts
+  ✓ reasons: setup-git → route 
+  ✓ reasons: reader-exec → local reader-starts-more-than-git:scripts/reader-exec.mjs
+  ✓ reasons: node-noext-missing → local unresolved-script:scripts/nosuch
+  ✓ scan failure: the sweep still exits 0
+  ✓ scan failure: the sweep says routing stopped
+  ✓ scan failure: the runner was never called
+  ✓ scan failure: the row passed here, unlabelled
+run-local-ci-sweep: 12 FAIL

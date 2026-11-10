@@ -1,0 +1,15 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "packages/core",
+    "run",
+    "test",
+    "--",
+    "principles/20-bundle-classification.test.ts",
+    "principles/20-bundle-classification.paired-negative.test.ts",
+    "skills/assign-skill.test.ts"
+  ],
+  "exitCode": 0,
+  "wallSeconds": 4.247
+}

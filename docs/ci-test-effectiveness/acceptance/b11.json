@@ -1,0 +1,22 @@
+{
+  "batch": "B11",
+  "task": 12,
+  "status": "ACCEPTED_FOR_INTEGRATION",
+  "reviewedBase": "508149ab999628c309c47b0e0f05429538127abe",
+  "reviewedHead": "948add8cf7fccd6334b44e834d8c3641fed2f80b",
+  "specCompliance": "PASS",
+  "taskQuality": "APPROVED; no Critical/Important; one known existing archive-warning Minor",
+  "review": {
+    "path": "acceptance/b11-review.md",
+    "sha256": "c67ea168a2b9e1faa6f6150af9b6276091e3043432ae5a71b12ade2ee038dfcb"
+  },
+  "decision": "D14 source evidence preceded effects; existing typed createRequire idiom restores checked library bindings without changing predicates, assertions, invocation grammar, dependencies or compiler flags.",
+  "verification": "Actual full core compiler exit2/four TS7016 -> exit0; unchanged four consumer files120/120; target-context YAML4.3.2 comparisons51 and picomatch4.0.5 same actual factory. Exact inverse edits, normal manifest three hash rows, actual archive1675/manifest1670 and all15 installed-map exclusions accepted.",
+  "cannotVerifyResolution": {
+    "commit": "Parent inspected actual normal commit receipt/log and verified exact raw hash; portable evidence/b11-commit.json + .txt.gz.",
+    "hostsAndAdmin": "Mandatory final full prepush, hosted Node22/Windows, actual observer and three administrator registrations remain campaign obligations, not source correctness waivers.",
+    "apiScope": "Finite recorded installed versions, actual inputs and used default-load/matcher contracts; no arbitrary-version or universal equivalence claim."
+  },
+  "minorDisposition": "Known six npm gitignore-fallback warnings precede archive success. Preserve visible noise and membership contract; no proven incorrect archive, no new configuration or duplicate review warranted.",
+  "at": "2026-11-08T22:34:36.787983+00:00"
+}

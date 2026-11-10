@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "status": "PARTIAL_AWAITING_SCOPED_REVIEW",
+  "feature": "ci-test-effectiveness",
+  "observedAt": "2026-11-08T14:32:12.452176+00:00",
+  "repository": "https://github.com/artyhoo/getff",
+  "auditedHead": "01b25d78b11083fb6e463fdf9de61299aff8972a",
+  "branch": "codex/ci-test-effectiveness-native",
+  "integrationBaseAtStart": "346e3daf3255a431100c6fa2298727cca36e3bc7",
+  "integrationObservedLater": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+  "freshnessNote": "Final ls-remote matches controller5fc5f74c. Local git diff against346e3daf changes only readme-install-claims kickoff; all relevant workflow/test/config comparison hashes unchanged.",
+  "host": {
+    "node": {
+      "argv": [
+        "node",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "v24.19.0",
+      "stderr": ""
+    },
+    "npm": {
+      "argv": [
+        "npm",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "11.9.0",
+      "stderr": ""
+    },
+    "git": {
+      "argv": [
+        "git",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "git version 2.52.0",
+      "stderr": ""
+    },
+    "python": {
+      "argv": [
+        "python3",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "Python 3.12.14",
+      "stderr": ""
+    },
+    "bash": {
+      "argv": [
+        "bash",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "GNU bash, version 5.2.37(1)-release (x86_64-pc-linux-gnu)\nCopyright (C) 2022 Free Software Foundation, Inc.\nLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\nThis is free software; you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.",
+      "stderr": ""
+    },
+    "host": {
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "exit": 0,
+      "stdout": "Linux fe503b716067 6.18.57 #1 SMP Tue Oct 20 21:56:04 UTC 2026 x86_64 GNU/Linux",
+      "stderr": ""
+    },
+    "actionlint": {
+      "argv": [
+        "/workspace/getff-tools/bin/actionlint",
+        "-version"
+      ],
+      "exit": 0,
+      "stdout": "1.7.7\ninstalled by downloading from release page\nbuilt with go1.23.4 compiler for linux/amd64",
+      "stderr": ""
+    }
+  },
+  "sourceHashes": {
+    ".husky/pre-commit": "667cdb1a25c621183e20d1c04a317543305c6c642610d4a8c859e2f8cfdce5ee",
+    ".husky/pre-push": "f3c325ba8fca5dda9978f36991f22ccda60758bbe473643dedb255b2948d2a22",
+    "Makefile": "8778939e2bb372fb22d02fc0538caadc0e565e9c5f06fd93324dca24f3b5493f",
+    "docs/test-assurance-kernel/s0/logs/probes/q1-scratch/vitest.config.ts": "24c70093af598435c459a4550d3fce82341dafbb0f41b4f1b29c17fa845f0d4a",
+    "package-lock.json": "ccc383436b45e018360923ab61cc8530adcc8e537dccce07377dfb1d5c2c99f7",
+    "packages/core/hooks/pre-push.ts": "00945a9db1cff265270f5571ce0f27ea147a7c4858759b6c5d4dfe27083127ce",
+    "packages/core/package-lock.json": "2bf82793236b9115ae57813e1a0334c610c36a9702f5e4d34e403406e6839778",
+    "packages/core/vitest.config.ts": "3efe27aa66656f4b21fe126db6010e5157165ac00750f950fb3969957ee9ac50",
+    "packages/preset-next-15-canonical/templates/vitest.config.ts": "dfff51eb32da24fe4d006de677f4be3a4cf22d1951256f1e6979e1691d75e5e5",
+    "packages/preset-next-15-canonical/vitest.config.ts": "b6fb45a2fb79954209488740993dd229fe4d992c3d57517e11da5059530e2d7e",
+    "packages/preset-react-native/templates/vitest.config.ts": "f41e2b93522d5054f381c11be20ec64ff1fb7e1e8c8b13531a06ec4f8eafc3d3",
+    "packages/preset-react-native/vitest.config.ts": "46c0924c654afc60af706465e2715a7979a1d195805189e9bdc57a51d6b8c0df",
+    "packages/preset-react-spa/templates/vitest.config.ts": "c2eedd247aff5126a88a0239527d5a9757d1345c00fec03725d5690995d10099",
+    "packages/preset-react-spa/vitest.config.ts": "b6fb45a2fb79954209488740993dd229fe4d992c3d57517e11da5059530e2d7e",
+    "packages/runtime-bridge/vitest.config.ts": "3bb470a9c1bb70dd6d82576714d6b8ea8e602ed6005f254f900f92f5c7cd7d92",
+    "scripts/run-local-ci-sweep.sh": "68ba4d42330ea3ccd084ed1d43570ded2e6a4de32f82e3a38379f19e9f22d747",
+    "templates/ts-server/vitest.config.ts": "e36fb5e2a885594783cb85533a795f15e1195483df939dd41a6f34dc1c1d53db",
+    "vitest.config.ts": "435fec04768c888772e88b2ef4d4357f0f0b5db5c62367951209f43c052a7164"
+  },
+  "authority": {
+    "spec": "docs/superpowers/specs/2026-11-08-ci-test-effectiveness-design.md",
+    "specSHA256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a",
+    "prdSHA256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4",
+    "route": "native explicitly authorized",
+    "ownerHome": "/workspace/getff/.claude/orchestrator-prompts"
+  },
+  "limits": [
+    "Linux native host does not certify Windows/macOS/native harness executions.",
+    "Hosted history is a bounded actual sample, not controlled before/after benchmark or billing data.",
+    "Runner collection executes module initialization, not test bodies; Node all-filtered collection failed through recorder lifecycle hang.",
+    "No full recurring suite run for setup; localized probes only.",
+    "No accepted TAK delivery inferred from PR text or historic S0.",
+    "Administrative protection endpoint403; ordinary branch endpoint readable; extra bypass policy unknown."
+  ],
+  "evidenceRefs": [
+    "evidence/ci-runs.json",
+    "evidence/staging-branch.json",
+    "evidence/main-branch.json",
+    "evidence/tak-pr-2144.json",
+    "evidence/controller-branch-protection.json"
+  ],
+  "finishedAt": "2026-11-08T15:09:17.890591+00:00",
+  "integrationObservedFinal": "5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d",
+  "population": {
+    "inventoryRecords": 2121,
+    "sourceCensus": 736,
+    "testProbeSources": 722,
+    "supportWithinCensus": 14,
+    "additionalFixtureRunnerInputs": 314,
+    "nativeVitestCases": 6257,
+    "nativeVitestFiles": 372,
+    "declaredJsCallbacks": 6609,
+    "nodeDeclaredCallbacks": 1002,
+    "nativePythonCases": 54,
+    "nativePythonFiles": 6,
+    "shellSourceLabels": 8276,
+    "activeWorkflows": 15,
+    "activeJobs": 56,
+    "activeSteps": 486,
+    "shippedWorkflowTemplates": 9,
+    "shippedJobs": 41,
+    "shippedSteps": 204,
+    "localSweepGates": 56,
+    "packageScripts": 56,
+    "makeTargets": 12,
+    "prePushSections": 40,
+    "nativeRegistrations": 68,
+    "familyAssessments": 36,
+    "individualPrincipleAssessments": 57
+  },
+  "decisionModel": "D00 retention plus8named exceptions. Seven criteria assess bounded source/contract usefulness, not dynamic certification. Null cost measurements are unknown measurements, not zero cost or unassessed usefulness.",
+  "newPersistentMechanisms": [],
+  "independentAcceptance": "Not performed by implementer; controller owns substantive review. Metadata validation is not acceptance.",
+  "reviewCorrection": {
+    "round": 1,
+    "base": "8c13d59395297380f5b981eac508f9175bc2e8cb",
+    "findings": [
+      "I1",
+      "I2",
+      "I3"
+    ],
+    "status": "Corrections supplied, independent scoped re-review pending; not accepted.",
+    "productionAndProbeEvidence": "Frozen source and existing probe receipts unchanged."
+  }
+}

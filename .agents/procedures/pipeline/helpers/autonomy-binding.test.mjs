@@ -34,7 +34,7 @@
  * drives the real platform gate — it can only make the gate fail, never fake a success)
  * and the row-18 unit matrix. No arm spoofs a platform to claim a Linux behavior passed.
  */
-import { describe, test } from 'node:test';
+import { after, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync, spawn } from 'node:child_process';
 import {
@@ -112,17 +112,23 @@ const ntest = ON_LINUX
 // file asserts it never accepted a single TCP connection and never served a
 // single HTTP request (A1 review: the HTTP-request counter alone would miss a
 // connection attempt that never completes a request). The listener itself is
-// inert — it only counts. (It is closed by the LAST test declaration in this file,
-// not a top-level after(): an earlier full-suite run once ended with the recorder
-// still listening and hung the runner — cause never isolated. An isolated probe on
-// this exact runtime later showed a top-level after() DOES fire, so the hang was
-// never attributed to after() skipping; the ordered last test is simply the closure
-// channel this suite itself proves executes on every run.)
+// inert — it only counts. A native after hook owns teardown independently of
+// selected cases and assertion outcomes, including accepted sockets left open by
+// a prohibited effect. The final aftermath case remains the whole-run oracle.
 // ---------------------------------------------------------------------------
 let recorderHits = 0;
 let recorderConnections = 0;
 const recorder = createServer(() => { recorderHits += 1; });
-recorder.on('connection', () => { recorderConnections += 1; });
+const recorderSockets = new Set();
+recorder.on('connection', (socket) => {
+  recorderConnections += 1;
+  recorderSockets.add(socket);
+  socket.on('close', () => recorderSockets.delete(socket));
+});
+after(async () => {
+  for (const socket of recorderSockets) socket.destroy();
+  await new Promise((settle, reject) => recorder.close((error) => error ? reject(error) : settle()));
+});
 const RECORDER_ENV = await new Promise((settle) => {
   recorder.listen(0, '127.0.0.1', () => {
     const url = `http://127.0.0.1:${recorder.address().port}`;
@@ -139,15 +145,6 @@ const RECORDER_ENV = await new Promise((settle) => {
     });
   });
 });
-// The row-13 recorder is closed by the `aftermath` test at the END of this file.
-// CORRECTION (R3, 2026-10-27): an earlier version of this comment claimed a top-level
-// after() is «silently NEVER run by node --test on this Node version» — that blanket
-// claim is WRONG: an isolated describe+after file on this exact runtime fired the
-// hook. What stands: the original full-suite hang was never attributed to a cause
-// (the probe does not establish one), and this file keeps the ordered-last-test
-// closure anyway — it is ordering-enforced by the suite layout and proven to execute
-// by every run; no rework of the recorder/cleanup mechanism is needed or made.
-
 // ---------------------------------------------------------------------------
 // Fixture factory + real-CLI runners.
 // ---------------------------------------------------------------------------
@@ -4320,19 +4317,13 @@ describe('A1 composed repair', () => {
   });
 });
 
-// Row 13 aftermath — MUST be the LAST top-level test declaration: it asserts zero
-// outbound TCP connections and zero HTTP requests across the ENTIRE claimed run
-// (every arm above), and only then closes the recorder. (Correction R3, 2026-10-27:
-// this comment previously said a top-level after() is «silently never run» by
-// node --test on this Node version — an isolated exact-runtime probe has since
-// fired the hook, so that claim is retracted; the ordered last test stays as the
-// closure channel because the suite itself proves it executes, not because
-// after() cannot.)
+// Row 13 aftermath — keep LAST so the zero TCP/HTTP assertions cover the ENTIRE
+// claimed run. Resource release belongs to the unconditional native after hook;
+// neither selecting out this case nor either assertion failing may retain it.
 // ===========================================================================
 test('row 13 aftermath: zero accepted connections and zero requests across the whole run, then the recorder closes', async () => {
   assert.equal(recorderConnections, 0, `no TCP connection may reach the recorder (${recorderConnections} did)`);
   assert.equal(recorderHits, 0, `no HTTP request may reach the recorder (${recorderHits} did)`);
-  await new Promise((settle) => recorder.close(settle));
 });
 
 

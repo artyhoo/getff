@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/workspace/getff-tools/bin/actionlint",
+    ".github/workflows/audit-self.yml"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 0.045123,
+  "log": "docs/ci-test-effectiveness/evidence/b12-actionlint.txt",
+  "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

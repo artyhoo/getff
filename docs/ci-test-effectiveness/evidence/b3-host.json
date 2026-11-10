@@ -1,0 +1,44 @@
+[
+  {
+    "command": "bash -n scripts/check-discipline-pr-body.sh scripts/check-husky-presence.sh tests/hooks/test-enforce-husky-presence.sh scripts/run-local-ci-sweep.sh scripts/build-getff-dist.sh",
+    "exit": 0,
+    "seconds": 0.005922747001022799,
+    "output": "docs/ci-test-effectiveness/evidence/b3-host-1.txt"
+  },
+  {
+    "command": "npx --prefix packages/core vitest run --reporter=default packages/core/hooks/ci-checker-oracles.test.ts",
+    "exit": 0,
+    "seconds": 2.1222644160006894,
+    "output": "docs/ci-test-effectiveness/evidence/b3-host-2.txt"
+  },
+  {
+    "command": "bash tests/hooks/test-enforce-husky-presence.sh",
+    "exit": 0,
+    "seconds": 0.1528115090004576,
+    "output": "docs/ci-test-effectiveness/evidence/b3-host-3.txt"
+  },
+  {
+    "command": "bash scripts/check-husky-presence.sh",
+    "exit": 0,
+    "seconds": 0.009501369999270537,
+    "output": "docs/ci-test-effectiveness/evidence/b3-host-4.txt"
+  },
+  {
+    "command": "bash scripts/run-local-ci-sweep-coverage.test.sh",
+    "exit": 0,
+    "seconds": 17.025179688000208,
+    "output": "docs/ci-test-effectiveness/evidence/b3-host-5.txt"
+  },
+  {
+    "command": "bash scripts/run-local-ci-sweep.test.sh",
+    "exit": 0,
+    "seconds": 11.557811826000034,
+    "output": "docs/ci-test-effectiveness/evidence/b3-host-6.txt"
+  },
+  {
+    "command": "actionlint .github/workflows/discipline-self-check.yml .github/workflows/audit-self.yml",
+    "exit": 0,
+    "seconds": 0.02686225000070408,
+    "output": "docs/ci-test-effectiveness/evidence/b3-host-7.txt"
+  }
+]

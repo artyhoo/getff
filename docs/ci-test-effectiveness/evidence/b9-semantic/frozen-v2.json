@@ -1,0 +1,87 @@
+{
+  "frozenAt": "2026-11-08T19:03:24.422404+00:00",
+  "kind": "audit-only independent semantic conformance inputs; no recurring model CI",
+  "beforeImplementation": "B9 not dispatched; source role remains original",
+  "inputHashes": {
+    "c0.md": "a2a685b2a4d83c6af13e2402c6b327fc95d98ebfd89aac8f046533fdf0f761a5",
+    "c1.md": "edc338019b604a0e3514e911d66d8e2718863976582126440d7e23731002c55d",
+    "c2.md": "c3d31f5dafbaeb64e4b8e43b50921b836274ab023e5d0a046b2ec887d9e14dea",
+    "c3.md": "459f3cf82445def8704592c44eccb86300e38430d789c540f728fab34edfaf02",
+    "c4.md": "f19390fe09c5a78064ca558fa73448b64372f1b279edb5d8d08826851f34b01e",
+    "c5.md": "36c436c476ec15af7625bec7eebef7a6b2ba6b6f2f02cceeddab69a1dda390fa"
+  },
+  "expectedSHA256": "6bc746b663bccd7fb8489c335f1102f308ce5e18aaf35a3f37b4dfeb3cc3c789",
+  "trustedBoundary": "Controller independently fixes requirements/expected classes; cold seat gets actual updated role and only neutral inputs, not expected file. Records cannot certify arbitrary semantics.",
+  "revision": 2,
+  "reason": "Supply real prepared Git diffs/committed identities required by canonical role; original six facts and controller-only expectations unchanged.",
+  "fixtures": {
+    "c0": {
+      "repo": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/fixtures/c0",
+      "base": "189acb04ed37c339a4e2970a8bf033fd69b65f5a",
+      "head": "e3a397d668a2df8f8385d21bf0cc940ea31b46ed",
+      "diff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c0.diff",
+      "diffSHA256": "11cff54c7c303bf8ef28c1a11b6cba2cafe67e4fa0441ebf38d7caceb6463f4d",
+      "factsSHA256": "a2a685b2a4d83c6af13e2402c6b327fc95d98ebfd89aac8f046533fdf0f761a5",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ]
+    },
+    "c1": {
+      "repo": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/fixtures/c1",
+      "base": "f053bc8db6c4ec640d9f01bef3997c04adc91cf4",
+      "head": "788a5d512b543ad561998a6ec2ad6c6c3f31eda3",
+      "diff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c1.diff",
+      "diffSHA256": "26005f9991dddd0385bf22ba42b83d02658d5392ac85aef3bb348a5a4435271e",
+      "factsSHA256": "edc338019b604a0e3514e911d66d8e2718863976582126440d7e23731002c55d",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ]
+    },
+    "c2": {
+      "repo": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/fixtures/c2",
+      "base": "c09dbae702a5f653f2839511aa7a40c199060d4c",
+      "head": "24b59f7599d2ab7f291de08320449fdd8ed641af",
+      "diff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c2.diff",
+      "diffSHA256": "1ab490b5f6c0144e7d5b5632dbe4bb1d5bdc7355f47e9ea20809808d2ad5db10",
+      "factsSHA256": "c3d31f5dafbaeb64e4b8e43b50921b836274ab023e5d0a046b2ec887d9e14dea",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ]
+    },
+    "c3": {
+      "repo": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/fixtures/c3",
+      "base": "7b2618ae240219967100069a66ece83381f5e23b",
+      "head": "3617339f2e5dda1f2eac7a887efe3aaeabdccf05",
+      "diff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c3.diff",
+      "diffSHA256": "eecfe30755c1227ecef6d6fb8cc90c442932cf93a55688555b7c46c7d1025819",
+      "factsSHA256": "459f3cf82445def8704592c44eccb86300e38430d789c540f728fab34edfaf02",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ]
+    },
+    "c4": {
+      "repo": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/fixtures/c4",
+      "base": "425ab2880f4282ce7a4be1c665a7e2050ea74f0a",
+      "head": "8eb048c67a28f463e3a100ad558bc85797a9d111",
+      "diff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c4.diff",
+      "diffSHA256": "22dc5b547129380c848763823c5f62c7f182f266883fbd3715376bef3728bf7c",
+      "factsSHA256": "f19390fe09c5a78064ca558fa73448b64372f1b279edb5d8d08826851f34b01e",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ]
+    },
+    "c5": {
+      "repo": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/fixtures/c5",
+      "base": "610c1291c375dd56f9f29ad602087fcfee8d1352",
+      "head": "a065cc4fbb977186f57a31b28a67a458c0652359",
+      "diff": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c5.diff",
+      "diffSHA256": "5076a2d507ce0b095a256d6053360c5b4d35d700e42a66ffcacb40ed99230668",
+      "factsSHA256": "36c436c476ec15af7625bec7eebef7a6b2ba6b6f2f02cceeddab69a1dda390fa",
+      "changedPaths": [
+        "src/token.test.ts"
+      ]
+    }
+  },
+  "fixtureNature": "Controlled synthetic semantic corpus. Supplied costs/risk/contracts are fixed fixture inputs, not observed timings or facts about artyhoo/getff. No fixture command or test was executed; actual cold-review/disposition path will be measured separately.",
+  "priorManifestSHA256": "329837a467814d0731388c90a14f9716f89753934712050c80d3aef0a0260d81"
+}

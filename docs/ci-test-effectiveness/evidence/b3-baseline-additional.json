@@ -1,0 +1,39 @@
+{
+  "base": "9baa971338598082e4b261703cde1d1a2989b094",
+  "sourceClosure": "entire git archive of B3 input; unchanged real source, bundle and all fixture/import files; provisioned node_modules linked read-only by usage (no install)",
+  "archiveSHA256": "d9375a51c1fbc7b75644609b6f2937ab43e0544b5f8ea906338c1b1b9ac747ca",
+  "results": [
+    {
+      "name": "glossary",
+      "command": [
+        "/workspace/getff-native/node_modules/.bin/vitest",
+        "run",
+        "--root",
+        "/tmp/b3-baseline-i5gohtvi",
+        "--reporter=default",
+        "packages/core/hooks/glossary-counters.test.ts",
+        "-t",
+        "control: the same 10 prompts run SEQUENTIALLY also count 10"
+      ],
+      "exit": 0,
+      "seconds": 6.304126283999722,
+      "output": "evidence/b3-baseline-glossary.txt"
+    },
+    {
+      "name": "hydration",
+      "command": [
+        "/workspace/getff-native/node_modules/.bin/vitest",
+        "run",
+        "--root",
+        "/tmp/b3-baseline-i5gohtvi",
+        "--reporter=default",
+        "packages/core/hooks/worktree-setup-hydration.test.ts",
+        "-t",
+        "POSITIVE: state.md present AS A SYMLINK|DUAL-PAIR PARITY"
+      ],
+      "exit": 1,
+      "seconds": 2.461912144000962,
+      "output": "evidence/b3-baseline-hydration.txt"
+    }
+  ]
+}

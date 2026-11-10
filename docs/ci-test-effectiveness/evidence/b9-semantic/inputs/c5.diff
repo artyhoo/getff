@@ -1,0 +1,14 @@
+diff --git a/src/token.test.ts b/src/token.test.ts
+index fd2c996..02e8655 100644
+--- a/src/token.test.ts
++++ b/src/token.test.ts
+@@ -1,2 +1,9 @@
+ import { it, expect } from 'vitest';
+ import { readToken } from './token';
++
++it('a conforming external payload yields a token', () => {
++  expect(readToken({token: 'opaque'})).toBeDefined();
++});
++it.each([{}, {token: null}, {token: ''}])('rejects a missing runtime token', payload => {
++  expect(() => readToken(payload)).toThrow('missing token');
++});

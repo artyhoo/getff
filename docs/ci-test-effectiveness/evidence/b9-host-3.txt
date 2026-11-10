@@ -1,0 +1,17 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/principles/37-required-context-completeness.test.ts (37 tests) 1332ms
+ ✓ packages/core/principles/38-vitest-include-ci-coverage.test.ts (19 tests) 1152ms
+     ✓ (a) real-tree: every nonempty workspace population is invoked  354ms
+     ✓ (f) removal, data-only replacement and new runner populations are rejected  627ms
+ ✓ packages/core/principles/36-ci-needs-completeness.test.ts (8 tests) 347ms
+     ✓ kickoff skips retain scope dependencies, aggregate results and required document checks  301ms
+ ✓ packages/core/principles/41-shell-test-ci-coverage.test.ts (27 tests) 2318ms
+     ✓ (a) real-tree: no tracked native source test is uninvoked  1568ms
+     ✓ (I3) advisor requires the ordered direct spawn and assertion without control flow  395ms
+
+ Test Files  4 passed (4)
+      Tests  91 passed (91)
+   Start at  19:49:03
+   Duration  3.79s (transform 820ms, setup 192ms, import 2.36s, tests 5.15s, environment 1ms)

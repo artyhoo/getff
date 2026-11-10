@@ -1,0 +1,48 @@
+── §0 shipped-revision register (SKILL_CONTEXT_SHIPPED_REVISIONS) ──
+  ✓ §0 aif-review: all 5 revisions (git history + working tree) are registered
+  ✓ §0 aif-rules-check: all 4 revisions (git history + working tree) are registered
+  ✓ §0 aif-orchestrator-discipline: all 5 revisions (git history + working tree) are registered
+── §1 case matrix (install_skill_context direct) ──
+  ✓ (0) fresh: one fenced block carrying the template body
+  ✓ (0) fresh: template YAML frontmatter is not copied into the co-owned file
+  ✓ (1) evolved file present at install: getff's content landed as one fenced block
+  ✓ (1) evolved file present at install: every evolved byte kept, in place (block appended after)
+  ✓ (1b) idempotence: a second run leaves the file byte-identical
+  ✓ (2) rules evolve added after install survive the re-delivery (failure mode 2)
+  ✓ (2b) template update: getff's block now carries the new version, evolved rules untouched
+  ✓ (3) legacy pristine copy: adopted into one fenced block (template not duplicated)
+  ✓ (3b) legacy copy + appended evolve rules: split — template fenced once, evolved rule kept
+  ✓ (3c) legacy aif-review revision 478b1a62, no baseline: old text replaced, evolved rule kept
+  ✓ (3c) legacy aif-review revision c26ff320, no baseline: old text replaced, evolved rule kept
+  ✓ (3c) legacy aif-review revision c42c07e8, no baseline: old text replaced, evolved rule kept
+  ✓ (3c) legacy aif-rules-check revision 11ebdc8c, no baseline: old text replaced, evolved rule kept
+  ✓ (3c) legacy aif-rules-check revision ab6f6547, no baseline: old text replaced, evolved rule kept
+  ✓ (3c) legacy aif-orchestrator-discipline revision 02e55807, no baseline: old text replaced, evolved rule kept
+  ✓ (3c) legacy aif-orchestrator-discipline revision 1d5cad88, no baseline: old text replaced, evolved rule kept
+  ✓ (3c) legacy aif-orchestrator-discipline revision 90f2ef62, no baseline: old text replaced, evolved rule kept
+  ✓ (3e) legacy CRLF copy + evolve rule: split like an LF copy (template once, evolved kept)
+  ✓ (3d) legacy, unprovable split: every existing byte kept, current template appended fenced
+  ✓ (3d') unprovable CRLF copy: the kept-older-copy notice is still printed
+  ✓ (4) .override.md present: file left untouched (Layer 3)
+  ✓ (5) dry-run fresh: no file created
+  ✓ (5) dry-run legacy split: file untouched
+  ✓ (6) marker quoted before the first delivery: block delivered once, every evolved rule kept
+  ✓ (6) marker quoted above an existing block: the refresh re-delivers the block and keeps every evolved rule
+  ✓ (6b) two whole-line begin markers: refused loudly, file untouched
+  ✓ (7) template update over a shipped body: replaced silently, nothing parked
+  ✓ (7) edited block: replaced, previous bytes parked as aif-review-SKILL.md.<sha8>
+  ✓ (8) stripped markers: bare getff block replaced by one fenced block, evolved rules kept
+── §2 paired negative (old whole-file verbs) ──
+  ✓ neg: copy_safe onto an evolved file is caught by predicate (1) (getff content absent)
+  ✓ neg: refresh_safe wiping an evolved rule is caught by predicate (2)
+── §3 wiring (real install.sh) ──
+  ✓ npm lane (ts-server) install: install.sh exited 0
+  ✓ npm lane (ts-server) install: evolved file kept AND getff's block delivered
+  ✓ npm lane (ts-server) --refresh: install.sh exited 0
+  ✓ npm lane (ts-server) --refresh: getff's block re-delivered, every evolved rule still in the live file
+  ✓ python lane install: install.sh exited 0
+  ✓ python lane install: evolved file kept AND getff's block delivered
+  ✓ python lane --refresh: install.sh exited 0
+  ✓ python lane --refresh: getff's block re-delivered, every evolved rule still in the live file
+
+PASS=42 FAIL=0

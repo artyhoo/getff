@@ -193,14 +193,16 @@ _json_array_field() {
 # TRUE single-rule isolation: the delivered per-rule config .getff/astgrep-rules/<ruleId>.yml is
 # the ONLY rule planted, so any diagnostic carrying this rule's id (`scan --json` `ruleId`) is
 # unambiguously that rule.
-# _sg_is_astgrep — identity probe for the `sg` alias fallback. On Linux, /usr/bin/sg is
-# shadow-utils' setgroup tool, NOT ast-grep: a bare `command -v sg` resolution made every
-# invocation exit non-zero, which the old exit-code-keyed verdict read as "every rule fires"
-# (the A7-2 class — a non-firing exit code is not a firing signal). Probe that the binary can
-# do the one thing the lane needs (`scan --help`, rc 0 on a real ast-grep) before trusting it;
-# an impostor leaves the lane tool ABSENT → the loud DEGRADED path. Only reached when no
-# `ast-grep` binary resolves (the primary name wins everywhere it exists).
+# _sg_is_astgrep — identity probe for the `sg` alias fallback. Linux also ships an
+# unrelated sg/newgrp: util-linux sg even returns 0 for `scan --help`. Require ast-grep's
+# version identity AND the supported scan interface before accepting this ambiguous name.
+# This is an availability probe, not a rule verdict: once selected, failed scans still flow
+# through the structured-diagnostic/invalid-artifact checks below. The canonical `ast-grep`
+# name keeps precedence; this probe is only reached when it does not resolve.
 _sg_is_astgrep() {
+  local version
+  version="$("$1" --version 2>/dev/null)" || return 1
+  [[ "$version" =~ ^ast-grep[[:space:]][0-9] ]] || return 1
   "$1" scan --help >/dev/null 2>&1
 }
 _fire_astgrep() {

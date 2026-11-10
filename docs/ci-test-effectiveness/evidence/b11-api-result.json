@@ -1,0 +1,305 @@
+{
+  "node": "v24.19.0",
+  "flag": "--experimental-import-meta-resolve enables target parent URL resolution",
+  "contexts": [
+    {
+      "context": "file:///workspace/getff-native/packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+      "yaml": {
+        "esmPath": "file:///workspace/getff/node_modules/js-yaml/dist/js-yaml.mjs",
+        "cjsPath": "file:///workspace/getff/node_modules/js-yaml/index.js",
+        "esmVersion": "4.3.2",
+        "cjsVersion": "4.3.2",
+        "sameLoadObject": false,
+        "cases": [
+          {
+            "name": "audit-self.yml",
+            "sha256": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "context7-refresh.yml",
+            "sha256": "3f13aa20ea47ada4da726823e38f3770947eea76de8cef278e2ce4d3dbae4c7c",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "demo-regen.yml",
+            "sha256": "04c660dc5e2ef7c6def027578ae1ff8aaf8311078dc6dc781e0e7198d233d8f6",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "discipline-self-check.yml",
+            "sha256": "efdefac932ab28a57c287a3e28f083fd0d23967baa3b0dcefb17a182c9231fba",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "framework-self-template-render.yml",
+            "sha256": "b9007959abce98800b819590b2ec6007cfa5a5cee91c005d98068138976dc93a",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "guard-liveness-fullsweep.yml",
+            "sha256": "d7be4bc45a16bf8d1fd0cf0810607128e727d4284584b2bcb8e3a00610cd1f78",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "link-checker.yml",
+            "sha256": "170b716f600498be9f45d82be6b707cca080141ca143454c0cb3d67ee622069b",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "metrics-collect.yml",
+            "sha256": "0b42d038316910af47c98df95b48db25d9dd0afeb467db46bf4d530f74bdbad5",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "notify-landing.yml",
+            "sha256": "52fb5959f59e94c9e2192a3b7989c7a99e48850a162c90990e20846e5d328703",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pin-freshness.yml",
+            "sha256": "f2c6b66ba18faae452ad5e97ebaff78ef4ac9ad9068d38f0bc861734bd4fd7f8",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pr-body-fidelity.yml",
+            "sha256": "873757ff9878f203e311ef0d7e5ebd030d05290b34b15a703f916712e3236ead",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pr-body-prior-art.yml",
+            "sha256": "952fc3f602a47651a4601cb4f09ca802ce2ad2eebf77f3f7a6235307b9c8ed81",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pr-stale-revert.yml",
+            "sha256": "1cf2c59fd25d67c6410a3a8674ce2a5a68c40e2853dd31d28d67520b0ae75328",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "release-drafter.yml",
+            "sha256": "7eab2ac1d505973c59d79d0f57387613254b1bd01ff0e91aa8558835a24bfbc4",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "workflow-integrity.yml",
+            "sha256": "d84360a7ea11fb4b2a67e4f6f23ee8d6d465a70373b0ec17bf865f47422ec714",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "valid-companion",
+            "sha256": "5dbf7b810c68cf24aeed4b95346e22fbef3f1d768015a52d0043f453ad69e9ae",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "malformed-companion",
+            "sha256": "38ff6b2355a82c9f947e3de4949617842f640c73551e0c9f57ea495bca6d039d",
+            "outcome": "equal-error-name/message/reason/location/snippet"
+          }
+        ]
+      }
+    },
+    {
+      "context": "file:///workspace/getff-native/packages/core/principles/37-required-context-completeness.test.ts",
+      "yaml": {
+        "esmPath": "file:///workspace/getff/node_modules/js-yaml/dist/js-yaml.mjs",
+        "cjsPath": "file:///workspace/getff/node_modules/js-yaml/index.js",
+        "esmVersion": "4.3.2",
+        "cjsVersion": "4.3.2",
+        "sameLoadObject": false,
+        "cases": [
+          {
+            "name": "audit-self.yml",
+            "sha256": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "context7-refresh.yml",
+            "sha256": "3f13aa20ea47ada4da726823e38f3770947eea76de8cef278e2ce4d3dbae4c7c",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "demo-regen.yml",
+            "sha256": "04c660dc5e2ef7c6def027578ae1ff8aaf8311078dc6dc781e0e7198d233d8f6",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "discipline-self-check.yml",
+            "sha256": "efdefac932ab28a57c287a3e28f083fd0d23967baa3b0dcefb17a182c9231fba",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "framework-self-template-render.yml",
+            "sha256": "b9007959abce98800b819590b2ec6007cfa5a5cee91c005d98068138976dc93a",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "guard-liveness-fullsweep.yml",
+            "sha256": "d7be4bc45a16bf8d1fd0cf0810607128e727d4284584b2bcb8e3a00610cd1f78",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "link-checker.yml",
+            "sha256": "170b716f600498be9f45d82be6b707cca080141ca143454c0cb3d67ee622069b",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "metrics-collect.yml",
+            "sha256": "0b42d038316910af47c98df95b48db25d9dd0afeb467db46bf4d530f74bdbad5",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "notify-landing.yml",
+            "sha256": "52fb5959f59e94c9e2192a3b7989c7a99e48850a162c90990e20846e5d328703",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pin-freshness.yml",
+            "sha256": "f2c6b66ba18faae452ad5e97ebaff78ef4ac9ad9068d38f0bc861734bd4fd7f8",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pr-body-fidelity.yml",
+            "sha256": "873757ff9878f203e311ef0d7e5ebd030d05290b34b15a703f916712e3236ead",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pr-body-prior-art.yml",
+            "sha256": "952fc3f602a47651a4601cb4f09ca802ce2ad2eebf77f3f7a6235307b9c8ed81",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pr-stale-revert.yml",
+            "sha256": "1cf2c59fd25d67c6410a3a8674ce2a5a68c40e2853dd31d28d67520b0ae75328",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "release-drafter.yml",
+            "sha256": "7eab2ac1d505973c59d79d0f57387613254b1bd01ff0e91aa8558835a24bfbc4",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "workflow-integrity.yml",
+            "sha256": "d84360a7ea11fb4b2a67e4f6f23ee8d6d465a70373b0ec17bf865f47422ec714",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "valid-companion",
+            "sha256": "5dbf7b810c68cf24aeed4b95346e22fbef3f1d768015a52d0043f453ad69e9ae",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "malformed-companion",
+            "sha256": "38ff6b2355a82c9f947e3de4949617842f640c73551e0c9f57ea495bca6d039d",
+            "outcome": "equal-error-name/message/reason/location/snippet"
+          }
+        ]
+      }
+    },
+    {
+      "context": "file:///workspace/getff-native/packages/core/principles/ci-test-invocations.ts",
+      "yaml": {
+        "esmPath": "file:///workspace/getff/node_modules/js-yaml/dist/js-yaml.mjs",
+        "cjsPath": "file:///workspace/getff/node_modules/js-yaml/index.js",
+        "esmVersion": "4.3.2",
+        "cjsVersion": "4.3.2",
+        "sameLoadObject": false,
+        "cases": [
+          {
+            "name": "audit-self.yml",
+            "sha256": "ceb1eced878188ab46337464eb5921d8ae69565f50d66f38f24a48fe72dffd6f",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "context7-refresh.yml",
+            "sha256": "3f13aa20ea47ada4da726823e38f3770947eea76de8cef278e2ce4d3dbae4c7c",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "demo-regen.yml",
+            "sha256": "04c660dc5e2ef7c6def027578ae1ff8aaf8311078dc6dc781e0e7198d233d8f6",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "discipline-self-check.yml",
+            "sha256": "efdefac932ab28a57c287a3e28f083fd0d23967baa3b0dcefb17a182c9231fba",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "framework-self-template-render.yml",
+            "sha256": "b9007959abce98800b819590b2ec6007cfa5a5cee91c005d98068138976dc93a",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "guard-liveness-fullsweep.yml",
+            "sha256": "d7be4bc45a16bf8d1fd0cf0810607128e727d4284584b2bcb8e3a00610cd1f78",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "link-checker.yml",
+            "sha256": "170b716f600498be9f45d82be6b707cca080141ca143454c0cb3d67ee622069b",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "metrics-collect.yml",
+            "sha256": "0b42d038316910af47c98df95b48db25d9dd0afeb467db46bf4d530f74bdbad5",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "notify-landing.yml",
+            "sha256": "52fb5959f59e94c9e2192a3b7989c7a99e48850a162c90990e20846e5d328703",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pin-freshness.yml",
+            "sha256": "f2c6b66ba18faae452ad5e97ebaff78ef4ac9ad9068d38f0bc861734bd4fd7f8",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pr-body-fidelity.yml",
+            "sha256": "873757ff9878f203e311ef0d7e5ebd030d05290b34b15a703f916712e3236ead",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pr-body-prior-art.yml",
+            "sha256": "952fc3f602a47651a4601cb4f09ca802ce2ad2eebf77f3f7a6235307b9c8ed81",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "pr-stale-revert.yml",
+            "sha256": "1cf2c59fd25d67c6410a3a8674ce2a5a68c40e2853dd31d28d67520b0ae75328",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "release-drafter.yml",
+            "sha256": "7eab2ac1d505973c59d79d0f57387613254b1bd01ff0e91aa8558835a24bfbc4",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "workflow-integrity.yml",
+            "sha256": "d84360a7ea11fb4b2a67e4f6f23ee8d6d465a70373b0ec17bf865f47422ec714",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "valid-companion",
+            "sha256": "5dbf7b810c68cf24aeed4b95346e22fbef3f1d768015a52d0043f453ad69e9ae",
+            "outcome": "equal-values"
+          },
+          {
+            "name": "malformed-companion",
+            "sha256": "38ff6b2355a82c9f947e3de4949617842f640c73551e0c9f57ea495bca6d039d",
+            "outcome": "equal-error-name/message/reason/location/snippet"
+          }
+        ]
+      },
+      "matcher": {
+        "esmMatcherPath": "file:///workspace/getff/packages/core/node_modules/picomatch/index.js",
+        "cjsMatcherPath": "file:///workspace/getff/packages/core/node_modules/picomatch/index.js",
+        "version": "4.0.5",
+        "sameFactoryObject": true,
+        "contract": "string|string[] pattern, optional dot boolean, string input => boolean; exact existing factory identity preserves all current configured calls"
+      }
+    }
+  ],
+  "limit": "Only actual installed builds, default YAML load on 15 current workflows and two companions; no universal-version equivalence or hosted proof."
+}

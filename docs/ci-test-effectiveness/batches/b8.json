@@ -1,0 +1,45 @@
+{
+  "id": "B8-D04",
+  "status": "DONE_WITH_CONCERNS",
+  "inputCommit": "f36264e2c379a72a0db36b54536b5f1dc37857b3",
+  "decisionIds": [
+    "D04",
+    "RC4"
+  ],
+  "scope": "Truthful bounded live required-context visibility only; administrator registration remains pending.",
+  "sources": [
+    ".github/workflows/workflow-integrity.yml",
+    "scripts/check-required-contexts.sh",
+    "packages/core/principles/37-required-context-completeness.test.ts"
+  ],
+  "criteria": {
+    "relevance": "D04 repairs actual workflow live observation, preserving six declared contexts and existing status names.",
+    "effectiveness": "Fixed ordinary branch/rulesets responses drive actual helper and extracted actual YAML run-block: complete0, missing1, unknown/API error2. Actual old run-block false-green0 is caught; held final-call removal and detector bypass fail the independent corpus.",
+    "theatre": "No admin protection endpoint or active-ruleset green claim. Real current policy is still missing3 and remains correctly RED1. Source declarations are never counted as live registration.",
+    "duplication": "Reuses existing P37, Bash+gh+jq, existing pinned checkout, js-yaml and normal manifest generator. One bounded audit-only held driver; no TAK fork, platform, installer or broad suite.",
+    "costEffectiveness": "Final focused native P37 total wall time4.251s (incremental cost not isolated); bash syntax0.010s, actionlint0.008s, normal manifest archive check7.882s. One native live observer1.016s uses two read-only API calls. No recurring network in principle tests, installs, paid API or credential provisioning. Held timings retained.",
+    "sufficiency": "Finite classic metadata witness and inherited paginated empty/inactive rulesets only; active/unknown state is UNVERIFIED2. No ruleset applicability interpreter or claim of hosted token access, admin registration, TAK conformance or campaign completion.",
+    "tautology": "Fixed response/status expectations are independent of helper jq; fake gh only transports literal responses and checks requested endpoints. Held production bypasses retain the test oracle unchanged."
+  },
+  "delivery": [
+    "Existing P37 normal principles prepush/CI channel unchanged.",
+    "Existing nonrequired paths-filtered workflow observer now also fires on helper edits."
+  ],
+  "evidenceRefs": [
+    "evidence/b8-old-workflow-false-green.txt",
+    "evidence/b8-red.txt",
+    "evidence/b8-schema-red.txt",
+    "evidence/b8-held.json",
+    "evidence/b8-held-restored.txt",
+    "evidence/b8-host.json",
+    "evidence/b8-live.json",
+    "evidence/b8-live-stdout.txt",
+    "evidence/b8-live-stderr.txt"
+  ],
+  "limits": [
+    "Native CLI observation is not a hosted GITHUB_TOKEN permission witness.",
+    "Actual current policy missing three of six required contexts; no settings changed.",
+    "TAK #2144, sidecar #2146 and Windows #2116 remain open and no owner runtime assumed landed.",
+    "S1 frozen. No independent reviewer or nested agent; self-review only."
+  ]
+}

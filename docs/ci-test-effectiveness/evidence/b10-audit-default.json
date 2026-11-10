@@ -1,0 +1,15 @@
+{
+  "mode": "default",
+  "elapsedMs": 14140.242333,
+  "primed": 3,
+  "outputs": {
+    "backlog-1-clean.txt": "| idx | item-source | classification | dispatch-mode | assigned-skill | file-scope | notes |\n|---|---|---|---|---|---|---|\n| 1 | fix lint warning in alpha.sh | fix | direct-Edit | skill:ai-doc | alpha.sh | in-bundle (1/5) |\n| 2 | fix typo in beta.sh | fix | direct-Edit | skill:self-reflection | beta.sh | in-bundle (2/5) |\n| 3 | fix comment in gamma.sh | fix | direct-Edit | skill:ai-doc | gamma.sh | in-bundle (3/5) |\n| 4 | fix missing semicolon in delta.sh | fix | direct-Edit | skill:rule-tests | delta.sh | in-bundle (4/5) |\n| 5 | fix wrong variable name in epsilon.sh | fix | direct-Edit | agent:agents/capability-reuse-auditor.md | epsilon.sh | in-bundle (5/5) |\n",
+    "backlog-2-mixed.txt": "| idx | item-source | classification | dispatch-mode | assigned-skill | file-scope | notes |\n|---|---|---|---|---|---|---|\n| 1 | fix typo in alpha.sh | fix | direct-Edit | skill:self-reflection | alpha.sh | in-bundle (1/5) |\n| 2 | research patch prior art survey for new capability in project | R-phase | R-phase-session | — | — | excluded: type=R-phase not in {fix,I-phase-small} |\n| 3 | fix comment in beta.sh | fix | direct-Edit | skill:ai-doc | beta.sh | in-bundle (2/5) |\n| 4 | implement a complex feature across component.ts service.ts controller.ts | I-phase-large | Mode-B | — | — | excluded: type=I-phase-large not in {fix,I-phase-small} |\n| 5 | fix lint warning in gamma.sh | fix | direct-Edit | skill:ai-doc | gamma.sh | in-bundle (3/5) |\n| 6 | fix wrong indentation in delta.sh | fix | direct-Edit | skill:ai-doc | delta.sh | in-bundle (4/5) |\n| 7 | fix missing newline at end of epsilon.sh | fix | direct-Edit | skill:getff-experience | epsilon.sh | in-bundle (5/5) |\n| 8 | fix minor style issue in zeta.sh | fix | direct-Edit | skill:ai-doc | zeta.sh | excluded: max-bundle-5 cap |\n",
+    "backlog-3-overlap.txt": "| idx | item-source | classification | dispatch-mode | assigned-skill | file-scope | notes |\n|---|---|---|---|---|---|---|\n| 1 | fix lint warning in shared.sh | fix | direct-Edit | agent:agents/capability-reuse-auditor.md | shared.sh | in-bundle (1/5) |\n| 2 | fix typo in unique.sh | fix | direct-Edit | skill:self-reflection | unique.sh | in-bundle (2/5) |\n| 3 | fix comment in shared.sh | fix | direct-Edit | agent:agents/capability-reuse-auditor.md | shared.sh | excluded: file-overlap with prior candidate |\n| 4 | fix missing semicolon in other.sh | fix | direct-Edit | skill:rule-tests | other.sh | in-bundle (3/5) |\n| 5 | fix wrong variable name in shared.sh | fix | direct-Edit | agent:agents/capability-reuse-auditor.md | shared.sh | excluded: file-overlap with prior candidate |\n"
+  },
+  "seamScrubbed": {
+    "MO_SKILLS_DIR": false,
+    "MO_AGENTS_DIR": false,
+    "MO_SKILLS_GLOBAL": false
+  }
+}

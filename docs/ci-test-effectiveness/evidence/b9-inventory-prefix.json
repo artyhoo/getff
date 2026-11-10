@@ -1,0 +1,15 @@
+{
+  "base": "4ad4540fee94c23e063b1982a2511baeb2a58d23",
+  "oldPrefixSHA256": "af0b8415287dff1bcb27e1dbe6273223d40768012efd534a873438b63ba47374",
+  "oldPrefixBytes": 73456,
+  "preserved": true,
+  "appendedRows": [
+    "B9-rubric-D12",
+    "B9-consumed-record",
+    "B9-diff-invocation",
+    "B9-conformance",
+    "B9-P37-M1",
+    "B9-held-drivers",
+    "B9-derived-delivery"
+  ]
+}

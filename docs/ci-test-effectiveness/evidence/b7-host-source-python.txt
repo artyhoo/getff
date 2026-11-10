@@ -1,0 +1,34 @@
+
+> @rules-as-tests/core@0.1.0 test:source-python
+> cd ../.. && python3 .agents/procedures/pipeline/evals/runtime-audit.test.py && python3 .agents/roles/dual-channel-drift-auditor/test_enumerate.py && python3 .agents/roles/dual-channel-drift-auditor/test_overlap.py
+
+test_failed_questions_cli_stdout_does_not_establish_empty (__main__.PipelineRuntime.test_failed_questions_cli_stdout_does_not_establish_empty) ... ok
+test_integer_guard_does_not_depend_on_grep_or_temp_files (__main__.PipelineRuntime.test_integer_guard_does_not_depend_on_grep_or_temp_files) ... ok
+test_integer_name_collision_refuses (__main__.PipelineRuntime.test_integer_name_collision_refuses) ... ok
+test_invalid_mode_override_is_not_no_override (__main__.PipelineRuntime.test_invalid_mode_override_is_not_no_override) ... ok
+test_invocation_fence_preserves_invalid_override (__main__.PipelineRuntime.test_invocation_fence_preserves_invalid_override) ... ok
+test_list_cannot_skip_integer_collision_preflight (__main__.PipelineRuntime.test_list_cannot_skip_integer_collision_preflight) ... ok
+test_missing_jq_is_a_probe_failure_not_empty_presets (__main__.PipelineRuntime.test_missing_jq_is_a_probe_failure_not_empty_presets) ... ok
+test_noninteger_umbrella_allowed (__main__.PipelineRuntime.test_noninteger_umbrella_allowed) ... ok
+test_presets_in_directory_with_spaces (__main__.PipelineRuntime.test_presets_in_directory_with_spaces) ... ok
+test_status_rejects_failed_probe_even_with_valid_stdout (__main__.PipelineRuntime.test_status_rejects_failed_probe_even_with_valid_stdout) ... ok
+test_status_rejects_object_instead_of_pr_array (__main__.PipelineRuntime.test_status_rejects_object_instead_of_pr_array) ... ok
+test_status_valid_empty_pr_array (__main__.PipelineRuntime.test_status_valid_empty_pr_array) ... ok
+test_status_valid_pr_and_inspection_suggestion (__main__.PipelineRuntime.test_status_valid_pr_and_inspection_suggestion) ... ok
+test_successful_questions_cli_empty_is_known (__main__.PipelineRuntime.test_successful_questions_cli_empty_is_known) ... ok
+test_wrapper_preserves_helper_failure_and_end (__main__.PipelineRuntime.test_wrapper_preserves_helper_failure_and_end) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.638s
+
+OK
+........
+----------------------------------------------------------------------
+Ran 8 tests in 1.400s
+
+OK
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.242s
+
+OK

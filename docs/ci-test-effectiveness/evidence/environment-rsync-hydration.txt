@@ -1,0 +1,24 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/hooks/worktree-setup-hydration.test.ts (5 tests) 889ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  17:05:25
+   Duration  1.33s (transform 52ms, setup 40ms, import 53ms, tests 889ms, environment 0ms)
+
+bash: /tmp/j5-hyd-test-OGbXK9/scripts/worktree-node-modules.sh: No such file or directory
+link-coordination: seeding $CANON from /tmp/j5-hyd-test-OGbXK9/.claude/orchestrator-prompts ...
+link-coordination: seed complete.
+link-coordination: linked my-umbrella/state.md → $CANON
+bash: /tmp/j5-hyd-test-xwHmHv/scripts/worktree-node-modules.sh: No such file or directory
+bash: /tmp/j5-hyd-test-bPvwJI/scripts/worktree-node-modules.sh: No such file or directory
+link-coordination: seeding $CANON from /tmp/j5-hyd-test-bPvwJI/.claude/orchestrator-prompts ...
+link-coordination: seed complete.
+link-coordination: linked my-umbrella/state.md → $CANON
+bash: /tmp/j5-hyd-test-1DEFjY/scripts/worktree-node-modules.sh: No such file or directory
+bash: /tmp/j5-hyd-test-DXPr8A/scripts/worktree-node-modules.sh: No such file or directory
+link-coordination: seeding $CANON from /tmp/j5-hyd-test-DXPr8A/.claude/orchestrator-prompts ...
+link-coordination: seed complete.
+link-coordination: linked my-umbrella/state.md → $CANON

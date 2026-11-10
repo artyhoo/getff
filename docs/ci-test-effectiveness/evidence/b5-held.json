@@ -1,0 +1,86 @@
+{
+  "inputCommit": "960e980e9a60cc5196976339eb1d3754184c8b7b",
+  "runnerSHA256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+  "corpusSHA256": "ef79d4d83c7bbe6c6dee44418c524915549c2165ac39f104f6acadc1301a2559",
+  "preimageSHA256": "b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d",
+  "records": [
+    {
+      "command": [
+        "bash",
+        "/workspace/getff-native/packages/core/synthesizer/run-rule-tests-firing.test.sh",
+        "/tmp/b5-held-n_5edhgv/preimage.sh"
+      ],
+      "exit": 1,
+      "elapsedSeconds": 9.1172,
+      "rawRef": "evidence/b5-final-corpus-preimage.txt",
+      "summary": "run-rule-tests-firing.test.sh: PASS=67 FAIL=8 (lanes exercised via shim: astgrep, ruff, cargo)"
+    },
+    {
+      "command": [
+        "bash",
+        "/workspace/getff-native/packages/core/synthesizer/run-rule-tests-firing.test.sh",
+        "/tmp/b5-held-n_5edhgv/identity-removed.sh"
+      ],
+      "exit": 1,
+      "elapsedSeconds": 9.4771,
+      "rawRef": "evidence/b5-held-identity-removed.txt",
+      "summary": "run-rule-tests-firing.test.sh: PASS=70 FAIL=5 (lanes exercised via shim: astgrep, ruff, cargo)",
+      "mutation": {
+        "old": "  [[ \"$version\" =~ ^ast-grep[[:space:]][0-9] ]] || return 1\n",
+        "new": ""
+      },
+      "mutantSHA256": "202c15d6b3ad70efc23bb28b9acae1705bbd31852aac8897cb686397ffabfc86",
+      "reachedCount": 7,
+      "corpusSHA256": "ef79d4d83c7bbe6c6dee44418c524915549c2165ac39f104f6acadc1301a2559"
+    },
+    {
+      "command": [
+        "bash",
+        "/workspace/getff-native/packages/core/synthesizer/run-rule-tests-firing.test.sh",
+        "/tmp/b5-held-n_5edhgv/version-status-ignored.sh"
+      ],
+      "exit": 1,
+      "elapsedSeconds": 7.861,
+      "rawRef": "evidence/b5-held-version-status-ignored.txt",
+      "summary": "run-rule-tests-firing.test.sh: PASS=72 FAIL=3 (lanes exercised via shim: astgrep, ruff, cargo)",
+      "mutation": {
+        "old": "  version=\"$(\"$1\" --version 2>/dev/null)\" || return 1\n",
+        "new": "  version=\"$(\"$1\" --version 2>/dev/null)\"\n"
+      },
+      "mutantSHA256": "33fc90f46e1cc8b133536a66b71c85c3669a0d097cbc8fbd673dd30b7320bfbe",
+      "reachedCount": 7,
+      "corpusSHA256": "ef79d4d83c7bbe6c6dee44418c524915549c2165ac39f104f6acadc1301a2559"
+    },
+    {
+      "command": [
+        "bash",
+        "/workspace/getff-native/packages/core/synthesizer/run-rule-tests-firing.test.sh",
+        "/tmp/b5-held-n_5edhgv/scan-help-removed.sh"
+      ],
+      "exit": 1,
+      "elapsedSeconds": 6.902,
+      "rawRef": "evidence/b5-held-scan-help-removed.txt",
+      "summary": "run-rule-tests-firing.test.sh: PASS=72 FAIL=3 (lanes exercised via shim: astgrep, ruff, cargo)",
+      "mutation": {
+        "old": "  \"$1\" scan --help >/dev/null 2>&1\n",
+        "new": "  return 0\n"
+      },
+      "mutantSHA256": "86b44afcfb677a04a0e5734396f2b0bcf739acb6adb78f4ac0acc008c46e4c5f",
+      "reachedCount": 7,
+      "corpusSHA256": "ef79d4d83c7bbe6c6dee44418c524915549c2165ac39f104f6acadc1301a2559"
+    },
+    {
+      "command": [
+        "bash",
+        "/workspace/getff-native/packages/core/synthesizer/run-rule-tests-firing.test.sh"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 7.8934,
+      "rawRef": "evidence/b5-restored.txt",
+      "summary": "run-rule-tests-firing.test.sh: PASS=75 FAIL=0 (lanes exercised via shim: astgrep, ruff, cargo)"
+    }
+  ],
+  "restoration": "Faults ran only in disposable actual-runner copies via existing harness argument. Tracked runner/corpus byte-equal before/after; default runner passed after all faults.",
+  "boundary": "Actual bash entrypoint plants consumer samples and parses recorded tool diagnostics. Fixtures are transport only, not real ast-grep execution; fixed literals and harness/shell behavior are trusted.",
+  "recurring": false
+}

@@ -1,0 +1,29 @@
+{
+  "batch": "B9",
+  "task": 10,
+  "status": "ACCEPTED_FOR_INTEGRATION",
+  "reviewedBase": "4ad4540fee94c23e063b1982a2511baeb2a58d23",
+  "reviewedHead": "10bb7294dcef8b3f887c9583cec113e6703f47ac",
+  "specCompliance": "PASS bounded implementation",
+  "taskQuality": "APPROVE; no actionable findings",
+  "review": {
+    "path": "acceptance/b9-review.md",
+    "sha256": "86896f73b0a310b65bf36f6ad41586ba2ece61677fdb1d655d4aa6ad5a54dc64"
+  },
+  "controllerSemantic": "evidence/b9-semantic-controller-assessment.json",
+  "fullCarrier": "evidence/final-hooks.json",
+  "cannotVerifyResolution": {
+    "hostedAndOwnerRuntime": "Not source acceptance; retained campaign obligation. Explicit external owner heads unchanged, no runtime copied. Final hosted Windows/Node22 and admin missing3 remain open.",
+    "fullHooks": "Actual controller run10bb:98files2344pass3skip166.031s, exit0; raw/receipt preserved.",
+    "hiddenExpectedAndFixedCLI": "Root scored sealed originals against independently frozen expected; actual fixed Git commits statically re-reviewed and CLI0 recorded, unresolved originals1.",
+    "D12Chronology": "Root is the provenance/trusted boundary: prospective D12 decision/brief and root ledger existed before dispatch; producer before-effects record alone is not independent chronology proof. Preserve limitation, no false cryptographic/time-attestation claim.",
+    "historyAndCost": "Synthetic semantic premises not real project traces; actual B4 project BEFORE forecasts separate. Unknown token/$/false-alarm/incremental costs remain unknown, no numerical payback claim.",
+    "generatorsAndHistoricalReceipts": "Independent review checked actual diff and exact93installed hash deltas; actual15capture/compare/archive execution receipts already present. No duplicate installer rerun demanded."
+  },
+  "at": "2026-11-08T20:20:09.574903+00:00",
+  "limits": [
+    "Final whole-branch review and hosted final-head evidence pending.",
+    "Actual admin registration missing3, readable observation1; admin endpoint403, no settings written.",
+    "No arbitrary semantic certification, no mathematical minimum, no accepted future TAK/OCR/Windows owner implementation."
+  ]
+}

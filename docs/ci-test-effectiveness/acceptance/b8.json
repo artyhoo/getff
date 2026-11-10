@@ -1,0 +1,30 @@
+{
+  "batch": "B8",
+  "task": 9,
+  "status": "ACCEPTED_FOR_INTEGRATION_WITH_ADMIN_EFFECT_PENDING",
+  "reviewedBase": "f36264e2c379a72a0db36b54536b5f1dc37857b3",
+  "reviewedHead": "76c124e5ef631587751d58de497836f6ac4280dc",
+  "decisionIds": [
+    "D04"
+  ],
+  "specCompliance": "PASS",
+  "taskQuality": "Approved",
+  "review": {
+    "path": "docs/ci-test-effectiveness/acceptance/b8-review.md",
+    "sha256": "962de479981cdfe00734af90bb5be9dee73c4ea8a3ae25113077d64989be7c66"
+  },
+  "at": "2026-11-08T19:36:33.776185+00:00",
+  "findings": [],
+  "minorRoutedToB9": {
+    "id": "M1",
+    "action": "Keep distinct helper schema corpus; workflow only0/1/early2/late2 boundary representatives. Consolidate unused-rules fastpath variants with actual query trace.",
+    "reason": "Thin wrapper assigns sameJSON and calls samehelper; remaining per-schema copies add no wrapper decision.",
+    "costEvidence": "Retained rounded workflow timings~0.73s; no isolated incremental benchmark or large saving claim."
+  },
+  "validation": "56 P37tests and4hostcommandsPASS, oldactualworkflow0falsegreen reproduced, heldconsumer/detector failures+restoration sourcehashes match; normalmanifest onlyP37.",
+  "limits": [
+    "NativeCLI returned correctmissing3/1 before final strictschemaedge; final schema compatibility inspected/offlinecorpus, not duplicate live exactfinalrun.",
+    "Actual hosted GITHUB_TOKEN witness pending; admin3missing remains separate owner effect.",
+    "Finalfullhooks/TAK/Windows/OCR and wholecampaign acceptance remain separate."
+  ]
+}

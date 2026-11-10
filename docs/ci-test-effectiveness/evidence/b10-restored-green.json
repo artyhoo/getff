@@ -1,0 +1,17 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "packages/core",
+    "run",
+    "test",
+    "--",
+    "principles/20-bundle-classification.test.ts",
+    "principles/20-bundle-classification.paired-negative.test.ts",
+    "skills/assign-skill.test.ts"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 8.037,
+  "log": "/workspace/scratch/b10-restored-green.txt"
+}

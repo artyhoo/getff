@@ -1,0 +1,16 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "packages/core",
+    "run",
+    "typecheck"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 14.933236,
+  "log": "docs/ci-test-effectiveness/evidence/b11-typecheck-green.txt",
+  "rawLog": "docs/ci-test-effectiveness/evidence/b11-typecheck-green.txt.gz",
+  "rawLogSHA256": "6a4a55798b6b5df1bac47e32452ef1bd1561219959f1417a8643d047e7d8ebcd",
+  "displayLogSHA256": "a0a9a357ce20a4a020470334c077d4448a8fc5187b98d39c7a55345efb5baecd",
+  "displayNote": "Only excess terminal newlines trimmed for git whitespace; exact raw output preserved in deterministic gzip."
+}

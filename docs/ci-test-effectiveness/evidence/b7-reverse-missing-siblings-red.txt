@@ -1,0 +1,42 @@
+  ✓ comparison population non-empty: 57 atomic CI commands extracted (floor 15)
+  ✓ gate table non-empty: 59 rows read via --list-gates (floor 20)
+  ✓ every single-line run: leader is classified as gate-invoking or inline setup
+  ✓ every battery family excluded from the population still has a sweep row
+  ✓ every UNREACHABLE allowlist entry names an artifact the workflow still invokes
+  ✓ every UNREACHABLE allowlist entry carries a ≥20-char rationale
+  ✓ sweep UNREACHABLE prose block extracted: 44 lines (floor 10)
+  ✓ every UNREACHABLE allowlist entry is also named in run-local-ci-sweep.sh's own prose list
+  ✓ neg: a fabricated stem is NOT found in the prose block (the matcher discriminates)
+  ✗ CI command(s) the sweep never runs — a green sweep does NOT predict a green CI for these:
+      npm --prefix packages/preset-next-15-canonical test
+      npm --prefix packages/runtime-bridge test
+    Fix by adding a gate_table() row in scripts/run-local-ci-sweep.sh, or — if the gate genuinely
+    cannot run locally — an unreachable_allowlist() entry here stating why (≥20 chars).
+  ✓ neg: an unwired CI command is named by the gate (non-vacuous)
+  ✓ neg: deleting the 'npm run typecheck' row flips its CI command to uncovered (non-vacuous)
+  ✓ trigger_matches extracted from the sweep under test (no second copy of the grammar)
+  ✓ kickoff contracts selected for .claude/orchestrator-prompts/new/kickoff.md
+  ✓ kickoff contracts selected for .claude/orchestrator-prompts/new/kickoff-s2b.md
+  ✓ kickoff contracts selected for docs/superpowers/specs/2026-10-22-plan.md
+  ✓ kickoff contracts selected for .gitignore
+  ✓ kickoff-contract row discriminates document inputs
+  ✓ payload extracted from build-getff-dist.sh: 39 entries (floor 10)
+  ✓ every build-getff-dist.sh payload entry is selected by the getff-dist-manifest trigger
+  ✓ neg: paths outside the payload are NOT selected by getff-dist-manifest (the trigger discriminates)
+  ✓ vitest rows read from the gate table: 11 (floor 5)
+  ✓ at least one vitest row still carries the broad packages/core/ trigger (11 of 11)
+  ✓ every narrowed vitest row ( none) is transitively confined to what its trigger selects
+  ✓ neg: a principles-only trigger is reported as not confined (the proof discriminates)
+  ✓ neg: a genuinely self-contained directory IS accepted as confined (the proof is not constant-false)
+  ✓ formatted surface extracted from format-shipped.sh: 11 entries (floor 8)
+  ✓ every format-shipped.sh PATHSPECS entry is selected by the format-check trigger
+  ✓ neg: paths outside the formatted surface are NOT selected by format-check (the trigger discriminates)
+  ✓ every payload entry (and tests/install-sh/) is selected by the byte-identical trigger
+  ✓ neg: paths the install cannot read are NOT selected by byte-identical (the trigger discriminates)
+  ✓ every SWEEP_ROUTABLE name is a gate-table row
+  ✓ every routable vitest row has a parsed shape (its shell arms are findable)
+  ✓ neg: row_shell_reason catches an npm hop, a node script's spawn, a tsx-run hook and an all-shell suite, and not a listed reader of .sh
+  ✓ no SWEEP_ROUTABLE row starts a shell of its own (the Mac keeps its bash 3.2 signal)
+  ✓ the shell arms are found (76 files: pinned /bin/bash, PATH bash, and one marked through an import)
+
+PASS=35 FAIL=1

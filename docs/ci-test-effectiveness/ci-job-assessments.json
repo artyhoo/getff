@@ -1,0 +1,4273 @@
+[
+  {
+    "id": "ci:.github/workflows/audit-self.yml#path-scope",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "path-scope",
+    "name": "Path scope \u2014 kickoff documents and install-area selection",
+    "criteria": {
+      "relevance": "Select install/runtime jobs only from proven path/read-set and fail-safe event/range conditions.",
+      "effectiveness": "Real merge/diff classification; unknown paths/non-PR/failed probes run full.",
+      "theatre": "Selection is correctness-critical; retain backstop and never widen skip set from filename intuition.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Real merge/diff classification; unknown paths/non-PR/failed probes run full.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Selection is correctness-critical; retain backstop and never widen skip set from filename intuition.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Selection is correctness-critical; retain backstop and never widen skip set from filename intuition."
+    },
+    "obligation": "Select install/runtime jobs only from proven path/read-set and fail-safe event/range conditions.",
+    "oracle": "Real merge/diff classification; unknown paths/non-PR/failed probes run full.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403569909
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494302
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591132
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608622
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Selection is correctness-critical; retain backstop and never widen skip set from filename intuition.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#mechanical",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "mechanical",
+    "name": "Mechanical checks (bash, json, dead links)",
+    "criteria": {
+      "relevance": "Reject shell/JSON/markdown structural defects and stale research/path contracts; exercise mutation/firing wrappers.",
+      "effectiveness": "Parsers and source-scope scripts, not whole-program correctness.",
+      "theatre": "Retain independent syntax and runner fixtures; live checks plus their tests protect different layers.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Parsers and source-scope scripts, not whole-program correctness.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Retain independent syntax and runner fixtures; live checks plus their tests protect different layers.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Retain independent syntax and runner fixtures; live checks plus their tests protect different layers."
+    },
+    "obligation": "Reject shell/JSON/markdown structural defects and stale research/path contracts; exercise mutation/firing wrappers.",
+    "oracle": "Parsers and source-scope scripts, not whole-program correctness.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403569864
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494154
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591092
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750609037
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Retain independent syntax and runner fixtures; live checks plus their tests protect different layers.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#shipped-prettier",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "shipped-prettier",
+    "name": "Shipped artifacts are Prettier-clean (GH",
+    "criteria": {
+      "relevance": "Shipped source is format-clean across declared delivery surface.",
+      "effectiveness": "Prettier checks committed bytes, not behavior.",
+      "theatre": "Actual kickoff failure in sampled CI was legitimate formatting, not flaky tests.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Prettier checks committed bytes, not behavior.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Actual kickoff failure in sampled CI was legitimate formatting, not flaky tests.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Actual kickoff failure in sampled CI was legitimate formatting, not flaky tests."
+    },
+    "obligation": "Shipped source is format-clean across declared delivery surface.",
+    "oracle": "Prettier checks committed bytes, not behavior.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403570000
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494373
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591270
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608413
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Actual kickoff failure in sampled CI was legitimate formatting, not flaky tests.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#rule-to-probe",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "rule-to-probe",
+    "name": "Rule-to-probe mapping",
+    "criteria": {
+      "relevance": "Every declared R-rule has executable or explicit manual delegation.",
+      "effectiveness": "Rule identifiers/probe metadata reachability.",
+      "theatre": "Necessary declaration bridge; not a detector-sensitivity claim.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Rule identifiers/probe metadata reachability.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Necessary declaration bridge; not a detector-sensitivity claim.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Necessary declaration bridge; not a detector-sensitivity claim."
+    },
+    "obligation": "Every declared R-rule has executable or explicit manual delegation.",
+    "oracle": "Rule identifiers/probe metadata reachability.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600082
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518558
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641402
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649420
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Necessary declaration bridge; not a detector-sensitivity claim.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#probe-tests",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "probe-tests",
+    "name": "Negative tests for audit probes",
+    "criteria": {
+      "relevance": "Documentation auditor implementation and live repo scanning agree with bounded prose/path contracts.",
+      "effectiveness": "Fixture tests plus real bash and TS audit entrypoints.",
+      "theatre": "Retain exact root witness for D02; shell/TS channels not assumed interchangeable.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Fixture tests plus real bash and TS audit entrypoints.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Retain exact root witness for D02; shell/TS channels not assumed interchangeable.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Retain exact root witness for D02; shell/TS channels not assumed interchangeable."
+    },
+    "obligation": "Documentation auditor implementation and live repo scanning agree with bounded prose/path contracts.",
+    "oracle": "Fixture tests plus real bash and TS audit entrypoints.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600058
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518633
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641522
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649273
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Retain exact root witness for D02; shell/TS channels not assumed interchangeable.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#manifest-render-check",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "manifest-render-check",
+    "name": "Manifest \u2192 RULES.md drift check",
+    "criteria": {
+      "relevance": "Manifest/index/reference/face-facts derived outputs equal their canonical sources.",
+      "effectiveness": "Regenerate/check diff and generator arms.",
+      "theatre": "No cache skips without source closure; docs-only inputs legitimately affect generated counts.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Regenerate/check diff and generator arms.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. No cache skips without source closure; docs-only inputs legitimately affect generated counts.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "No cache skips without source closure; docs-only inputs legitimately affect generated counts."
+    },
+    "obligation": "Manifest/index/reference/face-facts derived outputs equal their canonical sources.",
+    "oracle": "Regenerate/check diff and generator arms.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403570022
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494072
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403590914
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608522
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "No cache skips without source closure; docs-only inputs legitimately affect generated counts.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#principles-meta-tests",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "principles-meta-tests",
+    "name": "Principles as meta-tests (Phase 2)",
+    "criteria": {
+      "relevance": "Core discipline, IR, backend, hook, unit, skill, synth and canonical helper contracts run before merge.",
+      "effectiveness": "Named package scripts plus pinned real backend tools and jq availability.",
+      "theatre": "Core-only population does not include all workspace and Node/Python tests (D07).",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Named package scripts plus pinned real backend tools and jq availability.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Core-only population does not include all workspace and Node/Python tests (D07).",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Core-only population does not include all workspace and Node/Python tests (D07)."
+    },
+    "obligation": "Core discipline, IR, backend, hook, unit, skill, synth and canonical helper contracts run before merge.",
+    "oracle": "Named package scripts plus pinned real backend tools and jq availability.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403599979
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518573
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641396
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649470
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Core-only population does not include all workspace and Node/Python tests (D07).",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#install-sh-a",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "install-sh-a",
+    "name": "install-sh battery (shard A)",
+    "criteria": {
+      "relevance": "First installer shard executes assigned cold/install/refresh regression contracts.",
+      "effectiveness": "Real shell fixture consumers and paired wrapper/generator tests.",
+      "theatre": "D03 rebalance preserves tests and exact environment; D02 unrelated.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Real shell fixture consumers and paired wrapper/generator tests.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. D03 rebalance preserves tests and exact environment; D02 unrelated.",
+      "costEffectiveness": "Rebalance D03; measured useful slow tests retained.",
+      "sufficiency": "D03 rebalance preserves tests and exact environment; D02 unrelated."
+    },
+    "obligation": "First installer shard executes assigned cold/install/refresh regression contracts.",
+    "oracle": "Real shell fixture consumers and paired wrapper/generator tests.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.install == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [
+      "D03"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600053
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397519584
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641387
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649362
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "D03 rebalance preserves tests and exact environment; D02 unrelated.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#install-sh-b",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "install-sh-b",
+    "name": "install-sh battery (shard B)",
+    "criteria": {
+      "relevance": "Second installer shard executes assigned delivery/first-push/config regression contracts.",
+      "effectiveness": "Real fixture consumers, package tools and isolated temp roots.",
+      "theatre": "Measured170.6min dominates critical path; retain useful protection and rebalance D03.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Real fixture consumers, package tools and isolated temp roots.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Measured170.6min dominates critical path; retain useful protection and rebalance D03.",
+      "costEffectiveness": "Rebalance D03; measured useful slow tests retained.",
+      "sufficiency": "Measured170.6min dominates critical path; retain useful protection and rebalance D03."
+    },
+    "obligation": "Second installer shard executes assigned delivery/first-push/config regression contracts.",
+    "oracle": "Real fixture consumers, package tools and isolated temp roots.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.install == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [
+      "D03"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600210
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397519723
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641477
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750648810
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Measured170.6min dominates critical path; retain useful protection and rebalance D03.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#install-sh-c",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "install-sh-c",
+    "name": "install-sh battery (shard C)",
+    "criteria": {
+      "relevance": "Third installer shard executes assigned mutation/tool/fingerprint/stack regression contracts.",
+      "effectiveness": "Real shell/consumer fixtures; additional pinned ruff tool.",
+      "theatre": "D03 moves only suites whose needed tools are available; no lost tool or target coverage.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Real shell/consumer fixtures; additional pinned ruff tool.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. D03 moves only suites whose needed tools are available; no lost tool or target coverage.",
+      "costEffectiveness": "Rebalance D03; measured useful slow tests retained.",
+      "sufficiency": "D03 moves only suites whose needed tools are available; no lost tool or target coverage."
+    },
+    "obligation": "Third installer shard executes assigned mutation/tool/fingerprint/stack regression contracts.",
+    "oracle": "Real shell/consumer fixtures; additional pinned ruff tool.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.install == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [
+      "D03"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600084
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397519905
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641401
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649202
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "D03 moves only suites whose needed tools are available; no lost tool or target coverage.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#typecheck",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "typecheck",
+    "name": "TypeScript typecheck (tsc --noEmit, all workspaces)",
+    "criteria": {
+      "relevance": "TypeScript public implementation/workspaces must typecheck.",
+      "effectiveness": "Compiler diagnostics on configured programs.",
+      "theatre": "Typecheck does not run package tests; cannot substitute for missing runtime-bridge/canonical-next cases.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Compiler diagnostics on configured programs.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Typecheck does not run package tests; cannot substitute for missing runtime-bridge/canonical-next cases.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Typecheck does not run package tests; cannot substitute for missing runtime-bridge/canonical-next cases."
+    },
+    "obligation": "TypeScript public implementation/workspaces must typecheck.",
+    "oracle": "Compiler diagnostics on configured programs.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403599955
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518718
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641682
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649649
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Typecheck does not run package tests; cannot substitute for missing runtime-bridge/canonical-next cases.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#pr-commit-trailers",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "pr-commit-trailers",
+    "name": "PR commit trailers \u2014 \u00a71.7 + Prior-art (real-commit backstop)",
+    "criteria": {
+      "relevance": "Pushed commit range carries required build/reuse and discipline trailers without flagging unrelated base history.",
+      "effectiveness": "Exact range/parent data plus existing trailer checker.",
+      "theatre": "Commit body does not equal squash PR body; retain D04 distinct requirement.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Exact range/parent data plus existing trailer checker.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Commit body does not equal squash PR body; retain D04 distinct requirement.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Commit body does not equal squash PR body; retain D04 distinct requirement."
+    },
+    "obligation": "Pushed commit range carries required build/reuse and discipline trailers without flagging unrelated base history.",
+    "oracle": "Exact range/parent data plus existing trailer checker.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "github.event_name == 'pull_request'",
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403570497
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494288
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591191
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608588
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Commit body does not equal squash PR body; retain D04 distinct requirement.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#docs-quality",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "docs-quality",
+    "name": "Docs quality gates \u2014 docs-check strict full + prose self-application + terms-style drift",
+    "criteria": {
+      "relevance": "Shipped docs conform to markdown/prompt/example integrity checks.",
+      "effectiveness": "Deterministic content/scanner contracts and explicit prompt stubs.",
+      "theatre": "Format claims only; no paid/native model behavior certification.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Deterministic content/scanner contracts and explicit prompt stubs.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Format claims only; no paid/native model behavior certification.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Format claims only; no paid/native model behavior certification."
+    },
+    "obligation": "Shipped docs conform to markdown/prompt/example integrity checks.",
+    "oracle": "Deterministic content/scanner contracts and explicit prompt stubs.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403569975
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494400
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591160
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608608
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Format claims only; no paid/native model behavior certification.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#alwayson-budget",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "alwayson-budget",
+    "name": "Always-on context budget (arch-v2 S-E P3a CI mirror)",
+    "criteria": {
+      "relevance": "Resident context count/token budget remains bounded and measurement scripts remain correct.",
+      "effectiveness": "Measured artifacts/limits plus budget, session-token and related fixtures.",
+      "theatre": "Budget is actual resource policy; not a guarantee agents use context correctly.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Measured artifacts/limits plus budget, session-token and related fixtures.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Budget is actual resource policy; not a guarantee agents use context correctly.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Budget is actual resource policy; not a guarantee agents use context correctly."
+    },
+    "obligation": "Resident context count/token budget remains bounded and measurement scripts remain correct.",
+    "oracle": "Measured artifacts/limits plus budget, session-token and related fixtures.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403570015
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494251
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591093
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608631
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Budget is actual resource policy; not a guarantee agents use context correctly.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#enforce-husky-presence",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "enforce-husky-presence",
+    "name": "Verify .husky/ hooks exist and are non-trivial",
+    "criteria": {
+      "relevance": "Consumer/framework declared hooks are installed and obey presence contract.",
+      "effectiveness": "Actual inline file/executable/probe-token predicate. Manual simulator copies it and is not invoked by this job.",
+      "theatre": "Presence must be supplemented by actual hook firing; retained installer/native probes do that.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Hook source and enforcement-presence test.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Presence must be supplemented by actual hook firing; retained installer/native probes do that.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Presence is useful structural protection, not runtime hook proof. Copied manual simulator needs D08 redesign and D07 routing."
+    },
+    "obligation": "Consumer/framework declared hooks are installed and obey presence contract.",
+    "oracle": "Actual inline file/executable/probe-token predicate. Manual simulator copies it and is not invoked by this job.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [
+      "D07",
+      "D08"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403569732
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494273
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591144
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608603
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Presence must be supplemented by actual hook firing; retained installer/native probes do that.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-self-install-ts-server",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-self-install-ts-server",
+    "name": "Self-install on tmp consumer (ts-server)",
+    "criteria": {
+      "relevance": "ts-server installation delivers expected consumer shape.",
+      "effectiveness": "Run actual installer, then a root auditor rerun.",
+      "theatre": "Installer unique; final root audit rerun redundant under D02.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Run actual installer, then a root auditor rerun.",
+      "duplication": "D02 removes only final same-root auditor repetition.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Installer unique; final root audit rerun redundant under D02."
+    },
+    "obligation": "ts-server installation delivers expected consumer shape.",
+    "oracle": "Run actual installer, then a root auditor rerun.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [
+      "D02"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403599961
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518788
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641658
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649218
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Installer unique; final root audit rerun redundant under D02.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-self-install-react-next",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-self-install-react-next",
+    "name": "Self-install on tmp consumer (react-next)",
+    "criteria": {
+      "relevance": "React/Next installation delivers expected consumer shape.",
+      "effectiveness": "Run actual installer, then a root auditor rerun.",
+      "theatre": "Installer unique; final root audit rerun redundant under D02.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Run actual installer, then a root auditor rerun.",
+      "duplication": "D02 removes only final same-root auditor repetition.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Installer unique; final root audit rerun redundant under D02."
+    },
+    "obligation": "React/Next installation delivers expected consumer shape.",
+    "oracle": "Run actual installer, then a root auditor rerun.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [
+      "D02"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600316
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518724
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641389
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750648616
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Installer unique; final root audit rerun redundant under D02.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-fresh-install-validate",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-fresh-install-validate",
+    "name": "Fresh-install validate smoke (${{ matrix.stack }}, ${{ matrix.fixture }}) \u2014 closes #779",
+    "criteria": {
+      "relevance": "Fresh/owned consumers across4stacks remain passable at documented check channels.",
+      "effectiveness": "10matrix combinations include empty, own configs, Vite shape and red-lint consumers.",
+      "theatre": "Preserve fixture/stack axes and scoped known-rot signatures; no broad success despite arbitrary errors.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: 10matrix combinations include empty, own configs, Vite shape and red-lint consumers.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Preserve fixture/stack axes and scoped known-rot signatures; no broad success despite arbitrary errors.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Preserve fixture/stack axes and scoped known-rot signatures; no broad success despite arbitrary errors."
+    },
+    "obligation": "Fresh/owned consumers across4stacks remain passable at documented check channels.",
+    "oracle": "10matrix combinations include empty, own configs, Vite shape and red-lint consumers.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.install == 'true'",
+      "needs": "path-scope",
+      "strategy": {
+        "fail-fast": "false",
+        "matrix": {
+          "stack": [
+            "ts-server",
+            "react-next",
+            "react-spa",
+            "react-native"
+          ],
+          "fixture": [
+            "empty-manifest",
+            "own-configs"
+          ],
+          "include": [
+            {
+              "stack": "react-spa",
+              "fixture": "vite-shape"
+            },
+            {
+              "stack": "react-spa",
+              "fixture": "red-lint"
+            }
+          ]
+        }
+      },
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397520275
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649118
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Preserve fixture/stack axes and scoped known-rot signatures; no broad success despite arbitrary errors.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-fresh-install-validate-multistack",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-fresh-install-validate-multistack",
+    "name": "Fresh-install validate smoke \u2014 multi-stack monorepo (closes #807)",
+    "criteria": {
+      "relevance": "Multistack consumers retain their tool/config surfaces and workable installed gates.",
+      "effectiveness": "Actual multistack fixture validation.",
+      "theatre": "Different from single-stack installation; no merge with matrices without retaining axes.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Actual multistack fixture validation.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Different from single-stack installation; no merge with matrices without retaining axes.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Different from single-stack installation; no merge with matrices without retaining axes."
+    },
+    "obligation": "Multistack consumers retain their tool/config surfaces and workable installed gates.",
+    "oracle": "Actual multistack fixture validation.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.install == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600338
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397519711
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641698
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649374
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Different from single-stack installation; no merge with matrices without retaining axes.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-self-detect",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-self-detect",
+    "name": "Detector v1 \u2014 self-application snapshot (L1 invariant)",
+    "criteria": {
+      "relevance": "Detect own repo matches frozen stack classification.",
+      "effectiveness": "Frozen expected detector report versus actual CLI.",
+      "theatre": "Integrated snapshot detects drift but needs component adverse fixtures for correctness.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Frozen expected detector report versus actual CLI.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Integrated snapshot detects drift but needs component adverse fixtures for correctness.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Integrated snapshot detects drift but needs component adverse fixtures for correctness."
+    },
+    "obligation": "Detect own repo matches frozen stack classification.",
+    "oracle": "Frozen expected detector report versus actual CLI.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600244
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518734
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641661
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649276
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Integrated snapshot detects drift but needs component adverse fixtures for correctness.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-self-research",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-self-research",
+    "name": "Research Agent v1 \u2014 self-application snapshot (L2 invariant)",
+    "criteria": {
+      "relevance": "Research own canonical docs and material matches frozen result and reports drift.",
+      "effectiveness": "Actual CLI report plus source mismatch count.",
+      "theatre": "Different from external research freshness; no semantic trust claimed from report equality.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Actual CLI report plus source mismatch count.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Different from external research freshness; no semantic trust claimed from report equality.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Different from external research freshness; no semantic trust claimed from report equality."
+    },
+    "obligation": "Research own canonical docs and material matches frozen result and reports drift.",
+    "oracle": "Actual CLI report plus source mismatch count.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600395
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518673
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641700
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649020
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Different from external research freshness; no semantic trust claimed from report equality.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-self-synth",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-self-synth",
+    "name": "Synthesizer v1 \u2014 self-application snapshot (L3 invariant a)",
+    "criteria": {
+      "relevance": "Own and next16 fixture synthesis retains canonical generated form.",
+      "effectiveness": "Actual CLI against frozen reports.",
+      "theatre": "Integration witness; generator units/firing separately establish behavior.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Actual CLI against frozen reports.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Integration witness; generator units/firing separately establish behavior.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Integration witness; generator units/firing separately establish behavior."
+    },
+    "obligation": "Own and next16 fixture synthesis retains canonical generated form.",
+    "oracle": "Actual CLI against frozen reports.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": [
+        "principles-meta-tests",
+        "path-scope"
+      ],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128406526675
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128400518162
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128406736657
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649494
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Integration witness; generator units/firing separately establish behavior.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-self-validate",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-self-validate",
+    "name": "Validator v1 \u2014 self-application snapshot (L4 invariant)",
+    "criteria": {
+      "relevance": "Actual validator accepts canonical synth output and maintains expected diagnostic reports.",
+      "effectiveness": "CLI/frozen snapshot and nonblocking machine-readable summary.",
+      "theatre": "Summary emission is observability, not an independent gate; retain failures from real validator.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: CLI/frozen snapshot and nonblocking machine-readable summary.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Summary emission is observability, not an independent gate; retain failures from real validator.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Summary emission is observability, not an independent gate; retain failures from real validator."
+    },
+    "obligation": "Actual validator accepts canonical synth output and maintains expected diagnostic reports.",
+    "oracle": "CLI/frozen snapshot and nonblocking machine-readable summary.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": [
+        "principles-meta-tests",
+        "path-scope"
+      ],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128406526615
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128400518203
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128406736712
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649178
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Summary emission is observability, not an independent gate; retain failures from real validator.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-self-install-validated",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-self-install-validated",
+    "name": "Installer v1 \u2014 self-application snapshot (L5 invariant)",
+    "criteria": {
+      "relevance": "Synth output installs with deterministic artifact/report shape.",
+      "effectiveness": "Temp consumer synth\u2192install\u2192frozen shape comparison.",
+      "theatre": "Output shape is useful composition evidence; consumer tool firing remains distinct.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Temp consumer synth\u2192install\u2192frozen shape comparison.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Output shape is useful composition evidence; consumer tool firing remains distinct.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Output shape is useful composition evidence; consumer tool firing remains distinct."
+    },
+    "obligation": "Synth output installs with deterministic artifact/report shape.",
+    "oracle": "Temp consumer synth\u2192install\u2192frozen shape comparison.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": [
+        "principles-meta-tests",
+        "path-scope"
+      ],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128406526616
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128400518169
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128406736696
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649911
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Output shape is useful composition evidence; consumer tool firing remains distinct.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#framework-provenance-anti-hand-edit",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "framework-provenance-anti-hand-edit",
+    "name": "Provenance v1 \u2014 anti-hand-edit gate (S5 invariant)",
+    "criteria": {
+      "relevance": "Generated rule content provenance rejects hand edits while accepting clean emission.",
+      "effectiveness": "Actual generator/verifier clean and tampered artifact.",
+      "theatre": "Hash provenance proves authorized bytes, not semantic quality; finite reached fault appropriate.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Actual generator/verifier clean and tampered artifact.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Hash provenance proves authorized bytes, not semantic quality; finite reached fault appropriate.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Hash provenance proves authorized bytes, not semantic quality; finite reached fault appropriate."
+    },
+    "obligation": "Generated rule content provenance rejects hand edits while accepting clean emission.",
+    "oracle": "Actual generator/verifier clean and tampered artifact.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": [
+        "principles-meta-tests",
+        "path-scope"
+      ],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128406526635
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128400518180
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128406736725
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649186
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Hash provenance proves authorized bytes, not semantic quality; finite reached fault appropriate.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#phase-8-canonical-regen-acceptance",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "phase-8-canonical-regen-acceptance",
+    "name": "Phase 8 acceptance \u2014 canonical Next 15 regen \u22650.95 similarity",
+    "criteria": {
+      "relevance": "Canonical regeneration satisfies declared output similarity contract.",
+      "effectiveness": "Real regeneration against frozen acceptance corpus.",
+      "theatre": "Threshold does not prove arbitrary semantic equivalence; component/delivery witnesses retained.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Real regeneration against frozen acceptance corpus.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Threshold does not prove arbitrary semantic equivalence; component/delivery witnesses retained.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Threshold does not prove arbitrary semantic equivalence; component/delivery witnesses retained."
+    },
+    "obligation": "Canonical regeneration satisfies declared output similarity contract.",
+    "oracle": "Real regeneration against frozen acceptance corpus.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": [
+        "principles-meta-tests",
+        "path-scope"
+      ],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128406526621
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128400518172
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128406736682
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649108
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Threshold does not prove arbitrary semantic equivalence; component/delivery witnesses retained.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#actionlint",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "actionlint",
+    "name": "actionlint \u2014 YAML & expression correctness",
+    "criteria": {
+      "relevance": "Workflow syntax/expression/shell integration is valid for GitHub Actions.",
+      "effectiveness": "Pinned actionlint action on actual workflows.",
+      "theatre": "Required via ci-success; local sweep exit-propagation gap D06 cannot be dismissed because CI catches later.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Pinned actionlint action on actual workflows.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Required via ci-success; local sweep exit-propagation gap D06 cannot be dismissed because CI catches later.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Required via ci-success; local sweep exit-propagation gap D06 cannot be dismissed because CI catches later."
+    },
+    "obligation": "Workflow syntax/expression/shell integration is valid for GitHub Actions.",
+    "oracle": "Pinned actionlint action on actual workflows.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403569955
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494262
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591098
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608651
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Required via ci-success; local sweep exit-propagation gap D06 cannot be dismissed because CI catches later.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#zizmor",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "zizmor",
+    "name": "zizmor \u2014 supply-chain audits",
+    "criteria": {
+      "relevance": "Workflow templates and actual workflow security conventions obey declared scanner policy.",
+      "effectiveness": "Pinned static workflow analyzer on tracked surfaces.",
+      "theatre": "Scanner scope is finite; zero findings not universal safety or test quality proof.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Pinned static workflow analyzer on tracked surfaces.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Scanner scope is finite; zero findings not universal safety or test quality proof.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Scanner scope is finite; zero findings not universal safety or test quality proof."
+    },
+    "obligation": "Workflow templates and actual workflow security conventions obey declared scanner policy.",
+    "oracle": "Pinned static workflow analyzer on tracked surfaces.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403569990
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494241
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591011
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608646
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Scanner scope is finite; zero findings not universal safety or test quality proof.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#f17-node-compat",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "f17-node-compat",
+    "name": "f17 lint-rules planted-violation (Node ${{ matrix.node }})",
+    "criteria": {
+      "relevance": "Shipped lint-rule violation is blocked on each supported Node version.",
+      "effectiveness": "Node18/20/22 matrix real consumer firing.",
+      "theatre": "Not duplicate same Node current-unit test; retain distinct runtimes.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Node18/20/22 matrix real consumer firing.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Not duplicate same Node current-unit test; retain distinct runtimes.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Not duplicate same Node current-unit test; retain distinct runtimes."
+    },
+    "obligation": "Shipped lint-rule violation is blocked on each supported Node version.",
+    "oracle": "Node18/20/22 matrix real consumer firing.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": {
+        "matrix": {
+          "node": [
+            "20",
+            "22"
+          ]
+        }
+      },
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750648589
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Not duplicate same Node current-unit test; retain distinct runtimes.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#consumer-matrix",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "consumer-matrix",
+    "name": "Consumer-matrix \u2014 ${{ matrix.label }}",
+    "criteria": {
+      "relevance": "Consumers install/run packed/source material across OS/package manager/path layouts.",
+      "effectiveness": "Actual matrix source/tarball/getff/npm/pnpm/python/Windows path probes.",
+      "theatre": "Keep conditional Windows scope guard; Linux source evidence cannot replace Windows/macOS observations.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Actual matrix source/tarball/getff/npm/pnpm/python/Windows path probes.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Keep conditional Windows scope guard; Linux source evidence cannot replace Windows/macOS observations.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Keep conditional Windows scope guard; Linux source evidence cannot replace Windows/macOS observations."
+    },
+    "obligation": "Consumers install/run packed/source material across OS/package manager/path layouts.",
+    "oracle": "Actual matrix source/tarball/getff/npm/pnpm/python/Windows path probes.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": {
+        "fail-fast": "false",
+        "matrix": {
+          "include": [
+            {
+              "cell": "pnpm-monorepo",
+              "os": "ubuntu-latest",
+              "label": "start cell \u2014 pnpm workspace monorepo (launch-preannounce-track S2)"
+            },
+            {
+              "cell": "python-unfamiliar-stack",
+              "os": "ubuntu-latest",
+              "label": "W6 cell \u2014 python unfamiliar-stack e2e (getff-any-stack-trace S4)"
+            },
+            {
+              "cell": "npm-tarball",
+              "os": "ubuntu-latest",
+              "label": "npm-tarball cell \u2014 files allowlist + bin runnability (beta-delivery-ux R1)"
+            },
+            {
+              "cell": "getff-dist",
+              "os": "ubuntu-latest",
+              "label": "getff-dist cell \u2014 npx getff init from the assembled tarball (npm-publish-getff-init S2)"
+            },
+            {
+              "cell": "getff-dist",
+              "os": "windows-latest",
+              "scoped": "true",
+              "label": "getff-dist cell on Windows \u2014 the npx getff init path consumers actually run"
+            }
+          ]
+        }
+      },
+      "runner": "${{ matrix.os }}",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750648658
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Keep conditional Windows scope guard; Linux source evidence cannot replace Windows/macOS observations.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#docs-refresh",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "docs-refresh",
+    "name": "Docs refresh gate \u2014 cited-source drift vs page refresh (D26/R13)",
+    "criteria": {
+      "relevance": "Changes to cited source require appropriate freshness for dependent docs.",
+      "effectiveness": "Exact tested range intersects citations; event-specific base resolution.",
+      "theatre": "Refresh stamps are dependency consistency, not correctness of prose.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Exact tested range intersects citations; event-specific base resolution.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Refresh stamps are dependency consistency, not correctness of prose.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Refresh stamps are dependency consistency, not correctness of prose."
+    },
+    "obligation": "Changes to cited source require appropriate freshness for dependent docs.",
+    "oracle": "Exact tested range intersects citations; event-specific base resolution.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403570017
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494198
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591163
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608548
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Refresh stamps are dependency consistency, not correctness of prose.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#citation-fullsweep",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "citation-fullsweep",
+    "name": "citation-fullsweep",
+    "criteria": {
+      "relevance": "Entire docs corpus retains resolvable nonblank path:line and source-backed arch retells.",
+      "effectiveness": "Unscoped real corpus plus checker/generator adversarial fixtures.",
+      "theatre": "Citations resolve but may be semantically wrong; full corpus different from changed-line local precommit arm.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Unscoped real corpus plus checker/generator adversarial fixtures.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Citations resolve but may be semantically wrong; full corpus different from changed-line local precommit arm.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Citations resolve but may be semantically wrong; full corpus different from changed-line local precommit arm."
+    },
+    "obligation": "Entire docs corpus retains resolvable nonblank path:line and source-backed arch retells.",
+    "oracle": "Unscoped real corpus plus checker/generator adversarial fixtures.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403570024
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397494192
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403591177
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750608632
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Citations resolve but may be semantically wrong; full corpus different from changed-line local precommit arm.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#ships-manifest",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "ships-manifest",
+    "name": "ships-manifest",
+    "criteria": {
+      "relevance": "All declared shipped resources are marked and actual install/refresh delivers them.",
+      "effectiveness": "Marking gate plus real installer regression tests.",
+      "theatre": "Manifest and actual install are complementary; no presence-only certification.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Marking gate plus real installer regression tests.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Manifest and actual install are complementary; no presence-only certification.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Manifest and actual install are complementary; no presence-only certification."
+    },
+    "obligation": "All declared shipped resources are marked and actual install/refresh delivers them.",
+    "oracle": "Marking gate plus real installer regression tests.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600312
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518692
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641573
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750648972
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Manifest and actual install are complementary; no presence-only certification.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#ci-success",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "ci-success",
+    "name": "ci-success",
+    "criteria": {
+      "relevance": "One required status faithfully aggregates every dependent job and explicit scope skips.",
+      "effectiveness": "Real needs results plus ci-success-gate script; refuses failure/cancel or unapproved skip.",
+      "theatre": "Does not aggregate other workflows. D04 status gaps and D07 missing test families remain outside this green.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Real needs results plus ci-success-gate script; refuses failure/cancel or unapproved skip.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Does not aggregate other workflows. D04 status gaps and D07 missing test families remain outside this green.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Does not aggregate other workflows. D04 status gaps and D07 missing test families remain outside this green."
+    },
+    "obligation": "One required status faithfully aggregates every dependent job and explicit scope skips.",
+    "oracle": "Real needs results plus ci-success-gate script; refuses failure/cancel or unapproved skip.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "always()",
+      "needs": [
+        "mechanical",
+        "citation-fullsweep",
+        "ships-manifest",
+        "shipped-prettier",
+        "actionlint",
+        "zizmor",
+        "rule-to-probe",
+        "probe-tests",
+        "manifest-render-check",
+        "principles-meta-tests",
+        "install-sh-a",
+        "install-sh-b",
+        "install-sh-c",
+        "typecheck",
+        "pr-commit-trailers",
+        "docs-quality",
+        "docs-refresh",
+        "enforce-husky-presence",
+        "framework-self-install-ts-server",
+        "framework-self-install-react-next",
+        "framework-fresh-install-validate",
+        "framework-fresh-install-validate-multistack",
+        "framework-self-detect",
+        "framework-self-research",
+        "framework-self-synth",
+        "framework-self-validate",
+        "framework-self-install-validated",
+        "framework-provenance-anti-hand-edit",
+        "phase-8-canonical-regen-acceptance",
+        "f17-node-compat",
+        "consumer-matrix",
+        "alwayson-budget",
+        "bash32",
+        "dot-review-gate-suites",
+        "dot-relay-suites",
+        "sanctioned-husky-patch-channel",
+        "path-scope",
+        "kickoff-checks"
+      ],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128441941313
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128400888921
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128443039497
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128752007633
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Does not aggregate other workflows. D04 status gaps and D07 missing test families remain outside this green.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#bash32",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "bash32",
+    "name": "bash32",
+    "criteria": {
+      "relevance": "Installer/setup scripts stay within supported Bash3.2/BSD portability grammar.",
+      "effectiveness": "Static portability check plus paired adverse fixture.",
+      "theatre": "Linux static scan is not macOS actual tool execution; retain actual supported-host responsibility.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Static portability check plus paired adverse fixture.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Linux static scan is not macOS actual tool execution; retain actual supported-host responsibility.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Linux static scan is not macOS actual tool execution; retain actual supported-host responsibility."
+    },
+    "obligation": "Installer/setup scripts stay within supported Bash3.2/BSD portability grammar.",
+    "oracle": "Static portability check plus paired adverse fixture.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600331
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518690
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641679
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750648842
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Linux static scan is not macOS actual tool execution; retain actual supported-host responsibility.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#dot-review-gate-suites",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "dot-review-gate-suites",
+    "name": "Dot gate suites (S4 offline matrix)",
+    "criteria": {
+      "relevance": "Review admission JSON/policy/custody/refusal contracts hold.",
+      "effectiveness": "Finite real shell fixtures/CLI tests.",
+      "theatre": "Verdict binding is not review correctness; no actual external reviewers in CI.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Finite real shell fixtures/CLI tests.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Verdict binding is not review correctness; no actual external reviewers in CI.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Verdict binding is not review correctness; no actual external reviewers in CI."
+    },
+    "obligation": "Review admission JSON/policy/custody/refusal contracts hold.",
+    "oracle": "Finite real shell fixtures/CLI tests.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600306
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518657
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641657
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649245
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Verdict binding is not review correctness; no actual external reviewers in CI.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#sanctioned-husky-patch-channel",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "sanctioned-husky-patch-channel",
+    "name": "Sanctioned .husky patch channel (apply-husky-patch paired test)",
+    "criteria": {
+      "relevance": "Approved hook patch writer and permission gate constrain modifications.",
+      "effectiveness": "Paired writer/refusal fixtures.",
+      "theatre": "Correct write boundary does not certify arbitrary patch behavior.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Paired writer/refusal fixtures.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Correct write boundary does not certify arbitrary patch behavior.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Correct write boundary does not certify arbitrary patch behavior."
+    },
+    "obligation": "Approved hook patch writer and permission gate constrain modifications.",
+    "oracle": "Paired writer/refusal fixtures.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600166
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518665
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641645
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750649029
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Correct write boundary does not certify arbitrary patch behavior.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#dot-relay-suites",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "dot-relay-suites",
+    "name": "Dot relay suites (offline matrix, DOT-2087-F11)",
+    "criteria": {
+      "relevance": "Relay protocol, ledger, execution and native source authority remain bound.",
+      "effectiveness": "Node fixture suite, explicit positive/negative protocol outcomes.",
+      "theatre": "No real bridge/model availability claim from fake adapter fixtures.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Node fixture suite, explicit positive/negative protocol outcomes.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. No real bridge/model availability claim from fake adapter fixtures.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "No real bridge/model availability claim from fake adapter fixtures."
+    },
+    "obligation": "Relay protocol, ledger, execution and native source authority remain bound.",
+    "oracle": "Node fixture suite, explicit positive/negative protocol outcomes.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'true'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403600197
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397518717
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403641568
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750648878
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "No real bridge/model availability claim from fake adapter fixtures.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/audit-self.yml#kickoff-checks",
+    "kind": "ci-job",
+    "path": ".github/workflows/audit-self.yml",
+    "job": "kickoff-checks",
+    "name": "Kickoff publication \u2014 principles and dispatch contracts",
+    "criteria": {
+      "relevance": "Narrow publication lane still validates principles, kickoff contracts and scope/result gates.",
+      "effectiveness": "Principles corpus, selected hooks, changed document validation, selector tests.",
+      "theatre": "Not blanket docs skip; unknown additions remain full runtime. Valid formatting failure observed in sampled history.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Principles corpus, selected hooks, changed document validation, selector tests.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Not blanket docs skip; unknown additions remain full runtime. Valid formatting failure observed in sampled history.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Not blanket docs skip; unknown additions remain full runtime. Valid formatting failure observed in sampled history."
+    },
+    "obligation": "Narrow publication lane still validates principles, kickoff contracts and scope/result gates.",
+    "oracle": "Principles corpus, selected hooks, changed document validation, selector tests.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": "",
+        "merge_group": ""
+      },
+      "if": "needs.path-scope.outputs.runtime == 'false'",
+      "needs": "path-scope",
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}",
+        "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+      }
+    },
+    "protectionBoundary": "required ci-success dependency",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372579925.json.gz",
+          "jobIds": [
+            128403601843
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42370509577.json.gz",
+          "jobIds": [
+            128397520189
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42372587424.json.gz",
+          "jobIds": [
+            128403642861
+          ]
+        },
+        {
+          "file": "evidence/ci-jobs-42486891639.json",
+          "jobIds": [
+            128750647663
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Not blanket docs skip; unknown additions remain full runtime. Valid formatting failure observed in sampled history.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/audit-self.yml",
+      ".github/workflows/audit-self.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/context7-refresh.yml#refresh",
+    "kind": "ci-job",
+    "path": ".github/workflows/context7-refresh.yml",
+    "job": "refresh",
+    "name": "context7 \u2014 refresh library index",
+    "criteria": {
+      "relevance": "Request Context7 indexing after staging changes.",
+      "effectiveness": "HTTP response, exact too-early exception and nonzero failure propagation.",
+      "theatre": "Postmerge automation, not regression test. Actual403size refusal means service capability dependency, not flaky test; retain honest failure until owner resolves.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: HTTP response, exact too-early exception and nonzero failure propagation.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Postmerge automation, not regression test. Actual403size refusal means service capability dependency, not flaky test; retain honest failure until owner resolves.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Postmerge automation, not regression test. Actual403size refusal means service capability dependency, not flaky test; retain honest failure until owner resolves."
+    },
+    "obligation": "Request Context7 indexing after staging changes.",
+    "oracle": "HTTP response, exact too-early exception and nonzero failure propagation.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging"
+          ]
+        }
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "context7-refresh-${{ github.ref }}",
+        "cancel-in-progress": "true"
+      }
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372580111.json",
+          "jobIds": [
+            128403569816
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Postmerge automation, not regression test. Actual403size refusal means service capability dependency, not flaky test; retain honest failure until owner resolves.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/context7-refresh.yml",
+      ".github/workflows/context7-refresh.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/demo-regen.yml#regen",
+    "kind": "ci-job",
+    "path": ".github/workflows/demo-regen.yml",
+    "job": "regen",
+    "name": "regenerate demo GIFs + open PR",
+    "criteria": {
+      "relevance": "Regenerate demo GIFs for release or explicit request.",
+      "effectiveness": "VHS/fixture build and uploaded assets.",
+      "theatre": "Non-test publication automation; requires tool environment, no sample in bounded history.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: VHS/fixture build and uploaded assets.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Non-test publication automation; requires tool environment, no sample in bounded history.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Non-test publication automation; requires tool environment, no sample in bounded history."
+    },
+    "obligation": "Regenerate demo GIFs for release or explicit request.",
+    "oracle": "VHS/fixture build and uploaded assets.",
+    "delivery": {
+      "events": {
+        "release": {
+          "types": [
+            "published"
+          ]
+        },
+        "workflow_dispatch": {}
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "write",
+        "pull-requests": "write"
+      },
+      "concurrency": {
+        "group": "demo-regen",
+        "cancel-in-progress": "false"
+      }
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [],
+    "cost": {
+      "measurements": [],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Non-test publication automation; requires tool environment, no sample in bounded history.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/demo-regen.yml",
+      ".github/workflows/demo-regen.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/discipline-self-check.yml#verify-pr-body-sections",
+    "kind": "ci-job",
+    "path": ".github/workflows/discipline-self-check.yml",
+    "job": "verify-pr-body-sections",
+    "name": "\u00a71.7 forward+backward sections present in PR description",
+    "criteria": {
+      "relevance": "Non-main PR body contains required bounded discipline grammar or valid skip rationale.",
+      "effectiveness": "Actual awk/grep/length checker over event body.",
+      "theatre": "Mechanical citation grammar, not substance truth. D04 unenforced registration and D08 detached sanity controls.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Actual awk/grep/length checker over event body.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Mechanical citation grammar, not substance truth. D04 unenforced registration and D08 detached sanity controls.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Mechanical citation grammar, not substance truth. D04 unenforced registration and D08 detached sanity controls."
+    },
+    "obligation": "Non-main PR body contains required bounded discipline grammar or valid skip rationale.",
+    "oracle": "Actual awk/grep/length checker over event body.",
+    "delivery": {
+      "events": {
+        "pull_request": {
+          "types": [
+            "opened",
+            "edited",
+            "synchronize",
+            "reopened"
+          ]
+        }
+      },
+      "if": "github.event.pull_request.base.ref != 'main'",
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "read"
+      },
+      "concurrency": null
+    },
+    "protectionBoundary": "unregistered declared context",
+    "decisions": [
+      "D04",
+      "D08"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42488550999.json",
+          "jobIds": [
+            128755666021
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Mechanical citation grammar, not substance truth. D04 unenforced registration and D08 detached sanity controls.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/discipline-self-check.yml",
+      ".github/workflows/discipline-self-check.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/discipline-self-check.yml#sanity-stub-fails-substance",
+    "kind": "ci-job",
+    "path": ".github/workflows/discipline-self-check.yml",
+    "job": "sanity-stub-fails-substance",
+    "name": "Sanity \u2014 Incident-1 stub \u00a71.7 body MUST fail substance gate",
+    "criteria": {
+      "relevance": "The production checker must reject uncited generic discipline prose.",
+      "effectiveness": "Currently reimplemented awk/grep on constant negative stub.",
+      "theatre": "D08 production bypass survives this check; combine into real checker conformance before removing job.",
+      "tautology": "Detached replicated oracle, sensitivity gap demonstrated D08.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. D08 production bypass survives this check; combine into real checker conformance before removing job.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "D08 production bypass survives this check; combine into real checker conformance before removing job."
+    },
+    "obligation": "The production checker must reject uncited generic discipline prose.",
+    "oracle": "Currently reimplemented awk/grep on constant negative stub.",
+    "delivery": {
+      "events": {
+        "pull_request": {
+          "types": [
+            "opened",
+            "edited",
+            "synchronize",
+            "reopened"
+          ]
+        }
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "read"
+      },
+      "concurrency": null
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [
+      "D08"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42488550999.json",
+          "jobIds": [
+            128755665841
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "D08 production bypass survives this check; combine into real checker conformance before removing job.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/discipline-self-check.yml",
+      ".github/workflows/discipline-self-check.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/discipline-self-check.yml#sanity-stub-backward-passes-with-citation",
+    "kind": "ci-job",
+    "path": ".github/workflows/discipline-self-check.yml",
+    "job": "sanity-stub-backward-passes-with-citation",
+    "name": "Sanity \u2014 \u00a71.7 Backward-check with file:line citation MUST pass substance gate (Forward-check parity)",
+    "criteria": {
+      "relevance": "The production checker must accept permitted cited backward prose.",
+      "effectiveness": "Currently reimplemented awk/grep on constant positive stub.",
+      "theatre": "D08 detached from production; preserve fixture using real checker.",
+      "tautology": "Detached replicated oracle, sensitivity gap demonstrated D08.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. D08 detached from production; preserve fixture using real checker.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "D08 detached from production; preserve fixture using real checker."
+    },
+    "obligation": "The production checker must accept permitted cited backward prose.",
+    "oracle": "Currently reimplemented awk/grep on constant positive stub.",
+    "delivery": {
+      "events": {
+        "pull_request": {
+          "types": [
+            "opened",
+            "edited",
+            "synchronize",
+            "reopened"
+          ]
+        }
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "read"
+      },
+      "concurrency": null
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [
+      "D08"
+    ],
+    "cost": {
+      "measurements": [],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "D08 detached from production; preserve fixture using real checker.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/discipline-self-check.yml",
+      ".github/workflows/discipline-self-check.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/framework-self-template-render.yml#framework-self-template-render",
+    "kind": "ci-job",
+    "path": ".github/workflows/framework-self-template-render.yml",
+    "job": "framework-self-template-render",
+    "name": "Template render probes \u2014 P1/P4/P6 (deterministic)",
+    "criteria": {
+      "relevance": "P1/P4/P6 generated template behavior preserves declared probes.",
+      "effectiveness": "Actual template-render suite.",
+      "theatre": "Standalone declared required status unregistered; same test included in units but environment/trigger retained until proven no-loss consolidation.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Actual template-render suite.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Standalone declared required status unregistered; same test included in units but environment/trigger retained until proven no-loss consolidation.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Standalone declared required status unregistered; same test included in units but environment/trigger retained until proven no-loss consolidation."
+    },
+    "obligation": "P1/P4/P6 generated template behavior preserves declared probes.",
+    "oracle": "Actual template-render suite.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging",
+            "main",
+            "chore/**"
+          ]
+        },
+        "pull_request": ""
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": null
+    },
+    "protectionBoundary": "unregistered declared context",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42486891226.json",
+          "jobIds": [
+            128750607450
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Standalone declared required status unregistered; same test included in units but environment/trigger retained until proven no-loss consolidation.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/framework-self-template-render.yml",
+      ".github/workflows/framework-self-template-render.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/guard-liveness-fullsweep.yml#guard-liveness-fullsweep",
+    "kind": "ci-job",
+    "path": ".github/workflows/guard-liveness-fullsweep.yml",
+    "job": "guard-liveness-fullsweep",
+    "name": "guard-liveness-fullsweep",
+    "criteria": {
+      "relevance": "Promotion to main exercises entire rule manifest detector liveness.",
+      "effectiveness": "Actual planted-violation or structural probe by rule mode.",
+      "theatre": "Main required boundary; change-scoped prepush is not identical to full manifest backstop.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Actual planted-violation or structural probe by rule mode.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Main required boundary; change-scoped prepush is not identical to full manifest backstop.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Main required boundary; change-scoped prepush is not identical to full manifest backstop."
+    },
+    "obligation": "Promotion to main exercises entire rule manifest detector liveness.",
+    "oracle": "Actual planted-violation or structural probe by rule mode.",
+    "delivery": {
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        }
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "guard-liveness-fullsweep-${{ github.ref }}",
+        "cancel-in-progress": "true"
+      }
+    },
+    "protectionBoundary": "required status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372587473.json",
+          "jobIds": [
+            128403590514
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Main required boundary; change-scoped prepush is not identical to full manifest backstop.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/guard-liveness-fullsweep.yml",
+      ".github/workflows/guard-liveness-fullsweep.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/link-checker.yml#link-check",
+    "kind": "ci-job",
+    "path": ".github/workflows/link-checker.yml",
+    "job": "link-check",
+    "name": "lychee \u2014 live link audit",
+    "criteria": {
+      "relevance": "Scheduled and config-edit corpus links remain reachable within lychee policy.",
+      "effectiveness": "Pinned link checker with declared exclusions/cache.",
+      "theatre": "External availability failure differs from broken internal link; schedule not every-PR semantic test.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Pinned link checker with declared exclusions/cache.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. External availability failure differs from broken internal link; schedule not every-PR semantic test.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "External availability failure differs from broken internal link; schedule not every-PR semantic test."
+    },
+    "obligation": "Scheduled and config-edit corpus links remain reachable within lychee policy.",
+    "oracle": "Pinned link checker with declared exclusions/cache.",
+    "delivery": {
+      "events": {
+        "schedule": [
+          {
+            "cron": "38 5 * * 1"
+          }
+        ],
+        "workflow_dispatch": {},
+        "pull_request": {
+          "paths": [
+            "lychee.toml",
+            ".github/workflows/link-checker.yml"
+          ]
+        }
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "link-checker-${{ github.ref }}",
+        "cancel-in-progress": "true"
+      }
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42372587423.json",
+          "jobIds": [
+            128403590431
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "External availability failure differs from broken internal link; schedule not every-PR semantic test.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/link-checker.yml",
+      ".github/workflows/link-checker.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/metrics-collect.yml#collect",
+    "kind": "ci-job",
+    "path": ".github/workflows/metrics-collect.yml",
+    "job": "collect",
+    "name": "collect stars/forks/traffic \u2192 data/metrics",
+    "criteria": {
+      "relevance": "Collect public/optional traffic metrics and append a dated snapshot.",
+      "effectiveness": "GitHub API values and branch update.",
+      "theatre": "Automation, not quality gate; missing secret honestly skips traffic only. No semantic test benefit claimed.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: GitHub API values and branch update.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Automation, not quality gate; missing secret honestly skips traffic only. No semantic test benefit claimed.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Automation, not quality gate; missing secret honestly skips traffic only. No semantic test benefit claimed."
+    },
+    "obligation": "Collect public/optional traffic metrics and append a dated snapshot.",
+    "oracle": "GitHub API values and branch update.",
+    "delivery": {
+      "events": {
+        "schedule": [
+          {
+            "cron": "17 6 * * *"
+          }
+        ],
+        "workflow_dispatch": {}
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "write"
+      },
+      "concurrency": {
+        "group": "metrics-collect",
+        "cancel-in-progress": "false"
+      }
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42485072480.json",
+          "jobIds": [
+            128745064416
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Automation, not quality gate; missing secret honestly skips traffic only. No semantic test benefit claimed.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/metrics-collect.yml",
+      ".github/workflows/metrics-collect.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/notify-landing.yml#dispatch",
+    "kind": "ci-job",
+    "path": ".github/workflows/notify-landing.yml",
+    "job": "dispatch",
+    "name": "dispatch framework-main-moved \u2192 artyhoo/getff-landing",
+    "criteria": {
+      "relevance": "Notify landing repo when main moves or explicit dispatch requested.",
+      "effectiveness": "GitHub repository-dispatch exit propagation.",
+      "theatre": "Cross-repo delivery automation, not evidence landing deployed successfully.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: GitHub repository-dispatch exit propagation.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Cross-repo delivery automation, not evidence landing deployed successfully.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Cross-repo delivery automation, not evidence landing deployed successfully."
+    },
+    "obligation": "Notify landing repo when main moves or explicit dispatch requested.",
+    "oracle": "GitHub repository-dispatch exit propagation.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "workflow_dispatch": {}
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {},
+      "concurrency": null
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [],
+    "cost": {
+      "measurements": [],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Cross-repo delivery automation, not evidence landing deployed successfully.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/notify-landing.yml",
+      ".github/workflows/notify-landing.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/pin-freshness.yml#freshness",
+    "kind": "ci-job",
+    "path": ".github/workflows/pin-freshness.yml",
+    "job": "freshness",
+    "name": "served manifest verified-at vs origin/main (R22, 24 h budget)",
+    "criteria": {
+      "relevance": "Published landing manifest must match current framework main.",
+      "effectiveness": "Fail-closed HTTP manifest fetch and commit comparison.",
+      "theatre": "Actual404is intended failed external delivery contract. Preserve failure; coordinate landing owner, not mark test flaky.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Fail-closed HTTP manifest fetch and commit comparison.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Actual404is intended failed external delivery contract. Preserve failure; coordinate landing owner, not mark test flaky.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Actual404is intended failed external delivery contract. Preserve failure; coordinate landing owner, not mark test flaky."
+    },
+    "obligation": "Published landing manifest must match current framework main.",
+    "oracle": "Fail-closed HTTP manifest fetch and commit comparison.",
+    "delivery": {
+      "events": {
+        "schedule": [
+          {
+            "cron": "43 5 * * *"
+          }
+        ],
+        "workflow_dispatch": {}
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": {
+        "group": "pin-freshness",
+        "cancel-in-progress": "false"
+      }
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42478930305.json",
+          "jobIds": [
+            128726395582
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Actual404is intended failed external delivery contract. Preserve failure; coordinate landing owner, not mark test flaky.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/pin-freshness.yml",
+      ".github/workflows/pin-freshness.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/pr-body-fidelity.yml#fidelity-verdict-in-pr-body",
+    "kind": "ci-job",
+    "path": ".github/workflows/pr-body-fidelity.yml",
+    "job": "fidelity-verdict-in-pr-body",
+    "name": "fidelity-verdict-in-pr-body",
+    "criteria": {
+      "relevance": "Staging PR body has a verdict bound to actual head where required.",
+      "effectiveness": "Actual PR-body checker through tsx.",
+      "theatre": "Required live status; verdict presence/binding does not certify reviewer judgment.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Actual PR-body checker through tsx.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Required live status; verdict presence/binding does not certify reviewer judgment.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Required live status; verdict presence/binding does not certify reviewer judgment."
+    },
+    "obligation": "Staging PR body has a verdict bound to actual head where required.",
+    "oracle": "Actual PR-body checker through tsx.",
+    "delivery": {
+      "events": {
+        "pull_request": {
+          "types": [
+            "opened",
+            "edited",
+            "synchronize",
+            "reopened"
+          ]
+        }
+      },
+      "if": "github.event.pull_request.base.ref == 'staging'",
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "read"
+      },
+      "concurrency": null
+    },
+    "protectionBoundary": "required status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42488551015.json",
+          "jobIds": [
+            128755665740
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Required live status; verdict presence/binding does not certify reviewer judgment.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/pr-body-fidelity.yml",
+      ".github/workflows/pr-body-fidelity.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/pr-body-prior-art.yml#prior-art-in-pr-body",
+    "kind": "ci-job",
+    "path": ".github/workflows/pr-body-prior-art.yml",
+    "job": "prior-art-in-pr-body",
+    "name": "capability PR carries Prior-art line in PR body (squash-survival)",
+    "criteria": {
+      "relevance": "Squash-preview capability change retains prior-art line in body.",
+      "effectiveness": "Fresh base merge-base/diff plus checker.",
+      "theatre": "Live registration absent (D04); commit trailers cannot substitute after body edit.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Fresh base merge-base/diff plus checker.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Live registration absent (D04); commit trailers cannot substitute after body edit.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Live registration absent (D04); commit trailers cannot substitute after body edit."
+    },
+    "obligation": "Squash-preview capability change retains prior-art line in body.",
+    "oracle": "Fresh base merge-base/diff plus checker.",
+    "delivery": {
+      "events": {
+        "pull_request": {
+          "types": [
+            "opened",
+            "edited",
+            "synchronize",
+            "reopened"
+          ]
+        }
+      },
+      "if": null,
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "read"
+      },
+      "concurrency": null
+    },
+    "protectionBoundary": "unregistered declared context",
+    "decisions": [
+      "D04"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42488551036.json",
+          "jobIds": [
+            128755665808
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Live registration absent (D04); commit trailers cannot substitute after body edit.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/pr-body-prior-art.yml",
+      ".github/workflows/pr-body-prior-art.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/pr-stale-revert.yml#stale-revert-in-pr-diff",
+    "kind": "ci-job",
+    "path": ".github/workflows/pr-stale-revert.yml",
+    "job": "stale-revert-in-pr-diff",
+    "name": "stale-revert-in-pr-diff",
+    "criteria": {
+      "relevance": "Staging squash-preview avoids accidental historical reverts and deleted shipped files carry consumer maps.",
+      "effectiveness": "Fresh merge-base real Git diff plus two bound checker CLIs.",
+      "theatre": "Required live context; source/ownership analysis finite, human merge strategy remains separate.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Fresh merge-base real Git diff plus two bound checker CLIs.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Required live context; source/ownership analysis finite, human merge strategy remains separate.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Required live context; source/ownership analysis finite, human merge strategy remains separate."
+    },
+    "obligation": "Staging squash-preview avoids accidental historical reverts and deleted shipped files carry consumer maps.",
+    "oracle": "Fresh merge-base real Git diff plus two bound checker CLIs.",
+    "delivery": {
+      "events": {
+        "pull_request": {
+          "types": [
+            "opened",
+            "edited",
+            "synchronize",
+            "reopened"
+          ]
+        }
+      },
+      "if": "github.event.pull_request.base.ref == 'staging'",
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "read"
+      },
+      "concurrency": null
+    },
+    "protectionBoundary": "required status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42488551111.json",
+          "jobIds": [
+            128755666445
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Required live context; source/ownership analysis finite, human merge strategy remains separate.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/pr-stale-revert.yml",
+      ".github/workflows/pr-stale-revert.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/release-drafter.yml#autolabel",
+    "kind": "ci-job",
+    "path": ".github/workflows/release-drafter.yml",
+    "job": "autolabel",
+    "name": "autolabel PR from conventional-commit title",
+    "criteria": {
+      "relevance": "Classify PR labels through release-drafter policy.",
+      "effectiveness": "Pinned external action and repository config.",
+      "theatre": "Non-test automation; labels are categorization not correctness verdict.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Pinned external action and repository config.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Non-test automation; labels are categorization not correctness verdict.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Non-test automation; labels are categorization not correctness verdict."
+    },
+    "obligation": "Classify PR labels through release-drafter policy.",
+    "oracle": "Pinned external action and repository config.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging"
+          ]
+        },
+        "pull_request": {
+          "types": [
+            "opened",
+            "reopened",
+            "synchronize",
+            "edited"
+          ]
+        }
+      },
+      "if": "github.event_name == 'pull_request'",
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read",
+        "pull-requests": "write"
+      },
+      "concurrency": {
+        "group": "release-drafter-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+        "cancel-in-progress": "true"
+      }
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42488550998.json",
+          "jobIds": [
+            128755665998
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Non-test automation; labels are categorization not correctness verdict.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/release-drafter.yml",
+      ".github/workflows/release-drafter.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/release-drafter.yml#update_release_draft",
+    "kind": "ci-job",
+    "path": ".github/workflows/release-drafter.yml",
+    "job": "update_release_draft",
+    "name": "update draft release notes",
+    "criteria": {
+      "relevance": "Maintain release draft from staging history.",
+      "effectiveness": "Pinned release-drafter action.",
+      "theatre": "Non-test publication automation, distinct permissions/trigger from autolabel.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Pinned release-drafter action.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. Non-test publication automation, distinct permissions/trigger from autolabel.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "Non-test publication automation, distinct permissions/trigger from autolabel."
+    },
+    "obligation": "Maintain release draft from staging history.",
+    "oracle": "Pinned release-drafter action.",
+    "delivery": {
+      "events": {
+        "push": {
+          "branches": [
+            "staging"
+          ]
+        },
+        "pull_request": {
+          "types": [
+            "opened",
+            "reopened",
+            "synchronize",
+            "edited"
+          ]
+        }
+      },
+      "if": "github.event_name == 'push'",
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "write",
+        "pull-requests": "read"
+      },
+      "concurrency": {
+        "group": "release-drafter-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+        "cancel-in-progress": "true"
+      }
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42488550998.json",
+          "jobIds": [
+            128755667402
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "Non-test publication automation, distinct permissions/trigger from autolabel.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/release-drafter.yml",
+      ".github/workflows/release-drafter.yml"
+    ]
+  },
+  {
+    "id": "ci:.github/workflows/workflow-integrity.yml#branch-protection-assertion",
+    "kind": "ci-job",
+    "path": ".github/workflows/workflow-integrity.yml",
+    "job": "branch-protection-assertion",
+    "name": "ci-success required-check assertion",
+    "criteria": {
+      "relevance": "Declared required statuses should be registered in live staging policy.",
+      "effectiveness": "Current admin endpoint403\u2192UNDETERMINED0; ordinary branch endpoint readable.",
+      "theatre": "D04: source markers and green warning do not prove enforcement. Administrative configuration is separate from source repair.",
+      "tautology": "Actual command/output is compared with named parser/fixture/format or fixed policy. Scope of result: Current admin endpoint403\u2192UNDETERMINED0; ordinary branch endpoint readable.",
+      "duplication": "Trigger, source, supported environment and timing are preserved. D04: source markers and green warning do not prove enforcement. Administrative configuration is separate from source repair.",
+      "costEffectiveness": "Retain bounded useful contract unless named decision redesigns it. Actual job/step history and setup durations are recorded; no unsampled cost invented.",
+      "sufficiency": "D04: source markers and green warning do not prove enforcement. Administrative configuration is separate from source repair."
+    },
+    "obligation": "Declared required statuses should be registered in live staging policy.",
+    "oracle": "Current admin endpoint403\u2192UNDETERMINED0; ordinary branch endpoint readable.",
+    "delivery": {
+      "events": {
+        "pull_request": {
+          "paths": [
+            ".github/workflows/**"
+          ]
+        },
+        "push": {
+          "branches": [
+            "staging",
+            "main"
+          ],
+          "paths": [
+            ".github/workflows/**"
+          ]
+        }
+      },
+      "if": "github.event_name == 'pull_request'",
+      "needs": [],
+      "strategy": null,
+      "runner": "ubuntu-latest",
+      "permissions": {
+        "contents": "read"
+      },
+      "concurrency": null
+    },
+    "protectionBoundary": "non-required test/automation status",
+    "decisions": [
+      "D04"
+    ],
+    "cost": {
+      "measurements": [
+        {
+          "file": "evidence/ci-jobs-42478732564.json",
+          "jobIds": [
+            128725786345
+          ]
+        }
+      ],
+      "queueOnlySeconds": null,
+      "billedMinutes": null,
+      "maintenance": "Workflow/pins and owned fixture changes; no measured maintenance ledger.",
+      "diagnosis": "D04: source markers and green warning do not prove enforcement. Administrative configuration is separate from source repair.",
+      "completeHistory": "evidence/ci-cost-summary.json.gz"
+    },
+    "evidenceRefs": [
+      "evidence/workflow-definitions.json.gz#.github/workflows/workflow-integrity.yml",
+      ".github/workflows/workflow-integrity.yml"
+    ]
+  }
+]

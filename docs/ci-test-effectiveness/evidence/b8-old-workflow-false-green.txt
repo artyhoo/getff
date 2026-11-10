@@ -1,0 +1,9 @@
+::warning::UNDETERMINED: cannot read staging branch protection with this token (admin read is not grantable to GITHUB_TOKEN), so R11 compliance is UNVERIFIED — this job's success does NOT mean the required contexts are registered.
+::warning::Verify manually: gh api repos/<owner>/<repo>/branches/staging/protection --jq '.required_status_checks.contexts' → must contain [
+  "Template render probes — P1/P4/P6 (deterministic)",
+  "capability PR carries Prior-art line in PR body (squash-survival)",
+  "ci-success",
+  "fidelity-verdict-in-pr-body",
+  "stale-revert-in-pr-diff",
+  "§1.7 forward+backward sections present in PR description"
+]

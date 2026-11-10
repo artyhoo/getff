@@ -1,56 +1,47 @@
 #!/usr/bin/env bash
-# Negative test: enforce-husky-presence gate logic catches a stubbed hook.
-# Simulates the CI gate without pushing to GitHub.
-#
-# Usage: bash tests/hooks/test-enforce-husky-presence.sh
-# Exit 0 = gate correctly rejects stub; Exit 1 = gate has false-pass (FAIL)
+# Fixed controls of the production structural gate. Never replace checkout hooks.
 set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+CHECKER="$ROOT/scripts/check-husky-presence.sh"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
-REPO_ROOT=$(git rev-parse --show-toplevel)
-TMP=$(mktemp -d)
-
-cleanup() {
-  # Restore originals if backup exists
-  if [ -d "$TMP/.husky-orig" ]; then
-    rm -rf "$REPO_ROOT/.husky"
-    mv "$TMP/.husky-orig" "$REPO_ROOT/.husky"
+check() { # name, expected status, diagnostic, hook directory
+  local actual=0
+  bash "$CHECKER" "$4" >"$TMP/output" 2>&1 || actual=$?
+  if [ "$actual" -ne "$2" ] || ! grep -qF "$3" "$TMP/output"; then
+    echo "FAIL: $1 expected status $2 and diagnostic: $3 (got $actual)"
+    cat "$TMP/output"
+    exit 1
   fi
-  rm -rf "$TMP"
+  echo "PASS: $1"
+  cat "$TMP/output"
 }
-trap cleanup EXIT
+valid() {
+  local fixture_hook
+  mkdir -p "$1"
+  for fixture_hook in pre-commit pre-push; do
+    printf '#!/usr/bin/env bash\nbash -n "$0"\n' >"$1/$fixture_hook"
+    chmod +x "$1/$fixture_hook"
+  done
+}
 
-# Back up real hooks
-cp -r "$REPO_ROOT/.husky" "$TMP/.husky-orig"
-
-# Replace pre-commit with a stub (minimal, no real probes)
-printf '#!/usr/bin/env bash\nexit 0\n' > "$REPO_ROOT/.husky/pre-commit"
-chmod +x "$REPO_ROOT/.husky/pre-commit"
-
-# Replicate the enforce-husky-presence CI gate logic
-GATE_PASS=0
-for hook in "$REPO_ROOT/.husky/pre-commit" "$REPO_ROOT/.husky/pre-push"; do
-  if [ ! -f "$hook" ]; then
-    echo "GATE would FAIL: missing $hook"
-    GATE_PASS=1
-    continue
-  fi
-  if [ ! -x "$hook" ]; then
-    echo "GATE would FAIL: $hook not executable"
-    GATE_PASS=1
-    continue
-  fi
-  # Kept in sync with .github/workflows/audit-self.yml#enforce-husky-presence.
-  # Wave 10.1: a pre-push hook delegating to the TS orchestrator counts as non-trivial.
-  if ! grep -qE '\b(actionlint|zizmor|bash -n|json\.load|yaml\.safe_load)\b|packages/core/hooks/pre-push\.ts' "$hook"; then
-    echo "GATE would FAIL: $hook lacks expected probes (looks empty/stub)"
-    GATE_PASS=1
-  fi
+# Each hook position is exercised; a valid first hook must not mask a bad second.
+for hook in pre-commit pre-push; do
+  dir="$TMP/missing-$hook"; valid "$dir"; rm "$dir/$hook"
+  check "missing $hook" 1 "missing $dir/$hook" "$dir"
+  dir="$TMP/nonexec-$hook"; valid "$dir"; chmod -x "$dir/$hook"
+  check "non-executable $hook" 1 "$dir/$hook not executable" "$dir"
+  dir="$TMP/stub-$hook"; valid "$dir"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"$dir/$hook"
+  check "stub $hook" 1 "$dir/$hook lacks expected probes" "$dir"
 done
-
-if [ "$GATE_PASS" -eq 1 ]; then
-  echo "PASS: negative test verified — gate correctly rejects stubbed pre-commit hook"
-  exit 0
-else
-  echo "FAIL: gate did NOT catch the stubbed hook — enforce-husky-presence has a false-pass"
-  exit 1
-fi
+valid "$TMP/owned"
+check 'owned valid probes' 0 'hooks present, executable, non-trivial' "$TMP/owned"
+valid "$TMP/dispatcher"
+printf '#!/usr/bin/env bash\nexec node packages/core/hooks/pre-push.ts\n' >"$TMP/dispatcher/pre-push"
+check 'dispatcher reference' 0 'hooks present, executable, non-trivial' "$TMP/dispatcher"
+mkdir "$TMP/checkout"
+cp -p "$ROOT/.husky/pre-commit" "$ROOT/.husky/pre-push" "$TMP/checkout/"
+check 'actual checkout dispatcher shapes (copied, never executed)' 0 'hooks present, executable, non-trivial' "$TMP/checkout"
+echo 'PASS: husky checker fixed controls'

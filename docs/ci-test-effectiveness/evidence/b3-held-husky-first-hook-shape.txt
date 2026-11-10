@@ -1,0 +1,54 @@
+
+ RUN  v4.1.8 /tmp/b3-held-an4vr477
+
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 1 failed) 508ms
+     ✓ binds the required non-main PR gate, including body edits, to the shared checker 4ms
+     ✓ Incident-1 uncited prose 156ms
+     ✓ cited valid body 23ms
+     ✓ empty body 6ms
+     ✓ missing backward section 19ms
+     ✓ short forward 22ms
+     ✓ short backward 26ms
+     ✓ distinct uncited backward 19ms
+     ✓ malformed citation 18ms
+     ✓ citation outside section 21ms
+     ✓ Skip at 60 characters 13ms
+     ✓ Skip with supported-size UTF-8 content 26ms
+     ✓ Skip below 60 characters 16ms
+     ✓ section length exactly 40 27ms
+     ✓ section length below 40 15ms
+     × has a safe manual fixture carrier in the recurring core hook suite 66ms
+     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 27ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 passed (17)
+   Start at  17:09:26
+   Duration  955ms (transform 49ms, setup 45ms, import 95ms, tests 508ms, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production husky checker > has a safe manual fixture carrier in the recurring core hook suite
+AssertionError: PASS: missing pre-commit
+::error::missing /tmp/tmp.qNF8HnRQpU/missing-pre-commit/pre-commit
+FAIL: non-executable pre-commit expected status 1 and diagnostic: /tmp/tmp.qNF8HnRQpU/nonexec-pre-commit/pre-commit not executable (got 0)
+✓ .husky/ hooks present, executable, non-trivial
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ status packages/core/hooks/ci-checker-oracles.test.ts:29:56
+     27|   expect(result.error).toBeUndefined();
+     28|   expect(result.signal).toBeNull();
+     29|   expect(result.status, result.stdout + result.stderr).toBe(expected);
+       |                                                        ^
+     30|   expect(result.stdout + result.stderr).toContain(diagnostic);
+     31| }
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:76:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

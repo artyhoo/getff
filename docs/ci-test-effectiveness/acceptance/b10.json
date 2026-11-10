@@ -1,0 +1,23 @@
+{
+  "batch": "B10",
+  "task": 11,
+  "status": "ACCEPTED_FOR_INTEGRATION",
+  "reviewedBase": "97660705318614ca0318a672ab44f736c07289cb",
+  "reviewedHead": "cbfd5015a92c742875f3ff0ec9a6bd62a0c4cee9",
+  "specCompliance": "PASS",
+  "taskQuality": "APPROVED; no findings",
+  "review": {
+    "path": "acceptance/b10-review.md",
+    "sha256": "ae8bf1ae12a415446a914d63da6e672bc8d5b5a42144649ac8a196c838727c2a"
+  },
+  "decision": "D13 evidence preceded effects; rootfrozenmeaningful2catalogentries/expectedcells",
+  "verification": "Native35pass; old16positive+6twin+11L5contracts retained,2newcontextcases, defaultownednamecounterexample actualold0/new1/restore0, wiringfault1/guardomission0 independentlyrejectedexpected1/restorehashes. Actual1675archive/1670manifest, baseline15unaffected. No newnative testsource.",
+  "cost": "Diagnostic3fixtures14.140242s live/1.627709s prototype; finaldifferentadmittedcatalog1.373239s. Singlelocalobservations, not matchedCIgain. Focus35newcases4.889s, one-shot costs retained separately.",
+  "cannotVerifyResolution": {
+    "finalRawRows": "Recorder overwrotefinalrowobject. Retainedactualassertioncode/emittedsuccessfulsummary+process0 andunchangedoldcontracts sufficientbounded evidence perindependentreviewer; no reconstructeddata or gratuitousrerun.",
+    "coreTypes": "4TS7016 areUNCHANGEDTask11 but introducedbyB7\u2013B9, actualcampaignblocker; nextD14 concretebindingfix required, notwaivedasbaseline.",
+    "hostsAndAdmin": "Fullprepush/hostedNode22/Win/admin3registration remainmandatoryapplicablecampaignwork.",
+    "warnings": "Existingnpmfallback/capabilitynotices/citationskip limits retained, notpristine/fulluniversalcertification."
+  },
+  "at": "2026-11-08T22:19:07.132293+00:00"
+}

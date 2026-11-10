@@ -1,0 +1,11 @@
+{
+  "node": "v24.19.0",
+  "npm": "11.9.0",
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "vitest": "4.1.8",
+  "path": "/workspace/getff-tools/bin:/workspace/getff-tools/venv/bin:$PATH",
+  "hostedNode22": "pending",
+  "hostedWindows": "pending",
+  "base": "e38d6db008bdbb1153e9ed803a3330296108852f"
+}

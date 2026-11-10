@@ -1,0 +1,15 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default skills/assign-skill.test.ts
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ✓ skills/assign-skill.test.ts (11 tests) 2025ms
+     ✓ A positive: fixture meta-orchestrator SKILL.md → recommended_skill: meta-orchestrator  532ms
+     ✓ B positive: compliance-verifier.md mentions PR review → recommended_agent: agents/compliance-verifier.md  483ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  22:03:27
+   Duration  2.45s (transform 64ms, setup 52ms, import 39ms, tests 2.02s, environment 1ms)

@@ -1,0 +1,25 @@
+{
+  "batch": "B12",
+  "task": 13,
+  "status": "ACCEPTED_FOR_INTEGRATION",
+  "reviewedBase": "47101f3e6ab276a26091c32e45c50cf39da1acfb",
+  "reviewedHead": "128ee5d2518cf42e2fd08eabf182ca9b8bd99700",
+  "specCompliance": "GO for bounded source/local obligations",
+  "taskQuality": "GO;0 Critical/Important/Minor",
+  "review": {
+    "path": "acceptance/b12-review.md",
+    "sha256": "60837a793439fb6caabcc48de8f6f7c31d03837f1caa0cf56d3ebdd1122bbc38"
+  },
+  "decision": "D15 admitted actual first-hosted compatibility failure before effects; current tuple and same existing early-step move only, plus granted numeric references.",
+  "verification": "Original actual CI40/2 -> unchanged existing full local42/0, real npm/Python; raw/body independently rederived, all11oldrows/function/template/testbytes preserved; exact same57stepobjects/setup/metadata; normal actual1675archive/1670manifest; committed citations0.",
+  "measuredOverheadSeconds": 200.230892,
+  "cannotVerifyResolution": {
+    "newHosted": "Required on next published head, including C tail never executed in first failed run; not waived.",
+    "completePopulationAndAdmin": "Parent actual full REST53jobs50success2fail1skip and all6app15368/native0/hostedobserverattempt2success. Earlierfirst30counts explicitly superseded, no other source failure.",
+    "installedOutputs": "Reviewer independently checked actual snapshot seeding and installer branch: snapshots start fresh with no legacy/evolved skill-context file, so added recognition row is not entered and unchanged template produces same mapped output. Path omission alone is not universal proof.",
+    "ordering": "Existing coownership can fail earlier; intervening R2 checks incur its preceding duration, same before-merge required channel and complete tests retained. No blanket detector-latency/successful-runtime gain claim.",
+    "commitAndCitations": "Parent read actual task report and previous normal commit receipt; committed scoped citation0 resolves prior4uncommitteddeferrals, one original baseline-absent citation remains explicit.",
+    "timing": "First C failure truncated workload, not comparable completed AFTER. New full run needed; no causal/financial payoff assumed."
+  },
+  "at": "2026-11-09T19:04:10.124102+00:00"
+}

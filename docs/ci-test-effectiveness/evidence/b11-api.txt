@@ -1,0 +1,1 @@
+PASS: 3 target contexts × 17 YAML inputs; actual core picomatch factory identity

@@ -1,0 +1,165 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (a) non-vacuity: the parsers see the real workflows, not an empty parse 18ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (b) every declarable job carries a `# required-context:` marker with a substantive rationale 14ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (c) real-tree: both in-repo lists equal the declared set exactly 21ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (d) paired-negative (seeded flip): a job flipped to `yes` must break both lists 2ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (e) paired-negative (seeded removal): a job with no marker must be detected, never defaulted 1ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (f) paired-negative (seeded list edit): dropping an entry from either list must be detected 20ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (g) fail-closed: an unparseable list yields null, never a vacuous pass 2ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (h) the audit-self carve-out is covered by its sibling gate 3ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (i) every declared-required context sits behind an UNFILTERED pull_request: trigger 9ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (j) paired-negative (seeded filter): GREEN on the real tree, RED once a declared-required workflow is filtered 12ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — required status contexts are declared once and restated consistently > (k) the filter parser is scoped to pull_request, and reads the inline trigger grammar 4ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper changes reach the existing observer with repository passed through env 4ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: complete classic contexts => 0 32ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: complete classic contexts => 0 29ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: complete real checks schema => 0 29ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: complete real checks schema => 0 31ms
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: known missing three => 1 35ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 1 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: known missing three => 1 30ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 1 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: unprotected known empty => 1 29ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 1 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: unprotected known empty => 1 32ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 1 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: protected without status requirement => 1 30ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 1 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: protected without status requirement => 1 32ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 1 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: inactive ruleset known missing => 1 24ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 1 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: inactive ruleset known missing => 1 27ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 1 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: active uninspected ruleset => 2 50ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: active uninspected ruleset => 2 29ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: active ruleset plus sufficient classic witness => 0 47ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: active ruleset plus sufficient classic witness => 0 34ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch HTTP failure despite valid complete body => 2 14ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch HTTP failure despite valid complete body => 2 15ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch malformed JSON => 2 24ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch malformed JSON => 2 24ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch unknown schema => 2 21ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch unknown schema => 2 25ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: protected branch missing required checks schema => 2 20ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: protected branch missing required checks schema => 2 23ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch wrong JSON type => 2 20ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch wrong JSON type => 2 26ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch contexts wrong type => 2 20ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch contexts wrong type => 2 53ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch checks malformed => 2 24ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch checks malformed => 2 24ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: branch multiple JSON documents => 2 24ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: branch multiple JSON documents => 2 23ms
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules API failure despite valid empty body => 2 24ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules API failure despite valid empty body => 2 27ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules malformed JSON => 2 26ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules malformed JSON => 2 23ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules unknown schema => 2 25ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules unknown schema => 2 29ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules unknown enforcement => 2 31ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules unknown enforcement => 2 33ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: paginated later active ruleset => 2 26ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ × packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: paginated later active ruleset => 2 30ms
+   → READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: classic complete needs no rules API => 0 29ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: classic complete needs no rules API => 0 30ms
+
+ Test Files  1 failed (1)
+      Tests  20 failed | 36 passed (56)
+   Start at  19:12:07
+   Duration  1.77s (transform 75ms, setup 45ms, import 79ms, tests 1.35s, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 20 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: known missing three => 1
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: known missing three => 1
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: unprotected known empty => 1
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: unprotected known empty => 1
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: protected without status requirement => 1
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: protected without status requirement => 1
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: inactive ruleset known missing => 1
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: inactive ruleset known missing => 1
+AssertionError: READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ packages/core/principles/37-required-context-completeness.test.ts:948:41
+    946|           const output = result.stdout + result.stderr;
+    947|           expect(result.error, output).toBeUndefined();
+    948|           expect(result.status, output).toBe(fixture.status);
+       |                                         ^
+    949|           expect(output).toContain(fixture.message);
+    950|           if (fixture.status === 0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/20]⎯
+
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: active uninspected ruleset => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: active uninspected ruleset => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules API failure despite valid empty body => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules API failure despite valid empty body => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules malformed JSON => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules malformed JSON => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules unknown schema => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules unknown schema => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: rules unknown enforcement => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: rules unknown enforcement => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: paginated later active ruleset => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: paginated later active ruleset => 2
+AssertionError: READABLE COMPLETE: all declared required contexts present; source GET repos/fixture/repo/branches/staging (classic metadata)
+: expected +0 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ packages/core/principles/37-required-context-completeness.test.ts:948:41
+    946|           const output = result.stdout + result.stderr;
+    947|           expect(result.error, output).toBeUndefined();
+    948|           expect(result.status, output).toBe(fixture.status);
+       |                                         ^
+    949|           expect(output).toContain(fixture.message);
+    950|           if (fixture.status === 0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/20]⎯

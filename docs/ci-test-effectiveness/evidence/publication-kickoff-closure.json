@@ -1,0 +1,78 @@
+{
+  "status": "Existing P12 and both unchanged host-verify contracts pass; no product effects",
+  "sourceBase": "b8c963fec62d68a8ca7d9b9446dcd97b7f588441",
+  "failureReceipt": {
+    "head": "b8c963fec62d68a8ca7d9b9446dcd97b7f588441",
+    "command": "PATH=<private real tools> PREPUSH_HEAVY_RUNNER=/usr/bin/env git push origin codex/ci-test-effectiveness",
+    "exitCode": 1,
+    "startedAt": "2026-11-08T22:36:18.477890+00:00",
+    "wallSeconds": 227.968,
+    "log": "/workspace/scratch/ci-test-effectiveness-final-push-4.txt",
+    "meaning": "Normal configured hooks and same suites via documented bounded600s runner; no bypass, no force push."
+  },
+  "rawLog": "publication-kickoff-failed-push4.txt.gz",
+  "rawSHA256": "7979c8dc004413b7d2bf1d9eabde79ff25ea9900a834a97e15d00ed384dd23fd",
+  "sourceChanges": [
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2j.md",
+      "beforeSHA256": "d44c7d6899552b5b8de82449b0bc725f397fabad95cc4fd270e651564cdaa794",
+      "afterSHA256": "c3b9b7498b3644551801ef08830c16b8165086783c40804670d2ea8c62c5cecf",
+      "originalPrefixUnchanged": true,
+      "appendedText": "\n## Execution traps \u2014 explicit publication closure\n\nThis section was added after B10 execution, not part of the original dispatch provenance.\nApply `.agents/rules/ai-laziness-traps.md` \u00a72\u2013\u00a73: **T3** binds actual RED/prime/held\ncommands and source hashes; **T7** challenges whether smaller setup merely hides a\nmissing real async/sync/default-directory witness, using the frozen meaningful catalog\nand actual output guards; **T15** applies all seven criteria and measured costs to\nthose guards and one-shot drivers. Original requirements and recorded evidence stand.\n"
+    },
+    {
+      "path": ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2k.md",
+      "beforeSHA256": "7893c6dba3d1acdbc1a44ad417e77e785a8b11dc7c71eb07155a31073701e024",
+      "afterSHA256": "30ca4a68de814c63d317e048fdf3c2fe141fd27326514572dbf0cf7359d55662",
+      "originalPrefixUnchanged": true,
+      "appendedText": "\n## Execution traps \u2014 explicit publication closure\n\nThis section was added after B11 execution, not part of the original dispatch provenance.\nApply `.agents/rules/ai-laziness-traps.md` \u00a72\u2013\u00a73: **T3** retains actual compiler/API\ncommands and target-context module hashes; **T7** challenges ESM/require compatibility\nusing real exports, workflow inputs and valid/malformed companions rather than a type\nassertion; **T15** subjects each one-shot driver to the same seven criteria and cost\naccounting. Original requirements and recorded evidence stand.\n"
+    }
+  ],
+  "scope": "Two coordinator kickoff append-only documentation sections. No product/checker/dependency/workflow/installed payload/manifest changes. Not retrospective original dispatch provenance.",
+  "auditCost": "Failed required normal push227.968s; focused existing P12 and two host-list parser costs recorded after execution. No new test/model/whole audit or archive replay.",
+  "verification": [
+    {
+      "name": "P12",
+      "command": [
+        "npm",
+        "--prefix",
+        "packages/core",
+        "run",
+        "test",
+        "--",
+        "principles/12-ai-laziness-traps.test.ts"
+      ],
+      "exit": 0,
+      "seconds": 3.672081,
+      "log": "publication-kickoff-P12.txt",
+      "rawLog": "publication-kickoff-P12.txt.gz",
+      "rawSHA256": "041e60b76492b520b166887d9eab2333563e5bfcfd48202ab6a20f4350d7aad0",
+      "displaySHA256": "5ac5a8678a2c71fb39a0988c4f17cd8819561b2454b671289577fa56842ec019",
+      "displayNormalization": "Only excess terminal newlines removed; actual original compressed bytes retained, no command rerun."
+    },
+    {
+      "name": "s2j-contract",
+      "command": [
+        "bash",
+        "scripts/host-verify.sh",
+        "--list",
+        ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2j.md"
+      ],
+      "exit": 0,
+      "seconds": 0.083384,
+      "log": "publication-kickoff-s2j-contract.txt"
+    },
+    {
+      "name": "s2k-contract",
+      "command": [
+        "bash",
+        "scripts/host-verify.sh",
+        "--list",
+        ".claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2k.md"
+      ],
+      "exit": 0,
+      "seconds": 0.062427,
+      "log": "publication-kickoff-s2k-contract.txt"
+    }
+  ]
+}

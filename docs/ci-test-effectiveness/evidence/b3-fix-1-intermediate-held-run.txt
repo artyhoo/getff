@@ -1,0 +1,135 @@
+[
+  {
+    "phase": "discipline-checker",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b3-held-m2hkw990",
+      "--reporter=default",
+      "packages/core/hooks/ci-checker-oracles.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 1.5401595370003633,
+    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "faultSourceSHA256": "4d49844c3e7439f453a110b62be47f6366670afb4eb2dda1cf6291505012cd8c",
+    "reachedMarker": "B3_REACHED_CHECKER_BYPASS",
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
+  },
+  {
+    "phase": "discipline-invocation",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b3-held-m2hkw990",
+      "--reporter=default",
+      "packages/core/hooks/ci-checker-oracles.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 1.269867056998919,
+    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "faultSourceSHA256": "a1d3fd9d67b41b1528fcc9e84646e0b95639574a0e4f81b96f2eb28095d8d871",
+    "reachedMarker": "B3_REACHED_INVOCATION_BYPASS",
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
+  },
+  {
+    "phase": "husky-checker",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b3-held-m2hkw990",
+      "--reporter=default",
+      "packages/core/hooks/ci-checker-oracles.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 1.3050002489999315,
+    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "faultSourceSHA256": "d1904131a26fd9c59351ef55339c94849e7dec7f6c60653ea568ec8e31af6c1f",
+    "reachedMarker": "B3_REACHED_HUSKY_BYPASS",
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
+  },
+  {
+    "phase": "husky-first-hook-shape",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b3-held-m2hkw990",
+      "--reporter=default",
+      "packages/core/hooks/ci-checker-oracles.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 1.3283309109992842,
+    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "faultSourceSHA256": "c381b7fdbc181d89afce50ed9a07742d3306bebcbba636eddefefa048dccc9a0",
+    "reachedMarker": "B3_REACHED_FIRST_HOOK_SHAPE_BYPASS",
+    "markerObserved": true,
+    "firstHookTrace": "B3_REACHED_FIRST_HOOK_SHAPE_BYPASS\nB3_REACHED_FIRST_HOOK_SHAPE_BYPASS\n",
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
+  },
+  {
+    "phase": "husky-invocation",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b3-held-m2hkw990",
+      "--reporter=default",
+      "packages/core/hooks/ci-checker-oracles.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 2.0510764779992314,
+    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "faultSourceSHA256": "9475b7c725b1aaf96a80d02aa6db2269b259105809a36dc65687c32bd3a1d03f",
+    "reachedMarker": "B3_REACHED_HUSKY_INVOCATION",
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
+  },
+  {
+    "phase": "manual-carrier",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b3-held-m2hkw990",
+      "--reporter=default",
+      "packages/core/hooks/ci-checker-oracles.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 1.6003574099995603,
+    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "faultSourceSHA256": "6f2024eca0523b75b6f36478fcf6cec993cc96a5e9af592b8599aa6322e2d78d",
+    "reachedMarker": "B3_REACHED_MANUAL_BYPASS",
+    "markerObserved": true,
+    "firstHookTrace": null,
+    "heldManualSHA256": "6f2024eca0523b75b6f36478fcf6cec993cc96a5e9af592b8599aa6322e2d78d"
+  },
+  {
+    "phase": "restoration",
+    "command": [
+      "/workspace/getff-native/node_modules/.bin/vitest",
+      "run",
+      "--root",
+      "/tmp/b3-held-m2hkw990",
+      "--reporter=default",
+      "packages/core/hooks/ci-checker-oracles.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 1.4207560069989995,
+    "heldTestSHA256": "94c6721e0f09a9f5ab51dd940f8921470c3a524034e9d44538031eaff4d3de95",
+    "faultSourceSHA256": null,
+    "reachedMarker": null,
+    "markerObserved": null,
+    "firstHookTrace": null,
+    "heldManualSHA256": "3b9ee1fa4f99b02bc404e465f89970a63b6c63e058cb02b5efda36316bd118c4"
+  }
+]

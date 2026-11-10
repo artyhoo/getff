@@ -9,9 +9,19 @@ describe('advisor role reminder delivery boundary', () => {
     const root = fileURLToPath(new URL('../../../', import.meta.url));
     const run = spawnSync(
       'python3',
-      ['-B', '-m', 'unittest', 'discover', '-s', 'tests/advisor-role-reminders', '-v'],
-      { cwd: root, encoding: 'utf8', stdio: 'pipe' },
+      [
+        '-B',
+        '-m',
+        'unittest',
+        'discover',
+        '-s',
+        'tests/advisor-role-reminders',
+        '-v',
+      ],
+      // Thirteen real Python cases spawn child processes; bound failure cleanup below
+      // the outer correctness deadline. This is not a performance SLO.
+      { cwd: root, encoding: 'utf8', stdio: 'pipe', timeout: 25000 },
     );
     expect(run.status, run.stderr).toBe(0);
-  });
+  }, 30000);
 });

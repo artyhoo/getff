@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "docs/ci-test-effectiveness/evidence/b11-closure.py"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 0.197739,
+  "log": "docs/ci-test-effectiveness/evidence/b11-closure.txt",
+  "logSHA256": "ed9fce7ff7fe369492a03f319005be0515be52c2a15ee7ace2484f2ab5d61cfb"
+}

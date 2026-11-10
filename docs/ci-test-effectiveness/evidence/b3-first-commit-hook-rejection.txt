@@ -1,0 +1,12 @@
+check-line-citations: 11 unresolvable citation(s) in code files not listed (--show-skips lists them).
+
+check-line-citations: resolved 15 / skipped 11 citation(s).
+scripts/check-discipline-pr-body.sh:14: pipe into `grep -q` under pipefail
+    if echo "$PR_BODY" | grep -qE '^### §1\.7 Skipped:.{60,}'; then
+
+1 finding(s). Under pipefail an early-exiting reader can SIGPIPE the producer and flip the result.
+Fix: grep -q P <<<"$VAR" | grep -q P <<<"$(producer)" | v=$(producer) && grep -q P <<<"$v"
+     (grep -qv X: [ -n "$(producer | grep -v X)" ]). printf/echo into head / sed q / awk exit:
+     ${v%%$'\n'*} | reader <<<"$v" | reader < <(producer). Escape: # sigpipe-safe: <why, >= 20 chars>
+Spec: header of scripts/check-pipefail-early-exit.mjs
+❌ pipe into an early-exiting grep under pipefail — use a here-string (see the checker's message)

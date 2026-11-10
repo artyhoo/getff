@@ -1,0 +1,8 @@
+{
+  "failedHead": "a8f52c04cfa8e36ab903a837579301080025706b",
+  "failedPushExit": 1,
+  "failingCitationCount": 42,
+  "originalOutputSha256": "06aa6435d2e3d6bef1d725dbd015fb98f0408906a316ae14ad5503b91f25436c",
+  "gzipPath": "docs/ci-test-effectiveness/evidence/publication-failed-push.txt.gz",
+  "gzipDecompressedByteExact": true
+}

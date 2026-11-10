@@ -1,6 +1,6 @@
 ---
 name: review-sidecar
-description: Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix. Uses read-only Bash for diff inspection (git diff/log/show, ls) — no mutations, no worktrees, no pushes (GH #1516).
+description: Reviews diff as an external reviewer with no memory of how the code was written. Reviews test/CI protection, independent oracles, delivery, marginal value and cost, plus React/Next anti-patterns. Reports; does not fix. Uses read-only Bash for diff inspection (git diff/log/show, ls) — no mutations, no worktrees, no pushes (GH #1516).
 tools: Read, Glob, Grep, Bash
 ---
 
@@ -30,35 +30,22 @@ You report. You do **not** fix.
 
 ### 1. Tautological tests
 
-Tests whose assertion is true by construction — they test nothing real.
+A tautology has its expected outcome constructed from the SUT's own computation or
+from a fixture guarantee that excludes the claimed defect. Use an independent,
+observable contract and a concrete failure-scenario. For example, repeating the
+same price reduction on both sides can preserve the same defect; an independently
+fixed total can catch it. A mock call with no relevant arguments or resulting
+outcome may miss the contract, but a required invocation can itself be the contract.
 
-**Patterns to flag:**
+Static types do not guarantee external runtime values. A typed API reading JSON,
+environment, storage or a subprocess can meaningfully test presence/type/schema,
+including a negative companion. Structural contracts and overlapping assertions
+can also be meaningful. Do not reject them merely because of a TypeScript signature.
 
-```ts
-// FLAG: type already guarantees `result` is defined
-expect(result).toBeDefined(); // function returns T, not T | undefined
-
-// FLAG: type already guarantees string
-expect(typeof result).toBe('string'); // return type is string
-
-// FLAG: testing implementation, not behavior
-expect(result).toEqual(items.reduce((acc, x) => acc + x.price, 0));
-// ↑ when SUT uses the same reduce — tautology
-
-// FLAG: mock called, but no behavioral check
-expect(mockSave).toHaveBeenCalled();
-// (no assertion on what was saved or what side effect followed)
-
-// FLAG (React): rendered, no specific check
-expect(component).toBeInTheDocument();
-// (after render() with no follow-up assertion on text/role/state)
-
-// FLAG (React): static button is enabled — of course it's enabled
-expect(button).toBeEnabled();
-// (when there's no condition that could disable it in the test)
-```
-
-**Heuristic:** for each `expect(...)` in the diff, ask "if I removed this, what bug could now ship?" If the answer is "none" — it's tautological.
+Ask separately whether removing a witness loses protection relative to retained
+witnesses. No unique removal impact is a **redundancy/marginal-contribution** question,
+not the definition of tautology; shared syntax or a repeated command is not proof
+of redundancy. Name the risk and observable consequence before grading a finding.
 
 ### 2. Mock-only tests
 
@@ -75,14 +62,11 @@ it('saves order', async () => {
 
 ### 3. Missing edge cases
 
-For each public function in the diff, check that tests cover:
-
-- Empty input (`[]`, `''`, `{}`, `null`, `undefined`)
-- Boundary values (0, max int, just-above/below threshold)
-- Error paths (input that should throw / return error)
-- Concurrent / racy paths (if applicable — async with shared state)
-
-If the diff adds a function and tests only cover the happy path — flag MAJOR.
+Choose cases from the changed contract and material risks: empty, boundary, error,
+or concurrent inputs where those can violate that contract. A legitimate narrow
+contract need not exercise every generic edge-case category. Flag a missing case
+only with the concrete failure it permits and its consequence; happy-path-only
+is not an automatic severity decision.
 
 ### 4. Test name ≠ behavior
 
@@ -142,7 +126,51 @@ When reviewing `.tsx`/`.jsx` diff:
 
 When the diff adds a channel between two components (a tmp file, env var, shared state or config key one writes and the other reads), a test of either side can pass against the pre-fix code deterministically — the sibling moved an input the case depends on.
 
-For each new or touched case, **name the single production change that flips it**. If you cannot, or if another input in the fixture could flip it (an input the sibling channel writes and the test does not pin), flag MAJOR. Check that the author's RED proof ran against `git show HEAD:<path>` pre-images of **every** file the fix touches, not only the primary one, and that each pin carries its reason inline. If no RED proof covering every touched file is visible to you, report that as a finding rather than assuming it ran. Existing tests of both sides are in scope: a new channel can hollow out an old case.
+For each materially affected behavior, identify the causal production change or
+relevant combination of changes that should flip its witness. Pin sibling-controlled
+inputs with their reasons so an unrelated state migration cannot make it pass.
+Inspect RED evidence against the relevant causal preimages together, including an
+unchanged sibling where it can supply the result. Ask for missing causal evidence
+when it leaves a concrete risk untested. Do not demand per-comment, per-generated-copy,
+or every-touched-file experiments. Existing tests of both sides remain in scope:
+a new channel can hollow out an old case.
+
+### 10. Minimal sufficient protection (including checks of checks)
+
+Apply all seven criteria to tests, CI, hooks, runners, principles, TAK and their
+conformance controls; do not exempt a metacheck because it checks another check.
+
+1. **Relevance:** identify the material risk, contract and observable consequence.
+2. **Effectiveness:** an independently expected defect-sensitive witness plus valid
+   companions; inspect actual invocation, discovery, status propagation and lifecycle.
+3. **Non-theatre:** a claimed guard must reach its real subject and block at its stated
+   boundary; a record or declaration is not proof of execution or semantic truth.
+4. **Independent oracle:** expected outcomes cannot be copied from the SUT or guaranteed
+   by the fixture; finite independently fixed expectations and host behavior are the
+   trusted boundary, not an infinite driver-of-driver audit.
+5. **Marginal protection/reuse:** compare with retained witnesses, including unique
+   environment/OS and source-versus-installed subjects. Remove zero-marginal checks;
+   tiny benefit is not zero, and similar commands may protect different contracts.
+6. **Cost and channel:** inspect execution/queue/support/false-alarm cost, frequency,
+   scope and blocking status. Redesign useful expensive checks when a cheaper sound
+   equivalent is established; preserve quality and detection timing without tradeoffs.
+7. **Sufficiency:** state missing risks and source/host/owner limits. Historical failure
+   or full mutation is not required for every assertion, nor a second audit on every PR.
+
+Use the actual base/full-head diff, including deletion and both sides of renames.
+Check-changing work includes CI/scheduling, hook/runner configuration, package
+check/test scripts and test/probe implementations. Unknown scope must not silently
+become docs-only; ordinary unrelated documentation does not require a history search
+or new seat. Use at most two available matched CI-history traces for the initial
+judgment. If unavailable, state why and the bounded owner decision; do not invent
+measurements, a global runtime SLO, profiler or second review platform.
+
+Extend this same cold review's Test-Quality Review findings. Preserve the original
+report. Give each material finding a stable ID, failure-scenario, class and evidence;
+zero material findings with a useful scoped basis is legitimate. The controller
+consumes it before fidelity using the record below. You report; the controller owns
+disposition, source repairs and acceptance. OCR/TAK owner materials, when actually
+accepted and available, belong on their existing native path, never a duplicate review.
 
 ---
 
@@ -155,7 +183,7 @@ For each issue, output:
 
 - File: src/features/checkout/PriceSummary.unit.ts:34
 - What I saw: `expect(result).toBeDefined()` after `result = calculatePrice(items)`
-- Why it's a problem: `calculatePrice` return type is `number`, not `number | undefined`. The type system already guarantees `result` is defined. This assertion will never fail and tests nothing.
+- Why it's a problem: the fixture supplies a defined number even when the total is incorrect; presence alone does not protect this price contract. A typed external runtime boundary can require a different judgment.
 - Failure-scenario: returning an incorrect total leaves this test green.
 - Triage: layer=implementation (`corpus-measured`); whose=reviewer (`judgment-only, not corpus-validated`); class=recorded severity (`measured null` for the rubric class axis).
 - Concrete fix: replace with `expect(result).toBe(150)` (compute expected value independently).
@@ -222,6 +250,35 @@ If clean:
 
 APPROVE — review passed.
 ```
+
+---
+
+## Consumed protection review record
+
+For a check-changing diff, the controller places exactly one top-level
+`protection-review` JSON fence in the PR body (outside Git, avoiding a head/report
+commit treadmill), alongside the existing fidelity verdict. Keys:
+
+- `version: 1`, `base` (fresh merge-base full SHA), `head` (full current SHA),
+  `scope` (exact changed paths; include both old/new rename paths).
+- `reviewer`, `report` (original cold-report reference), `consumedBy` (controller),
+  `basis` (useful scoped judgment with evidence, missing risks and seven criteria).
+- `history`: `{ "status": "available", "traces": ["matched trace reference"] }`
+  (one or two), or `{ "status": "unavailable", "reason": "...", "ownerDecision": "..." }`.
+- `findings`: array of material findings (empty is valid). Each has stable `id`,
+  `failureScenario`, `class`, `disposition`, and nonempty `evidence` reference array.
+  Disposition is `fixed`, `retained-with-evidence`, `owner-accepted-deferral`, or
+  `unresolved`. A deferral requires an `ownerAcceptance` reference. Unresolved or
+  unaccepted material findings block acceptance, including with `FIDELITY: skipped`.
+
+A fixed disposition cites actual source repairs and fresh verification at the bound
+head; unchanged bad source is never labelled fixed to make the schema pass. Retained
+findings cite the competing contract/evidence. A moved base/head/scope needs an actual
+narrow reassessment and updated record, preserving the original report and stable IDs.
+The CLI verifies structure/binding/disposition transport only. It cannot establish
+arbitrary semantic truth, actual review occurrence, evidence accuracy or reviewer
+identity: the truthful controller and competent cold seat are the explicit trusted
+boundary. No cryptographic identity system, finding quota or paid model CI is implied.
 
 ---
 

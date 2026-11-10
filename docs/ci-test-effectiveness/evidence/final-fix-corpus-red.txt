@@ -1,0 +1,66 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default principles/41-shell-test-ci-coverage.test.ts -t (I1)
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ❯ principles/41-shell-test-ci-coverage.test.ts (34 tests | 5 failed | 27 skipped) 617ms
+     ↓ (a) real-tree: no tracked native source test is uninvoked
+     ↓ (b) non-vacuity: source and invocation populations stay real
+     ↓ (c) fixed command corpus: direct
+     ↓ (c) fixed command corpus: quoted
+     ↓ (c) fixed command corpus: env
+     ↓ (c) fixed command corpus: and
+     ↓ (c) fixed command corpus: cwd
+     ↓ (c) fixed command corpus: echo
+     ↓ (c) fixed command corpus: printf
+     ↓ (c) fixed command corpus: comment
+     ↓ (c) fixed command corpus: dead
+     ↓ (c) fixed command corpus: heredoc
+     ↓ (c) fixed command corpus: misleading
+     ↓ (c) fixed command corpus: shell glob is not a battery
+     ↓ (c) fixed command corpus: wrong runner
+     ↓ (c) fixed command corpus: Node restricted suite
+     ↓ (c) fixed command corpus: negated
+     ↓ (c) fixed command corpus: function body
+     ↓ (c) fixed command corpus: outside cwd
+     ↓ (c) fixed command corpus: dynamic cwd
+     ↓ (c) fixed command corpus: unknown
+     ↓ (d) data and disabled steps do not register execution
+     ↓ (e) actual nested package scripts, Node globs and missing targets are resolved
+     ↓ (I2) Node test options must precede the script or test operands
+     ↓ (I3) advisor requires the ordered direct spawn and assertion without control flow
+     ↓ (f) wrappers require a live callback, real spawn and status assertion
+     × (I1) husky wrapper rejects return before invocation 176ms
+     × (I1) husky wrapper rejects throw before invocation 119ms
+     × (I1) husky wrapper rejects conditional before invocation 108ms
+     × (I1) husky wrapper rejects return before status 53ms
+     × (I1) husky wrapper rejects conditional before status 53ms
+     ✓ (I1) husky wrapper accepts unchanged live companion 54ms
+     ✓ (I1) husky wrapper accepts comment-only live companion 51ms
+     ↓ (g) exemption hygiene remains live with an empty map
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (I1) husky wrapper rejects return before invocation
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (I1) husky wrapper rejects throw before invocation
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (I1) husky wrapper rejects conditional before invocation
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (I1) husky wrapper rejects return before status
+ FAIL  principles/41-shell-test-ci-coverage.test.ts > Principle 41 — native source suites reach actual CI invocations > (I1) husky wrapper rejects conditional before status
+AssertionError: expected [ …(2) ] to not include 'tests/hooks/test-enforce-husky-presen…'
+ ❯ principles/41-shell-test-ci-coverage.test.ts:400:71
+    398|     const fault = source.replace(boundary, `${interruption}\n    ${bou…
+    399|     expect(fault).not.toBe(source);
+    400|     expect(wrapperTargets((p) => (p === path ? fault : read(p)))).not.…
+       |                                                                       ^
+    401|       'tests/hooks/test-enforce-husky-presence.sh',
+    402|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed | 27 skipped (34)
+   Start at  20:31:45
+   Duration  1.95s (transform 399ms, setup 47ms, import 913ms, tests 617ms, environment 0ms)

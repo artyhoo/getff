@@ -1,0 +1,11 @@
+[
+  {
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts"
+  },
+  {
+    "file": "/workspace/getff-native/packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts"
+  }
+]

@@ -1,0 +1,386 @@
+TAP version 13
+1..0
+# Subtest: .agents/procedures/harvest/tests/health-preflight.test.mjs
+ok 1 - .agents/procedures/harvest/tests/health-preflight.test.mjs
+  ---
+  duration_ms: 215.481313
+  type: 'test'
+  ...
+# Subtest: .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs
+not ok 2 - .agents/procedures/pipeline/helpers/autonomy-binding.test.mjs
+  ---
+  duration_ms: 310099.200247
+  type: 'test'
+  location: '/tmp/cte-s1/probe/.agents/procedures/pipeline/helpers/autonomy-binding.test.mjs:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: ~
+  signal: 'SIGTERM'
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..0
+# Subtest: scripts/arch-resource-closure.test.mjs
+ok 3 - scripts/arch-resource-closure.test.mjs
+  ---
+  duration_ms: 122.795412
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/canonical-agents-source.test.mjs
+ok 4 - scripts/canonical-agents-source.test.mjs
+  ---
+  duration_ms: 111.622443
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/canonical-native.test.mjs
+ok 5 - scripts/canonical-native.test.mjs
+  ---
+  duration_ms: 94.15802
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/codex-contributor.test.mjs
+ok 6 - scripts/codex-contributor.test.mjs
+  ---
+  duration_ms: 204.809539
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/codex-hook-compatibility.test.mjs
+ok 7 - scripts/codex-hook-compatibility.test.mjs
+  ---
+  duration_ms: 176.193303
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/consumer-resource-closure.test.mjs
+ok 8 - scripts/consumer-resource-closure.test.mjs
+  ---
+  duration_ms: 107.984794
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/docplan-auditor-runtime-audit.test.mjs
+ok 9 - scripts/docplan-auditor-runtime-audit.test.mjs
+  ---
+  duration_ms: 93.461238
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/docs-author-runtime.test.mjs
+ok 10 - scripts/docs-author-runtime.test.mjs
+  ---
+  duration_ms: 97.355411
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/dot-relay/bridge-runner.test.mjs
+ok 11 - scripts/dot-relay/bridge-runner.test.mjs
+  ---
+  duration_ms: 122.602524
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/dot-relay/cli.test.mjs
+ok 12 - scripts/dot-relay/cli.test.mjs
+  ---
+  duration_ms: 120.297945
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/dot-relay/contract.test.mjs
+ok 13 - scripts/dot-relay/contract.test.mjs
+  ---
+  duration_ms: 113.971294
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/dot-relay/executor.test.mjs
+ok 14 - scripts/dot-relay/executor.test.mjs
+  ---
+  duration_ms: 145.203726
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/dot-relay/ledger.test.mjs
+ok 15 - scripts/dot-relay/ledger.test.mjs
+  ---
+  duration_ms: 146.959114
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/dot-relay/native-source.test.mjs
+ok 16 - scripts/dot-relay/native-source.test.mjs
+  ---
+  duration_ms: 143.145879
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/getff-runtime-entry.test.mjs
+ok 17 - scripts/getff-runtime-entry.test.mjs
+  ---
+  duration_ms: 105.917106
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/manual-rule-liveness-prober.test.mjs
+ok 18 - scripts/manual-rule-liveness-prober.test.mjs
+  ---
+  duration_ms: 71.751006
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-cache.test.mjs
+ok 19 - scripts/pipeline-cache.test.mjs
+  ---
+  duration_ms: 80.018511
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-final-report-runtime.test.mjs
+ok 20 - scripts/pipeline-final-report-runtime.test.mjs
+  ---
+  duration_ms: 103.71565
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-helper-readonly.test.mjs
+ok 21 - scripts/pipeline-helper-readonly.test.mjs
+  ---
+  duration_ms: 117.982964
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-input-readonly.test.mjs
+ok 22 - scripts/pipeline-input-readonly.test.mjs
+  ---
+  duration_ms: 77.163639
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-installed-root.test.mjs
+ok 23 - scripts/pipeline-installed-root.test.mjs
+  ---
+  duration_ms: 87.974671
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-live-signals.test.mjs
+ok 24 - scripts/pipeline-live-signals.test.mjs
+  ---
+  duration_ms: 63.382545
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-overview-runtime.test.mjs
+ok 25 - scripts/pipeline-overview-runtime.test.mjs
+  ---
+  duration_ms: 126.682877
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-overview.test.mjs
+ok 26 - scripts/pipeline-overview.test.mjs
+  ---
+  duration_ms: 95.734537
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-population-readonly.test.mjs
+ok 27 - scripts/pipeline-population-readonly.test.mjs
+  ---
+  duration_ms: 148.028748
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-priority-readonly.test.mjs
+ok 28 - scripts/pipeline-priority-readonly.test.mjs
+  ---
+  duration_ms: 96.184423
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-saved-coordination.test.mjs
+ok 29 - scripts/pipeline-saved-coordination.test.mjs
+  ---
+  duration_ms: 125.886958
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/pipeline-status-signals.test.mjs
+ok 30 - scripts/pipeline-status-signals.test.mjs
+  ---
+  duration_ms: 165.334324
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/plugin-native-binding.test.mjs
+ok 31 - scripts/plugin-native-binding.test.mjs
+  ---
+  duration_ms: 710.008538
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/python-sidecar-standing.test.mjs
+ok 32 - scripts/python-sidecar-standing.test.mjs
+  ---
+  duration_ms: 88.213352
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/review-sidecar-contract.test.mjs
+ok 33 - scripts/review-sidecar-contract.test.mjs
+  ---
+  duration_ms: 99.754632
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/reviewer-discipline-runtime.test.mjs
+ok 34 - scripts/reviewer-discipline-runtime.test.mjs
+  ---
+  duration_ms: 93.056771
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/rule-tests-runtime-audit.test.mjs
+ok 35 - scripts/rule-tests-runtime-audit.test.mjs
+  ---
+  duration_ms: 88.90543
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/self-reflection-runtime.test.mjs
+ok 36 - scripts/self-reflection-runtime.test.mjs
+  ---
+  duration_ms: 161.125786
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/story-runtime.test.mjs
+ok 37 - scripts/story-runtime.test.mjs
+  ---
+  duration_ms: 77.312057
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/template-audit-installed-root.test.mjs
+ok 38 - scripts/template-audit-installed-root.test.mjs
+  ---
+  duration_ms: 82.554589
+  type: 'test'
+  ...
+1..0
+# Subtest: scripts/template-audit-runtime-receipts.test.mjs
+ok 39 - scripts/template-audit-runtime-receipts.test.mjs
+  ---
+  duration_ms: 80.590481
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/advisor-bridge-beta/protocol.test.mjs
+ok 40 - tests/advisor-bridge-beta/protocol.test.mjs
+  ---
+  duration_ms: 100.631731
+  type: 'test'
+  ...
+# file:///tmp/cte-s1/probe/tests/aif-init/runtime-output.test.mjs:10
+# if (!root) throw new Error('Supply a native-run fixture corpus directory as the first argument.');
+#                  ^
+# Error: Supply a native-run fixture corpus directory as the first argument.
+#     at file:///tmp/cte-s1/probe/tests/aif-init/runtime-output.test.mjs:10:18
+#     at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+#     at async node:internal/modules/esm/loader:643:26
+#     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+# Node.js v24.19.0
+# Subtest: tests/aif-init/runtime-output.test.mjs
+not ok 41 - tests/aif-init/runtime-output.test.mjs
+  ---
+  duration_ms: 83.723104
+  type: 'test'
+  location: '/tmp/cte-s1/probe/tests/aif-init/runtime-output.test.mjs:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..0
+# Subtest: tests/living-docs-auditor/runtime.test.mjs
+ok 42 - tests/living-docs-auditor/runtime.test.mjs
+  ---
+  duration_ms: 103.100074
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/reviewer-runtime-audit/receipts.test.mjs
+ok 43 - tests/reviewer-runtime-audit/receipts.test.mjs
+  ---
+  duration_ms: 144.636157
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/roles/adapter-jig-reviewer.test.mjs
+ok 44 - tests/roles/adapter-jig-reviewer.test.mjs
+  ---
+  duration_ms: 84.455495
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/roles/docs-form-auditor/report.test.mjs
+ok 45 - tests/roles/docs-form-auditor/report.test.mjs
+  ---
+  duration_ms: 97.066011
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/roles/orchestrator-worker-discipline.test.mjs
+ok 46 - tests/roles/orchestrator-worker-discipline.test.mjs
+  ---
+  duration_ms: 165.882425
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/roles/rule-researcher-integration.test.mjs
+ok 47 - tests/roles/rule-researcher-integration.test.mjs
+  ---
+  duration_ms: 257.358509
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/runtime/fidelity-auditor-receipt.test.mjs
+ok 48 - tests/runtime/fidelity-auditor-receipt.test.mjs
+  ---
+  duration_ms: 107.34549
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/runtime/shipped-agent-liveness-prober.test.mjs
+ok 49 - tests/runtime/shipped-agent-liveness-prober.test.mjs
+  ---
+  duration_ms: 73.226724
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/runtime/shipped-agent-liveness-trace.test.mjs
+ok 50 - tests/runtime/shipped-agent-liveness-trace.test.mjs
+  ---
+  duration_ms: 75.055241
+  type: 'test'
+  ...
+1..0
+# Subtest: tests/skills/installing-enforcement-runtime.test.mjs
+ok 51 - tests/skills/installing-enforcement-runtime.test.mjs
+  ---
+  duration_ms: 81.793105
+  type: 'test'
+  ...
+1..51
+# tests 51
+# suites 0
+# pass 49
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 310147.696989

@@ -1,0 +1,103 @@
+{
+  "kind": "controlled-semantic-review-inputs/v1",
+  "frozenManifestSHA256": "9db759b4f27293c4f656d7f0e09f2fa6945ba6ee08da08452d6b337a175f2fbc",
+  "nature": "Synthetic bounded conformance fixtures. Contract/cost facts are provided fixed premises, not observed facts/timings about artyhoo/getff. Prepared diffs are real Git before/after comparisons of partial material fixtures; no fixture test was executed. Do not infer absent unchanged subjects from the active getff checkout.",
+  "cases": [
+    {
+      "caseId": "c4",
+      "baseSha": "425ab2880f4282ce7a4be1c665a7e2050ea74f0a",
+      "headSha": "8eb048c67a28f463e3a100ad558bc85797a9d111",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c4.md",
+        "sha256": "f19390fe09c5a78064ca558fa73448b64372f1b279edb5d8d08826851f34b01e"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c4.diff",
+        "sha256": "22dc5b547129380c848763823c5f62c7f182f266883fbd3715376bef3728bf7c"
+      }
+    },
+    {
+      "caseId": "c1",
+      "baseSha": "f053bc8db6c4ec640d9f01bef3997c04adc91cf4",
+      "headSha": "788a5d512b543ad561998a6ec2ad6c6c3f31eda3",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c1.md",
+        "sha256": "edc338019b604a0e3514e911d66d8e2718863976582126440d7e23731002c55d"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c1.diff",
+        "sha256": "26005f9991dddd0385bf22ba42b83d02658d5392ac85aef3bb348a5a4435271e"
+      }
+    },
+    {
+      "caseId": "c5",
+      "baseSha": "610c1291c375dd56f9f29ad602087fcfee8d1352",
+      "headSha": "a065cc4fbb977186f57a31b28a67a458c0652359",
+      "changedPaths": [
+        "src/token.test.ts"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c5.md",
+        "sha256": "39d0c967f009724bb05135c4abb3b4aef0e37ce7fcc493a28609bcda2de98ee4"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c5.diff",
+        "sha256": "5076a2d507ce0b095a256d6053360c5b4d35d700e42a66ffcacb40ed99230668"
+      }
+    },
+    {
+      "caseId": "c0",
+      "baseSha": "189acb04ed37c339a4e2970a8bf033fd69b65f5a",
+      "headSha": "e3a397d668a2df8f8385d21bf0cc940ea31b46ed",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c0.md",
+        "sha256": "a2a685b2a4d83c6af13e2402c6b327fc95d98ebfd89aac8f046533fdf0f761a5"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c0.diff",
+        "sha256": "11cff54c7c303bf8ef28c1a11b6cba2cafe67e4fa0441ebf38d7caceb6463f4d"
+      }
+    },
+    {
+      "caseId": "c3",
+      "baseSha": "7b2618ae240219967100069a66ece83381f5e23b",
+      "headSha": "3617339f2e5dda1f2eac7a887efe3aaeabdccf05",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c3.md",
+        "sha256": "459f3cf82445def8704592c44eccb86300e38430d789c540f728fab34edfaf02"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c3.diff",
+        "sha256": "eecfe30755c1227ecef6d6fb8cc90c442932cf93a55688555b7c46c7d1025819"
+      }
+    },
+    {
+      "caseId": "c2",
+      "baseSha": "c09dbae702a5f653f2839511aa7a40c199060d4c",
+      "headSha": "24b59f7599d2ab7f291de08320449fdd8ed641af",
+      "changedPaths": [
+        ".github/workflows/checks.yml"
+      ],
+      "facts": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c2.md",
+        "sha256": "c3d31f5dafbaeb64e4b8e43b50921b836274ab023e5d0a046b2ec887d9e14dea"
+      },
+      "preparedDiff": {
+        "path": "/workspace/getff-native/.superpowers/sdd/ci-test-effectiveness/semantic-corpus/inputs/c2.diff",
+        "sha256": "1ab490b5f6c0144e7d5b5632dbe4bb1d5bdc7355f47e9ea20809808d2ad5db10"
+      }
+    }
+  ]
+}

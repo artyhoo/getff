@@ -1,0 +1,228 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts (5 tests | 5 failed) 24573ms
+     × releases the listener when no case matches 8033ms
+     × releases the listener with one harmless selected case 8025ms
+     × releases the listener with a distinct harmless selection 8030ms
+     × reaches the TCP prohibition and exits nonzero after assertion failure 282ms
+     × retains the separate HTTP prohibition and cleans up its failing aftermath 197ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > releases the listener when no case matches
+AssertionError: watchdog/spawn failure: spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT
+: expected Error: spawnSync /opt/codex/runtimes/code… { …(5) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+Error {
+  "message": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT",
+  "errno": -110,
+  "code": "ETIMEDOUT",
+  "syscall": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "spawnargs": [
+    "--test",
+    "--test-name-pattern=^B2-no-such-case$",
+    "/workspace/getff-native/.agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+  ],
+}
+
+ ❯ finished packages/core/hooks/autonomy-binding-lifecycle.test.ts:35:94
+     33|
+     34| function finished(result: ReturnType<typeof run>, expectedStatus: numb…
+     35|   expect(result.error, `watchdog/spawn failure: ${result.error?.messag…
+       |                                                                                              ^
+     36|   expect(result.signal, result.stderr).toBeNull();
+     37|   expect(result.status, result.stdout + result.stderr).toBe(expectedSt…
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:49:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > releases the listener with one harmless selected case
+AssertionError: watchdog/spawn failure: spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT
+▶ A1 composed repair
+  ✔ A1 CQ round1: pure record construction does not certify a caller-supplied home (2.311339ms)
+✔ A1 composed repair (3.976861ms)
+: expected Error: spawnSync /opt/codex/runtimes/code… { …(5) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+Error {
+  "message": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT",
+  "errno": -110,
+  "code": "ETIMEDOUT",
+  "syscall": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "spawnargs": [
+    "--test",
+    "--test-name-pattern=^A1 CQ round1: pure record construction does not certify a caller-supplied home$",
+    "/workspace/getff-native/.agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+  ],
+}
+
+ ❯ finished packages/core/hooks/autonomy-binding-lifecycle.test.ts:35:94
+     33|
+     34| function finished(result: ReturnType<typeof run>, expectedStatus: numb…
+     35|   expect(result.error, `watchdog/spawn failure: ${result.error?.messag…
+       |                                                                                              ^
+     36|   expect(result.signal, result.stderr).toBeNull();
+     37|   expect(result.status, result.stdout + result.stderr).toBe(expectedSt…
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:54:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > releases the listener with a distinct harmless selection
+AssertionError: watchdog/spawn failure: spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT
+▶ A1 composed repair
+  ✔ A1 CQ round1: malformed authority home selection provenance is rejected (4.323941ms)
+✔ A1 composed repair (6.357949ms)
+: expected Error: spawnSync /opt/codex/runtimes/code… { …(5) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+Error {
+  "message": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node ETIMEDOUT",
+  "errno": -110,
+  "code": "ETIMEDOUT",
+  "syscall": "spawnSync /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "path": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+  "spawnargs": [
+    "--test",
+    "--test-name-pattern=^A1 CQ round1: malformed authority home selection provenance is rejected$",
+    "/workspace/getff-native/.agents/procedures/pipeline/helpers/autonomy-binding.test.mjs",
+  ],
+}
+
+ ❯ finished packages/core/hooks/autonomy-binding-lifecycle.test.ts:35:94
+     33|
+     34| function finished(result: ReturnType<typeof run>, expectedStatus: numb…
+     35|   expect(result.error, `watchdog/spawn failure: ${result.error?.messag…
+       |                                                                                              ^
+     36|   expect(result.signal, result.stderr).toBeNull();
+     37|   expect(result.status, result.stdout + result.stderr).toBe(expectedSt…
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:61:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > reaches the TCP prohibition and exits nonzero after assertion failure
+AssertionError: expected 'node:internal/modules/esm/resolve:271…' to contain 'no TCP connection may reach the recor…'
+
+- Expected
++ Received
+
+- no TCP connection may reach the recorder (1 did)
++ node:internal/modules/esm/resolve:271
++     throw new ERR_MODULE_NOT_FOUND(
++           ^
++
++ Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/tmp/intent/helpers/check-result-review.mjs' imported from /tmp/b2-lifecycle-PdCx4c/case-lgVLjR/autonomy-binding/engine.mjs
++     at finalizeResolution (node:internal/modules/esm/resolve:271:11)
++     at moduleResolve (node:internal/modules/esm/resolve:865:10)
++     at defaultResolve (node:internal/modules/esm/resolve:992:11)
++     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
++     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
++     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
++     at #resolve (node:internal/modules/esm/loader:683:17)
++     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
++     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
++     at ModuleJob.link (node:internal/modules/esm/module_job:253:17) {
++   code: 'ERR_MODULE_NOT_FOUND',
++   url: 'file:///tmp/intent/helpers/check-result-review.mjs'
++ }
++
++ Node.js v24.19.0
++ ✖ /tmp/b2-lifecycle-PdCx4c/case-lgVLjR/autonomy-binding.test.mjs (174.766535ms)
++ ℹ tests 1
++ ℹ suites 0
++ ℹ pass 0
++ ℹ fail 1
++ ℹ cancelled 0
++ ℹ skipped 0
++ ℹ todo 0
++ ℹ duration_ms 189.598033
++
++ ✖ failing tests:
++
++ test at ../../tmp/b2-lifecycle-PdCx4c/case-lgVLjR/autonomy-binding.test.mjs:1:1
++ ✖ /tmp/b2-lifecycle-PdCx4c/case-lgVLjR/autonomy-binding.test.mjs (174.766535ms)
++   'test failed'
++
+
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:70:27
+     68|   await once(socket, 'close');`);
+     69|     finished(result, 1);
+     70|     expect(result.stdout).toContain('no TCP connection may reach the r…
+       |                           ^
+     71|     expect(result.stdout).toContain('ERR_ASSERTION');
+     72|   }, 12000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > retains the separate HTTP prohibition and cleans up its failing aftermath
+AssertionError: expected 'node:internal/modules/esm/resolve:271…' to contain 'no HTTP request may reach the recorde…'
+
+- Expected
++ Received
+
+- no HTTP request may reach the recorder (1 did)
++ node:internal/modules/esm/resolve:271
++     throw new ERR_MODULE_NOT_FOUND(
++           ^
++
++ Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/tmp/intent/helpers/check-result-review.mjs' imported from /tmp/b2-lifecycle-PdCx4c/case-jxCPZV/autonomy-binding/engine.mjs
++     at finalizeResolution (node:internal/modules/esm/resolve:271:11)
++     at moduleResolve (node:internal/modules/esm/resolve:865:10)
++     at defaultResolve (node:internal/modules/esm/resolve:992:11)
++     at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
++     at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
++     at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
++     at #resolve (node:internal/modules/esm/loader:683:17)
++     at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
++     at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
++     at ModuleJob.link (node:internal/modules/esm/module_job:253:17) {
++   code: 'ERR_MODULE_NOT_FOUND',
++   url: 'file:///tmp/intent/helpers/check-result-review.mjs'
++ }
++
++ Node.js v24.19.0
++ ✖ /tmp/b2-lifecycle-PdCx4c/case-jxCPZV/autonomy-binding.test.mjs (110.328243ms)
++ ℹ tests 1
++ ℹ suites 0
++ ℹ pass 0
++ ℹ fail 1
++ ℹ cancelled 0
++ ℹ skipped 0
++ ℹ todo 0
++ ℹ duration_ms 122.574568
++
++ ✖ failing tests:
++
++ test at ../../tmp/b2-lifecycle-PdCx4c/case-jxCPZV/autonomy-binding.test.mjs:1:1
++ ✖ /tmp/b2-lifecycle-PdCx4c/case-jxCPZV/autonomy-binding.test.mjs (110.328243ms)
++   'test failed'
++
+
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:83:27
+     81|   recorderConnections = 0;`);
+     82|     finished(result, 1);
+     83|     expect(result.stdout).toContain('no HTTP request may reach the rec…
+       |                           ^
+     84|     expect(result.stdout).toContain('ERR_ASSERTION');
+     85|   }, 12000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  16:03:19
+   Duration  25.00s (transform 30ms, setup 34ms, import 32ms, tests 24.57s, environment 0ms)
+

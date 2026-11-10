@@ -1,0 +1,8 @@
+{
+  "subject": "packages/core/hooks/ci-checker-oracles.test.ts",
+  "sha256Before": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
+  "sha256Held": "91033e321d724a09e237f2c3eb18b16e50446bb4f24ca84630d6042dd1513bf3",
+  "sha256After": "9ca34d4b4937d5de3b21b4545228c5c51871408c2a48f23847d89e49e92615db",
+  "restoredExactly": true,
+  "onlyChange": "return inserted before live husky call; no live hook mutation"
+}

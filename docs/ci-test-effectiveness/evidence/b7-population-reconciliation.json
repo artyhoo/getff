@@ -1,0 +1,64 @@
+{
+  "s1InventorySha256": "40a389e6fa8bb12d228c23d241897da43acf2f4ba5b5eca3d255b5eb6c26051b",
+  "packages": [
+    {
+      "package": "packages/core",
+      "s1Count": 340,
+      "currentCount": 342,
+      "added": [
+        "packages/core/hooks/autonomy-binding-lifecycle.test.ts",
+        "packages/core/hooks/ci-checker-oracles.test.ts"
+      ],
+      "removed": []
+    },
+    {
+      "package": "packages/preset-next-15-canonical",
+      "s1Count": 3,
+      "currentCount": 3,
+      "added": [],
+      "removed": []
+    },
+    {
+      "package": "packages/preset-react-native",
+      "s1Count": 0,
+      "currentCount": 0,
+      "added": [],
+      "removed": []
+    },
+    {
+      "package": "packages/preset-react-spa",
+      "s1Count": 0,
+      "currentCount": 0,
+      "added": [],
+      "removed": []
+    },
+    {
+      "package": "packages/runtime-bridge",
+      "s1Count": 31,
+      "currentCount": 31,
+      "added": [],
+      "removed": []
+    }
+  ],
+  "siblingReconciliation": "S1 inventory itself has 31 runtime-bridge + 3 Next = 34 sources. Runtime includes aif-park-live.test.ts, explicitly external-AIF conditional (one skipped test). 33 is deterministic executed sources: 30 bridge + 3 Next. No source was deleted or counted as passed by this distinction.",
+  "runtimeCases": {
+    "passed": 663,
+    "skipped": 1,
+    "externalSkip": "packages/runtime-bridge/test/aif-park-live.test.ts: RUNTIME_BRIDGE_LIVE_AIF=1 and project ID required; unchanged"
+  },
+  "nextCases": 43,
+  "nodeSupplement": {
+    "firstFourFiles": 72,
+    "autonomy": {
+      "passed": 188,
+      "skipped": 1,
+      "total": 189
+    }
+  },
+  "pythonSupplementCases": [
+    15,
+    8,
+    4
+  ],
+  "advisorWrappedCases": 13
+}

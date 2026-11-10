@@ -6,6 +6,7 @@
  * non-empty base ref is "out of scope".
  */
 import { checkPrBodyFidelity } from './pr-body-fidelity.ts';
+import { runCheck } from '../utils/run-check.ts';
 
 const baseRef = process.env.BASE_REF ?? '';
 const prBody = process.env.PR_BODY ?? '';
@@ -25,7 +26,28 @@ if (!headSha) {
   process.exit(1);
 }
 
-const result = checkPrBodyFidelity({ body: prBody, headSha });
+const baseSha = process.env.BASE_SHA ?? '';
+if (!/^[0-9a-f]{40}$/.test(baseSha) || !/^[0-9a-f]{40}$/.test(headSha)) {
+  console.error('::error::BASE_SHA and HEAD_SHA must be full commit SHAs');
+  process.exit(1);
+}
+// rangeGit intentionally tolerates errors for older callers. Here a failed Git
+// read MUST NOT masquerade as docs-only. Preserve status from the shared runner.
+function git(args: string[]): string {
+  const result = runCheck('git', args);
+  if (result.exitCode !== 0) {
+    console.error(`::error::Git range unavailable: ${result.stderr}`);
+    process.exit(1);
+  }
+  return result.stdout;
+}
+const mergeBase = git(['merge-base', baseSha, headSha]).trim();
+if (mergeBase !== baseSha) {
+  console.error('::error::BASE_SHA must be the freshly resolved merge-base');
+  process.exit(1);
+}
+const paths = git(['diff', '--name-only', '-z', '--no-renames', baseSha, headSha]).split('\0').filter(Boolean);
+const result = checkPrBodyFidelity({ body: prBody, headSha, protection: { baseSha, paths } });
 if (result.ok) {
   console.log('pr-body-fidelity: OK');
   process.exit(0);

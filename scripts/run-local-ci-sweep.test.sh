@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Paired-negative test for run-local-ci-sweep.sh. Stubs all gates — never runs the real suite.
+# Paired-negative tests for run-local-ci-sweep.sh; bounded actionlint fixtures, no real suite.
 # Wired in CI via .github/workflows/audit-self.yml (principles-meta-tests job).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -67,6 +67,78 @@ run_sweep() { # run_sweep <repo-dir> [args…] — invoke that repo's own copy, 
   local d="$1"; shift
   env -u GIT_DIR -u GIT_WORK_TREE bash "$d/scripts/run-local-ci-sweep.sh" "$@"
 }
+
+# --- B1: installed checker rejections must survive the delivered actionlint row. ---
+# Expectations are fixed independently of the row's predicate. Read, do not reconstruct it.
+RACTION="$TMP/repo-actionlint"; mk_repo "$RACTION"
+mkdir -p "$RACTION/.github/workflows" "$TMP/actionlint-bin" "$TMP/actionlint-core"
+env -u SWEEP_GATES_FILE bash "$SWEEP" --list-gates | awk -F '\t' '$2 == "actionlint"' >"$TMP/actionlint-row.tsv"
+check "actionlint: exactly one delivered row" 1 "$(wc -l <"$TMP/actionlint-row.tsv" | tr -d ' ')"
+# Retain the runner's utilities explicitly; absence must mean actionlint alone is absent.
+for tool in env bash dirname git cat sort mkdir mktemp tail; do
+  ln -s "$(command -v "$tool")" "$TMP/actionlint-core/$tool"
+done
+cat >"$TMP/actionlint-bin/actionlint" <<'EOF'
+#!/usr/bin/env bash
+printf 'actionlint-control-status-%s\n' "$ACTIONLINT_CONTROL_STATUS" >&2
+exit "$ACTIONLINT_CONTROL_STATUS"
+EOF
+chmod +x "$TMP/actionlint-bin/actionlint"
+actionlint_sweep() { # controlled PATH, output, log directory; only the delivered row runs
+  PATH="$1" SWEEP_GATES_FILE="$TMP/actionlint-row.tsv" SWEEP_DIFF_OVERRIDE=".github/workflows/check.yml" \
+    SWEEP_LOG_DIR="$3" run_sweep "$RACTION" --full >"$2" 2>&1
+}
+for status in 0 1 42; do
+  ACTIONLINT_CONTROL_STATUS="$status" actionlint_sweep "$TMP/actionlint-bin:$TMP/actionlint-core" "$TMP/actionlint-$status.out" "$TMP/actionlint-$status.logs"
+  actual=$?; expected=1; verdict=FAIL
+  if [ "$status" = 0 ]; then expected=0; verdict=PASS; fi
+  check "actionlint: installed exit$status propagates" "$expected" "$actual"
+  grep_out "actionlint: installed exit$status verdict" "[sweep] $verdict actionlint" "$TMP/actionlint-$status.out"
+  grep_out "actionlint: installed exit$status diagnostic retained" "actionlint-control-status-$status" "$TMP/actionlint-$status.logs/01-actionlint.log"
+  if [ "$status" != 0 ]; then
+    grep_out "actionlint: exit$status diagnostic displayed" "actionlint-control-status-$status" "$TMP/actionlint-$status.out"
+  fi
+done
+actionlint_sweep "$TMP/actionlint-core" "$TMP/actionlint-absent.out" "$TMP/actionlint-absent.logs"
+check "actionlint: absent exits 0" 0 $?
+grep_out "actionlint: absence is explicit" "[sweep] WARN-SKIP actionlint — degraded, NOT a real run" "$TMP/actionlint-absent.out"
+if grep -qF '[sweep] PASS actionlint' "$TMP/actionlint-absent.out"; then
+  echo "  ✗ actionlint: absence labelled PASS"; fails=$((fails + 1))
+else echo "  ✓ actionlint: absence never labelled PASS"; fi
+
+# Real tool controls also run in hosted CI where actionlint is provisioned. Unavailability
+# stays visible; synthetic status and absent-tool controls above always run.
+if command -v actionlint >/dev/null 2>&1; then
+  ln -s "$(command -v actionlint)" "$TMP/actionlint-core/actionlint"
+  for variant in valid root-key expression; do
+    cat >"$RACTION/.github/workflows/check.yml" <<'EOF'
+name: B1 control
+on: push
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo valid
+EOF
+    expected=0; verdict=PASS; diagnostic=''
+    case "$variant" in
+      root-key) printf 'unexpected-b1-key: true\n' >>"$RACTION/.github/workflows/check.yml"
+        expected=1; verdict=FAIL; diagnostic='unexpected key "unexpected-b1-key"' ;;
+      expression) printf '        if: ${{ b1_unknown_context.value }}\n' >>"$RACTION/.github/workflows/check.yml"
+        expected=1; verdict=FAIL; diagnostic='undefined variable "b1_unknown_context"' ;;
+    esac
+    actionlint_sweep "$TMP/actionlint-core" "$TMP/actionlint-real-$variant.out" "$TMP/actionlint-real-$variant.logs"
+    check "actionlint: real $variant status" "$expected" $?
+    grep_out "actionlint: real $variant verdict" "[sweep] $verdict actionlint" "$TMP/actionlint-real-$variant.out"
+    if [ -n "$diagnostic" ]; then
+      grep_out "actionlint: real $variant diagnostic retained" "$diagnostic" "$TMP/actionlint-real-$variant.logs/01-actionlint.log"
+      grep_out "actionlint: real $variant diagnostic displayed" "$diagnostic" "$TMP/actionlint-real-$variant.out"
+    fi
+  done
+else
+  echo "  WARN-SKIP actionlint real workflow controls: actionlint absent — NOT a real run"
+fi
+# --- end B1 controls ---
 
 # --- (always/empty-diff) an ALWAYS gate runs even when the diff selects nothing ---
 # `--base HEAD` makes `git diff HEAD...HEAD` empty, which is what a sweep over an all-uncommitted
@@ -757,6 +829,20 @@ grep_out "scan failure: the sweep says routing stopped" "[sweep] WARN-ROUTE: can
 no_file "scan failure: the runner was never called" "$RUNLOG"
 if grep -qx '\[sweep\] PASS routed' "$TMP/o62"; then echo "  ✓ scan failure: the row passed here, unlabelled"
 else echo "  ✗ scan failure: no unlabelled '[sweep] PASS routed' line"; fails=$((fails + 1)); fi
+
+# B7: supplemental triggers must not retire the pre-existing unmapped-path fallback.
+# Use actual row names/triggers with harmless commands and an unrelated old obligation.
+env -u SWEEP_GATES_FILE bash "$SWEEP" --list-gates | awk -F '\t' '
+  $2 == "vitest-runtime-bridge" || $2 == "vitest-next-canonical" || $2 == "source-node" || $2 == "source-python" {
+    print $1 "\t" $2 "\t" $3 "\ttrue"
+  }' >"$TMP/b7-rows.tsv"
+printf '1\told-obligation\told-owned/\ttrue\n' >>"$TMP/b7-rows.tsv"
+for path in packages/runtime-bridge/new.ts packages/preset-next-15-canonical/new.ts .agents/procedures/pipeline/helpers/new.mjs .agents/roles/dual-channel-drift-auditor/new.py unknown/new.bin; do
+  SWEEP_GATES_FILE="$TMP/b7-rows.tsv" SWEEP_DIFF_OVERRIDE="$path" bash "$SWEEP" >"$TMP/b7.out" 2>&1
+  check "B7 supplemental fallback: $path" 0 $?
+  grep_out "B7 old obligation retained: $path" '[sweep] PASS old-obligation' "$TMP/b7.out"
+  grep_out "B7 unknown remains full: $path" 'escalating to --full' "$TMP/b7.out"
+done
 
 # shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }

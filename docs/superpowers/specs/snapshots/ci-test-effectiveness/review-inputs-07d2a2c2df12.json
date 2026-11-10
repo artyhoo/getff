@@ -1,0 +1,25 @@
+{
+  "featureId": "ci-test-effectiveness",
+  "prdRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4.md",
+    "sha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4"
+  },
+  "specRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-07d2a2c2df12c1417dd5c5cda523a066c76ee94545bce666558f5d2ce1c3d97e.md",
+    "sha256": "07d2a2c2df12c1417dd5c5cda523a066c76ee94545bce666558f5d2ce1c3d97e"
+  },
+  "approvalRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-revision-2-approval-2026-11-08.json",
+    "sha256": "8bba9f28f8ee8ffec73a432b766fc841523ad59835a3790527822bf6fa6024ba"
+  },
+  "recordedDecisionsRefs": [
+    {
+      "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/operator-clarifications-2026-11-08.md",
+      "sha256": "ecda6ec3b7250b9d4b32d0aee7fa829314a2ee49dcc9a822c8e1b40ecaf38bcf"
+    },
+    {
+      "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/operator-meta-enforcement-2026-11-08.md",
+      "sha256": "0fe5da7633af2ced27ffc8555a9bcb21e2c41554e9732c980728a86d8461df2f"
+    }
+  ]
+}

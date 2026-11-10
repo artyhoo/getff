@@ -1,0 +1,19 @@
+{
+  "featureId": "ci-test-effectiveness",
+  "prdRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117.md",
+    "sha256": "d2534a7c068a4432c58c4890d10e4d06c9c08c6c5fd3c63f07617d6fce663117"
+  },
+  "specRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/design-7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf.md",
+    "sha256": "7a6ebcaf8984ca4731f798e5ec343069db0ecfa9ea9353ae4f2264a24488acaf"
+  },
+  "approvalRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-approval-2026-11-08.json",
+    "sha256": "53a12f441e9915272e465c30e99e2a27f4a05367cdab7cc89a7eca494916386f"
+  },
+  "recordedDecisionsRef": {
+    "path": "docs/superpowers/specs/snapshots/ci-test-effectiveness/operator-clarifications-2026-11-08.md",
+    "sha256": "ecda6ec3b7250b9d4b32d0aee7fa829314a2ee49dcc9a822c8e1b40ecaf38bcf"
+  }
+}

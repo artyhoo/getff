@@ -1,0 +1,5 @@
+{
+  "packages/core/principles/38-vitest-include-ci-coverage.test.ts": "9aee92c313e8e1bea0a12fc79d5fcfe34ec2a6cc89f6e5ab74ef46b69a8f6d62",
+  "packages/core/principles/41-shell-test-ci-coverage.test.ts": "cbbf4595ce0e89058b7efe12b10c1244e6784bb7b959e27f5efe5be2f8dc4aa0",
+  "packages/core/principles/ci-test-invocations.ts": "4ad9e1935adc11c033873c73b225bb206c5789ee1a742ab4727faaa8ae5f5115"
+}

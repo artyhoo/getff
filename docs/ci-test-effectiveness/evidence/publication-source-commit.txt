@@ -1,0 +1,28 @@
+markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)
+Finding: .agents/procedures/dispatcher/references/execution.md .agents/rules/ci-tool-pinning.md .agents/rules/cold-seat-economy.md .agents/rules/evidence-regeneration.md .agents/rules/git-conflict-merge-forward.md .agents/rules/reviewer-discipline.md docs/site/reference/B/template-audit.md docs/site/reference/F1/companion-install-principle.md docs/site/reference/F1/evidence-regeneration.md
+Linting: 9 files
+Summary: 0 issues in 0 files
+check-line-citations: 2 unresolvable citation(s) in code files not listed (--show-skips lists them).
+
+check-line-citations: resolved 97 / skipped 2 citation(s).
+[codex/ci-test-effectiveness-native c1930af4] docs(ci): refresh current authority citations before publication
+ 48 files changed, 1335 insertions(+), 59 deletions(-)
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-actionlint.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-citation-closure.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-citation-write.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-commands.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-face-check.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-failed-push-binding.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-failed-push.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-failed-push.txt.gz
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-final-actionlint.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-final-manifest-check.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-final-manifest-write.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-harness-check.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-manifest-check.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-manifest-write.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-manual-citation-mapping.json
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-reference-check.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-rule-index-check.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-source-body-equivalence.txt
+ create mode 100644 docs/ci-test-effectiveness/evidence/publication-source-hash-map-equivalence.txt

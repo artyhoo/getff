@@ -1,0 +1,5 @@
+── host-verify: .claude/orchestrator-prompts/ci-test-effectiveness/kickoff-s2k.md
+   host=Linux  repo=/workspace/getff-native
+   • npm --prefix packages/core run typecheck
+   • npm --prefix packages/core run test -- hooks/checks/pr-body-fidelity-bin.test.ts principles/37-required-context-completeness.test.ts principles/38-vitest-include-ci-coverage.test.ts principles/41-shell-test-ci-coverage.test.ts
+   • bash scripts/build-getff-dist.sh --check

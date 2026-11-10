@@ -1,0 +1,177 @@
+{
+  "observedUTC": "2026-11-08T17:53:31.723832+00:00",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "inputCommit": "960e980e9a60cc5196976339eb1d3754184c8b7b",
+  "controllerFreshness": "origin/staging 5fc5f74c3bc3b7b16047f527fc121f02dfe12b4d unchanged; TAK2144 no overlap and no accepted runtime per dispatch",
+  "tools": {
+    "bash": {
+      "resolved": "/usr/bin/bash",
+      "realpath": "/usr/bin/bash",
+      "sha256": "223fe8564b60636bc738b6178d3ba9a50ef7d791266b0efae6363bb716e4c47f"
+    },
+    "node": {
+      "resolved": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "realpath": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "sha256": "bc17c508ffeed0ec622934f9b7fa72f8e78da65350e63c3eceb56fa688aa5e12"
+    },
+    "npm": {
+      "resolved": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/npm",
+      "realpath": "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/lib/node_modules/npm/bin/npm-cli.js",
+      "sha256": "8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7"
+    },
+    "sg": {
+      "resolved": "/usr/bin/sg",
+      "realpath": "/usr/bin/newgrp",
+      "sha256": "e02de4ffdaa92a9a2a7b9014fa612ba3ce394fdb178e23f644f8fc61ad633f88"
+    },
+    "ast-grep": {
+      "resolved": null,
+      "realpath": null,
+      "sha256": null
+    },
+    "rsync": {
+      "resolved": "/workspace/getff-tools/bin/rsync",
+      "realpath": "/workspace/getff-tools/bin/rsync",
+      "sha256": "a54c4f243c11943d6e05526894293169b269c0d9bb6b538239f35a6db97f4dd5"
+    }
+  },
+  "probes": [
+    {
+      "command": [
+        "bash",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "GNU bash, version 5.2.37(1)-release (x86_64-pc-linux-gnu)\nCopyright (C) 2022 Free Software Foundation, Inc.\nLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\nThis is free software; you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n",
+      "stderr": "",
+      "elapsedSeconds": 0.0028
+    },
+    {
+      "command": [
+        "node",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "v24.19.0\n",
+      "stderr": "",
+      "elapsedSeconds": 0.0068
+    },
+    {
+      "command": [
+        "npm",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "11.9.0\n",
+      "stderr": "",
+      "elapsedSeconds": 0.1247
+    },
+    {
+      "command": [
+        "sg",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "sg from util-linux 2.41.5\n",
+      "stderr": "",
+      "elapsedSeconds": 0.0018
+    },
+    {
+      "command": [
+        "sg",
+        "scan",
+        "--help"
+      ],
+      "exit": 0,
+      "stdout": "\nUsage:\n sg <group> [[-c] <command>]\n\nLog in to a new group; optionally executing a shell command.\n\nOptions:\n -h, --help     display this help\n -V, --version  display version\n\nFor more details see newgrp(1).\n",
+      "stderr": "",
+      "elapsedSeconds": 0.0015
+    },
+    {
+      "command": [
+        "ast-grep",
+        "--version"
+      ],
+      "exit": null,
+      "state": "executable absent"
+    },
+    {
+      "command": [
+        "/workspace/getff-tools/bin/rsync",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "rsync  version 3.5.0  protocol version 32\nCopyright (C) 1996-2026 by Andrew Tridgell, Wayne Davison, and others.\nWeb site: https://rsync.samba.org/\nCapabilities:\n    64-bit files, 64-bit inums, 64-bit timestamps, 64-bit long ints,\n    socketpairs, symlinks, symtimes, hardlinks, hardlink-specials,\n    hardlink-symlinks, IPv6, atimes, batchfiles, inplace, append, ACLs,\n    ACL-at, xattrs, optional secluded-args, iconv, prealloc, stop-at,\n    no crtimes\nOptimizations:\n    SIMD-roll, no asm-roll, openssl-crypto, no asm-MD5\nChecksum list:\n    xxh128 xxh3 xxh64 (xxhash) md5 md4 sha1 none\nCompress list:\n    zstd lz4 zlibx zlib none\nDaemon auth list:\n    sha512 sha256 sha1 md5 md4\n\nrsync comes with ABSOLUTELY NO WARRANTY.  This is free software, and you\nare welcome to redistribute it under certain conditions.  See the GNU\nGeneral Public Licence for details.\n",
+      "stderr": "",
+      "elapsedSeconds": 0.0177
+    }
+  ],
+  "nativeActualRunner": {
+    "command": [
+      "bash",
+      "/workspace/getff-native/packages/core/synthesizer/run-rule-tests-firing.sh",
+      "/tmp/b5-native-dztkcejd",
+      "astgrep"
+    ],
+    "exit": 0,
+    "stdout": "  \u26a0 DEGRADED: ast-grep not on PATH \u2014 astgrep rule-test firing NOT proven (a skipped check is NOT green).\n\n\u26a0 rule-tests firing: verified material fired correctly \u00b7 1 lane(s)/sample(s) NOT proven (tool or config absent) \u2014 a skipped check is NOT green; run the DEGRADED item(s) above to prove them.\n",
+    "stderr": "",
+    "elapsedSeconds": 0.0994
+  },
+  "originalCorpusCostSample": {
+    "command": [
+      "bash",
+      "/tmp/b5-native-dztkcejd/preimage.test.sh",
+      "/tmp/b5-native-dztkcejd/preimage.sh"
+    ],
+    "exit": 0,
+    "elapsedSeconds": 5.1271,
+    "rawRef": "evidence/b5-original-corpus.txt",
+    "summary": "run-rule-tests-firing.test.sh: PASS=42 FAIL=0 (lanes exercised via shim: astgrep, ruff, cargo)"
+  },
+  "sourceIdentities": {
+    "packages/core/synthesizer/run-rule-tests-firing.sh": {
+      "sha256": "609a4132c97480b8ebe4b9cdeba83c541ca0d875758cbb15e0b7e685baf33e5e",
+      "bytes": 25692
+    },
+    "packages/core/synthesizer/run-rule-tests-firing.test.sh": {
+      "sha256": "ef79d4d83c7bbe6c6dee44418c524915549c2165ac39f104f6acadc1301a2559",
+      "bytes": 28722
+    },
+    "packages/core/hooks/pre-push.consumer-layout.test.ts": {
+      "sha256": "75d4b0dc9430b90caff9ce7e3408d93beadd91f98c7f2682451bff5e5429c5ba",
+      "bytes": 100517
+    },
+    "packages/getff/MANIFEST.sha256": {
+      "sha256": "7280aff9783fc5bdcf6b911bace278400f9ebdfefaf9e39b0ee881a29aa082c5",
+      "bytes": 197627
+    },
+    ".github/workflows/audit-self.yml": {
+      "sha256": "70f4d8c49079f1115d1adec64e3aede423bac87954ee9d4290feef044afbe2e0",
+      "bytes": 200090
+    },
+    "package-lock.json": {
+      "sha256": "ccc383436b45e018360923ab61cc8530adcc8e537dccce07377dfb1d5c2c99f7",
+      "bytes": 820259
+    },
+    "packages/core/package-lock.json": {
+      "sha256": "2bf82793236b9115ae57813e1a0334c610c36a9702f5e4d34e403406e6839778",
+      "bytes": 220358
+    },
+    "vitest.config.ts": {
+      "sha256": "435fec04768c888772e88b2ef4d4357f0f0b5db5c62367951209f43c052a7164",
+      "bytes": 2894
+    },
+    "packages/core/vitest.config.ts": {
+      "sha256": "3efe27aa66656f4b21fe126db6010e5157165ac00750f950fb3969957ee9ac50",
+      "bytes": 1907
+    }
+  },
+  "hostedPin": {
+    "job": "principles-meta-tests",
+    "pinCommand": "npm install -g @ast-grep/cli@0.44.1",
+    "pinStepIndex": 5,
+    "hooksStepIndex": 17,
+    "sourceUnchanged": true
+  }
+}

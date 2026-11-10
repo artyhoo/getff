@@ -1,0 +1,10 @@
+{
+  "command": [
+    "bash",
+    "tests/install-sh/skill-context-evolve-coownership.test.sh"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 114.089965,
+  "log": "docs/ci-test-effectiveness/evidence/b12-coownership-green.txt",
+  "logSHA256": "666a988cab5a6a57216117437758c2246c8d60653a84825dbc282b513c527c54"
+}

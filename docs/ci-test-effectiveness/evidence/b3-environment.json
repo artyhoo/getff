@@ -1,0 +1,53 @@
+{
+  "versions": [
+    {
+      "command": "uname -a",
+      "exit": 0,
+      "output": "Linux fe503b716067 6.18.57 #1 SMP Tue Oct 20 21:56:04 UTC 2026 x86_64 GNU/Linux\n"
+    },
+    {
+      "command": "bash --version",
+      "exit": 0,
+      "output": "GNU bash, version 5.2.37(1)-release (x86_64-pc-linux-gnu)\nCopyright (C) 2022 Free Software Foundation, Inc.\nLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\nThis is free software; you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n"
+    },
+    {
+      "command": "node --version",
+      "exit": 0,
+      "output": "v24.19.0\n"
+    },
+    {
+      "command": "npm --version",
+      "exit": 0,
+      "output": "11.9.0\n"
+    },
+    {
+      "command": "/workspace/getff-tools/bin/actionlint -version",
+      "exit": 0,
+      "output": "1.7.7\ninstalled by downloading from release page\nbuilt with go1.23.4 compiler for linux/amd64\n"
+    }
+  ],
+  "actionlintSHA256": "9f7dedb4e23f89f2922073d1a6720405b7b520d4f5832ebb96f0d55a2958886c",
+  "locks": {
+    "package-lock.json": "ccc383436b45e018360923ab61cc8530adcc8e537dccce07377dfb1d5c2c99f7",
+    "packages/core/package-lock.json": "2bf82793236b9115ae57813e1a0334c610c36a9702f5e4d34e403406e6839778"
+  },
+  "hookModesAndHashes": {
+    ".husky/post-checkout": {
+      "sha256": "43045e468b290cb4b2c2f846a4d5e266f4a3d70c259beb063f2056afdf25ed27",
+      "mode": "0o700"
+    },
+    ".husky/pre-commit": {
+      "sha256": "667cdb1a25c621183e20d1c04a317543305c6c642610d4a8c859e2f8cfdce5ee",
+      "mode": "0o700"
+    },
+    ".husky/pre-merge-commit": {
+      "sha256": "7354235663b5b9f90c94eb7d34cc52a8d8b5aceda00f3288245ffaade45cb0b0",
+      "mode": "0o700"
+    },
+    ".husky/pre-push": {
+      "sha256": "f3c325ba8fca5dda9978f36991f22ccda60758bbe473643dedb255b2948d2a22",
+      "mode": "0o700"
+    }
+  },
+  "nativeRoute": "Linux; no AIF, nested agents, installs, pushes or real hook mutations"
+}

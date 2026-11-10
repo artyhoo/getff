@@ -1,0 +1,1 @@
+{"populationCount":323,"populationSha256":"3126386268dcd85312e4e4a0662d6fcd4eab6aed5150b9fa068604140274d243","huskyInPopulation":true,"wrapperTargets":["tests/advisor-role-reminders/test_reminders.py","tests/hooks/test-enforce-husky-presence.sh"]}

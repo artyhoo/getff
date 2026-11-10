@@ -1,0 +1,914 @@
+[
+  {
+    "id": "test:packages/core/principles/01-executable-check.test.ts",
+    "contract": "Rule manifest entries identify an executable check kind and target.",
+    "scopeLimit": "Existence/type consistency cannot establish detector sensitivity.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/01-executable-check.test.ts",
+    "criteria": {
+      "relevance": "Rule manifest entries identify an executable check kind and target.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Existence/type consistency cannot establish detector sensitivity.",
+      "theatre": "Retain only the stated structural/executable claim. Existence/type consistency cannot establish detector sensitivity.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Existence/type consistency cannot establish detector sensitivity.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Existence/type consistency cannot establish detector sensitivity."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/02-paired-negative-test.test.ts",
+    "contract": "Rules carry paired positive/negative examples and required test evidence; optional mutation tool path stays conditional.",
+    "scopeLimit": "Example presence/lexical shape cannot prove that assertions observe subject behavior; universalmutator absence is a skip.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/02-paired-negative-test.test.ts",
+    "criteria": {
+      "relevance": "Rules carry paired positive/negative examples and required test evidence; optional mutation tool path stays conditional.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Example presence/lexical shape cannot prove that assertions observe subject behavior; universalmutator absence is a skip.",
+      "theatre": "Retain only the stated structural/executable claim. Example presence/lexical shape cannot prove that assertions observe subject behavior; universalmutator absence is a skip.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Example presence/lexical shape cannot prove that assertions observe subject behavior; universalmutator absence is a skip.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Example presence/lexical shape cannot prove that assertions observe subject behavior; universalmutator absence is a skip."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/03-ast-over-grep.test.ts",
+    "contract": "Enforcement kind avoids placeholder/grep substitution for required AST-backed rules.",
+    "scopeLimit": "A named ESLint/AST check is structural evidence, not proof visitor logic detects all violations.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/03-ast-over-grep.test.ts",
+    "criteria": {
+      "relevance": "Enforcement kind avoids placeholder/grep substitution for required AST-backed rules.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. A named ESLint/AST check is structural evidence, not proof visitor logic detects all violations.",
+      "theatre": "Retain only the stated structural/executable claim. A named ESLint/AST check is structural evidence, not proof visitor logic detects all violations.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. A named ESLint/AST check is structural evidence, not proof visitor logic detects all violations.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "A named ESLint/AST check is structural evidence, not proof visitor logic detects all violations."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/04-no-tautology.test.ts",
+    "contract": "Manifest rule/check material must not be an explicit no-op or tautological generated check.",
+    "scopeLimit": "Population is manifest checks, not arbitrary repository tests. TAK Q1/Q2 remain distinct; no universal anti-tautology claim.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/04-no-tautology.test.ts",
+    "criteria": {
+      "relevance": "Manifest rule/check material must not be an explicit no-op or tautological generated check.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Population is manifest checks, not arbitrary repository tests. TAK Q1/Q2 remain distinct; no universal anti-tautology claim.",
+      "theatre": "Retain only the stated structural/executable claim. Population is manifest checks, not arbitrary repository tests. TAK Q1/Q2 remain distinct; no universal anti-tautology claim.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Population is manifest checks, not arbitrary repository tests. TAK Q1/Q2 remain distinct; no universal anti-tautology claim.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Population is manifest checks, not arbitrary repository tests. TAK Q1/Q2 remain distinct; no universal anti-tautology claim."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/05-manifest-ssot.test.ts",
+    "contract": "Rendered rule docs remain derived from the authoritative manifest.",
+    "scopeLimit": "Byte drift is the intended obligation; equal generated bytes do not certify policy correctness.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/05-manifest-ssot.test.ts",
+    "criteria": {
+      "relevance": "Rendered rule docs remain derived from the authoritative manifest.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Byte drift is the intended obligation; equal generated bytes do not certify policy correctness.",
+      "theatre": "Retain only the stated structural/executable claim. Byte drift is the intended obligation; equal generated bytes do not certify policy correctness.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Byte drift is the intended obligation; equal generated bytes do not certify policy correctness.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Byte drift is the intended obligation; equal generated bytes do not certify policy correctness."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/06-must-not-demoted.test.ts",
+    "contract": "Normative MUST language must not silently weaken during rendering.",
+    "scopeLimit": "Lexical retention is valid editorial policy protection, not execution enforcement.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/06-must-not-demoted.test.ts",
+    "criteria": {
+      "relevance": "Normative MUST language must not silently weaken during rendering.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Lexical retention is valid editorial policy protection, not execution enforcement.",
+      "theatre": "Retain only the stated structural/executable claim. Lexical retention is valid editorial policy protection, not execution enforcement.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Lexical retention is valid editorial policy protection, not execution enforcement.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Lexical retention is valid editorial policy protection, not execution enforcement."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/07-documents-lie.test.ts",
+    "contract": "Rule examples/documented material retain concrete code-like evidence.",
+    "scopeLimit": "Token-bearing snippets may still be semantically weak; this is a format tripwire.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/07-documents-lie.test.ts",
+    "criteria": {
+      "relevance": "Rule examples/documented material retain concrete code-like evidence.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Token-bearing snippets may still be semantically weak; this is a format tripwire.",
+      "theatre": "Retain only the stated structural/executable claim. Token-bearing snippets may still be semantically weak; this is a format tripwire.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Token-bearing snippets may still be semantically weak; this is a format tripwire.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Token-bearing snippets may still be semantically weak; this is a format tripwire."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/08-prior-art-cited.test.ts",
+    "contract": "Prior-art references exist and match declared provenance requirements.",
+    "scopeLimit": "Citations do not prove research sufficiency or reuse quality.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/08-prior-art-cited.test.ts",
+    "criteria": {
+      "relevance": "Prior-art references exist and match declared provenance requirements.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Citations do not prove research sufficiency or reuse quality.",
+      "theatre": "Retain only the stated structural/executable claim. Citations do not prove research sufficiency or reuse quality.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Citations do not prove research sufficiency or reuse quality.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Citations do not prove research sufficiency or reuse quality."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/09-doc-authority-hierarchy.test.ts",
+    "contract": "Authority hierarchy/loaders/frozen sources preserve canonical owners and explicit exceptions.",
+    "scopeLimit": "Owner/source consistency does not establish human approval or model adherence.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/09-doc-authority-hierarchy.test.ts",
+    "criteria": {
+      "relevance": "Authority hierarchy/loaders/frozen sources preserve canonical owners and explicit exceptions.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Owner/source consistency does not establish human approval or model adherence.",
+      "theatre": "Retain only the stated structural/executable claim. Owner/source consistency does not establish human approval or model adherence.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Owner/source consistency does not establish human approval or model adherence.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Owner/source consistency does not establish human approval or model adherence."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/10-research-patch-annotation.test.ts",
+    "contract": "Research patches carry usable scope annotations.",
+    "scopeLimit": "Scope declarations are classification input, not proof an investigation covered that scope.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/10-research-patch-annotation.test.ts",
+    "criteria": {
+      "relevance": "Research patches carry usable scope annotations.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Scope declarations are classification input, not proof an investigation covered that scope.",
+      "theatre": "Retain only the stated structural/executable claim. Scope declarations are classification input, not proof an investigation covered that scope.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Scope declarations are classification input, not proof an investigation covered that scope.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Scope declarations are classification input, not proof an investigation covered that scope."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/11-build-first-reuse-default.test.ts",
+    "contract": "Introducing changes carry build/reuse decisions and correct history/batching treatment.",
+    "scopeLimit": "Trailer/history predicates do not assess the substantive quality of a buy/build decision.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/11-build-first-reuse-default.test.ts",
+    "criteria": {
+      "relevance": "Introducing changes carry build/reuse decisions and correct history/batching treatment.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Trailer/history predicates do not assess the substantive quality of a buy/build decision.",
+      "theatre": "Retain only the stated structural/executable claim. Trailer/history predicates do not assess the substantive quality of a buy/build decision.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Trailer/history predicates do not assess the substantive quality of a buy/build decision.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Trailer/history predicates do not assess the substantive quality of a buy/build decision."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/12-ai-laziness-traps.test.ts",
+    "contract": "Kickoff materials name applicable AI traps and retain canonical trap contracts.",
+    "scopeLimit": "Declared trap coverage is not proof the worker applied them.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/12-ai-laziness-traps.test.ts",
+    "criteria": {
+      "relevance": "Kickoff materials name applicable AI traps and retain canonical trap contracts.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Declared trap coverage is not proof the worker applied them.",
+      "theatre": "Retain only the stated structural/executable claim. Declared trap coverage is not proof the worker applied them.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Declared trap coverage is not proof the worker applied them.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Declared trap coverage is not proof the worker applied them."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/13-phase-research-coverage-s17.test.ts",
+    "contract": "Forward/backward \u00a71.7 research coverage fields and required conventions remain present.",
+    "scopeLimit": "Mechanical markers cannot grade research substance; live PR-body enforcement is separately D04.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/13-phase-research-coverage-s17.test.ts",
+    "criteria": {
+      "relevance": "Forward/backward \u00a71.7 research coverage fields and required conventions remain present.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Mechanical markers cannot grade research substance; live PR-body enforcement is separately D04.",
+      "theatre": "Retain only the stated structural/executable claim. Mechanical markers cannot grade research substance; live PR-body enforcement is separately D04.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Mechanical markers cannot grade research substance; live PR-body enforcement is separately D04.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Mechanical markers cannot grade research substance; live PR-body enforcement is separately D04."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/14-skill-drift-detection.test.ts",
+    "contract": "Skill drift detector catches changed owned material and preserves reference correspondence.",
+    "scopeLimit": "Drift evidence establishes outdatedness, not truth of original skill content.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/14-skill-drift-detection.test.ts",
+    "criteria": {
+      "relevance": "Skill drift detector catches changed owned material and preserves reference correspondence.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Drift evidence establishes outdatedness, not truth of original skill content.",
+      "theatre": "Retain only the stated structural/executable claim. Drift evidence establishes outdatedness, not truth of original skill content.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Drift evidence establishes outdatedness, not truth of original skill content.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Drift evidence establishes outdatedness, not truth of original skill content."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/15-skill-paired-negative.test.ts",
+    "contract": "Skill instructions retain paired adverse/positive examples.",
+    "scopeLimit": "Prose examples are inputs to execution, not already-run behavioral tests.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/15-skill-paired-negative.test.ts",
+    "criteria": {
+      "relevance": "Skill instructions retain paired adverse/positive examples.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Prose examples are inputs to execution, not already-run behavioral tests.",
+      "theatre": "Retain only the stated structural/executable claim. Prose examples are inputs to execution, not already-run behavioral tests.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Prose examples are inputs to execution, not already-run behavioral tests.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Prose examples are inputs to execution, not already-run behavioral tests."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/16-hook-stub-completeness.test.ts",
+    "contract": "Declared hook stubs resolve and seeded missing/invalid stubs are rejected even when live population is empty.",
+    "scopeLimit": "An empty current stub population is legitimate only because synthetic controls exercise both directions.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/16-hook-stub-completeness.test.ts",
+    "criteria": {
+      "relevance": "Declared hook stubs resolve and seeded missing/invalid stubs are rejected even when live population is empty.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. An empty current stub population is legitimate only because synthetic controls exercise both directions.",
+      "theatre": "Retain only the stated structural/executable claim. An empty current stub population is legitimate only because synthetic controls exercise both directions.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. An empty current stub population is legitimate only because synthetic controls exercise both directions.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "An empty current stub population is legitimate only because synthetic controls exercise both directions."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/17-no-paid-llm-in-ci.test.ts",
+    "contract": "CI does not invoke prohibited paid-model surfaces.",
+    "scopeLimit": "Finite lexical/provider command policy does not certify every future network endpoint; scope remains known CI surfaces.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/17-no-paid-llm-in-ci.test.ts",
+    "criteria": {
+      "relevance": "CI does not invoke prohibited paid-model surfaces.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Finite lexical/provider command policy does not certify every future network endpoint; scope remains known CI surfaces.",
+      "theatre": "Retain only the stated structural/executable claim. Finite lexical/provider command policy does not certify every future network endpoint; scope remains known CI surfaces.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Finite lexical/provider command policy does not certify every future network endpoint; scope remains known CI surfaces.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Finite lexical/provider command policy does not certify every future network endpoint; scope remains known CI surfaces."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/18-meta-orchestrator-output-format.test.ts",
+    "contract": "Meta-orchestrator output grammar has required machine-consumed fields.",
+    "scopeLimit": "Output grammar is a parser contract, not a completed orchestration receipt.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/18-meta-orchestrator-output-format.test.ts",
+    "criteria": {
+      "relevance": "Meta-orchestrator output grammar has required machine-consumed fields.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Output grammar is a parser contract, not a completed orchestration receipt.",
+      "theatre": "Retain only the stated structural/executable claim. Output grammar is a parser contract, not a completed orchestration receipt.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Output grammar is a parser contract, not a completed orchestration receipt.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Output grammar is a parser contract, not a completed orchestration receipt."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts",
+    "contract": "Alias routing remains consistent with the canonical orchestrator command.",
+    "scopeLimit": "Source alias correspondence does not establish a live dispatched task.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts",
+    "criteria": {
+      "relevance": "Alias routing remains consistent with the canonical orchestrator command.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Source alias correspondence does not establish a live dispatched task.",
+      "theatre": "Retain only the stated structural/executable claim. Source alias correspondence does not establish a live dispatched task.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Source alias correspondence does not establish a live dispatched task.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Source alias correspondence does not establish a live dispatched task."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/20-bundle-classification.paired-negative.test.ts",
+    "contract": "Bundle classification selects correct generated artifacts and refusal behavior.",
+    "scopeLimit": "Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/20-bundle-classification.paired-negative.test.ts",
+    "criteria": {
+      "relevance": "Bundle classification selects correct generated artifacts and refusal behavior.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity.",
+      "theatre": "Retain only the stated structural/executable claim. Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/20-bundle-classification.test.ts",
+    "contract": "Bundle classification selects correct generated artifacts and refusal behavior.",
+    "scopeLimit": "Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/20-bundle-classification.test.ts",
+    "criteria": {
+      "relevance": "Bundle classification selects correct generated artifacts and refusal behavior.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity.",
+      "theatre": "Retain only the stated structural/executable claim. Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Static and paired-negative files have distinct source registry and reached artifact obligations; do not remove one from name similarity."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/21-agnosticism-conformance.test.ts",
+    "contract": "Harness/tool substrate claims and shipped-agent tool permissions remain compatible.",
+    "scopeLimit": "Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/21-agnosticism-conformance.test.ts",
+    "criteria": {
+      "relevance": "Harness/tool substrate claims and shipped-agent tool permissions remain compatible.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+      "theatre": "Retain only the stated structural/executable claim. Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/21-shipped-agent-liveness-tool-parity.test.ts",
+    "contract": "Harness/tool substrate claims and shipped-agent tool permissions remain compatible.",
+    "scopeLimit": "Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/21-shipped-agent-liveness-tool-parity.test.ts",
+    "criteria": {
+      "relevance": "Harness/tool substrate claims and shipped-agent tool permissions remain compatible.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+      "theatre": "Retain only the stated structural/executable claim. Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/21-shipped-agent-tools-valid.test.ts",
+    "contract": "Harness/tool substrate claims and shipped-agent tool permissions remain compatible.",
+    "scopeLimit": "Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/21-shipped-agent-tools-valid.test.ts",
+    "criteria": {
+      "relevance": "Harness/tool substrate claims and shipped-agent tool permissions remain compatible.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+      "theatre": "Retain only the stated structural/executable claim. Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Architectural/source/tool-list checks are not real platform executions; shipped-agent liveness parity and tool validity are separate predicates."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/22-internal-english.test.ts",
+    "contract": "Internal machinery follows the required English-language surface policy.",
+    "scopeLimit": "Lexical language checks protect consistency, not technical correctness or user-facing language preference.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/22-internal-english.test.ts",
+    "criteria": {
+      "relevance": "Internal machinery follows the required English-language surface policy.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Lexical language checks protect consistency, not technical correctness or user-facing language preference.",
+      "theatre": "Retain only the stated structural/executable claim. Lexical language checks protect consistency, not technical correctness or user-facing language preference.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Lexical language checks protect consistency, not technical correctness or user-facing language preference.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Lexical language checks protect consistency, not technical correctness or user-facing language preference."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/23-aif-init-passport-gen.test.ts",
+    "contract": "aif-init passport generation preserves owned inputs and distinguishes missing/unsafe material.",
+    "scopeLimit": "Fixture-based passport mechanics differ from native runtime receipt replay with external corpus.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/23-aif-init-passport-gen.test.ts",
+    "criteria": {
+      "relevance": "aif-init passport generation preserves owned inputs and distinguishes missing/unsafe material.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Fixture-based passport mechanics differ from native runtime receipt replay with external corpus.",
+      "theatre": "Retain only the stated structural/executable claim. Fixture-based passport mechanics differ from native runtime receipt replay with external corpus.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Fixture-based passport mechanics differ from native runtime receipt replay with external corpus.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Fixture-based passport mechanics differ from native runtime receipt replay with external corpus."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/24-plugin-manifest-integrity.test.ts",
+    "contract": "Plugin manifest entries resolve to shipped commands/agents/skills with expected identities.",
+    "scopeLimit": "Resolvable paths are necessary but not sufficient for actual native hook firing.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/24-plugin-manifest-integrity.test.ts",
+    "criteria": {
+      "relevance": "Plugin manifest entries resolve to shipped commands/agents/skills with expected identities.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Resolvable paths are necessary but not sufficient for actual native hook firing.",
+      "theatre": "Retain only the stated structural/executable claim. Resolvable paths are necessary but not sufficient for actual native hook firing.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Resolvable paths are necessary but not sufficient for actual native hook firing.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Resolvable paths are necessary but not sufficient for actual native hook firing."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/25-template-rule-ref-resolution.test.ts",
+    "contract": "Template rule references resolve through shipped barrel/manifest targets.",
+    "scopeLimit": "Resolution differs from rule semantics and consumer filesystem installation.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/25-template-rule-ref-resolution.test.ts",
+    "criteria": {
+      "relevance": "Template rule references resolve through shipped barrel/manifest targets.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Resolution differs from rule semantics and consumer filesystem installation.",
+      "theatre": "Retain only the stated structural/executable claim. Resolution differs from rule semantics and consumer filesystem installation.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Resolution differs from rule semantics and consumer filesystem installation.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Resolution differs from rule semantics and consumer filesystem installation."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/26-template-selector-sync.test.ts",
+    "contract": "Template selector material remains synchronized with authoritative selector recipes.",
+    "scopeLimit": "Identical selectors prove consistency; valid/invalid rule matrices separately ground behavior.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/26-template-selector-sync.test.ts",
+    "criteria": {
+      "relevance": "Template selector material remains synchronized with authoritative selector recipes.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Identical selectors prove consistency; valid/invalid rule matrices separately ground behavior.",
+      "theatre": "Retain only the stated structural/executable claim. Identical selectors prove consistency; valid/invalid rule matrices separately ground behavior.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Identical selectors prove consistency; valid/invalid rule matrices separately ground behavior.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Identical selectors prove consistency; valid/invalid rule matrices separately ground behavior."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/27-prepush-copylist-complete.test.ts",
+    "contract": "Pre-push bundle externals/copy list include required runtime files.",
+    "scopeLimit": "Copy-list completeness does not prove installed consumer gates work; retain real fresh-install cells.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/27-prepush-copylist-complete.test.ts",
+    "criteria": {
+      "relevance": "Pre-push bundle externals/copy list include required runtime files.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Copy-list completeness does not prove installed consumer gates work; retain real fresh-install cells.",
+      "theatre": "Retain only the stated structural/executable claim. Copy-list completeness does not prove installed consumer gates work; retain real fresh-install cells.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Copy-list completeness does not prove installed consumer gates work; retain real fresh-install cells.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Copy-list completeness does not prove installed consumer gates work; retain real fresh-install cells."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/28-synth-wire-oracle.test.ts",
+    "contract": "Synth/wire outputs match independent preset oracle and preserve overrides.",
+    "scopeLimit": "Source/config oracle is bounded to declared supported stacks; consumer execution stays separate.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/28-synth-wire-oracle.test.ts",
+    "criteria": {
+      "relevance": "Synth/wire outputs match independent preset oracle and preserve overrides.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Source/config oracle is bounded to declared supported stacks; consumer execution stays separate.",
+      "theatre": "Retain only the stated structural/executable claim. Source/config oracle is bounded to declared supported stacks; consumer execution stays separate.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Source/config oracle is bounded to declared supported stacks; consumer execution stays separate.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Source/config oracle is bounded to declared supported stacks; consumer execution stays separate."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/29-worker-dispatch-channel.test.ts",
+    "contract": "Worker dispatch channel conventions prevent forbidden inline/runtime routes.",
+    "scopeLimit": "Keyword/source routing constraints are not an actual launch receipt or permission grant.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/29-worker-dispatch-channel.test.ts",
+    "criteria": {
+      "relevance": "Worker dispatch channel conventions prevent forbidden inline/runtime routes.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Keyword/source routing constraints are not an actual launch receipt or permission grant.",
+      "theatre": "Retain only the stated structural/executable claim. Keyword/source routing constraints are not an actual launch receipt or permission grant.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Keyword/source routing constraints are not an actual launch receipt or permission grant.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Keyword/source routing constraints are not an actual launch receipt or permission grant."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/30-research-source-trust.test.ts",
+    "contract": "Research source trust declarations stay bound to allowed resolver policy.",
+    "scopeLimit": "Structural trust inventory complements real resolver tests; no arbitrary web source credibility certification.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/30-research-source-trust.test.ts",
+    "criteria": {
+      "relevance": "Research source trust declarations stay bound to allowed resolver policy.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Structural trust inventory complements real resolver tests; no arbitrary web source credibility certification.",
+      "theatre": "Retain only the stated structural/executable claim. Structural trust inventory complements real resolver tests; no arbitrary web source credibility certification.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Structural trust inventory complements real resolver tests; no arbitrary web source credibility certification.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Structural trust inventory complements real resolver tests; no arbitrary web source credibility certification."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/31-rule-channel-declaration.test.ts",
+    "contract": "Rules declare enforcement channels and machine-consumed routing fields.",
+    "scopeLimit": "Declared channels need actual carriers; D07 exposes population outside existing carriers.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/31-rule-channel-declaration.test.ts",
+    "criteria": {
+      "relevance": "Rules declare enforcement channels and machine-consumed routing fields.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Declared channels need actual carriers; D07 exposes population outside existing carriers.",
+      "theatre": "Retain only the stated structural/executable claim. Declared channels need actual carriers; D07 exposes population outside existing carriers.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Declared channels need actual carriers; D07 exposes population outside existing carriers.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Declared channels need actual carriers; D07 exposes population outside existing carriers."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/32-prepush-section-owner.test.ts",
+    "contract": "Pre-push sections have explicit maintainer/consumer/both ownership and correct composition.",
+    "scopeLimit": "Ownership table governs delivery composition; each section still needs actual functional tests.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/32-prepush-section-owner.test.ts",
+    "criteria": {
+      "relevance": "Pre-push sections have explicit maintainer/consumer/both ownership and correct composition.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Ownership table governs delivery composition; each section still needs actual functional tests.",
+      "theatre": "Retain only the stated structural/executable claim. Ownership table governs delivery composition; each section still needs actual functional tests.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Ownership table governs delivery composition; each section still needs actual functional tests.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Ownership table governs delivery composition; each section still needs actual functional tests."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/33-adapter-jig-arm-registry.test.ts",
+    "contract": "Adapter arm registry contains required slots and mappings.",
+    "scopeLimit": "Registry entries are not fired probe receipts; independent adapter live-fire stays required.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/33-adapter-jig-arm-registry.test.ts",
+    "criteria": {
+      "relevance": "Adapter arm registry contains required slots and mappings.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Registry entries are not fired probe receipts; independent adapter live-fire stays required.",
+      "theatre": "Retain only the stated structural/executable claim. Registry entries are not fired probe receipts; independent adapter live-fire stays required.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Registry entries are not fired probe receipts; independent adapter live-fire stays required.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Registry entries are not fired probe receipts; independent adapter live-fire stays required."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/34-claudemd-excludes-liveness.test.ts",
+    "contract": "CLAUDE include/exclude glob declarations can reach real intended files.",
+    "scopeLimit": "Finite path/glob liveness does not prove a host loaded the resulting rule.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/34-claudemd-excludes-liveness.test.ts",
+    "criteria": {
+      "relevance": "CLAUDE include/exclude glob declarations can reach real intended files.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Finite path/glob liveness does not prove a host loaded the resulting rule.",
+      "theatre": "Retain only the stated structural/executable claim. Finite path/glob liveness does not prove a host loaded the resulting rule.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Finite path/glob liveness does not prove a host loaded the resulting rule.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Finite path/glob liveness does not prove a host loaded the resulting rule."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts",
+    "contract": "AI laziness digest stays verbatim aligned with canonical rules and budget.",
+    "scopeLimit": "Byte/budget constraints intentionally share owner source; correct digest text does not imply applied discipline.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts",
+    "criteria": {
+      "relevance": "AI laziness digest stays verbatim aligned with canonical rules and budget.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Byte/budget constraints intentionally share owner source; correct digest text does not imply applied discipline.",
+      "theatre": "Retain only the stated structural/executable claim. Byte/budget constraints intentionally share owner source; correct digest text does not imply applied discipline.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Byte/budget constraints intentionally share owner source; correct digest text does not imply applied discipline.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Byte/budget constraints intentionally share owner source; correct digest text does not imply applied discipline."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/36-ci-needs-completeness.test.ts",
+    "contract": "ci-success needs accounts for all audit-self jobs.",
+    "scopeLimit": "Job dependency completeness does not prove test population completeness or live protection registration.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/36-ci-needs-completeness.test.ts",
+    "criteria": {
+      "relevance": "ci-success needs accounts for all audit-self jobs.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Job dependency completeness does not prove test population completeness or live protection registration.",
+      "theatre": "Retain only the stated structural/executable claim. Job dependency completeness does not prove test population completeness or live protection registration.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Job dependency completeness does not prove test population completeness or live protection registration.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Job dependency completeness does not prove test population completeness or live protection registration."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/37-make-target-claim-liveness.test.ts",
+    "contract": "Required context declarations and Make target claims remain structurally consistent and resolvable.",
+    "scopeLimit": "Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/37-make-target-claim-liveness.test.ts",
+    "criteria": {
+      "relevance": "Required context declarations and Make target claims remain structurally consistent and resolvable.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap.",
+      "theatre": "Retain only the stated structural/executable claim. Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/37-required-context-completeness.test.ts",
+    "contract": "Required context declarations and Make target claims remain structurally consistent and resolvable.",
+    "scopeLimit": "Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/37-required-context-completeness.test.ts",
+    "criteria": {
+      "relevance": "Required context declarations and Make target claims remain structurally consistent and resolvable.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap.",
+      "theatre": "Retain only the stated structural/executable claim. Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Two different files: target existence protects executable documentation; contexts marker equality cannot establish live required status. D04 live endpoint proves gap."
+    },
+    "decision": "D04"
+  },
+  {
+    "id": "test:packages/core/principles/38-vitest-include-ci-coverage.test.ts",
+    "contract": "Every packages/core Vitest include member has a declared CI invocation and explicit exemption hygiene.",
+    "scopeLimit": "Core-only population excludes runtime-bridge, canonical-next, Node and Python (D07). Substring/command source analysis is not actual future firing.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/38-vitest-include-ci-coverage.test.ts",
+    "criteria": {
+      "relevance": "Every packages/core Vitest include member has a declared CI invocation and explicit exemption hygiene.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Core-only population excludes runtime-bridge, canonical-next, Node and Python (D07). Substring/command source analysis is not actual future firing.",
+      "theatre": "Retain only the stated structural/executable claim. Core-only population excludes runtime-bridge, canonical-next, Node and Python (D07). Substring/command source analysis is not actual future firing.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Core-only population excludes runtime-bridge, canonical-next, Node and Python (D07). Substring/command source analysis is not actual future firing.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Core-only population excludes runtime-bridge, canonical-next, Node and Python (D07). Substring/command source analysis is not actual future firing."
+    },
+    "decision": "D07"
+  },
+  {
+    "id": "test:packages/core/principles/39-skill-fence-orch-home.test.ts",
+    "contract": "Skill fences use the correct orchestrator home and preserve authority boundaries.",
+    "scopeLimit": "Correct path contract is distinct from a live authoritative decision registry or admission.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/39-skill-fence-orch-home.test.ts",
+    "criteria": {
+      "relevance": "Skill fences use the correct orchestrator home and preserve authority boundaries.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Correct path contract is distinct from a live authoritative decision registry or admission.",
+      "theatre": "Retain only the stated structural/executable claim. Correct path contract is distinct from a live authoritative decision registry or admission.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Correct path contract is distinct from a live authoritative decision registry or admission.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Correct path contract is distinct from a live authoritative decision registry or admission."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/40-kickoff-rigor-label.test.ts",
+    "contract": "Kickoffs declare their rigor tier consistently.",
+    "scopeLimit": "A label is planning input, not fulfilled evidence; do not add runtime-cost demands solely from label.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/40-kickoff-rigor-label.test.ts",
+    "criteria": {
+      "relevance": "Kickoffs declare their rigor tier consistently.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. A label is planning input, not fulfilled evidence; do not add runtime-cost demands solely from label.",
+      "theatre": "Retain only the stated structural/executable claim. A label is planning input, not fulfilled evidence; do not add runtime-cost demands solely from label.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. A label is planning input, not fulfilled evidence; do not add runtime-cost demands solely from label.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "A label is planning input, not fulfilled evidence; do not add runtime-cost demands solely from label."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/41-shell-test-ci-coverage.test.ts",
+    "contract": "Every tracked shell test must execute through CI with explicit justified exceptions.",
+    "scopeLimit": "Current substring resolver accepts run:echo bash. Frozen8-case control/mutant/restoration proves D01 sensitivity gap; retain tests while repairing oracle.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/41-shell-test-ci-coverage.test.ts",
+    "criteria": {
+      "relevance": "Every tracked shell test must execute through CI with explicit justified exceptions.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Current substring resolver accepts run:echo bash. Frozen8-case control/mutant/restoration proves D01 sensitivity gap; retain tests while repairing oracle.",
+      "theatre": "Retain only the stated structural/executable claim. Current substring resolver accepts run:echo bash. Frozen8-case control/mutant/restoration proves D01 sensitivity gap; retain tests while repairing oracle.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Current substring resolver accepts run:echo bash. Frozen8-case control/mutant/restoration proves D01 sensitivity gap; retain tests while repairing oracle.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Repair false-green without universal analyzer under D01.",
+      "sufficiency": "Current substring resolver accepts run:echo bash. Frozen8-case control/mutant/restoration proves D01 sensitivity gap; retain tests while repairing oracle."
+    },
+    "decision": "D01"
+  },
+  {
+    "id": "test:packages/core/principles/42-context-md-pointer-rule.test.ts",
+    "contract": "Context.md pointer ownership and unique spelling prevent competing context sources.",
+    "scopeLimit": "Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/42-context-md-pointer-rule.test.ts",
+    "criteria": {
+      "relevance": "Context.md pointer ownership and unique spelling prevent competing context sources.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading.",
+      "theatre": "Retain only the stated structural/executable claim. Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/42-context-md-spelling-uniqueness.test.ts",
+    "contract": "Context.md pointer ownership and unique spelling prevent competing context sources.",
+    "scopeLimit": "Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/42-context-md-spelling-uniqueness.test.ts",
+    "criteria": {
+      "relevance": "Context.md pointer ownership and unique spelling prevent competing context sources.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading.",
+      "theatre": "Retain only the stated structural/executable claim. Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Pointer grammar and spelling uniqueness are different checks; neither proves host automatic loading."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/43-kickoff-host-verify-presence.test.ts",
+    "contract": "Kickoffs enumerate destination-host verification or explicit none with reason, including live corpus.",
+    "scopeLimit": "Potentially expensive corpus subprocess work has useful omission protection; a host-verify field does not certify the host was exercised.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/43-kickoff-host-verify-presence.test.ts",
+    "criteria": {
+      "relevance": "Kickoffs enumerate destination-host verification or explicit none with reason, including live corpus.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Potentially expensive corpus subprocess work has useful omission protection; a host-verify field does not certify the host was exercised.",
+      "theatre": "Retain only the stated structural/executable claim. Potentially expensive corpus subprocess work has useful omission protection; a host-verify field does not certify the host was exercised.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Potentially expensive corpus subprocess work has useful omission protection; a host-verify field does not certify the host was exercised.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Potentially expensive corpus subprocess work has useful omission protection; a host-verify field does not certify the host was exercised."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/44-kickoff-authoring-traps.test.ts",
+    "contract": "Kickoff authoring remains regular-file, portable and free from known launch/authority traps.",
+    "scopeLimit": "Static authoring constraints cannot grant or demonstrate actual execution authorization.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/44-kickoff-authoring-traps.test.ts",
+    "criteria": {
+      "relevance": "Kickoff authoring remains regular-file, portable and free from known launch/authority traps.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Static authoring constraints cannot grant or demonstrate actual execution authorization.",
+      "theatre": "Retain only the stated structural/executable claim. Static authoring constraints cannot grant or demonstrate actual execution authorization.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Static authoring constraints cannot grant or demonstrate actual execution authorization.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Static authoring constraints cannot grant or demonstrate actual execution authorization."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/45-prepush-contract-claim-liveness.test.ts",
+    "contract": "Pre-push contract claims remain linked to actual section registry and ownership.",
+    "scopeLimit": "Registry claim liveness is structural; D06 shows actual command failure handling is another obligation.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/45-prepush-contract-claim-liveness.test.ts",
+    "criteria": {
+      "relevance": "Pre-push contract claims remain linked to actual section registry and ownership.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Registry claim liveness is structural; D06 shows actual command failure handling is another obligation.",
+      "theatre": "Retain only the stated structural/executable claim. Registry claim liveness is structural; D06 shows actual command failure handling is another obligation.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Registry claim liveness is structural; D06 shows actual command failure handling is another obligation.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Registry claim liveness is structural; D06 shows actual command failure handling is another obligation."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/46-git-env-inheritance-safety.test.ts",
+    "contract": "Git environment inheritance and generated reference arms preserve source identity and safety.",
+    "scopeLimit": "Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/46-git-env-inheritance-safety.test.ts",
+    "criteria": {
+      "relevance": "Git environment inheritance and generated reference arms preserve source identity and safety.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior.",
+      "theatre": "Retain only the stated structural/executable claim. Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/46-reference-generator-arms.test.ts",
+    "contract": "Git environment inheritance and generated reference arms preserve source identity and safety.",
+    "scopeLimit": "Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/46-reference-generator-arms.test.ts",
+    "criteria": {
+      "relevance": "Git environment inheritance and generated reference arms preserve source identity and safety.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior.",
+      "theatre": "Retain only the stated structural/executable claim. Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Separate files: real decoy Git environment probes detect wrong-tree damage; reference arm inventory checks publication/source coverage, not runtime behavior."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/47-symlink-safe-entry-point.test.ts",
+    "contract": "Symlinked CLI entry remains runnable from its physical root with correct invocation identity.",
+    "scopeLimit": "Real entry-process fixture adds protection beyond path syntax checks; preserve supported invocation spellings.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/47-symlink-safe-entry-point.test.ts",
+    "criteria": {
+      "relevance": "Symlinked CLI entry remains runnable from its physical root with correct invocation identity.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Real entry-process fixture adds protection beyond path syntax checks; preserve supported invocation spellings.",
+      "theatre": "Retain only the stated structural/executable claim. Real entry-process fixture adds protection beyond path syntax checks; preserve supported invocation spellings.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Real entry-process fixture adds protection beyond path syntax checks; preserve supported invocation spellings.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Real entry-process fixture adds protection beyond path syntax checks; preserve supported invocation spellings."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/48-skill-description-budget.test.ts",
+    "contract": "Skill descriptions preserve exact authoritative bytes and declared context budget.",
+    "scopeLimit": "Budget is a measurable resource limit, not skill quality or host invocation correctness.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/48-skill-description-budget.test.ts",
+    "criteria": {
+      "relevance": "Skill descriptions preserve exact authoritative bytes and declared context budget.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Budget is a measurable resource limit, not skill quality or host invocation correctness.",
+      "theatre": "Retain only the stated structural/executable claim. Budget is a measurable resource limit, not skill quality or host invocation correctness.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Budget is a measurable resource limit, not skill quality or host invocation correctness.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Budget is a measurable resource limit, not skill quality or host invocation correctness."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/49-executor-tier-parity.test.ts",
+    "contract": "Executor tier contracts agree across consumers and owners.",
+    "scopeLimit": "Parity does not prove actual selected model/profile; native override and receipts remain separate.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/49-executor-tier-parity.test.ts",
+    "criteria": {
+      "relevance": "Executor tier contracts agree across consumers and owners.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Parity does not prove actual selected model/profile; native override and receipts remain separate.",
+      "theatre": "Retain only the stated structural/executable claim. Parity does not prove actual selected model/profile; native override and receipts remain separate.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Parity does not prove actual selected model/profile; native override and receipts remain separate.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Parity does not prove actual selected model/profile; native override and receipts remain separate."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/50-cold-seat-inputs-ref.test.ts",
+    "contract": "Cold-seat inputs references and install return-code assertions retain declared boundaries.",
+    "scopeLimit": "Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/50-cold-seat-inputs-ref.test.ts",
+    "criteria": {
+      "relevance": "Cold-seat inputs references and install return-code assertions retain declared boundaries.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail.",
+      "theatre": "Retain only the stated structural/executable claim. Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail."
+    },
+    "decision": "retain-bounded-witness"
+  },
+  {
+    "id": "test:packages/core/principles/50-install-rc-asserted.test.ts",
+    "contract": "Cold-seat inputs references and install return-code assertions retain declared boundaries.",
+    "scopeLimit": "Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail.",
+    "oracleRef": "evidence/source-census.json.gz#packages/core/principles/50-install-rc-asserted.test.ts",
+    "criteria": {
+      "relevance": "Cold-seat inputs references and install return-code assertions retain declared boundaries.",
+      "effectiveness": "Observed source predicates/assertions constrain this finite contract. Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail.",
+      "theatre": "Retain only the stated structural/executable claim. Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail.",
+      "tautology": "Registry/source equality is assessed as consistency, not independent runtime proof. Seeded positive/negative expectations and exact assertion expressions remain visible in the source/case inventory.",
+      "duplication": "Compare populations and timing, not titles. Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail.",
+      "costEffectiveness": "Retain useful obligation; no same-quality removal established. Aggregate principles CI/local cost is recorded; per-file current execution cost not invented.",
+      "sufficiency": "Separate files: inputs-ref presence does not prove source reading; install-rc historical ratchet admits326legacy candidates as baseline, not correctness certification. New omissions must fail."
+    },
+    "decision": "retain-bounded-witness"
+  }
+]

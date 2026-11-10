@@ -1,0 +1,5 @@
+{
+  "command": "SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh",
+  "status": 0,
+  "seconds": 404.938
+}

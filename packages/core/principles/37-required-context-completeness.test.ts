@@ -11,8 +11,9 @@
  * > trigger carries no filter, so its context reports on every PR rather than leaving the PR
  * > pending forever.
  * > **NOT authoritative for:** project goal — see README.md#why-this-exists. Whether a declared
- * > context is actually REGISTERED on GitHub — that is unreadable from CI by construction
- * > (workflow-integrity.yml:32-42, measured on PR #1102) and stays an operator responsibility.
+ * > context is actually REGISTERED on GitHub — registration stays an operator responsibility.
+ * > The B8 offline corpus verifies the actual live observer against fixed transport responses;
+ * > it is not a receipt of current GitHub policy or hosted token permissions.
  * > The wiring of jobs INSIDE audit-self.yml into the `ci-success` aggregate — see
  * > `packages/core/principles/36-ci-needs-completeness.test.ts`.
  *
@@ -49,14 +50,14 @@
  *
  * Mechanically detectable → gate, not injection (§3 step 1). A principle test is the earliest
  * gate that fires: the principles suite runs at pre-push (`principlesMetaSection`,
- * packages/core/hooks/pre-push.ts) and in CI (`principles-meta-tests`, audit-self.yml:335) —
+ * packages/core/hooks/pre-push.ts) and in CI (`principles-meta-tests`, audit-self.yml:343) —
  * developer-time first, CI as backstop, per the README "earliest reachable channel" invariant.
  *
- * Deliberately NOT placed in `workflow-integrity.yml`'s own job: that job cannot read branch
- * protection with GITHUB_TOKEN (no grantable permission scope — measured on PR #1102), so it is
- * best-effort by construction and can never be the gate. This test asserts the tractable half —
- * that the in-repo declaration is complete and internally consistent — and leaves the live-state
- * comparison to that best-effort job, which now has a complete spec to compare against.
+ * The declaration gate remains here in the earlier principle channel. The separate paths-filtered
+ * workflow observes ordinary branch metadata through Bash+gh+jq: concrete complete classic
+ * metadata passes, known missing fails 1, unsupported/unreadable state fails 2. That observation
+ * status is deliberately nonrequired and does not register or enforce merge policy. The B8
+ * corpus below drives both the shipped helper and the actual YAML run-block without network.
  *
  * ## Prior art (build-vs-reuse, CLAUDE.md capability-commit gate)
  *
@@ -81,9 +82,21 @@
  * (.claude/rules/destination-environment-verification.md §4 `#contract-that-cannot-fail`).
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import {
+  readFileSync,
+  readdirSync,
+  existsSync,
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+const { load } = createRequire(import.meta.url)('js-yaml') as { load: (source: string) => unknown };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../../');
@@ -677,4 +690,283 @@ describe('Principle 37 — required status contexts are declared once and restat
       ),
     ).toBeNull();
   });
+});
+
+// B8: transport fixtures are fixed GitHub responses, never copies of the detector.
+// Deleting the workflow call or green-washing the helper must break missing/unknown cases.
+const LIVE_HELPER = resolve(REPO_ROOT, 'scripts/check-required-contexts.sh');
+const integrityRunBlock = (): string => {
+  const wf = load(readFileSync(INTEGRITY, 'utf8')) as {
+    jobs: Record<string, { steps: { run?: string }[] }>;
+  };
+  const blocks = wf.jobs['branch-protection-assertion'].steps.filter(
+    (s) => s.run,
+  );
+  expect(blocks).toHaveLength(1);
+  return blocks[0].run!;
+};
+
+describe('Principle 37 — actual live required-context CLI and workflow conformance (offline)', () => {
+  // Independent fixture population is tied to the existing declaration-equality arm (c).
+  const wanted = [
+    'Template render probes — P1/P4/P6 (deterministic)',
+    'capability PR carries Prior-art line in PR body (squash-survival)',
+    'ci-success',
+    'fidelity-verdict-in-pr-body',
+    'stale-revert-in-pr-diff',
+    '§1.7 forward+backward sections present in PR description',
+  ];
+  const classic = (contexts: unknown, checks?: unknown): string =>
+    JSON.stringify({
+      name: 'staging',
+      protected: true,
+      protection: {
+        enabled: true,
+        required_status_checks: {
+          contexts,
+          ...(checks === undefined ? {} : { checks }),
+        },
+      },
+    });
+  const cases = [
+    {
+      name: 'complete classic contexts',
+      branch: classic(wanted),
+      rules: '[]',
+      status: 0,
+      message: 'READABLE COMPLETE',
+    },
+    {
+      name: 'complete real checks schema',
+      branch: classic(
+        [],
+        wanted.map((context) => ({ context, app_id: 15368 })),
+      ),
+      rules: '[]',
+      status: 0,
+      message: 'READABLE COMPLETE',
+    },
+    {
+      name: 'known missing three',
+      branch: classic(wanted.slice(2, 5)),
+      rules: '[]',
+      status: 1,
+      message: wanted[0],
+    },
+    {
+      name: 'unprotected known empty',
+      branch:
+        '{"name":"staging","protected":false,"protection":{"enabled":false,"required_status_checks":null}}',
+      rules: '[]',
+      status: 1,
+      message: 'READABLE MISSING',
+    },
+    {
+      name: 'protected without status requirement',
+      branch:
+        '{"name":"staging","protected":true,"protection":{"enabled":true,"required_status_checks":null}}',
+      rules: '[]',
+      status: 1,
+      message: 'READABLE MISSING',
+    },
+    {
+      name: 'inactive ruleset known missing',
+      branch: classic([]),
+      rules: '[{"enforcement":"disabled"}]',
+      status: 1,
+      message: 'READABLE MISSING',
+    },
+    {
+      name: 'active uninspected ruleset',
+      branch: classic([]),
+      rules: '[{"enforcement":"active"}]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'branch HTTP failure despite valid complete body',
+      branch: classic(wanted),
+      rules: '[]',
+      branchStatus: 42,
+      status: 2,
+      message: 'API exit 42',
+    },
+    {
+      name: 'branch malformed JSON',
+      branch: '{',
+      rules: '[]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'branch unknown schema',
+      branch: '{}',
+      rules: '[]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'protected branch missing required checks schema',
+      branch:
+        '{"name":"staging","protected":true,"protection":{"enabled":true}}',
+      rules: '[]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'branch wrong JSON type',
+      branch: '[]',
+      rules: '[]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'branch contexts wrong type',
+      branch: classic('ci-success'),
+      rules: '[]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'branch checks malformed',
+      branch: classic([], [{ context: 42 }]),
+      rules: '[]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'branch multiple JSON documents',
+      branch: classic(wanted) + '\n' + classic(wanted),
+      rules: '[]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'rules API failure despite valid empty body',
+      branch: classic([]),
+      rules: '[]',
+      rulesStatus: 42,
+      status: 2,
+      message: 'API exit 42',
+    },
+    {
+      name: 'rules malformed JSON',
+      branch: classic([]),
+      rules: '[',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'rules unknown schema',
+      branch: classic([]),
+      rules: '{}',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'rules unknown enforcement',
+      branch: classic([]),
+      rules: '[{}]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'paginated later active ruleset',
+      branch: classic([]),
+      rules: '[]\n[{"enforcement":"active"}]',
+      status: 2,
+      message: 'UNVERIFIED',
+    },
+    {
+      name: 'classic complete needs no rules API',
+      branch: classic(wanted),
+      rules: '{}',
+      rulesStatus: 42,
+      status: 0,
+      message: 'READABLE COMPLETE',
+    },
+  ];
+  it('helper changes reach the existing observer with repository passed through env', () => {
+    const wf = load(readFileSync(INTEGRITY, 'utf8')) as {
+      on: Record<string, { paths: string[] }>;
+      jobs: Record<string, { steps: { env?: Record<string, string> }[] }>;
+    };
+    for (const event of ['pull_request', 'push']) {
+      expect(wf.on[event].paths).toContain(
+        'scripts/check-required-contexts.sh',
+      );
+    }
+    const step = wf.jobs['branch-protection-assertion'].steps.find(
+      (s) => s.env?.GH_TOKEN,
+    );
+    expect(step?.env?.GH_REPO).toBe('${{ github.repository }}');
+  });
+  for (const fixture of cases) {
+    // The wrapper has no schema logic: retain success, exact missing list, and
+    // early/late transport failure. All distinct helper schemas remain below.
+    const wrapperCases = ['complete classic contexts', 'known missing three',
+      'branch HTTP failure despite valid complete body', 'rules API failure despite valid empty body'];
+    for (const entry of ['helper', 'workflow'] as const) {
+      if (entry === 'workflow' && !wrapperCases.includes(fixture.name)) continue;
+      it(`${entry}: ${fixture.name} => ${fixture.status}`, () => {
+        const dir = mkdtempSync(resolve(tmpdir(), 'p37-live-'));
+        try {
+          writeFileSync(resolve(dir, 'branch.json'), fixture.branch);
+          writeFileSync(resolve(dir, 'rules.json'), fixture.rules);
+          writeFileSync(
+            resolve(dir, 'gh'),
+            `#!/bin/bash
+printf '%s\\n' "$*" >> "$FIXTURE_DIR/requests"
+case "$*" in
+  'api repos/fixture/repo/branches/staging') cat "$FIXTURE_DIR/branch.json"; exit "$BRANCH_STATUS" ;;
+  'api --paginate repos/fixture/repo/rulesets?includes_parents=true&per_page=100') cat "$FIXTURE_DIR/rules.json"; exit "$RULES_STATUS" ;;
+  *) echo "unexpected gh request: $*" >&2; exit 97 ;;
+esac
+`,
+            { mode: 0o755 },
+          );
+          const result = spawnSync(
+            'bash',
+            entry === 'helper'
+              ? [LIVE_HELPER, JSON.stringify(wanted)]
+              : ['-e', '-o', 'pipefail', '-c', integrityRunBlock()],
+            {
+              cwd: REPO_ROOT,
+              env: {
+                ...process.env,
+                PATH: `${dir}:${process.env.PATH}`,
+                GH_REPO: 'fixture/repo',
+                FIXTURE_DIR: dir,
+                BRANCH_STATUS: String(fixture.branchStatus ?? 0),
+                RULES_STATUS: String(fixture.rulesStatus ?? 0),
+              },
+              encoding: 'utf8',
+              timeout: 10000,
+            },
+          );
+          const output = result.stdout + result.stderr;
+          expect(result.error, output).toBeUndefined();
+          expect(result.status, output).toBe(fixture.status);
+          expect(output).toContain(fixture.message);
+          if (fixture.name === 'classic complete needs no rules API') {
+            expect(readFileSync(resolve(dir, 'requests'), 'utf8')).toBe(
+              'api repos/fixture/repo/branches/staging\n',
+            );
+          }
+          if (fixture.status === 0)
+            expect(output).toContain('branches/staging');
+          if (fixture.status === 1) {
+            expect(output).toContain('Settings → Branches → staging');
+            if (fixture.name === 'known missing three') {
+              expect(output).toContain(
+                `missing required contexts: ${JSON.stringify([wanted[0], wanted[1], wanted[5]])}`,
+              );
+            }
+          }
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      });
+    }
+  }
 });

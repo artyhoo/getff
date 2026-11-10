@@ -1,0 +1,1 @@
+✓ .husky/ hooks present, executable, non-trivial

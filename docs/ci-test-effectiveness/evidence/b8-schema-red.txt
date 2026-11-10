@@ -1,0 +1,90 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ❯ packages/core/principles/37-required-context-completeness.test.ts (56 tests | 2 failed) 1570ms
+     ✓ (a) non-vacuity: the parsers see the real workflows, not an empty parse 11ms
+     ✓ (b) every declarable job carries a `# required-context:` marker with a substantive rationale 8ms
+     ✓ (c) real-tree: both in-repo lists equal the declared set exactly 13ms
+     ✓ (d) paired-negative (seeded flip): a job flipped to `yes` must break both lists 1ms
+     ✓ (e) paired-negative (seeded removal): a job with no marker must be detected, never defaulted 1ms
+     ✓ (f) paired-negative (seeded list edit): dropping an entry from either list must be detected 14ms
+     ✓ (g) fail-closed: an unparseable list yields null, never a vacuous pass 2ms
+     ✓ (h) the audit-self carve-out is covered by its sibling gate 2ms
+     ✓ (i) every declared-required context sits behind an UNFILTERED pull_request: trigger 8ms
+     ✓ (j) paired-negative (seeded filter): GREEN on the real tree, RED once a declared-required workflow is filtered 13ms
+     ✓ (k) the filter parser is scoped to pull_request, and reads the inline trigger grammar 3ms
+     ✓ helper changes reach the existing observer with repository passed through env 6ms
+     ✓ helper: complete classic contexts => 0 39ms
+     ✓ workflow: complete classic contexts => 0 32ms
+     ✓ helper: complete real checks schema => 0 34ms
+     ✓ workflow: complete real checks schema => 0 29ms
+     ✓ helper: known missing three => 1 40ms
+     ✓ workflow: known missing three => 1 40ms
+     ✓ helper: unprotected known empty => 1 32ms
+     ✓ workflow: unprotected known empty => 1 35ms
+     ✓ helper: protected without status requirement => 1 41ms
+     ✓ workflow: protected without status requirement => 1 43ms
+     ✓ helper: inactive ruleset known missing => 1 39ms
+     ✓ workflow: inactive ruleset known missing => 1 37ms
+     ✓ helper: active uninspected ruleset => 2 62ms
+     ✓ workflow: active uninspected ruleset => 2 39ms
+     ✓ helper: active ruleset plus sufficient classic witness => 0 25ms
+     ✓ workflow: active ruleset plus sufficient classic witness => 0 41ms
+     ✓ helper: branch HTTP failure despite valid complete body => 2 34ms
+     ✓ workflow: branch HTTP failure despite valid complete body => 2 22ms
+     ✓ helper: branch malformed JSON => 2 24ms
+     ✓ workflow: branch malformed JSON => 2 29ms
+     ✓ helper: branch unknown schema => 2 30ms
+     ✓ workflow: branch unknown schema => 2 26ms
+     × helper: protected branch missing required checks schema => 2 56ms
+     × workflow: protected branch missing required checks schema => 2 36ms
+     ✓ helper: branch wrong JSON type => 2 18ms
+     ✓ workflow: branch wrong JSON type => 2 24ms
+     ✓ helper: branch contexts wrong type => 2 23ms
+     ✓ workflow: branch contexts wrong type => 2 19ms
+     ✓ helper: branch checks malformed => 2 19ms
+     ✓ workflow: branch checks malformed => 2 23ms
+     ✓ helper: branch multiple JSON documents => 2 18ms
+     ✓ workflow: branch multiple JSON documents => 2 20ms
+     ✓ helper: rules API failure despite valid empty body => 2 36ms
+     ✓ workflow: rules API failure despite valid empty body => 2 37ms
+     ✓ helper: rules malformed JSON => 2 51ms
+     ✓ workflow: rules malformed JSON => 2 42ms
+     ✓ helper: rules unknown schema => 2 37ms
+     ✓ workflow: rules unknown schema => 2 46ms
+     ✓ helper: rules unknown enforcement => 2 34ms
+     ✓ workflow: rules unknown enforcement => 2 49ms
+     ✓ helper: paginated later active ruleset => 2 32ms
+     ✓ workflow: paginated later active ruleset => 2 37ms
+     ✓ helper: classic complete needs no rules API => 0 23ms
+     ✓ workflow: classic complete needs no rules API => 0 25ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > helper: protected branch missing required checks schema => 2
+ FAIL  packages/core/principles/37-required-context-completeness.test.ts > Principle 37 — actual live required-context CLI and workflow conformance (offline) > workflow: protected branch missing required checks schema => 2
+AssertionError: ::error::READABLE MISSING: source GET repos/fixture/repo/branches/staging plus GET repos/fixture/repo/rulesets?includes_parents=true&per_page=100 (empty/inactive rulesets); missing required contexts: ["Template render probes — P1/P4/P6 (deterministic)","capability PR carries Prior-art line in PR body (squash-survival)","ci-success","fidelity-verdict-in-pr-body","stale-revert-in-pr-diff","§1.7 forward+backward sections present in PR description"]
+::error::Settings → Branches → staging → Require status checks → add: ["Template render probes — P1/P4/P6 (deterministic)","capability PR carries Prior-art line in PR body (squash-survival)","ci-success","fidelity-verdict-in-pr-body","stale-revert-in-pr-diff","§1.7 forward+backward sections present in PR description"] (preserve existing policy)
+: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ packages/core/principles/37-required-context-completeness.test.ts:947:41
+    945|           const output = result.stdout + result.stderr;
+    946|           expect(result.error, output).toBeUndefined();
+    947|           expect(result.status, output).toBe(fixture.status);
+       |                                         ^
+    948|           expect(output).toContain(fixture.message);
+    949|           if (fixture.status === 0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 54 passed (56)
+   Start at  19:11:42
+   Duration  2.06s (transform 87ms, setup 45ms, import 89ms, tests 1.57s, environment 0ms)

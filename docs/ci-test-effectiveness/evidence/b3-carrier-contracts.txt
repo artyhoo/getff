@@ -1,0 +1,12 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/principles/38-vitest-include-ci-coverage.test.ts (7 tests) 203ms
+ ✓ packages/core/principles/37-required-context-completeness.test.ts (11 tests) 197ms
+ ✓ packages/core/principles/36-ci-needs-completeness.test.ts (8 tests) 369ms
+
+ Test Files  3 passed (3)
+      Tests  26 passed (26)
+   Start at  16:31:33
+   Duration  1.09s (transform 287ms, setup 165ms, import 284ms, tests 769ms, environment 0ms)
+

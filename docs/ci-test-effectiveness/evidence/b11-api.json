@@ -1,0 +1,11 @@
+{
+  "command": [
+    "node",
+    "--experimental-import-meta-resolve",
+    "docs/ci-test-effectiveness/evidence/b11-api-comparison.mjs"
+  ],
+  "exit": 0,
+  "elapsedSeconds": 0.295331,
+  "log": "docs/ci-test-effectiveness/evidence/b11-api.txt",
+  "logSHA256": "9056c234393d1b8b41b575ca483f3e0184610a9e7a57acec70436dbf0d1e43ef"
+}

@@ -1,0 +1,10 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/hooks/ci-checker-oracles.test.ts (16 tests) 548ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  16:33:27
+   Duration  1.02s (transform 61ms, setup 62ms, import 79ms, tests 548ms, environment 0ms)
+

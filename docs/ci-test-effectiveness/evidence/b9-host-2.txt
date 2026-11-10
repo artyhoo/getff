@@ -1,0 +1,11 @@
+✔ shipped review-sidecar carries the exact triage yardstick without an unshipped rule dependency (1.928062ms)
+✔ finding template carries the required failure scenario and per-axis provenance (1.940636ms)
+✔ AIF binding delivers the canonical protection rubric and consumed-record protocol (0.310861ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 97.062522

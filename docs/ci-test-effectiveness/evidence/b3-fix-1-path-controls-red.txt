@@ -1,0 +1,56 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 1 failed) 555ms
+     ✓ binds the required non-main PR gate, including body edits, to the shared checker 7ms
+     ✓ Incident-1 uncited prose 30ms
+     ✓ cited valid body 22ms
+     ✓ empty body 9ms
+     ✓ missing backward section 20ms
+     ✓ short forward 18ms
+     ✓ short backward 16ms
+     ✓ distinct uncited backward 24ms
+     ✓ malformed citation 21ms
+     ✓ citation outside section 27ms
+     ✓ Skip at 60 characters 12ms
+     ✓ Skip with supported-size UTF-8 content 36ms
+     ✓ Skip below 60 characters 18ms
+     ✓ section length exactly 40 28ms
+     ✓ section length below 40 23ms
+     × has a safe manual fixture carrier in the recurring core hook suite 212ms
+     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 26ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > production husky checker > has a safe manual fixture carrier in the recurring core hook suite
+AssertionError: expected [] to deeply equal [ StringMatching{…}, …(5) ]
+
+- Expected
++ Received
+
+- [
+-   StringMatching /^::error::missing .+\/missing-pre-commit\/pre-commit$/,
+-   StringMatching /^::error::.+\/nonexec-pre-commit\/pre-commit not executable$/,
+-   StringMatching /^::error::.+\/stub-pre-commit\/pre-commit lacks expected probes/,
+-   StringMatching /^::error::missing .+\/missing-pre-push\/pre-push$/,
+-   StringMatching /^::error::.+\/nonexec-pre-push\/pre-push not executable$/,
+-   StringMatching /^::error::.+\/stub-pre-push\/pre-push lacks expected probes/,
+- ]
++ []
+
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:79:86
+     77|     // Independent path expectations prevent a fixture helper from sil…
+     78|     // the outer hook subject while the wrapper still prints its final…
+     79|     expect(result.stdout.split('\n').filter((line) => line.startsWith(…
+       |                                                                                      ^
+     80|       expect.stringMatching(/^::error::missing .+\/missing-pre-commit\…
+     81|       expect.stringMatching(/^::error::.+\/nonexec-pre-commit\/pre-com…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 passed (17)
+   Start at  17:06:10
+   Duration  1.08s (transform 48ms, setup 51ms, import 106ms, tests 555ms, environment 0ms)
+

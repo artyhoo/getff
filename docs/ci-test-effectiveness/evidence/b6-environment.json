@@ -1,0 +1,27 @@
+{
+  "observedUTC": "2026-11-08",
+  "repository": "/workspace/getff-native",
+  "inputCommit": "4044007fd1b1cdcd6ae6fe804c14f3ab96899986",
+  "branch": "codex/ci-test-effectiveness-native",
+  "pathPrefix": "/workspace/getff-tools/bin:/workspace/getff-tools/venv/bin:$PATH",
+  "platform": "Linux x86_64",
+  "tools": {
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "vitest": "4.1.8",
+    "rsync": "3.5.0 at /workspace/getff-tools/bin/rsync",
+    "astGrep": "absent; existing explicit unverified/skipped policy retained"
+  },
+  "sourceSHA256": {
+    "packages/core/hooks/glossary-counters.test.ts": "25b27342837e7b4f5b7a0e7e86e6f1ece0cb06630816884ad800d37b9aba7424",
+    "packages/getff/MANIFEST.sha256": "fbcf40e4e39139562b7192f01bf552fb46df060417e2c617015e8adf05f36329"
+  },
+  "rawRefs": [
+    "b6-focused.txt",
+    "b6-full-hooks.txt",
+    "b6-manifest-initial-check.txt",
+    "b6-manifest-generate.txt",
+    "b6-manifest-final-check.txt",
+    "b6-source-diff.txt"
+  ]
+}

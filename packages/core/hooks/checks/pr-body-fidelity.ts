@@ -40,7 +40,12 @@ import { remark } from 'remark';
 import { stripHtmlComments } from '../utils/markdown-comments.ts';
 import { FILE_LINE_RE } from './s17.ts';
 
-export interface FidelityCheckInput { body: string; headSha: string; }
+export interface FidelityCheckInput {
+  body: string;
+  headSha: string;
+  /** Supplied by the actual checked Git range, never by a PR-body applicability flag. */
+  protection?: { baseSha: string; paths: string[] };
+}
 export interface FidelityCheckResult { ok: boolean; errors: string[]; }
 
 const HEADING_RE = /^##[ \t]+Fidelity verdict[ \t]*$/;
@@ -211,8 +216,68 @@ function hasEvidence(section: string): boolean {
     .some((l) => FILE_LINE_RE.test(l));
 }
 
-export function checkPrBodyFidelity({ body, headSha }: FidelityCheckInput): FidelityCheckResult {
+/**
+ * Conservative scope: ordinary documentation alone needs no extra seat. Check
+ * instructions and every non-document path can affect protection; unknown paths
+ * require review rather than silently declaring an empty scope. Renames arrive
+ * as both old and new paths. Git failure is handled before this pure function.
+ */
+export function needsProtectionReview(paths: string[]): boolean {
+  return paths.some((path) =>
+    /(?:^|\/)(?:tests?|__tests__|scripts|hooks|principles|\.github|\.husky)(?:\/|$)/i.test(path)
+    || /(?:review-sidecar|aif-review|harvest)/.test(path)
+    || !/\.(?:md|mdx|rst|txt|png|jpe?g|gif|svg|webp)$/i.test(path),
+  );
+}
+
+/** Small consumed record, not a semantic verifier or authenticated verdict store.
+ * Reuses remark (SSOT #58) and the existing PR-body host (#305).
+ * Only root-level tagged fences count; quoted examples/comments cannot satisfy it.
+ */
+function protectionErrors(body: string, headSha: string, binding: NonNullable<FidelityCheckInput['protection']>): string[] {
+  if (!needsProtectionReview(binding.paths)) return [];
+  const records = remark().parse(stripHtmlComments(body)).children.filter(
+    (node) => node.type === 'code' && node.lang === 'protection-review',
+  );
+  if (records.length !== 1) return ['protection-review: exactly one top-level record required for this actual diff'];
+  const record = records[0];
+  if (record.type !== 'code') return ['protection-review: invalid record'];
+  let value: unknown;
+  try { value = JSON.parse(record.value); }
+  catch { return ['protection-review: malformed JSON']; }
+  const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const text = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
+  const texts = (v: unknown): v is string[] => Array.isArray(v) && v.length > 0 && v.every(text);
+  if (!object(value)) return ['protection-review: record must be an object'];
   const errors: string[] = [];
+  const require = (condition: boolean, message: string): void => { if (!condition) errors.push(`protection-review: ${message}`); };
+  require(value.version === 1, 'version must be 1');
+  require(value.base === binding.baseSha, 'base must equal actual merge-base');
+  require(value.head === headSha && /^[0-9a-f]{40}$/.test(headSha), 'head must equal full current head');
+  require(Array.isArray(value.scope) && value.scope.every(text)
+    && JSON.stringify([...value.scope].sort()) === JSON.stringify([...binding.paths].sort()), 'scope must equal actual changed paths (old and new for renames)');
+  for (const field of ['reviewer', 'report', 'consumedBy', 'basis']) require(text(value[field]), `${field} must be nonempty`);
+  const history = value.history;
+  require(object(history) && (
+    (history.status === 'available' && texts(history.traces) && history.traces.length <= 2)
+    || (history.status === 'unavailable' && text(history.reason) && text(history.ownerDecision))
+  ), 'history needs at most two matched traces or unavailable reason and bounded ownerDecision');
+  require(Array.isArray(value.findings), 'findings must be an array (zero assessed findings is valid)');
+  const ids = new Set<string>();
+  for (const finding of Array.isArray(value.findings) ? value.findings : []) {
+    if (!object(finding)) { errors.push('protection-review: finding must be an object'); continue; }
+    require(text(finding.id) && !ids.has(finding.id), 'finding id must be nonempty and unique');
+    if (text(finding.id)) ids.add(finding.id);
+    for (const field of ['failureScenario', 'class']) require(text(finding[field]), `finding ${field} must be nonempty`);
+    require(texts(finding.evidence), 'finding evidence must contain traceable references');
+    require(text(finding.disposition) && ['fixed', 'retained-with-evidence', 'owner-accepted-deferral'].includes(finding.disposition), 'unresolved or invalid disposition blocks acceptance');
+    if (finding.disposition === 'owner-accepted-deferral') require(text(finding.ownerAcceptance), 'deferral requires explicit ownerAcceptance reference');
+  }
+  return errors;
+}
+
+export function checkPrBodyFidelity({ body, headSha, protection }: FidelityCheckInput): FidelityCheckResult {
+  const errors: string[] = protection ? protectionErrors(body, headSha, protection) : [];
   errors.push(...reviewFindingsErrors(stripHtmlComments(body).split(/\r?\n/)));
   const { section, error } = extractSection(body);
   if (section === null) return { ok: false, errors: [error as string] };

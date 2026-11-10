@@ -1554,16 +1554,20 @@ describe(
       !spawnSync('ruff', ['--version']).error ||
       !spawnSync('uvx', ['--version']).error;
 
-    // Does this runner have ast-grep? The NEGATIVE RED path needs it present; CI installs the
-    // pinned ast-grep before test:hooks. A box without it green-skips (never a false GREEN).
-    // Existence is NOT enough: on Linux, /usr/bin/sg is shadow-utils' setgroup tool, not
-    // ast-grep — an `sg` impostor made the exit-code-keyed runner read its error exit as
-    // "every rule fires" (the A7-2 theatre the diagnostics-based verdict exposes), so the sg
-    // branch must prove the binary answers `scan --help` (rc 0 on a real ast-grep), mirroring
-    // the runner's own _sg_is_astgrep probe.
+    // The real-tool controls need ast-grep; CI installs its exact pin before test:hooks.
+    // sg/newgrp can answer `scan --help` with status 0, so the ambiguous alias also needs
+    // ast-grep's version identity, matching the firing runner's _sg_is_astgrep probe.
+    // An absent tool retains an explicit skipped test; scan rejection is not tool absence.
     const hasAstGrep =
       spawnSync('ast-grep', ['--version']).status === 0 ||
-      spawnSync('sg', ['scan', '--help']).status === 0;
+      (() => {
+        const version = spawnSync('sg', ['--version'], { encoding: 'utf8' });
+        return (
+          version.status === 0 &&
+          /^ast-grep\s[0-9]/.test(version.stdout) &&
+          spawnSync('sg', ['scan', '--help']).status === 0
+        );
+      })();
 
     it('S5 POSITIVE — astgrep sidecar present, lane tool ABSENT → LOUD skip + exit 0 (NOT a silent green)', () => {
       const { dir, hook } = makeConsumerSandbox();

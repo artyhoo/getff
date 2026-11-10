@@ -1,0 +1,35 @@
+[
+  {
+    "label": "weakening",
+    "command": "bash <fixture>/scripts/run-local-ci-sweep.test.sh",
+    "sourceSHA256": "68ba4d42330ea3ccd084ed1d43570ded2e6a4de32f82e3a38379f19e9f22d747",
+    "testSHA256": "c0d4a85633b6fd7037b0dec5e780c7629bf506a762642c7211729a8a5572f1ad",
+    "expectedExit": 1,
+    "actualExit": 1,
+    "heldConformancePass": true,
+    "elapsedSeconds": 8.430840844999693,
+    "evidenceRef": "b1-weakening.txt"
+  },
+  {
+    "label": "restoration",
+    "command": "bash <fixture>/scripts/run-local-ci-sweep.test.sh",
+    "sourceSHA256": "99b922bbee439afa0a8c1e3e070726e812a9ea4eb2f697f32d973f2e809ec263",
+    "testSHA256": "c0d4a85633b6fd7037b0dec5e780c7629bf506a762642c7211729a8a5572f1ad",
+    "expectedExit": 0,
+    "actualExit": 0,
+    "heldConformancePass": true,
+    "elapsedSeconds": 8.715405638000448,
+    "evidenceRef": "b1-restoration.txt"
+  },
+  {
+    "label": "detector-disable",
+    "command": "bash <fixture>/scripts/run-local-ci-sweep.test.sh",
+    "sourceSHA256": "68ba4d42330ea3ccd084ed1d43570ded2e6a4de32f82e3a38379f19e9f22d747",
+    "testSHA256": "3b7de2caa79cf164badd40f016165bea8775ecdd03f552c4dda4fb47180ef3da",
+    "expectedExit": 1,
+    "actualExit": 0,
+    "heldConformancePass": false,
+    "elapsedSeconds": 7.454264175999924,
+    "evidenceRef": "b1-detector-disable.txt"
+  }
+]

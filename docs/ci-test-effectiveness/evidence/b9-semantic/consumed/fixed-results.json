@@ -1,0 +1,32 @@
+[
+  {
+    "case": "c1",
+    "originalFinding": "C1-TQ-01",
+    "fixedHead": "f82d2209b1b8344908102403610bd20233349b3d",
+    "expectedExit": 0,
+    "actualExit": 0,
+    "seconds": 1.202,
+    "independentFixReviewSHA256": "51f1edba6b5893e103898c4f5e41b36206c75cfab2a00d126ad131ce3f823bb7",
+    "claim": "Actual source fix + same cold seat narrow static verification + actual CLI disposition consumption; not hosted execution."
+  },
+  {
+    "case": "c0",
+    "originalFinding": "C0-TQ-01",
+    "fixedHead": "ebab6d29765a7ed564f29461366f6a327dc00401",
+    "expectedExit": 0,
+    "actualExit": 0,
+    "seconds": 1.566,
+    "independentFixReviewSHA256": "51f1edba6b5893e103898c4f5e41b36206c75cfab2a00d126ad131ce3f823bb7",
+    "claim": "Actual source fix + same cold seat narrow static verification + actual CLI disposition consumption; not hosted execution."
+  },
+  {
+    "case": "c2",
+    "originalFinding": "C2-TQ-01",
+    "fixedHead": "7dcfd7a204312282b9c9a1adb3652dffeb73c3e4",
+    "expectedExit": 0,
+    "actualExit": 0,
+    "seconds": 2.001,
+    "independentFixReviewSHA256": "51f1edba6b5893e103898c4f5e41b36206c75cfab2a00d126ad131ce3f823bb7",
+    "claim": "Actual source fix + same cold seat narrow static verification + actual CLI disposition consumption; not hosted execution."
+  }
+]

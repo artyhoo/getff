@@ -1,0 +1,42 @@
+{
+  "batch": "B3",
+  "task": 4,
+  "status": "ACCEPTED_WITH_MINOR",
+  "reviewedBase": "9baa971338598082e4b261703cde1d1a2989b094",
+  "reviewedHead": "dff12e2fe602563266de8dbc2b422ccdd6a98d42",
+  "decisionIds": [
+    "D08",
+    "D07-manual-husky-member"
+  ],
+  "specCompliance": "PASS after fix1",
+  "taskQuality": "PASS after fix1",
+  "reviews": [
+    {
+      "path": "docs/ci-test-effectiveness/acceptance/b3-initial-review.md",
+      "sha256": "8f2b5adba3a54e05c5543cf27c2b659d428f14f447b683cae1e452540ad88281"
+    },
+    {
+      "path": "docs/ci-test-effectiveness/acceptance/b3-fix-1-review.md",
+      "sha256": "9a7a32d9d6de70dc59d79576c1cf3d55f761e8f68913173c67647a48e34a7e6b"
+    }
+  ],
+  "at": "2026-11-08T17:20:46.371536+00:00",
+  "findings": {
+    "I1": "ADDRESSED: both actual hook targets and six adverse shapes; partial checker fault caught",
+    "M1": "ADDRESSED: current17-case description",
+    "M2": "Nonblocking current five-vs-six fault description; remove duplicated count during B4 metadata reconciliation."
+  },
+  "hostVerification": "All declared commands recorded green; final17controls and six reached faults/restoration/normal archive closure reviewed. No full-hook green claim.",
+  "broadCarrier": {
+    "original": "98files/95pass/3fail,2311tests/2304pass/5fail/2skip,171.84s",
+    "hydration": "Later controller observation: unchanged5/5passes after real rsync provision; missing dependency was the cause. Portable environment evidence appended.",
+    "remaining": [
+      "False ast-grep identity via util-linux sg; subsequent scoped repair required.",
+      "Glossary full-load5s timeout vs focused3.5s; subsequent scoped disposition and final full carrier required."
+    ]
+  },
+  "limits": [
+    "Campaign E9, accepted TAK integration, other-host evidence and final required CI remain separate.",
+    "Historical unsupported195KB sourced transport diagnostic is not a public RED claim; supported116KB env companion passes both versions."
+  ]
+}

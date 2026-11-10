@@ -1,0 +1,16 @@
+{
+  "hostContract": {
+    "unchanged": true,
+    "sha256": "ce93327bbda1ee2ef60e8a0aea7cb4d2bc04a741d055e892f40073c39c606e46"
+  },
+  "outboundEnv": {
+    "unchanged": true,
+    "sha256": "ef0e6969b54fd6479a18823a5faef2402bd40eec52da1585f7915baf66f5b588"
+  },
+  ".agents/procedures/pipeline/helpers/autonomy-binding.mjs": "8d803757ed7775d2fdf4a87cc13245fd27985a5ed00056a91637a321494209c2",
+  ".agents/procedures/pipeline/helpers/autonomy-binding/engine.mjs": "e87b749bf77e5f18dcd9ff5e8797df2590d4890561dec8c8f676e684c12790ca",
+  ".agents/procedures/pipeline/helpers/autonomy-binding/record.mjs": "2a471c42a731531d0a15f0727db8e465b8133e3442ea244e33048ec2d814280d",
+  ".agents/procedures/pipeline/helpers/autonomy-binding/lock.mjs": "367cf1c5baddaa7231e6aa95bc21e445691a8f17e81c01ff3c4095238a09b85a",
+  ".agents/procedures/pipeline/helpers/autonomy-binding/store.mjs": "245d64851a0373c460afd9089f16ae3f03cff94b9eb221e810865694100ecb26",
+  ".agents/procedures/pipeline/helpers/autonomy-binding/authority.mjs": "e3d080760f23041a45ace2d57b875a0a65c82400cc560b9994b1c31e94a08471"
+}

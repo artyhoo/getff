@@ -1,0 +1,157 @@
+{
+  "status": "Finite conformance observed; independent B9 task review accepted for integration",
+  "protocolSHA256": "277796610de20a555acd7d5c7d0b2918928152fc2a9f7cb8d29666842a74a9fc",
+  "expectedFrozenBeforeRoleImplementationSHA256": "6bc746b663bccd7fb8489c335f1102f308ce5e18aaf35a3f37b4dfeb3cc3c789",
+  "originalPhase1IndexSHA256": "619133359051475b18c5b579a5a44b3afb3bdbddfeae51c2a67dc80da0920b70",
+  "inputCorrection": "c5-input-correction.json + unchanged original report + narrow c5-correction-review.md. Root input wrongly claimed empty object fails toBeDefined; rejected by cold reviewer, only that false clause corrected. Do not call original premise flawless.",
+  "assessedBy": "root controller, after original reports sealed; expected classes not given to cold reviewer/implementer",
+  "caseAssessment": [
+    {
+      "case": "c0",
+      "observed": "C0-TQ-01 equivalent root duplicate surfaced; retain true installed witness; remove actual duplicate.",
+      "expectedRelation": "matches frozen required class; no forbidden inference"
+    },
+    {
+      "case": "c1",
+      "observed": "C1-TQ-01 npm-wrapped equivalent duplicate surfaced.",
+      "expectedRelation": "matches frozen required class; spelling not treated as new protection"
+    },
+    {
+      "case": "c2",
+      "observed": "C2-TQ-01 avoidable equivalent shard imbalance surfaced; actual suites losslessly redistributed.",
+      "expectedRelation": "matches frozen required class; forecasts not measured-after speedup"
+    },
+    {
+      "case": "c3",
+      "observed": "Unique real Windows host contract retained despite same filename.",
+      "expectedRelation": "matches frozen required class; no unjustified removal"
+    },
+    {
+      "case": "c4",
+      "observed": "Useful unique cold before-merge protection retained; no unsupported warm/nightly/mock substitute.",
+      "expectedRelation": "matches frozen required class"
+    },
+    {
+      "case": "c5",
+      "observed": "Meaningful bounded runtime presence/refusal retained; return type not runtime guarantee. Root false premise independently detected and narrowly corrected.",
+      "expectedRelation": "matches unchanged expected class on corrected facts; complete string/identity contract not claimed"
+    }
+  ],
+  "actualOriginalCLI": [
+    {
+      "case": "c4",
+      "head": "8eb048c67a28f463e3a100ad558bc85797a9d111",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "seconds": 0.953,
+      "findings": [],
+      "record": "c4-original-record.json",
+      "log": "c4-original-cli.txt",
+      "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+    },
+    {
+      "case": "c1",
+      "head": "788a5d512b543ad561998a6ec2ad6c6c3f31eda3",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "seconds": 0.643,
+      "findings": [
+        "C1-TQ-01"
+      ],
+      "record": "c1-original-record.json",
+      "log": "c1-original-cli.txt",
+      "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+    },
+    {
+      "case": "c5",
+      "head": "a065cc4fbb977186f57a31b28a67a458c0652359",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "seconds": 0.9,
+      "findings": [],
+      "record": "c5-original-record.json",
+      "log": "c5-original-cli.txt",
+      "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+    },
+    {
+      "case": "c0",
+      "head": "e3a397d668a2df8f8385d21bf0cc940ea31b46ed",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "seconds": 0.738,
+      "findings": [
+        "C0-TQ-01"
+      ],
+      "record": "c0-original-record.json",
+      "log": "c0-original-cli.txt",
+      "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+    },
+    {
+      "case": "c3",
+      "head": "3617339f2e5dda1f2eac7a887efe3aaeabdccf05",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "seconds": 0.701,
+      "findings": [],
+      "record": "c3-original-record.json",
+      "log": "c3-original-cli.txt",
+      "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+    },
+    {
+      "case": "c2",
+      "head": "24b59f7599d2ab7f291de08320449fdd8ed641af",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "seconds": 0.645,
+      "findings": [
+        "C2-TQ-01"
+      ],
+      "record": "c2-original-record.json",
+      "log": "c2-original-cli.txt",
+      "claim": "Actual CLI consumes original report classification; schema cannot verify its truth."
+    }
+  ],
+  "actualFixedCLI": [
+    {
+      "case": "c1",
+      "originalFinding": "C1-TQ-01",
+      "fixedHead": "f82d2209b1b8344908102403610bd20233349b3d",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "seconds": 1.202,
+      "independentFixReviewSHA256": "51f1edba6b5893e103898c4f5e41b36206c75cfab2a00d126ad131ce3f823bb7",
+      "claim": "Actual source fix + same cold seat narrow static verification + actual CLI disposition consumption; not hosted execution."
+    },
+    {
+      "case": "c0",
+      "originalFinding": "C0-TQ-01",
+      "fixedHead": "ebab6d29765a7ed564f29461366f6a327dc00401",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "seconds": 1.566,
+      "independentFixReviewSHA256": "51f1edba6b5893e103898c4f5e41b36206c75cfab2a00d126ad131ce3f823bb7",
+      "claim": "Actual source fix + same cold seat narrow static verification + actual CLI disposition consumption; not hosted execution."
+    },
+    {
+      "case": "c2",
+      "originalFinding": "C2-TQ-01",
+      "fixedHead": "7dcfd7a204312282b9c9a1adb3652dffeb73c3e4",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "seconds": 2.001,
+      "independentFixReviewSHA256": "51f1edba6b5893e103898c4f5e41b36206c75cfab2a00d126ad131ce3f823bb7",
+      "claim": "Actual source fix + same cold seat narrow static verification + actual CLI disposition consumption; not hosted execution."
+    }
+  ],
+  "trustedBoundary": "Truthful controller, competent cold review, independently frozen bounded contract/expected class and actual Git/CLI behavior. Schema accepts plausible fabricated records; it cannot attest semantic truth or reviewer identity. No arbitrary semantic accuracy statistic or universal absence-of-duplication claim.",
+  "fixtureNature": "Synthetic fixed contract/cost premises only, no actual getff hosted measurements or fixture suite execution. Private Git bundles retain actual base/original/fixed commits. Reports preserved verbatim; original absolute paths resolve through portable manifest.",
+  "criteria": {
+    "relevance": "Reject wrong duplicate/scheduling decisions and retain unique risk witnesses under actual changed role.",
+    "effectiveness": "Blind actual protocol produced original findings before expected access; actual CLI rejected three unresolved originals, accepted meaningful companions and three independently verified real fix commits.",
+    "theatre": "Findings changed actual synthetic source, were narrowly re-reviewed and consumed by actual production CLI; record syntax alone is explicitly insufficient.",
+    "tautology": "Controller requirements/classes frozen independently before producer effects and withheld; original reports sealed before scoring. Root input error retained and corrected transparently.",
+    "duplication": "Audit-only six-case bounded corpus, same cold seat later task review; existing role/fidelity consumer, no second platform/model CI or repeated full corpus.",
+    "costEffectiveness": "Nine actual bounded CLI processes, original/fixed wall receipts retained; one cold audit-only semantic invocation + narrow correction/fix verification. Model token/$ unavailable; no future fixed model workload.",
+    "sufficiency": "Six bounded controlled examples and transport faults, no general semantic certification. Finite trusted boundary closes recursion; no driver-of-driver cascade."
+  }
+}

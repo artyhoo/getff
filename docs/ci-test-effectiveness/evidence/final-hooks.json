@@ -1,0 +1,9 @@
+{
+  "head": "10bb7294dcef8b3f887c9583cec113e6703f47ac",
+  "command": "npm --prefix packages/core run test:hooks",
+  "exitCode": 0,
+  "startedAt": "2026-11-08T20:11:29.322967+00:00",
+  "wallSeconds": 166.031,
+  "log": ".superpowers/sdd/ci-test-effectiveness/final-hooks.txt",
+  "host": "native Debian13 Node24; not hosted Node22/Windows"
+}

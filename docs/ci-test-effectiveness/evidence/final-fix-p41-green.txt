@@ -1,0 +1,15 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default principles/41-shell-test-ci-coverage.test.ts
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ✓ principles/41-shell-test-ci-coverage.test.ts (34 tests) 2925ms
+     ✓ (a) real-tree: no tracked native source test is uninvoked  1617ms
+     ✓ (I3) advisor requires the ordered direct spawn and assertion without control flow  378ms
+
+ Test Files  1 passed (1)
+      Tests  34 passed (34)
+   Start at  20:33:10
+   Duration  4.41s (transform 400ms, setup 61ms, import 1.02s, tests 2.92s, environment 0ms)

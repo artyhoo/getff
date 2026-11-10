@@ -1,0 +1,98 @@
+[
+  {
+    "id": "test",
+    "criteria": {
+      "relevance": "Run the selected regression contracts.",
+      "effectiveness": "Real runner assertion/exit for the selected population; collection alone is not sensitivity proof.",
+      "theatre": "Useful witness only when invoked with stated config/tools; empty/conditional selections remain explicit.",
+      "tautology": "Member oracles, not script presence, carry truth; shared family limits apply only to reached members.",
+      "duplication": "Same names at different cwd, tool, event or timing are not automatically redundant.",
+      "costEffectiveness": "Retain useful witnesses; measure this command/setup before optimizing. Aggregate CI timestamps are not this invocation duration.",
+      "sufficiency": "Protects the selected population only; no claim that every assertion discriminates every fault."
+    }
+  },
+  {
+    "id": "compile",
+    "criteria": {
+      "relevance": "Reject TypeScript diagnostic/type-contract violations in the configured program.",
+      "effectiveness": "tsc --noEmit loads this cwd tsconfig; nonzero diagnostics fail.",
+      "theatre": "Static typecheck is useful but provides no runtime test execution.",
+      "tautology": "Compiler judgment is independent of expected test output; permissive declarations/skipLibCheck limit strength.",
+      "duplication": "Typecheck and runtime tests expose different fault classes; no substitute or no-loss deletion shown.",
+      "costEffectiveness": "Keep bounded compiler check; cost unallocated. Workspace recursion may compile shared imports repeatedly, but no measured removable duplication established.",
+      "sufficiency": "Only the tsconfig include/exclude program and compiler policy; excluded templates/vendor/install are not covered."
+    }
+  },
+  {
+    "id": "drift",
+    "criteria": {
+      "relevance": "Detect divergence between canonical source and derived artifacts/policy.",
+      "effectiveness": "Check mode computes or inspects actual source and returns mismatch diagnostics/nonzero; exact command fixes surface.",
+      "theatre": "Byte/schema consistency is useful, not proof generated material behaves correctly.",
+      "tautology": "Expected source/generated relationship is declared separately; shared generator bugs require independent behavior witnesses.",
+      "duplication": "Write and check have distinct roles; local and CI timing are retained.",
+      "costEffectiveness": "Keep deterministic comparison at its needed boundary; no standalone timing measured. Do not infer canonical Node-chain cost.",
+      "sufficiency": "Bounded declared source/output closure; semantic correctness requires the owning test/consumer witnesses."
+    }
+  },
+  {
+    "id": "producer",
+    "criteria": {
+      "relevance": "Produce or install the command-specific artifact.",
+      "effectiveness": "Successful generation/install exit and resulting bytes are operational observations; this invocation is not an adverse test.",
+      "theatre": "Do not count producer success as a quality verdict.",
+      "tautology": "No independent expected outcome here; check-mode/tests must supply it.",
+      "duplication": "Producer and drift checker are not duplicate tests; package aliases may serve different callers.",
+      "costEffectiveness": "Run when artifact is needed; retain supported entrypoint, no recurring test-cost saving inferred.",
+      "sufficiency": "Output existence alone cannot establish behavior or installed delivery correctness."
+    }
+  },
+  {
+    "id": "scan",
+    "criteria": {
+      "relevance": "Validate the stated structural/policy input.",
+      "effectiveness": "Actual named scanner diagnostics and exit, under its declared scope/tool conditions.",
+      "theatre": "Finite static checking is useful; clean output is not general semantic certification.",
+      "tautology": "Checker policy is separate from checked input; its tests/fault controls establish sensitivity separately.",
+      "duplication": "Different policy, range, host or timing remains distinct protection.",
+      "costEffectiveness": "Keep bounded useful check; per-command maintenance and execution unmeasured, no cheapness assertion.",
+      "sufficiency": "Only the named rule/input surface; advisory and missing-tool states are not passes."
+    }
+  },
+  {
+    "id": "advisory",
+    "criteria": {
+      "relevance": "Expose a local coverage/capability limit to the operator.",
+      "effectiveness": "Emits warning; no validator runs in this row.",
+      "theatre": "Observation only: do not count as passing quality gate.",
+      "tautology": "No semantic oracle; warning is an honest unverified state.",
+      "duplication": "Not equivalent to the CI check it names.",
+      "costEffectiveness": "Negligible command body but no measured duration; retain explicit local limit.",
+      "sufficiency": "Relies on separately invoked CI/owner action, cannot block bad input."
+    }
+  },
+  {
+    "id": "native",
+    "criteria": {
+      "relevance": "Deliver the exact configured command at the named native event/matcher.",
+      "effectiveness": "Harness runs command and interprets its exit/output; registration bytes alone do not prove firing.",
+      "theatre": "Registration is delivery wiring, not another test or proof host obeyed it.",
+      "tautology": "Owned command/test oracles remain separate from configuration presence.",
+      "duplication": "Canonical/plugin/contributor registrations target different install/harness homes; do not deduplicate from matching names.",
+      "costEffectiveness": "Cost repeats at the declared event and timeout; actual native frequency/duration unmeasured.",
+      "sufficiency": "Only this event/matcher/command; native firing requires supported-host evidence, absent in S1."
+    }
+  },
+  {
+    "id": "hook",
+    "criteria": {
+      "relevance": "Dispatch declared Git lifecycle checks/producers for this entrypoint.",
+      "effectiveness": "Hook executes command chain under staged/range/tool conditions; exit propagation determines blocking.",
+      "theatre": "Hook file presence is not evidence that Git invoked it or all branches ran.",
+      "tautology": "Underlying checks carry separate policy/oracles; hook orchestration tests cover routing.",
+      "duplication": "Earlier staged checks and later range/full checks protect different timing; fallback is reduced.",
+      "costEffectiveness": "Recurring commit/push cost unallocated; optimize only with workload and retained protection evidence.",
+      "sufficiency": "Actual core.hooksPath, executable hook, capability branches and declared fallback limit coverage."
+    }
+  }
+]

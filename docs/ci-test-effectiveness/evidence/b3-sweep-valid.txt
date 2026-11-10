@@ -1,0 +1,3 @@
+[sweep] PASS enforce-husky-presence
+SWEEP: 1 gate(s) passed (mode=full)
+SWEEP: gate logs in /tmp/b3-sweep-nbzzmhh9/logs-valid

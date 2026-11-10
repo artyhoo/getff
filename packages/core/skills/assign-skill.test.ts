@@ -25,8 +25,9 @@ import {
   rmSync,
   existsSync,
   readFileSync,
+  renameSync,
 } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -58,6 +59,7 @@ function runScript(type: string, description: string, extraEnv: Record<string, s
       REPO_ROOT: tmpRoot,
       MO_SKILLS_DIR: skillsDir,
       MO_AGENTS_DIR: agentsDir,
+      MO_SKILLS_GLOBAL: '0',
       // Silence git in tmpRoot (not a real repo)
       GIT_DIR: '',
       ...extraEnv,
@@ -143,8 +145,17 @@ afterEach(() => {
 
 describe('assign-skill.sh — Case A: skill match (positive + paired-negative)', () => {
   it('A positive: fixture meta-orchestrator SKILL.md → recommended_skill: meta-orchestrator', () => {
-    const out = runScript('I-phase-small', 'umbrella wave dependencies');
+    // Clearing the directory seams exercises the real conventional defaults under tmpRoot.
+    const out = runScript('I-phase-small', 'umbrella wave dependencies', {
+      MO_SKILLS_DIR: '', MO_AGENTS_DIR: '',
+    });
     expect(out).toMatch(/^recommended_skill: meta-orchestrator$/);
+    // A unique owned name distinguishes this temp default catalog from a live one.
+    const ownedSkill = `owned-default-${basename(tmpRoot)}`;
+    renameSync(join(skillsDir, 'meta-orchestrator'), join(skillsDir, ownedSkill));
+    expect(runScript('I-phase-small', 'umbrella wave dependencies', {
+      MO_SKILLS_DIR: '', MO_AGENTS_DIR: '',
+    })).toBe(`recommended_skill: ${ownedSkill}`);
   });
 
   it('A paired-negative: remove meta-orchestrator SKILL.md → NOT recommended_skill: meta-orchestrator', () => {
@@ -164,8 +175,15 @@ describe('assign-skill.sh — Case A: skill match (positive + paired-negative)',
 describe('assign-skill.sh — Case B: agent match (positive + paired-negative)', () => {
   it('B positive: compliance-verifier.md mentions PR review → recommended_agent: agents/compliance-verifier.md', () => {
     // Use a description that only matches the agent, not the skills
-    const out = runScript('fix', 'PR review substance check compliance');
+    const out = runScript('fix', 'PR review substance check compliance', {
+      MO_SKILLS_DIR: '', MO_AGENTS_DIR: '',
+    });
     expect(out).toMatch(/^recommended_agent: agents\/compliance-verifier\.md$/);
+    const ownedAgent = `owned-default-${basename(tmpRoot)}`;
+    renameSync(join(agentsDir, 'compliance-verifier.md'), join(agentsDir, `${ownedAgent}.md`));
+    expect(runScript('fix', 'PR review substance check compliance', {
+      MO_SKILLS_DIR: '', MO_AGENTS_DIR: '',
+    }), 'default agent must come from the owned temporary catalog').toBe(`recommended_agent: agents/${ownedAgent}.md`);
   });
 
   it('B paired-negative: remove compliance-verifier.md → NOT recommended_agent for that path', () => {

@@ -1,0 +1,27 @@
+{
+  "batch": "B6",
+  "task": 7,
+  "status": "ACCEPTED_FOR_INTEGRATION_WITH_CAMPAIGN_FAILURE_RETAINED",
+  "reviewedBase": "4044007fd1b1cdcd6ae6fe804c14f3ab96899986",
+  "reviewedHead": "206ebdb6c25cd24bce322841e90adb5f8e367e00",
+  "decisionIds": [
+    "D10"
+  ],
+  "specCompliance": "PASS",
+  "taskQuality": "Approved",
+  "review": {
+    "path": "docs/ci-test-effectiveness/acceptance/b6-review.md",
+    "sha256": "deb11017c1edc67e95567098a9ce1052d4c78ff4fb7df281372bc318a2fea4e2"
+  },
+  "at": "2026-11-08T18:21:52.559517+00:00",
+  "findings": [],
+  "notes": [
+    "Full actual hooks RED: separate unchanged advisor wrapper5000ms timeout. Campaign acceptance blocked until disposition/verification.",
+    "Visible historical/intentional fixture diagnostics preserved; no pristine-output claim or extra cleanup task."
+  ],
+  "validation": "Exactly3 deadline arguments preserve N10/actual subprocesses/assertions. Focused3PASS, normal manifest/archivePASS; full97filesPASS1FAIL/2308testsPASS3skip in159.61s.",
+  "limits": [
+    "No causal B6 regression established for separate advisor failure.",
+    "Hosted/other-host/TAK/generalized prevention/campaign acceptance remain pending."
+  ]
+}

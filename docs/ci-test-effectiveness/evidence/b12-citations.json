@@ -1,0 +1,14 @@
+{
+  "command": [
+    "node",
+    "scripts/check-line-citations.mjs",
+    "--check",
+    "--corpus",
+    "--affected-by=setup.d/lib.sh",
+    "--affected-by=.github/workflows/audit-self.yml"
+  ],
+  "exit": 1,
+  "elapsedSeconds": 20.067224,
+  "log": "docs/ci-test-effectiveness/evidence/b12-citations.txt",
+  "logSHA256": "8cc21410debd50498f88a8e6c659a94cc0e1c3f26a345280c683eb7ff250d7e0"
+}

@@ -1,0 +1,22 @@
+{
+  "unchanged": true,
+  "comparison": "b3-freeze.json -> after all destination/full-suite/baseline/transport probes",
+  "hooks": {
+    ".husky/post-checkout": {
+      "sha256": "43045e468b290cb4b2c2f846a4d5e266f4a3d70c259beb063f2056afdf25ed27",
+      "mode": "0o700"
+    },
+    ".husky/pre-commit": {
+      "sha256": "667cdb1a25c621183e20d1c04a317543305c6c642610d4a8c859e2f8cfdce5ee",
+      "mode": "0o700"
+    },
+    ".husky/pre-merge-commit": {
+      "sha256": "7354235663b5b9f90c94eb7d34cc52a8d8b5aceda00f3288245ffaade45cb0b0",
+      "mode": "0o700"
+    },
+    ".husky/pre-push": {
+      "sha256": "f3c325ba8fca5dda9978f36991f22ccda60758bbe473643dedb255b2948d2a22",
+      "mode": "0o700"
+    }
+  }
+}

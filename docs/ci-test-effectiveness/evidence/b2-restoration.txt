@@ -1,0 +1,11 @@
+
+ RUN  v4.1.8 /tmp/b2-held-afs1l1dv
+
+ ✓ packages/core/hooks/autonomy-binding-lifecycle.test.ts (5 tests | 4 skipped) 447ms
+     ✓ reaches the TCP prohibition and exits nonzero after assertion failure  439ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 4 skipped (5)
+   Start at  16:08:00
+   Duration  810ms (transform 89ms, setup 0ms, import 117ms, tests 447ms, environment 1ms)
+

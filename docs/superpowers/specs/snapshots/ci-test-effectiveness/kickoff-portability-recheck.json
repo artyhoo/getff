@@ -1,0 +1,60 @@
+{
+  "inputsRef": "6f977d1abe693420da028ebb8d6d65cd589110b9",
+  "method": "Fresh temporary Git repository; archived intent procedure and immutable authority artifacts; no audit/product tests",
+  "receipts": [
+    {
+      "step": "restore PRD",
+      "exit": 0,
+      "result": {
+        "ok": true,
+        "featureId": "ci-test-effectiveness",
+        "revision": 1,
+        "advanced": "currentPrd"
+      }
+    },
+    {
+      "step": "restore review",
+      "exit": 0,
+      "result": {
+        "ok": true,
+        "attemptId": "5e3d1a5df4609f6c21bde1810ead74e51e66b40096300b91e36f672d7f266f40",
+        "dir": "/tmp/cte-authority-replay-zr17rl3c/.claude/orchestrator-prompts/intent-continuity/spec-reviews/5e3d1a5df4609f6c21bde1810ead74e51e66b40096300b91e36f672d7f266f40"
+      }
+    },
+    {
+      "step": "presentation",
+      "exit": 0,
+      "result": {
+        "ok": true,
+        "check": "presentation",
+        "featureId": "ci-test-effectiveness",
+        "revision": 1,
+        "attemptId": "5e3d1a5df4609f6c21bde1810ead74e51e66b40096300b91e36f672d7f266f40",
+        "prdSha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4",
+        "specSha256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a"
+      }
+    },
+    {
+      "step": "restore spec",
+      "exit": 0,
+      "result": {
+        "ok": true,
+        "featureId": "ci-test-effectiveness",
+        "revision": 2,
+        "advanced": "currentSpec"
+      }
+    },
+    {
+      "step": "plan preparation",
+      "exit": 0,
+      "result": {
+        "ok": true,
+        "check": "plan-prep",
+        "featureId": "ci-test-effectiveness",
+        "attemptId": "5e3d1a5df4609f6c21bde1810ead74e51e66b40096300b91e36f672d7f266f40",
+        "prdSha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4",
+        "specSha256": "77e669ad6113b9674c6b32f92554af1a490e5828127f4c9ebea800f271a83e4a"
+      }
+    }
+  ]
+}

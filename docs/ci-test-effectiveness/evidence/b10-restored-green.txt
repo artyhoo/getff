@@ -1,0 +1,22 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default principles/20-bundle-classification.test.ts principles/20-bundle-classification.paired-negative.test.ts skills/assign-skill.test.ts
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ✓ skills/assign-skill.test.ts (11 tests) 4632ms
+     ✓ A positive: fixture meta-orchestrator SKILL.md → recommended_skill: meta-orchestrator  882ms
+     ✓ A paired-negative: remove meta-orchestrator SKILL.md → NOT recommended_skill: meta-orchestrator  757ms
+     ✓ B positive: compliance-verifier.md mentions PR review → recommended_agent: agents/compliance-verifier.md  703ms
+     ✓ B paired-negative: remove compliance-verifier.md → NOT recommended_agent for that path  927ms
+     ✓ C no-match: skills present but description has zero keyword overlap → recommended: none  451ms
+     ✓ T15 dogfood: output is exactly one line (not multi-line crash)  566ms
+ ✓ principles/20-bundle-classification.paired-negative.test.ts (6 tests) 5395ms
+ ✓ principles/20-bundle-classification.test.ts (18 tests) 5535ms
+     ✓ sync catalog context: an unprimed backlog uses the fixed skill and agent inputs  417ms
+
+ Test Files  3 passed (3)
+      Tests  35 passed (35)
+   Start at  21:59:54
+   Duration  6.37s (transform 267ms, setup 234ms, import 195ms, tests 15.56s, environment 0ms)

@@ -1,0 +1,89 @@
+{
+  "source": ".github/workflows/discipline-self-check.yml",
+  "sourceSHA256": "1a3d4c7b4e04f05f3223c23d5c0e13701bc672cf7ce9f6bde3d91b78978ea896",
+  "method": "Execute exact YAML run bodies with frozen PR_BODY fixtures; mutation only replaces production run body in disposable command. Sanity bodies held byte-identical. No external GitHub writes.",
+  "fixtures": {
+    "valid": "### \u00a71.7 Forward-check applied\npackages/core/principles/01-rule-has-test.test.ts:12 checked \u2014 compliant with existing rule-has-test discipline. No forward conflicts.\n\n### \u00a71.7 Backward-check applied\npackages/core/hooks/checks/s17.test.ts:16 all body-prose test cases ported to vitest (Wave 10.3). Complete sweep performed.",
+    "invalid": "### \u00a71.7 Forward-check applied\nChecked all existing rules R1-R20 \u2014 no conflicts with the new rule. Verified principles 01-09 pass. Checked SSOT entries \u2014 no overlapping capability area. Trigger sweep complete \u2014 no armed triggers fire. Doc-authority headers compliant.\n\n### \u00a71.7 Backward-check applied\nComplete sweep of existing artefacts under the new rule's scope performed. All artefacts compliant. No exemptions required."
+  },
+  "results": [
+    {
+      "phase": "baseline",
+      "productionSHA256": "795a8644a96f8caf147667a91cf63ef577c4f6a7eae50bfbe50d4e433bcb7773",
+      "production": {
+        "valid": {
+          "exit": 0,
+          "output": "\u2705 \u00a71.7 sections present and non-empty (forward: 126 chars, backward: 111 chars).\n\u2705 Forward-check cites 1 file:line reference(s).\n\u2705 Backward-check cites 1 file:line reference(s).\n"
+        },
+        "invalid": {
+          "exit": 1,
+          "output": "\u2705 \u00a71.7 sections present and non-empty (forward: 208 chars, backward: 107 chars).\n::error::Forward-check section contains 0 file:line citations (regex [^[:space:]]+\\.[a-z]+:[0-9]+).\nSubstance arm (Wave 8.1) \u2014 \u00a71.7 must cite specific evidence, not generic prose.\nExample: 'packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified'\nBootstrap exemption: \u00a71.7 Skipped marker with rationale \u226560 chars.\n"
+        }
+      },
+      "heldSanity": {
+        "negative": {
+          "exit": 0,
+          "output": "\u2705 Sanity: Incident-1 stub Forward-check correctly contains 0 file:line citations.\n\u2705 Sanity: Incident-1 stub Backward-check correctly contains 0 file:line citations.\n   Both substance gates' paired-negative arms are intact.\n",
+          "sha256": "875b0d95b8c1b6a699318c690883be078f05670c4852a2849b2d06b04a4e9bd5"
+        },
+        "positive": {
+          "exit": 0,
+          "output": "\u2705 Sanity: stub with Backward-check citation correctly passes (1 citation(s) found).\n   Backward substance gate's positive arm is intact.\n",
+          "sha256": "4dc8ef77cf989405b2e192d5668d203cbaba071fda02769d632192b965951d2b"
+        }
+      }
+    },
+    {
+      "phase": "mutant",
+      "productionSHA256": "b2d9f5d844d3f6c594b7111dda1ef9d4b23a6251f5497142c84e0108aa2894ff",
+      "production": {
+        "valid": {
+          "exit": 0,
+          "output": "D08_CONTROLLED_PRODUCTION_BYPASS\n"
+        },
+        "invalid": {
+          "exit": 0,
+          "output": "D08_CONTROLLED_PRODUCTION_BYPASS\n"
+        }
+      },
+      "heldSanity": {
+        "negative": {
+          "exit": 0,
+          "output": "\u2705 Sanity: Incident-1 stub Forward-check correctly contains 0 file:line citations.\n\u2705 Sanity: Incident-1 stub Backward-check correctly contains 0 file:line citations.\n   Both substance gates' paired-negative arms are intact.\n",
+          "sha256": "875b0d95b8c1b6a699318c690883be078f05670c4852a2849b2d06b04a4e9bd5"
+        },
+        "positive": {
+          "exit": 0,
+          "output": "\u2705 Sanity: stub with Backward-check citation correctly passes (1 citation(s) found).\n   Backward substance gate's positive arm is intact.\n",
+          "sha256": "4dc8ef77cf989405b2e192d5668d203cbaba071fda02769d632192b965951d2b"
+        }
+      }
+    },
+    {
+      "phase": "restored",
+      "productionSHA256": "795a8644a96f8caf147667a91cf63ef577c4f6a7eae50bfbe50d4e433bcb7773",
+      "production": {
+        "valid": {
+          "exit": 0,
+          "output": "\u2705 \u00a71.7 sections present and non-empty (forward: 126 chars, backward: 111 chars).\n\u2705 Forward-check cites 1 file:line reference(s).\n\u2705 Backward-check cites 1 file:line reference(s).\n"
+        },
+        "invalid": {
+          "exit": 1,
+          "output": "\u2705 \u00a71.7 sections present and non-empty (forward: 208 chars, backward: 107 chars).\n::error::Forward-check section contains 0 file:line citations (regex [^[:space:]]+\\.[a-z]+:[0-9]+).\nSubstance arm (Wave 8.1) \u2014 \u00a71.7 must cite specific evidence, not generic prose.\nExample: 'packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified'\nBootstrap exemption: \u00a71.7 Skipped marker with rationale \u226560 chars.\n"
+        }
+      },
+      "heldSanity": {
+        "negative": {
+          "exit": 0,
+          "output": "\u2705 Sanity: Incident-1 stub Forward-check correctly contains 0 file:line citations.\n\u2705 Sanity: Incident-1 stub Backward-check correctly contains 0 file:line citations.\n   Both substance gates' paired-negative arms are intact.\n",
+          "sha256": "875b0d95b8c1b6a699318c690883be078f05670c4852a2849b2d06b04a4e9bd5"
+        },
+        "positive": {
+          "exit": 0,
+          "output": "\u2705 Sanity: stub with Backward-check citation correctly passes (1 citation(s) found).\n   Backward substance gate's positive arm is intact.\n",
+          "sha256": "4dc8ef77cf989405b2e192d5668d203cbaba071fda02769d632192b965951d2b"
+        }
+      }
+    }
+  ]
+}

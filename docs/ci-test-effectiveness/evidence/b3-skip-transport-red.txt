@@ -1,0 +1,67 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts (17 tests | 1 failed) 594ms
+     ✓ binds the required non-main PR gate, including body edits, to the shared checker 5ms
+     ✓ Incident-1 uncited prose 31ms
+     ✓ cited valid body 27ms
+     ✓ empty body 8ms
+     ✓ missing backward section 18ms
+     ✓ short forward 18ms
+     ✓ short backward 17ms
+     ✓ distinct uncited backward 35ms
+     ✓ malformed citation 23ms
+     ✓ citation outside section 34ms
+     ✓ Skip at 60 characters 9ms
+     ✓ Skip below 60 characters 25ms
+     ✓ section length exactly 40 27ms
+     ✓ section length below 40 24ms
+   × accepts a valid Skip before a large UTF-8 PR body without SIGPIPE rejection 81ms
+     ✓ has a safe manual fixture carrier in the recurring core hook suite 182ms
+     ✓ propagates missing hooks and accepts actual checkout shapes through the workflow command 23ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/ci-checker-oracles.test.ts > accepts a valid Skip before a large UTF-8 PR body without SIGPIPE rejection
+AssertionError: ::error::Missing or too-short "### §1.7 Forward-check applied" section (0 non-whitespace chars, need ≥40).
+::error::Missing or too-short "### §1.7 Backward-check applied" section (0 non-whitespace chars, need ≥40).
+
+PR touches discipline-bearing files (.claude/rules/, packages/core/principles/, EXECUTION-PLAN, prior-art-evaluations, CLAUDE.md, or shipped templates).
+
+PR description must include either:
+  ### §1.7 Forward-check applied
+  <body ≥40 chars enumerating which existing disciplines were checked>
+
+  ### §1.7 Backward-check applied
+  <body ≥40 chars enumerating the sweep of existing artefacts under the new rule's scope>
+
+OR a skip marker:
+  ### §1.7 Skipped: <reason ≥60 chars>
+
+Reference: .claude/rules/phase-research-coverage.md §1.7
+Skill:     .claude/skills/self-reflection/SKILL.md
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ status packages/core/hooks/ci-checker-oracles.test.ts:29:56
+     27|   expect(result.error).toBeUndefined();
+     28|   expect(result.signal).toBeNull();
+     29|   expect(result.status, result.stdout + result.stderr).toBe(expected);
+       |                                                        ^
+     30|   expect(result.stdout + result.stderr).toContain(diagnostic);
+     31| }
+ ❯ packages/core/hooks/ci-checker-oracles.test.ts:78:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 passed (17)
+   Start at  16:45:26
+   Duration  1.09s (transform 49ms, setup 52ms, import 95ms, tests 594ms, environment 0ms)
+

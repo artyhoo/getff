@@ -1,0 +1,9 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ✓ packages/core/principles/37-required-context-completeness.test.ts (56 tests) 2020ms
+
+ Test Files  1 passed (1)
+      Tests  56 passed (56)
+   Start at  19:12:56
+   Duration  2.57s (transform 167ms, setup 84ms, import 146ms, tests 2.02s, environment 0ms)

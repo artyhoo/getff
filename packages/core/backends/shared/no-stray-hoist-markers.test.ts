@@ -72,7 +72,7 @@ const GIT_ENV_SCRUB = (() => {
  * check. Returning `[]` would be worse here than in a set-equality gate — the assertion
  * below is "no hits", so an empty population passes VACUOUSLY. Hence the loud throw, plus
  * the non-vacuity floor in arm (b) (precedent:
- * `packages/core/principles/41-shell-test-ci-coverage.test.ts:172-182`).
+ * `packages/core/principles/41-shell-test-ci-coverage.test.ts:232-241`).
  */
 function trackedFilesUnder(dir: string, roots: readonly string[]): string[] {
   let out: string;

@@ -1,0 +1,30 @@
+{
+  "batch": "B5",
+  "task": 6,
+  "status": "ACCEPTED_FOR_INTEGRATION",
+  "reviewedBase": "960e980e9a60cc5196976339eb1d3754184c8b7b",
+  "reviewedHead": "99faad8d31a51ee1ddc0e62c7eb602374ce6054a",
+  "decisionIds": [
+    "D09"
+  ],
+  "specCompliance": "PASS",
+  "taskQuality": "PASS",
+  "reviews": {
+    "initial-review": {
+      "path": "docs/ci-test-effectiveness/acceptance/b5-initial-review.md",
+      "sha256": "b34b67ef4a59c644b9d5295fa6211643f7be4c4a3dbab671d51b5400d6a76d8c"
+    },
+    "review-correction": {
+      "path": "docs/ci-test-effectiveness/acceptance/b5-review-correction.md",
+      "sha256": "06f5588ebfd9014357acf4c644653ad96a7a443b6d24791992c601b5d1c69bd2"
+    }
+  },
+  "at": "2026-11-08T18:08:54.650411+00:00",
+  "findings": [],
+  "reviewCorrection": "Sole Important withdrawn after immutable-object verification: canonical status===0 premise is unchanged. Original review and correction retained; no source fix or repeated tests.",
+  "validation": "Four native host commands pass; actual-runner75 assertions; preimage8 intended failures and three held identity/probe faults caught; restoration75. Normal archive parity.",
+  "limits": [
+    "Actual ast-grep absent locally; two explicit real-tool skips. CI exact pin retained, hosted-after pending.",
+    "Glossary load disposition, general RC2/TAK/E9 and campaign acceptance remain open."
+  ]
+}

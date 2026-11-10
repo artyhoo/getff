@@ -1,0 +1,67 @@
+{
+  "at": "2026-11-08",
+  "purpose": "B4 native discovery / CI invocation capability consultation",
+  "resolve": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Available Libraries:\n\n- Title: Vitest\n- Context7-compatible library ID: /vitest-dev/vitest\n- Description: Vitest is a Vite-based test framework for JavaScript and TypeScript with assertions, mocking, snapshots, Browser Mode via @vitest/browser-playwright, @vitest/coverage-v8 coverage and the @vitest/ui.\n- Code Snippets: 6384\n- Source Reputation: High\n- Benchmark Score: 78.38\n- Versions: v3_2_4, v4.0.7, v4.1.6, v5.0.3, v0.34.6, v2.1.9, v4.1.12, v1.6.1\n----------\n- Title: Vitest\n- Context7-compatible library ID: /websites/vitest_dev\n- Description: Vitest is a fast, Vite-native, and Jest-compatible testing framework that supports ESM, TypeScript, and JSX, designed for modern web applications and backend code.\n- Code Snippets: 4925\n- Source Reputation: High\n- Benchmark Score: 73.03\n----------\n- Title: Vitest\n- Context7-compatible library ID: /websites/vitest_dev_guide\n- Description: Vitest is a next-generation testing framework powered by Vite, offering a fast and unified testing experience for JavaScript and TypeScript projects.\n- Code Snippets: 1950\n- Source Reputation: High\n- Benchmark Score: 79.22\n----------\n- Title: Vitest\n- Context7-compatible library ID: /websites/main_vitest_dev\n- Description: Vitest is a fast, Vite-native next-generation testing framework offering Jest compatibility, smart watch mode, and out-of-the-box support for ESM, TypeScript, and JSX.\n- Code Snippets: 4900\n- Source Reputation: High\n- Benchmark Score: 77.06\n----------\n- Title: Vitest (DeepWiki)\n- Context7-compatible library ID: /websites/deepwiki_vitest-dev_vitest\n- Description: Vitest is a next-generation testing framework powered by Vite, designed to provide a fast and modern testing experience with native ESM support.\n- Code Snippets: 460\n- Source Reputation: High\n- Benchmark Score: 25"
+      }
+    ],
+    "structuredContent": null,
+    "isError": false
+  },
+  "librarySelected": "/websites/vitest_dev_guide",
+  "reason": "Official Vitest guide, returned as a high-reputation library; relevant CLI docs, narrower than full source archive.",
+  "queries": [
+    {
+      "query": "How to enumerate actual test files with Vitest list JSON using the project's include, exclude and positional filters without executing test bodies?",
+      "result": {
+        "status": "fulfilled",
+        "value": {
+          "content": [
+            {
+              "type": "text",
+              "text": "### Command Line Interface > Commands > `vitest list`\n\nSource: https://vitest.dev/guide/cli\n\n`vitest list` command inherits all `vitest` options to print the list of all matching tests. This command ignores `reporters` option. By default, it will print the names of all tests that matched the file filter and name pattern:\n\n```\nvitest list filename.spec.ts -t=\"some-test\"\n```\n\n```\ndescribe > some-test\ndescribe > some-test > test 1\ndescribe > some-test > test 2\n```\n\nYou can pass down `--json` flag to print tests in JSON format or save it in a separate file:\n\n```\nvitest list filename.spec.ts -t=\"some-test\" --json=./file.json\n```\n\nIf `--json` flag doesn't receive a value, it will output the JSON into stdout.\n\nYou also can pass down `--filesOnly` flag to print the test files only:\n\n```\nvitest list --filesOnly\n```\n\n```\ntests/test1.test.ts\ntests/test2.test.ts\n```\n\nSince Vitest 5, `vitest list` parses test files statically instead of running them to collect tests. Pass `--no-static-parse` to run the files instead. Vitest parses test files with limited concurrency, defaulting to `os.availableParallelism()`. You can change it via the `--static-parse-concurrency` option.\n\n--------------------------------\n\n### List tests as JSON\n\nSource: https://vitest.dev/guide/cli\n\nPass `--json` to `vitest list` to print tests in JSON format or save to a file. If no value is given, JSON is output to stdout.\n\n```bash\nvitest list filename.spec.ts -t=\"some-test\" --json=./file.json\n```\n\n--------------------------------\n\n### List test files only\n\nSource: https://vitest.dev/guide/cli\n\nUse `--filesOnly` with `vitest list` to print only the test file paths.\n\n```bash\nvitest list --filesOnly\n```\n\n--------------------------------\n\n### project\n\nSource: https://vitest.dev/guide/cli\n\n### project ​\n\n- **CLI:** `-p, --project <name>`\n\nThe name of the project to run if you are using Vitest workspace feature. This can be repeated for multiple projects: `--project=1 --project=2`. You can also filter projects using wildcards like `--project=packages*`, and exclude projects with `--project=!pattern`. A project runs if it matches no negated pattern and, when regular patterns are also given, matches at least one of them.\n\n--------------------------------\n\n### Test Projects > Defining Projects\n\nSource: https://vitest.dev/guide/projects\n\nTo exclude folders and files, you can use the negation pattern:\n\nvitest.config.ts\n\nts\n\n```\nimport { defineConfig } from 'vitest/config'\n\nexport default defineConfig({\n  test: {\n    // include all folders inside \"packages\" except \"excluded\"\n    projects: [\n      'packages/*',\n      '!packages/excluded'\n    ],\n  },\n})\n```"
+            }
+          ],
+          "structuredContent": null,
+          "isError": false
+        }
+      }
+    },
+    {
+      "query": "Does Vitest provide a built-in guarantee that every discovered workspace test file is reached by GitHub Actions commands, or only primitives to list and filter files?",
+      "result": {
+        "status": "fulfilled",
+        "value": {
+          "content": [
+            {
+              "type": "text",
+              "text": "### List test files only\n\nSource: https://vitest.dev/guide/cli\n\nUse `--filesOnly` with `vitest list` to print only the test file paths.\n\n```bash\nvitest list --filesOnly\n```\n\n--------------------------------\n\n### Command Line Interface > Commands > `vitest list`\n\nSource: https://vitest.dev/guide/cli\n\n`vitest list` command inherits all `vitest` options to print the list of all matching tests. This command ignores `reporters` option. By default, it will print the names of all tests that matched the file filter and name pattern:\n\n```\nvitest list filename.spec.ts -t=\"some-test\"\n```\n\n```\ndescribe > some-test\ndescribe > some-test > test 1\ndescribe > some-test > test 2\n```\n\nYou can pass down `--json` flag to print tests in JSON format or save it in a separate file:\n\n```\nvitest list filename.spec.ts -t=\"some-test\" --json=./file.json\n```\n\nIf `--json` flag doesn't receive a value, it will output the JSON into stdout.\n\nYou also can pass down `--filesOnly` flag to print the test files only:\n\n```\nvitest list --filesOnly\n```\n\n```\ntests/test1.test.ts\ntests/test2.test.ts\n```\n\nSince Vitest 5, `vitest list` parses test files statically instead of running them to collect tests. Pass `--no-static-parse` to run the files instead. Vitest parses test files with limited concurrency, defaulting to `os.availableParallelism()`. You can change it via the `--static-parse-concurrency` option.\n\n--------------------------------\n\n### Command Line Interface > Commands > `vitest`\n\nSource: https://vitest.dev/guide/cli\n\nStart Vitest in the current directory. Will enter the watch mode in development environment and run mode in CI (or non-interactive terminal) automatically.\n\nYou can pass an additional argument as the filter of the test files to run. For example:\n\n```\nvitest foobar\n```\n\nWill run only the test file that contains `foobar` in their paths. This filter only checks inclusion and doesn't support regexp or glob patterns (unless your terminal processes it before Vitest receives the filter).\n\nSince Vitest 3, you can also specify the test by filename and line number:\n\n```\n$ vitest basic/foo.test.ts:10\n```\n\nWARNING\n\nNote that Vitest requires the full filename for this feature to work. It can be relative to the current working directory or an absolute file path.\n\n```\n$ vitest basic/foo.js:10 # ✅\n$ vitest ./basic/foo.js:10 # ✅\n$ vitest /users/project/basic/foo.js:10 # ✅\n$ vitest foo:10 # ❌\n$ vitest ./basic/foo:10 # ❌\n```\n\nAt the moment Vitest also doesn't support ranges:\n\n```\n$ vitest basic/foo.test.ts:10, basic/foo.test.ts:25 # ✅\n$ vitest basic/foo.test.ts:10-25 # ❌\n```\n\n--------------------------------\n\n### project\n\nSource: https://vitest.dev/guide/cli\n\n### project ​\n\n- **CLI:** `-p, --project <name>`\n\nThe name of the project to run if you are using Vitest workspace feature. This can be repeated for multiple projects: `--project=1 --project=2`. You can also filter projects using wildcards like `--project=packages*`, and exclude projects with `--project=!pattern`. A project runs if it matches no negated pattern and, when regular patterns are also given, matches at least one of them.\n\n--------------------------------\n\n### Run tests with filename filter\n\nSource: https://vitest.dev/guide/cli\n\nPass a filter argument to `vitest` to run only test files whose paths contain the given string. The filter only checks inclusion and does not support regexp or glob patterns.\n\n```bash\nvitest foobar\n```"
+            }
+          ],
+          "structuredContent": null,
+          "isError": false
+        }
+      }
+    },
+    {
+      "query": "What are the precise Vitest positional file-filter and no-tests error semantics when reconciling package scripts and CI test selections across projects?",
+      "result": {
+        "status": "fulfilled",
+        "value": {
+          "content": [
+            {
+              "type": "text",
+              "text": "### Filter projects with wildcards and exclusions\n\nSource: https://vitest.dev/guide/projects\n\nThe filter supports `*` wildcards and `!` exclusions. A project runs if it matches no negated pattern and, when regular patterns are also given, matches at least one of them.\n\n```bash\n# run every project except \"e2e\"\nvitest --project '!e2e'\n# run every project starting with \"unit\", except \"unit (browser)\"\nvitest --project 'unit*' --project '!unit (browser)'\n```\n\n--------------------------------\n\n### project\n\nSource: https://vitest.dev/guide/cli\n\n### project ​\n\n- **CLI:** `-p, --project <name>`\n\nThe name of the project to run if you are using Vitest workspace feature. This can be repeated for multiple projects: `--project=1 --project=2`. You can also filter projects using wildcards like `--project=packages*`, and exclude projects with `--project=!pattern`. A project runs if it matches no negated pattern and, when regular patterns are also given, matches at least one of them.\n\n--------------------------------\n\n### Run only the failing test file\n\nSource: https://vitest.dev/guide/learn/debugging-tests\n\nUse `vitest` with a file path to run only that test file, or use `-t` to filter by test name pattern. Combine both for maximum precision.\n\n```bash\n# Run only the failing test file\nvitest src/user.test.js\n\n# Run only tests matching a name pattern\nvitest -t \"sets the default role\"\n\n# Combine both for maximum precision\nvitest src/user.test.js -t \"sets the default role\"\n```\n\n--------------------------------\n\n### Filter multiple projects with bun\n\nSource: https://vitest.dev/guide/projects\n\nThe `--project` CLI option can be used multiple times to filter out several projects.\n\n```bash\nbun run test --project e2e --project unit\n```\n\n--------------------------------\n\n### Filter multiple projects with npm\n\nSource: https://vitest.dev/guide/projects\n\nThe `--project` CLI option can be used multiple times to filter out several projects.\n\n```bash\nnpm run test --project e2e --project unit\n```"
+            }
+          ],
+          "structuredContent": null,
+          "isError": false
+        }
+      }
+    }
+  ],
+  "limits": "Docs reference current Vitest5 behavior; installed runner behavior must be measured and bound separately. Retrieval surfaces enumeration/filter APIs, not a complete production-ready CI invocation reconciler; absence of a snippet is not proof of universal absence. Reuse existing SSOT248/P38/P41 and coordinate actual TAK53 scope."
+}

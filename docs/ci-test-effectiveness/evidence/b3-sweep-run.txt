@@ -1,0 +1,18 @@
+[
+  {
+    "name": "valid",
+    "exit": 0,
+    "command": "SWEEP_GATES_FILE=<actual held row> SWEEP_DIFF_OVERRIDE=.husky/pre-push bash <disposable sweep> --full"
+  },
+  {
+    "name": "missing-prepush",
+    "exit": 1,
+    "command": "SWEEP_GATES_FILE=<actual held row> SWEEP_DIFF_OVERRIDE=.husky/pre-push bash <disposable sweep> --full"
+  },
+  {
+    "name": "row-removal",
+    "exit": 1,
+    "command": "SWEEP_GATES_FILE=<actual table with husky row removed> bash scripts/run-local-ci-sweep-coverage.test.sh",
+    "intendedDiagnostic": "scripts/check-husky-presence.sh uncovered"
+  }
+]

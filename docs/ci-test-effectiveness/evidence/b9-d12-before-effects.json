@@ -1,0 +1,35 @@
+{
+  "decision": "D12",
+  "recordedBeforeSourceEffects": true,
+  "base": "4ad4540fee94c23e063b1982a2511baeb2a58d23",
+  "problem": {
+    "section1": "The current removal-impact heuristic conflates zero marginal contribution with tautology; static types do not guarantee external runtime values.",
+    "section3": "Generic edge-case quotas ignore actual contracts and risks.",
+    "section9": "Every-touched-file RED demands include comments and generated copies without causal relevance."
+  },
+  "criteria": {
+    "relevance": "Real defect sensitivity, external-runtime contracts, and economics apply to checks and metachecks alike.",
+    "effectiveness": "Replace blanket forms with independently expected risk/contract witnesses and relevant causal preimages; actual CLI negative/valid controls follow.",
+    "theatre": "Record presence never certifies truthful or competent semantic review. Controller cold-seat conformance remains pending.",
+    "tautology": "Expected values must not be reconstructed from SUT or fixture guarantees; overlap is assessed separately.",
+    "duplication": "Existing canonical role, AIF mirror, harvest consumer and required fidelity transport; existing remark/Git/runCheck. SSOT #58 and #305 are prior art.",
+    "costEffectiveness": "Retain relevant witnesses and detection timing; remove zero-marginal wrapper copies, distinguish host costs from audit overhead.",
+    "sufficiency": "Finite independent expectations and honest controller/reviewer are trusted boundary, not infinite driver audits."
+  },
+  "activeTraps": [
+    "T3",
+    "T7",
+    "T10",
+    "T14",
+    "T15",
+    "T18",
+    "T19",
+    "T20",
+    "T22"
+  ],
+  "domainTrap": "schema-acceptance-is-not-semantic-certification; stale/disabled invocation and baseline blessing must be independently tested",
+  "limits": [
+    "No nested semantic reviewer; controller runs frozen cases later.",
+    "No owner runtime imported; TAK2144, OCR2146 and Windows2116 remain external unaccepted."
+  ]
+}

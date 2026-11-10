@@ -39,8 +39,8 @@
 # Declared-required but NOT yet registered = `Template render probes — P1/P4/P6 (deterministic)`,
 # `capability PR carries Prior-art line in PR body (squash-survival)`, and — newly registrable as
 # of the §1.7 trigger unfiltering — `§1.7 forward+backward sections present in PR description`.
-# Those three can go red today and the PR still merges; an operator action closes that, and CI
-# cannot verify it (workflow-integrity.yml:32-42, GITHUB_TOKEN cannot read protection).
+# Those three can go red today and the PR still merges; an operator registers them. The CI
+# observer reads ordinary metadata (workflow-integrity.yml:48-49); observation does not register contexts.
 # Named, not positional, deliberately: this line previously said «the last three» / «the first
 # two», which silently became wrong the moment a sixth entry was appended above.
 #
@@ -83,6 +83,8 @@
 #   `test:template-render` suite, hermetic into tmpdirs, ~5s).
 #
 # UNREACHABLE — a green sweep says NOTHING about these; verify on CI:
+#   autonomy-binding HOST-01 real non-Linux refusal: actual Windows consumer-matrix cell;
+#                         the Linux source-node suite keeps its explicit platform skip.
 #   mechanical            whole-tree `find` scanners (packages/core/audit-self/md-line-gate.sh
 #                         and its peers); locally they also read gitignored files CI's clean
 #                         checkout never has → false red (see the NOTE below).
@@ -112,7 +114,7 @@
 #                         for it is the pre-push hook, not this sweep.
 #   fidelity-verdict-in-pr-body, stale-revert-in-pr-diff
 #                         both read the PR body / PR diff off the GitHub API — no PR, no gate.
-#   rule-to-probe, enforce-husky-presence, framework-self-detect / -research / -synth /
+#   rule-to-probe, framework-self-detect / -research / -synth /
 #   -validate / -install-validated, framework-provenance-anti-hand-edit, the synth-bundle
 #   functional smoke, the J3 go-lane live-fire
 #                         gate logic is inline bash in the workflow YAML, not a committed
@@ -420,7 +422,7 @@ gate_table() {
   # gates that payload, which is the honest answer the old `.claude/` mapping was hiding.
   #
   # Every other row reuses an already-committed script / npm-script VERBATIM. CI jobs whose
-  # gate logic lives inline in the workflow YAML (rule-to-probe, enforce-husky-presence, the
+  # gate logic lives inline in the workflow YAML (rule-to-probe, the
   # six framework-self-* snapshot diffs, the synth-bundle functional smoke) are deliberately
   # NOT transcribed here: a second copy of that logic would drift from the workflow it claims
   # to predict (.claude/rules/dual-implementation-discipline.md). Closing those needs the
@@ -432,7 +434,8 @@ gate_table() {
     "1${TAB}sweep-ci-coverage${TAB}.github/workflows/,scripts/run-local-ci-sweep.sh,scripts/build-getff-dist.sh${TAB}bash scripts/run-local-ci-sweep-coverage.test.sh" \
     "1${TAB}md-ci-only${TAB}.md${TAB}echo '[sweep] WARN: markdown line/dead-link gates run in CI only (local scan hits gitignored files) — verify on CI'" \
     "1${TAB}claude-dir-ci-only${TAB}.claude/${TAB}echo '[sweep] WARN: .claude/ is gated per-subtree, not as a whole. hooks/ skills/ templates/ ship, so getff-dist-manifest covers them; rules/ has render-check + rule-index-check. settings.json and orchestrator-prompts/ have no row of their own — their readers (the hooks harness-config drift test; vitest-spec-validation) are selected by their own triggers, and the whole-tree json/bash scanners are CI-only — verify on CI'" \
-    "1${TAB}actionlint${TAB}.github/workflows/${TAB}{ command -v actionlint >/dev/null 2>&1 && actionlint .github/workflows/*.yml; } || echo '[sweep] WARN-skip actionlint absent'" \
+    "1${TAB}actionlint${TAB}.github/workflows/${TAB}if command -v actionlint >/dev/null 2>&1; then actionlint .github/workflows/*.yml; else echo '[sweep] WARN-skip actionlint absent'; fi" \
+    "1${TAB}enforce-husky-presence${TAB}.husky/,scripts/check-husky-presence.sh,.github/workflows/audit-self.yml${TAB}bash scripts/check-husky-presence.sh" \
     "1${TAB}alwayson-budget${TAB}CLAUDE.md,.claude/rules/,scripts/measure-always-on.sh,scripts/check-alwayson-budget.sh${TAB}bash scripts/measure-always-on.test.sh && bash scripts/check-alwayson-budget.test.sh && bash scripts/check-alwayson-budget.sh" \
     "2${TAB}format-check${TAB}$(formatted_surface_trigger)${TAB}npm run format:check" \
     "2${TAB}render-check${TAB}.claude/rules/${TAB}npx tsx packages/core/render/render-rules.ts --check" \
@@ -468,6 +471,10 @@ gate_table() {
     "5${TAB}dispatcher-tests${TAB}.claude/skills/dispatcher/,tests/dispatcher/${TAB}for t in tests/dispatcher/*.test.sh; do bash \"\$t\" || exit 1; done" \
     "5${TAB}measure-scripts${TAB}scripts/measure/${TAB}bash scripts/measure/measure.test.sh" \
     "5${TAB}plugin-aifdoctor-selftests${TAB}scripts/generate-plugin-twins.sh,agents/,.claude/hooks/,plugin/,tests/plugin/,tests/aif-doctor/,scripts/aif-doctor${TAB}ts=\$(grep -vE '^[[:space:]]*#' .github/workflows/audit-self.yml | grep -oE '(tests/plugin|tests/aif-doctor)/[a-zA-Z0-9._-]+\\.test\\.sh' | sort -u); [ -n \"\$ts\" ] || { echo 'no tests/plugin or tests/aif-doctor steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
+    "6${TAB}vitest-runtime-bridge${TAB}packages/runtime-bridge/,.agents/hooks/runtime-bridge-dispatch.sh,.claude/hooks/runtime-bridge-dispatch.sh,.agents/procedures/intent/,.github/workflows/,package.json,package-lock.json,packages/core/package.json,packages/core/package-lock.json${TAB}npm --prefix packages/runtime-bridge test" \
+    "6${TAB}vitest-next-canonical${TAB}packages/preset-next-15-canonical/,packages/core/,.github/workflows/,package.json,package-lock.json,packages/core/package.json,packages/core/package-lock.json${TAB}npm --prefix packages/preset-next-15-canonical test" \
+    "6${TAB}source-node${TAB}.agents/procedures/harvest/,.agents/procedures/pipeline/,scripts/,tests/advisor-bridge-beta/,.github/workflows/,package.json,package-lock.json,packages/core/package.json,packages/core/package-lock.json${TAB}npm --prefix packages/core run test:source-node" \
+    "6${TAB}source-python${TAB}.agents/procedures/pipeline/,.agents/roles/dual-channel-drift-auditor/,.github/workflows/,package.json,package-lock.json,packages/core/package.json,packages/core/package-lock.json${TAB}npm --prefix packages/core run test:source-python" \
     "6${TAB}vitest-principles${TAB}packages/core/${TAB}npm --prefix packages/core run test:principles" \
     "6${TAB}kickoff-contracts${TAB}.claude/orchestrator-prompts/,docs/superpowers/specs/,.gitignore${TAB}npm --prefix packages/core run test:principles && npx --no-install vitest run packages/core/hooks/check-kickoff-traps.test.ts packages/core/hooks/check-worker-dispatch-channel.test.ts packages/core/hooks/host-verify.test.ts packages/core/skills/pipeline-park-contract.test.ts" \
     "6${TAB}vitest-hooks${TAB}packages/core/${TAB}npm --prefix packages/core run test:hooks" \
@@ -1056,6 +1063,9 @@ if [ "$MODE" = "diff" ] && [ -n "$CHANGED" ]; then
     while IFS="$TAB" read -r _ n trig _; do
       [ -z "${n:-}" ] && continue
       case ",$trig," in *,ALWAYS,*) continue ;; esac
+      # Supplemental suites add obligations, not proof that an otherwise unknown path is
+      # fully mapped. Preserve the existing conservative --full fallback (B7/D07).
+      case "$n" in vitest-runtime-bridge|vitest-next-canonical|source-node|source-python) continue ;; esac
       if trigger_matches "$trig" "$p"; then matched=1; break; fi
     done <<EOF
 $GATES_SNAPSHOT

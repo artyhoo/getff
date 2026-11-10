@@ -1,0 +1,14 @@
+
+> @rules-as-tests/core@0.1.0 test
+> vitest run --reporter=default skills/assign-skill.test.ts -t B positive
+
+
+ RUN  v4.1.8 /workspace/getff-native/packages/core
+
+ ✓ skills/assign-skill.test.ts (11 tests | 10 skipped) 558ms
+     ✓ B positive: compliance-verifier.md mentions PR review → recommended_agent: agents/compliance-verifier.md  555ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 10 skipped (11)
+   Start at  22:03:22
+   Duration  968ms (transform 52ms, setup 42ms, import 44ms, tests 558ms, environment 0ms)

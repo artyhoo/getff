@@ -1,0 +1,45 @@
+[
+  {
+    "name": "bash-syntax",
+    "command": [
+      "bash",
+      "-n",
+      "scripts/check-required-contexts.sh"
+    ],
+    "status": 0,
+    "seconds": 0.01
+  },
+  {
+    "name": "principle37",
+    "command": [
+      "npx",
+      "--prefix",
+      "packages/core",
+      "vitest",
+      "run",
+      "--reporter=default",
+      "packages/core/principles/37-required-context-completeness.test.ts"
+    ],
+    "status": 0,
+    "seconds": 4.251
+  },
+  {
+    "name": "actionlint",
+    "command": [
+      "/workspace/getff-tools/bin/actionlint",
+      ".github/workflows/workflow-integrity.yml"
+    ],
+    "status": 0,
+    "seconds": 0.008
+  },
+  {
+    "name": "manifest-check",
+    "command": [
+      "bash",
+      "scripts/build-getff-dist.sh",
+      "--check"
+    ],
+    "status": 0,
+    "seconds": 7.882
+  }
+]

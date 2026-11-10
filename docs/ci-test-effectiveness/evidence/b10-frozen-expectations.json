@@ -1,0 +1,26 @@
+{
+  "status": "Controller-frozen before B10 product source effects",
+  "frozenAt": "2026-11-08T21:49:59.277387+00:00",
+  "sourceHead": "acdc333110b396c72545546f5305e8b25fc5c00d",
+  "fixtureFiles": {
+    "skills/p20-fixture/SKILL.md": {
+      "path": ".superpowers/sdd/ci-test-effectiveness/p20-admitted-catalog/skills/p20-fixture/SKILL.md",
+      "sha256": "0e12414168f51be7484a4dbd4c6bf460fa45a210e5b3e7f8f894cfde868c09ba"
+    },
+    "agents/p20-agent.md": {
+      "path": ".superpowers/sdd/ci-test-effectiveness/p20-admitted-catalog/agents/p20-agent.md",
+      "sha256": "217e9a42978beeb341d68eac882153fe007f2a9b55d423ab05c5c26d4358748a"
+    }
+  },
+  "independentExpectedAssignment": {
+    "fix lint warning in alpha.sh": "skill:p20-fixture",
+    "fix typo in beta.sh": "agent:agents/p20-agent.md"
+  },
+  "protectedBacklogHashes": {
+    "backlog-2-mixed.txt": "e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3",
+    "backlog-1-clean.txt": "946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980",
+    "backlog-3-overlap.txt": "b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5"
+  },
+  "requiredBehavior": "All original P20 positive/mutant/cache contracts remain. Default-directory skill+agent positives preserved independently. Both async prime and unprimed sync fallback must execute real dependency under fixed child catalog.",
+  "finiteBoundary": "Controller-fixed fixture input/expected names, actual scripts/runner and ordinary test statuses. No wall-time assertion, general ranking certification or recursive driver platform."
+}

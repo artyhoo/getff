@@ -1,0 +1,16 @@
+{
+  "featureId": "ci-test-effectiveness",
+  "decision": "approved",
+  "date": "2026-11-08",
+  "timezone": "Europe/Moscow",
+  "approver": "operator in this chat",
+  "operatorEvidence": {
+    "quote": "да го",
+    "context": "Direct reply to the request to agree the updated PRD with mandatory E9 before continuing specification review."
+  },
+  "approvedSha256": "94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4",
+  "gitBlob": "28e297ade4f59407419c1c64990ad5894c870033",
+  "snapshotPath": "docs/superpowers/specs/snapshots/ci-test-effectiveness/prd-94604da4fd7b685645f6ddb396518a6d97a48a92ca66313d1dcaef19b33357c4.md",
+  "expectedRevision": 1,
+  "note": "Approved snapshot bytes retain their pre-approval Revision 2 draft wording; this subsequent record establishes approval without editing them."
+}

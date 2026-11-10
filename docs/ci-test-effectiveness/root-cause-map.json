@@ -1,0 +1,197 @@
+[
+  {
+    "id": "RC1",
+    "decisionIds": [
+      "D01",
+      "D07"
+    ],
+    "rootCause": "A declaration or path mention is mistaken for a reachable test invocation; population stops at one runner/package.",
+    "principle": "Every useful regression contract has a real invocation at its required channel; exceptions name environment and ownership.",
+    "detectorPlan": "Extend existing P38/P41 population/command resolvers and reconcile with in-flight TAK P53 delivery-discovery. Enumerate supported package, Node and Python carriers; explicit known command grammar refuses ambiguous wiring. No new competing registry. Include nonstandard test-*.sh manual regressions with explicit disposition.",
+    "legitimateCounterexamples": [
+      "Historical fault fixtures",
+      "External native-corpus validators",
+      "Explicit local-only mutation and opt-in AIF live probe",
+      "Helper-delegated Python tests reached through Vitest",
+      "Conditional non-Linux arms"
+    ],
+    "prospectiveInvocation": "Existing principles at pre-push and required CI; local sweep coverage; TAKE9 conformance on detector change.",
+    "independentConformanceBoundary": "Frozen executable vs echo/comment/noninvoked script pairs; missing whole package or language; wrong import/root and detector disabled must fail through actual future carrier. External permissions/timeouts classify as infrastructure, not caught faults.",
+    "costControl": "Fast source/native metadata reconciliation normally; bounded actual fault only on changed detector/runner; no complete mutation on unrelated docs.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC2",
+    "decisionIds": [
+      "D06"
+    ],
+    "rootCause": "A broad availability/degrade branch swallows a real checker rejection.",
+    "principle": "A command that ran and rejected must propagate failure; unavailable tools have a separate explicit state.",
+    "detectorPlan": "Extend existing local-sweep fixtures using the real actionlint row; integrate TAK Q4/P52 subprocess-status conformance rather than a standalone ignored-exit platform.",
+    "legitimateCounterexamples": [
+      "Intentionally advisory absent-tool branch with explicit UNVERIFIED",
+      "Expected nonzero negative fixture followed by exact diagnostic assertion",
+      "Optional collection failure recorded separately from quality gate"
+    ],
+    "prospectiveInvocation": "Actual sweep gate-table row and inherited required actionlint CI.",
+    "independentConformanceBoundary": "Pinned actionlint valid/invalid workflow/restored; stub exit0/1/42 to assert propagation; wrapper bypass must fail held conformance.",
+    "costControl": "Milliseconds synthetic controls plus one actual tool fixture on related changes; existing runner reused.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC3",
+    "decisionIds": [
+      "D08"
+    ],
+    "rootCause": "A metatest recomputes the production predicate and never calls production.",
+    "principle": "Expected outcomes stay fixed while tests execute the actual checker and entrypoint.",
+    "detectorPlan": "Reuse/extract existing discipline body checker and move positive/adverse fixtures onto it. Extend TAK Q3/51 finite corpus and executable counterfactual layer. The existing husky-presence manual simulator has the same source-supported detached-predicate pattern and needs disposable hooks before routing.",
+    "legitimateCounterexamples": [
+      "Intentional byte/source parity test with separately named behavior witness",
+      "Fixed schema or snapshot contract",
+      "Helper assertions and delegated child tests"
+    ],
+    "prospectiveInvocation": "Existing named PR-body job plus owned deterministic suite; independent TAK verification for checker/fixture changes.",
+    "independentConformanceBoundary": "Production success stub passes formerly-invalid body, but held conformance must fail; valid/skip/main cases retained; no deriving expected verdict from checker.",
+    "costControl": "Consolidate two detached jobs after replacement; reuse Bash/Node runner. No new semantic prose judge.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC4",
+    "decisionIds": [
+      "D04"
+    ],
+    "rootCause": "Declared required status is not registered in live enforcement, while an unreadable admin endpoint green-warns.",
+    "principle": "A prevention claim identifies an actually enforced status and event, not a source declaration.",
+    "detectorPlan": "Read ordinary branch metadata and supported ruleset details with explicit tri-state. Preserve required-context declaration consistency. Administrative registration is a separately owned effect; source-only detector improves visibility but does not itself register anything.",
+    "legitimateCounterexamples": [
+      "Unprotected fork with intentionally different owner policy",
+      "Main promotion has its own required contexts",
+      "Public branch metadata unavailable: explicit unknown, never registered-pass"
+    ],
+    "prospectiveInvocation": "Existing workflow-integrity observation, existing P37 declarations, actual owner verification after authorized registration.",
+    "independentConformanceBoundary": "Fixtures readable complete/missing, unreadable, active-but-uninspected rulesets; held live snapshot and exact context names. Verify actual workflow-token endpoint access before relying on it.",
+    "costControl": "One bounded read-only API call when policy/CI changes. No long-lived admin PAT added solely for audit.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  },
+  {
+    "id": "RC5",
+    "decisionIds": [
+      "D02"
+    ],
+    "rootCause": "Same subject/config/oracle is rerun after an unrelated consumer install and labelled as consumer coverage.",
+    "principle": "Keep each unique subject×environment×event×timing witness; remove exact zero-marginal repetitions only against survivors.",
+    "detectorPlan": "Extend existing cold review-sidecar Test-Quality Review with same subject/config/environment/event/timing witness analysis and explicit survivor; require a structured finding or no-material-finding result and consumed disposition in the existing acceptance/fidelity path. Details in preventionProposal. No permanent duplication parser, profiler or optimization service.",
+    "legitimateCounterexamples": [
+      "Same suite on Windows vs Linux",
+      "Root vs core config difference",
+      "Installed/tarball subject vs source",
+      "Earlier local check vs before-merge CI"
+    ],
+    "prospectiveInvocation": "Existing portable cold review at PR handoff; existing head-bound fidelity acceptance plus required fidelity-verdict-in-pr-body for deterministic report binding. Surviving tests are protection witnesses, not the recurrence detector.",
+    "independentConformanceBoundary": "Remove both designated repetitions jointly while retaining root224cases and consumer install failures; root/source mutation still caught.",
+    "costControl": "Observed6/7/6step-seconds only; no fabricated setup or compute savings. Add one focused rubric to the already required cold review, no extra seat by default; reuse captured history. On relevant scheduling edits, at most two same-source prior successful runs for initial judgment; absent history is explicit unknown/owner disposition. Full reruns only if a specific unresolved decision needs them. Schema/diff checks are bounded to changed paths and report; do not scan all cases or call an LLM in CI.",
+    "stage": "S2 proposal; not implemented or certified by S1",
+    "preventionProposal": {
+      "existingOwners": {
+        "coldReview": ".agents/roles/review-sidecar.md (portable SSOT); packages/core/templates/shared/skill-context/aif-review/SKILL.md mirrors it",
+        "dispatchAndDisposition": ".agents/procedures/harvest/SKILL.md §4 and references/fidelity.md: cold review before final fidelity; REVISE/STOP blocks handoff, fixes then narrow re-review. For native execution the authorized controller dispatches the same portable role and consumes its report; this is not a demand to invoke /harvest or AIF.",
+        "currentMechanicalConsumer": "packages/core/hooks/checks/pr-body-fidelity.ts checks Review findings Failure-scenario grammar and head-bound fidelity. .github/workflows/pr-body-fidelity.yml invokes its bin on opened/edited/synchronize/reopened. fidelity-verdict-in-pr-body is one of three observed required staging contexts. Current checker does NOT consume economics disposition; S2 must extend existing consumer, not claim it already does."
+      },
+      "triggerProposal": "At existing cold PR review, inspect exact base/head diff for changes to .github/workflows/**, .husky/**, package.json/workspace package.json test/check scripts, Makefile, scripts/run-local-ci-sweep.sh, scripts/run-install-sh-suite.sh, packages/core/hooks/pre-push.ts, or test/probe implementations reached by edited carriers. Include rename/deletion and unknown diff as review-required. Unrelated docs-only diff needs no cost collection. Reuse the current changed-path/merge-base pattern in pr-body-prior-art-bin.ts for a bounded trigger passed to the existing fidelity checker; never trust an author-supplied applicable=false flag.",
+      "structuredFindingProposal": {
+        "section": "Extend existing Test-Quality Review output and PR Review findings; do not create a separate verdict store.",
+        "fields": [
+          "Inputs-ref/base/head",
+          "rootCause RC5 or RC6",
+          "affected invocation IDs + source/config/environment/event/timing",
+          "before/after reached population",
+          "retained witnesses or reason none removable",
+          "bounded history IDs/durations or explicit unavailable",
+          "Failure-scenario and materiality/Triage",
+          "disposition: fixed | retained-with-evidence | deferred-to-owner | unresolved",
+          "disposition evidence + responsible owner"
+        ],
+        "noFinding": "Require explicit assessed/no-material-finding with scoped evidence for triggered changes; no fabricated finding quota. Data unavailable yields bounded rationale/owner disposition, never zero cost."
+      },
+      "consumptionProposal": "The existing controller/harvest cold-review stage consumes each material finding before fidelity: fixed requires delta evidence, retained requires recorded counterexample/benefit; unresolved material or unaccepted deferral blocks GO. Extend the existing fidelity checker/bin to require the head-bound scoped review record and a disposition per reported RC5/RC6 finding on triggered diffs, rejecting missing/stale/duplicate records and unresolved material findings. An owner-accepted deferral must identify the named authority and evidence, not erase the finding. Reuse accepted PR2146 sidecar-card/consumer contract if landed by S2. CI validates binding/completeness only; it cannot certify reviewer judgment or economic optimality.",
+      "invocationAndDisablementProposal": [
+        "Held diff adding a second identical root auditor after an install must activate review; deleting/changing script membership also activates. An unrelated prose-only diff does not demand history or a new review seat.",
+        "Drive actual existing fidelity CLI with changed-path inputs and missing, stale-head, unresolved, duplicate and legitimately disposed records; require correct nonzero/zero statuses. Repeat with edited PR body event fixture; skip/unregistered new context must not substitute for the observed required context.",
+        "Disable trigger wiring or remove required review section in scratch: independently held carrier conformance must fail. Disable checker/return success: independent held negative fixture must fail. A test calling only an internal parser is insufficient.",
+        "Use bounded held cold-review cases (exact duplicate, unique environment, imbalanced equivalent shards, justified slow unique test); require observed cold report and consumed disposition, not a canned checker claiming semantic economics detection. Reconcile with TAK accepted review conformance; no new paid-LLM CI job."
+      ],
+      "boundedClaim": "Future review channel surfaces and disposes materially redundant/imbalanced changed work; mechanical checks only enforce that this scoped review/disposition reached acceptance. Neither perfect detection, automatic optimality, nor all-history duplication coverage is claimed. No S1 implementation.",
+      "coordination": "Controller reports open PR2146 head4b59504f4bb757254ea72b1f225937b50119447d changes these sidecar owners and adds scripts/lib/review-sidecar-card.mjs plus contract tests. Reconcile accepted owner/consumer at S2 before editing. PR2144 TAK and PR2151 principle51 proposal are unlanded prospective overlap; do not reserve a competing principle number."
+    }
+  },
+  {
+    "id": "RC6",
+    "decisionIds": [
+      "D03"
+    ],
+    "rootCause": "Useful work is concentrated in one of three otherwise equivalent serial jobs.",
+    "principle": "Optimize latency without losing cases, environments, trigger coverage or isolation.",
+    "detectorPlan": "Extend existing cold review-sidecar Test-Quality Review with bounded existing CI job/step history, suite membership and tool prerequisites; require a structured finding or no-material-finding result and consumed disposition in the existing acceptance/fidelity path. Details in preventionProposal. No permanent duplication parser, profiler or optimization service.",
+    "legitimateCounterexamples": [
+      "Slow unique compatibility test",
+      "Cold installation contract that cannot reuse a warm consumer",
+      "Local shared-tree quarantine not equivalent to separate CI runners",
+      "More jobs can increase setup/queue/runner contention; faster projected longest job is not lower compute.",
+      "Different pinned tools or OS invalidate moving a suite despite attractive timing."
+    ],
+    "prospectiveInvocation": "Existing portable cold review at PR handoff; existing head-bound fidelity acceptance plus required fidelity-verdict-in-pr-body for deterministic report binding. Surviving tests are protection witnesses, not the recurrence detector.",
+    "independentConformanceBoundary": "Exact moved four command identities, same tool prerequisites, independent temp fixtures; S2 compare actual before/after required run.",
+    "costControl": "Two real historical forecasts31–39%installer critical-path reduction; not new timing experiment. If new timings needed,3matched trials (+at most2noise retries). Add one focused rubric to the already required cold review, no extra seat by default; reuse captured history. On relevant scheduling edits, at most two same-source prior successful runs for initial judgment; absent history is explicit unknown/owner disposition. Full reruns only if a specific unresolved decision needs them. Schema/diff checks are bounded to changed paths and report; do not scan all cases or call an LLM in CI.",
+    "stage": "S2 proposal; not implemented or certified by S1",
+    "preventionProposal": {
+      "existingOwners": {
+        "coldReview": ".agents/roles/review-sidecar.md (portable SSOT); packages/core/templates/shared/skill-context/aif-review/SKILL.md mirrors it",
+        "dispatchAndDisposition": ".agents/procedures/harvest/SKILL.md §4 and references/fidelity.md: cold review before final fidelity; REVISE/STOP blocks handoff, fixes then narrow re-review. For native execution the authorized controller dispatches the same portable role and consumes its report; this is not a demand to invoke /harvest or AIF.",
+        "currentMechanicalConsumer": "packages/core/hooks/checks/pr-body-fidelity.ts checks Review findings Failure-scenario grammar and head-bound fidelity. .github/workflows/pr-body-fidelity.yml invokes its bin on opened/edited/synchronize/reopened. fidelity-verdict-in-pr-body is one of three observed required staging contexts. Current checker does NOT consume economics disposition; S2 must extend existing consumer, not claim it already does."
+      },
+      "triggerProposal": "At existing cold PR review, inspect exact base/head diff for changes to .github/workflows/**, .husky/**, package.json/workspace package.json test/check scripts, Makefile, scripts/run-local-ci-sweep.sh, scripts/run-install-sh-suite.sh, packages/core/hooks/pre-push.ts, or test/probe implementations reached by edited carriers. Include rename/deletion and unknown diff as review-required. Unrelated docs-only diff needs no cost collection. Reuse the current changed-path/merge-base pattern in pr-body-prior-art-bin.ts for a bounded trigger passed to the existing fidelity checker; never trust an author-supplied applicable=false flag.",
+      "structuredFindingProposal": {
+        "section": "Extend existing Test-Quality Review output and PR Review findings; do not create a separate verdict store.",
+        "fields": [
+          "Inputs-ref/base/head",
+          "rootCause RC5 or RC6",
+          "affected invocation IDs + source/config/environment/event/timing",
+          "before/after reached population",
+          "retained witnesses or reason none removable",
+          "bounded history IDs/durations or explicit unavailable",
+          "Failure-scenario and materiality/Triage",
+          "disposition: fixed | retained-with-evidence | deferred-to-owner | unresolved",
+          "disposition evidence + responsible owner"
+        ],
+        "noFinding": "Require explicit assessed/no-material-finding with scoped evidence for triggered changes; no fabricated finding quota. Data unavailable yields bounded rationale/owner disposition, never zero cost."
+      },
+      "consumptionProposal": "The existing controller/harvest cold-review stage consumes each material finding before fidelity: fixed requires delta evidence, retained requires recorded counterexample/benefit; unresolved material or unaccepted deferral blocks GO. Extend the existing fidelity checker/bin to require the head-bound scoped review record and a disposition per reported RC5/RC6 finding on triggered diffs, rejecting missing/stale/duplicate records and unresolved material findings. An owner-accepted deferral must identify the named authority and evidence, not erase the finding. Reuse accepted PR2146 sidecar-card/consumer contract if landed by S2. CI validates binding/completeness only; it cannot certify reviewer judgment or economic optimality.",
+      "invocationAndDisablementProposal": [
+        "Held diff adding a second identical root auditor after an install must activate review; deleting/changing script membership also activates. An unrelated prose-only diff does not demand history or a new review seat.",
+        "Drive actual existing fidelity CLI with changed-path inputs and missing, stale-head, unresolved, duplicate and legitimately disposed records; require correct nonzero/zero statuses. Repeat with edited PR body event fixture; skip/unregistered new context must not substitute for the observed required context.",
+        "Disable trigger wiring or remove required review section in scratch: independently held carrier conformance must fail. Disable checker/return success: independent held negative fixture must fail. A test calling only an internal parser is insufficient.",
+        "Use bounded held cold-review cases (exact duplicate, unique environment, imbalanced equivalent shards, justified slow unique test); require observed cold report and consumed disposition, not a canned checker claiming semantic economics detection. Reconcile with TAK accepted review conformance; no new paid-LLM CI job."
+      ],
+      "boundedClaim": "Future review channel surfaces and disposes materially redundant/imbalanced changed work; mechanical checks only enforce that this scoped review/disposition reached acceptance. Neither perfect detection, automatic optimality, nor all-history duplication coverage is claimed. No S1 implementation.",
+      "coordination": "Controller reports open PR2146 head4b59504f4bb757254ea72b1f225937b50119447d changes these sidecar owners and adds scripts/lib/review-sidecar-card.mjs plus contract tests. Reconcile accepted owner/consumer at S2 before editing. PR2144 TAK and PR2151 principle51 proposal are unlanded prospective overlap; do not reserve a competing principle number."
+    }
+  },
+  {
+    "id": "RC7",
+    "decisionIds": [
+      "D05"
+    ],
+    "rootCause": "Resource cleanup is coupled to an ordinary case selected by the user and assertions precede cleanup.",
+    "principle": "Fixture lifecycle must close resources regardless of test selection or assertion outcome.",
+    "detectorPlan": "Use native test teardown/finally with existing aftermath oracle; add bounded filtered invocation regression in current test harness. Incorporate into TAK runner-soundness conformance only where supported.",
+    "legitimateCounterexamples": [
+      "A final assertion aggregating whole-run effects is useful",
+      "A deliberately live external process with explicit owner/cancellation contract"
+    ],
+    "prospectiveInvocation": "Node --test normal/filtered invocation, then D07 durable carrier.",
+    "independentConformanceBoundary": "No-selected-case and selected-case finish; forced aftermath failure still closes; prohibition counters preserved; independent watchdog distinguishes hang from semantic red.",
+    "costControl": "Subsecond normal control; short bounded timeout only on changed lifecycle/runner. No global full-suite setup.",
+    "stage": "S2 proposal; not implemented or certified by S1"
+  }
+]

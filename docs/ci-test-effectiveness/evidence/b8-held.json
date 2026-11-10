@@ -1,0 +1,34 @@
+{
+  "old_actual_workflow": {
+    "actualStatus": 0,
+    "fixedExpectedMissingStatus": 1,
+    "falseGreenCaught": true,
+    "sourceCommit": "f36264e2c379a72a0db36b54536b5f1dc37857b3",
+    "runBlockSha256": "865266f862fd9d7ad8fc9827adfe852798b7913477f6d543ec1da09dd72dde03",
+    "ordinaryResponse": "protected true, known three contexts; rulesets empty; admin endpoint denied"
+  },
+  "held_consumer_removed": {
+    "status": 1,
+    "seconds": 2.844
+  },
+  "held_detector_greenwashed": {
+    "status": 1,
+    "seconds": 2.842
+  },
+  "restoration": {
+    ".github/workflows/workflow-integrity.yml": {
+      "before": "d84360a7ea11fb4b2a67e4f6f23ee8d6d465a70373b0ec17bf865f47422ec714",
+      "after": "d84360a7ea11fb4b2a67e4f6f23ee8d6d465a70373b0ec17bf865f47422ec714",
+      "identical": true
+    },
+    "scripts/check-required-contexts.sh": {
+      "before": "8dfda7a473197990d649a47f3b2324cca40f824b345a732de74af8f791005770",
+      "after": "8dfda7a473197990d649a47f3b2324cca40f824b345a732de74af8f791005770",
+      "identical": true
+    }
+  },
+  "restored_fixed_corpus": {
+    "status": 0,
+    "seconds": 3.594
+  }
+}

@@ -66,6 +66,13 @@ _shim2() {
   cat > "$BIN_DIR/$name" <<EOF
 #!/bin/sh
 # generated shim — scripted stdout + exit code per invocation shot (see header comment)
+# Identity/help probes are not diagnostic shots (sg is ast-grep's supported alias).
+if [ "$name" = sg ]; then
+  case "\$*" in
+    --version) echo 'ast-grep 0.44.1'; exit 0 ;;
+    'scan --help') echo 'Usage: sg scan [OPTIONS]'; exit 0 ;;
+  esac
+fi
 SHOTS="$BIN_DIR/.shots-$name"
 n=\$(cat "\$SHOTS" 2>/dev/null || echo 0)
 n=\$((n + 1))
@@ -114,15 +121,16 @@ TOML
   printf '%s' "$tree"
 }
 
-# run_firing <tree> <backend> <tag> [cargo-toggle] — invoke the runner the way a consumer
+# run_firing <tree> <backend> <tag> [cargo-toggle] [tool-path] — invoke the runner the way a consumer
 # does (env-clean apart from PATH + the lane toggle), capturing out/err/rc under <tag>.*
 run_firing() {
   local tree="$1" backend="$2" tag="$3" toggle="${4:-0}"
+  local tool_path="${5:-$BIN_DIR:$PATH}"
   if [ "$toggle" = "1" ]; then
-    ( cd "$SCRATCH" && env -i PATH="$BIN_DIR:$PATH" GETFF_PREPUSH_CARGO_FIRE=1 \
+    ( cd "$SCRATCH" && env -i PATH="$tool_path" GETFF_PREPUSH_CARGO_FIRE=1 \
         bash "$RUNNER" "$tree" "$backend" ) >"$SCRATCH/$tag.out" 2>"$SCRATCH/$tag.err"
   else
-    ( cd "$SCRATCH" && env -i PATH="$BIN_DIR:$PATH" \
+    ( cd "$SCRATCH" && env -i PATH="$tool_path" \
         bash "$RUNNER" "$tree" "$backend" ) >"$SCRATCH/$tag.out" 2>"$SCRATCH/$tag.err"
   fi
   echo $? > "$SCRATCH/$tag.rc"
@@ -188,6 +196,115 @@ arm_sg_d() { # exit 0 + zero diagnostics: good[] clean; the blind bad[] arm stay
   assert_rc        "sg-d run exits 1 (bad[] blind = broken material)" 1 "$SCRATCH/sg-d.rc"
   assert_contains  "sg-d good sample clean" "$SCRATCH/sg-d.all" "good sample clean"
   assert_contains  "sg-d bad sample honestly did NOT fire" "$SCRATCH/sg-d.all" "did NOT fire"
+}
+
+# ── ambiguous sg alias identity (D09) ────────────────────────────────────────
+# Keep actual installed ast-grep/sg out of PATH: these tools transport recorded diagnostics
+# into the REAL runner, not a copy of its availability predicate or verdict implementation.
+ALIAS_BIN="$SCRATCH/alias-bin"
+mkdir -p "$ALIAS_BIN"
+for utility in bash node mktemp rm mkdir cp base64 grep cat; do
+  ln -s "$(command -v "$utility")" "$ALIAS_BIN/$utility"
+done
+
+arm_sg_impostor() {
+  echo "arm sg-impostor: util-linux-like sg returns help0 but is not ast-grep"
+  cat > "$ALIAS_BIN/sg" <<EOF
+#!/bin/sh
+printf '%s\\n' "\$*" >> "$SCRATCH/impostor-calls"
+case "\$*" in
+  --version) echo 'sg from util-linux 2.41.5'; exit 0 ;;
+  'scan --help') echo 'Usage: sg <group> [[-c] <command>]'; exit 0 ;;
+  *) echo 'sg: group scan does not exist' >&2; exit 8 ;;
+esac
+EOF
+  chmod +x "$ALIAS_BIN/sg"
+  _sidecar "$SCRATCH/sg-impostor.json" "$SG_RID" "$BAD_PY" "$GOOD_PY"
+  local tree; tree="$(_consumer_tree sg-impostor astgrep "$SCRATCH/sg-impostor.json" "$SG_RID")"
+  run_firing "$tree" astgrep sg-impostor 0 "$ALIAS_BIN"
+  assert_rc "sg-impostor exits 0 (unverified, not broken material)" 0 "$SCRATCH/sg-impostor.rc"
+  assert_contains "sg-impostor explicit absence" "$SCRATCH/sg-impostor.all" "DEGRADED: ast-grep not on PATH"
+  assert_contains "sg-impostor skip is NOT green" "$SCRATCH/sg-impostor.all" "a skipped check is NOT green"
+  assert_not_contains "sg-impostor never fires" "$SCRATCH/sg-impostor.all" "fired RED"
+  assert_not_contains "sg-impostor never rejects rule artifact" "$SCRATCH/sg-impostor.all" "rule invalid"
+  assert_not_contains "sg-impostor never scans samples" "$SCRATCH/impostor-calls" "scan --json"
+
+  # Canonical name still wins even with the incompatible sg alongside it.
+  _shim2 ast-grep 0 "$SG_FIRE_JSON" 0 "$SG_CLEAN_JSON"
+  ln -s "$BIN_DIR/ast-grep" "$ALIAS_BIN/ast-grep"
+  run_firing "$tree" astgrep sg-canonical 0 "$ALIAS_BIN"
+  assert_rc "sg-canonical sound material exits 0" 0 "$SCRATCH/sg-canonical.rc"
+  assert_contains "sg-canonical bad fires" "$SCRATCH/sg-canonical.all" "bad sample fired RED"
+  assert_contains "sg-canonical good clean" "$SCRATCH/sg-canonical.all" "good sample clean"
+  assert_not_contains "sg-canonical not degraded by wrong alias" "$SCRATCH/sg-canonical.all" "DEGRADED"
+  rm "$ALIAS_BIN/ast-grep"
+}
+
+arm_sg_alias() {
+  echo "arm sg-alias: legitimate alias preserves structured firing and rejection outcomes"
+  rm -f "$ALIAS_BIN/sg"
+  _shim2 sg 0 "$SG_FIRE_JSON" 0 "$SG_CLEAN_JSON"
+  ln -s "$BIN_DIR/sg" "$ALIAS_BIN/sg"
+  _sidecar "$SCRATCH/sg-alias.json" "$SG_RID" "$BAD_PY" "$GOOD_PY"
+  local tree; tree="$(_consumer_tree sg-alias astgrep "$SCRATCH/sg-alias.json" "$SG_RID")"
+  run_firing "$tree" astgrep sg-alias 0 "$ALIAS_BIN"
+  assert_rc "sg-alias sound material exits 0" 0 "$SCRATCH/sg-alias.rc"
+  assert_contains "sg-alias warning at rc0 fires" "$SCRATCH/sg-alias.all" "bad sample fired RED"
+  assert_contains "sg-alias good clean" "$SCRATCH/sg-alias.all" "good sample clean"
+  assert_not_contains "sg-alias is verified" "$SCRATCH/sg-alias.all" "DEGRADED"
+
+  _shim2 sg 0 "$SG_CLEAN_JSON" 0 "$SG_CLEAN_JSON"
+  run_firing "$tree" astgrep sg-alias-blind 0 "$ALIAS_BIN"
+  assert_rc "sg-alias blind material exits 1" 1 "$SCRATCH/sg-alias-blind.rc"
+  assert_contains "sg-alias blind bad rejected" "$SCRATCH/sg-alias-blind.all" "bad sample did NOT fire"
+  assert_not_contains "sg-alias blind not skipped" "$SCRATCH/sg-alias-blind.all" "DEGRADED"
+
+  _shim2 sg 0 "$SG_FIRE_JSON" 0 "$SG_FIRE_JSON"
+  run_firing "$tree" astgrep sg-alias-overfire 0 "$ALIAS_BIN"
+  assert_rc "sg-alias over-fire exits 1" 1 "$SCRATCH/sg-alias-overfire.rc"
+  assert_contains "sg-alias conforming sample rejected" "$SCRATCH/sg-alias-overfire.all" "good sample FIRED — over-fire"
+
+  _shim2 sg 8 "$SG_EMPTY" 8 "$SG_EMPTY"
+  run_firing "$tree" astgrep sg-alias-invalid 0 "$ALIAS_BIN"
+  assert_rc "sg-alias invalid rule exits 1" 1 "$SCRATCH/sg-alias-invalid.rc"
+  assert_contains "sg-alias invalid artifact stays RED" "$SCRATCH/sg-alias-invalid.all" "rule invalid"
+  assert_not_contains "sg-alias invalid artifact never fired" "$SCRATCH/sg-alias-invalid.all" "fired RED"
+  assert_not_contains "sg-alias invalid artifact never skipped" "$SCRATCH/sg-alias-invalid.all" "DEGRADED"
+}
+
+# Supported identity alone also does not establish a usable invocation: failed version or
+# scan-help probes leave the tool unverified. Diagnostic errors AFTER selection stay RED above.
+arm_sg_probe_failure() { # <tag> <version-status> <help-status>
+  local tag="$1" version_status="$2" help_status="$3"
+  echo "arm $tag: failed capability probe leaves alias unverified"
+  rm -f "$ALIAS_BIN/sg"
+  cat > "$ALIAS_BIN/sg" <<EOF
+#!/bin/sh
+case "\$*" in
+  --version) echo 'ast-grep 0.44.1'; exit $version_status ;;
+  'scan --help') echo 'Usage: sg scan [OPTIONS]'; exit $help_status ;;
+  *) exit 8 ;;
+esac
+EOF
+  chmod +x "$ALIAS_BIN/sg"
+  _sidecar "$SCRATCH/$tag.json" "$SG_RID" "$BAD_PY" "$GOOD_PY"
+  local tree; tree="$(_consumer_tree "$tag" astgrep "$SCRATCH/$tag.json" "$SG_RID")"
+  run_firing "$tree" astgrep "$tag" 0 "$ALIAS_BIN"
+  assert_rc "$tag exits 0 (unverified)" 0 "$SCRATCH/$tag.rc"
+  assert_contains "$tag explicit absence" "$SCRATCH/$tag.all" "DEGRADED: ast-grep not on PATH"
+  assert_not_contains "$tag not an artifact rejection" "$SCRATCH/$tag.all" "rule invalid"
+}
+
+arm_sg_absent() {
+  echo "arm sg-absent: neither canonical name nor alias is installed"
+  rm -f "$ALIAS_BIN/sg"
+  _sidecar "$SCRATCH/sg-absent.json" "$SG_RID" "$BAD_PY" "$GOOD_PY"
+  local tree; tree="$(_consumer_tree sg-absent astgrep "$SCRATCH/sg-absent.json" "$SG_RID")"
+  run_firing "$tree" astgrep sg-absent 0 "$ALIAS_BIN"
+  assert_rc "sg-absent exits 0" 0 "$SCRATCH/sg-absent.rc"
+  assert_contains "sg-absent explicit unverified state" "$SCRATCH/sg-absent.all" "DEGRADED: ast-grep not on PATH"
+  assert_contains "sg-absent skip is NOT green" "$SCRATCH/sg-absent.all" "a skipped check is NOT green"
+  assert_not_contains "sg-absent never fired" "$SCRATCH/sg-absent.all" "fired RED"
 }
 
 # ── ruff lane (A7-5) ──────────────────────────────────────────────────────────
@@ -406,6 +523,11 @@ arm_sg_a
 arm_sg_b
 arm_sg_c
 arm_sg_d
+arm_sg_impostor
+arm_sg_alias
+arm_sg_probe_failure sg-version-error 3 0
+arm_sg_probe_failure sg-help-error 0 3
+arm_sg_absent
 arm_ru_a
 arm_ru_b
 arm_ru_c

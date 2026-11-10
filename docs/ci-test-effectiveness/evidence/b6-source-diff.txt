@@ -1,0 +1,49 @@
+diff --git a/packages/core/hooks/glossary-counters.test.ts b/packages/core/hooks/glossary-counters.test.ts
+index 49f90d0b..52d9c4b5 100644
+--- a/packages/core/hooks/glossary-counters.test.ts
++++ b/packages/core/hooks/glossary-counters.test.ts
+@@ -868,6 +868,7 @@ describe('concurrent sessions — the counters file is machine-shared, so the in
+   //
+   // PAIRED: the sequential arm is the control. A fix that broke counting outright would make
+   // the concurrent arm pass by counting nothing, so the control has to hold at the same time.
++  // Real subprocesses share this file's slow-shell correctness budget.
+   const N = 10;
+ 
+   function spawnInjects(dir: string, parallel: boolean): void {
+@@ -924,6 +925,7 @@ describe('concurrent sessions — the counters file is machine-shared, so the in
+       spawnInjects(sb.dir, true);
+       expect(readCounts(sb.counts).terms.Land?.usages).toBe(N);
+     },
++    SLOW_SHELL_MS,
+   );
+ 
+   it.skipIf(!JQ)(
+@@ -934,6 +936,7 @@ describe('concurrent sessions — the counters file is machine-shared, so the in
+       spawnInjects(sb.dir, false);
+       expect(readCounts(sb.counts).terms.Land?.usages).toBe(N);
+     },
++    SLOW_SHELL_MS,
+   );
+ 
+   it.skipIf(!JQ)(
+@@ -944,6 +947,7 @@ describe('concurrent sessions — the counters file is machine-shared, so the in
+       spawnInjects(sb.dir, true);
+       expect(existsSync(`${sb.counts}.lock`)).toBe(false);
+     },
++    SLOW_SHELL_MS,
+   );
+ });
+ 
+diff --git a/packages/getff/MANIFEST.sha256 b/packages/getff/MANIFEST.sha256
+index 1fcca2a8..3b405947 100644
+--- a/packages/getff/MANIFEST.sha256
++++ b/packages/getff/MANIFEST.sha256
+@@ -917,7 +917,7 @@ bf2ef722bc43524772e4173bd1415291199cc3970052405d42183b290cd8cd71  packages/core/
+ 08e03d865203e18c8e7600b66ba4a8aacec57676790359697e1f1d6caa7fe805  packages/core/hooks/format-shipped-anchor.test.ts
+ 9f835d5f7c73d237a24e2d44abfe988ec560393371dbfc9bb118f66544655052  packages/core/hooks/frontier.test.ts
+ 20c8d3ed3f25a0be83daeafa540d4f870040428bd9393e7c90d1d4e31c659769  packages/core/hooks/getff-work.test.ts
+-4917bbd915572f1fd7821a26437bee7bdf594f86e13bcf7a03069f1b37d13121  packages/core/hooks/glossary-counters.test.ts
++25b27342837e7b4f5b7a0e7e86e6f1ece0cb06630816884ad800d37b9aba7424  packages/core/hooks/glossary-counters.test.ts
+ 3752d389a0f3d4087b5d797d7c9db4ba0e2f10eeed2779592cde8afed624186b  packages/core/hooks/harness-config-drift.test.ts
+ 697413a80b3a9dc08a5d40b7cd29900c60f6a9f9856a14386fc8fa9896a4f919  packages/core/hooks/hook-emit-prelude.test.ts
+ 588c0f95a3eff0780d9c053aecf14d4228080b36aa6265dc4b12e9bfe4b39033  packages/core/hooks/host-verify.test.ts

@@ -1,0 +1,11 @@
+{
+  "command": [
+    "bash",
+    "scripts/build-getff-dist.sh",
+    "--check-index"
+  ],
+  "cwd": "/workspace/getff-native",
+  "exitCode": 0,
+  "wallSeconds": 0.964,
+  "log": "/workspace/scratch/b10-staged-manifest.txt"
+}

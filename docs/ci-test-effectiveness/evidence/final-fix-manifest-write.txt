@@ -1,0 +1,1 @@
+✓ assembled packages/getff/ from the repo root — 1668 files in MANIFEST.sha256

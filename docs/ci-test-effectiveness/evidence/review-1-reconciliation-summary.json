@@ -1,0 +1,42 @@
+{
+  "reviewBase": "8c13d59395297380f5b981eac508f9175bc2e8cb",
+  "inventoryRecords": 2121,
+  "sourceRouteChanges": 378,
+  "CIPathPairs": 293,
+  "rejectedNonexecutingPairs": 4,
+  "assessedInvocations": 252,
+  "assessedKinds": {
+    "package-script": 56,
+    "local-sweep-gate": 56,
+    "make-target": 12,
+    "pre-push-section": 40,
+    "git-hook-entrypoint": 5,
+    "pre-commit-check-or-producer": 15,
+    "native-hook-registration": 68
+  },
+  "packageTestPopulations": {
+    "entry:package.json#test": 374,
+    "entry:packages/core/package.json#test": 340,
+    "entry:packages/core/package.json#test:principles": 57,
+    "entry:packages/core/package.json#test:canonical": 38,
+    "entry:packages/core/package.json#test:hooks": 96,
+    "entry:packages/core/package.json#test:ir": 2,
+    "entry:packages/core/package.json#test:backends": 26,
+    "entry:packages/core/package.json#test:composition": 4,
+    "entry:packages/core/package.json#test:render": 1,
+    "entry:packages/core/package.json#test:live-generation": 3,
+    "entry:packages/core/package.json#test:template-render": 1,
+    "entry:packages/core/package.json#test:synthesizer": 24,
+    "entry:packages/core/package.json#test:skills": 39,
+    "entry:packages/core/package.json#test:spec-validation": 1,
+    "entry:packages/core/package.json#test:units": 89,
+    "entry:packages/core/package.json#test:canonical:contracts": 32,
+    "entry:packages/core/package.json#test:canonical:zsh": 1,
+    "entry:packages/core/package.json#test:canonical:runtime-source": 18,
+    "entry:packages/preset-next-15-canonical/package.json#test": 3,
+    "entry:packages/preset-react-native/package.json#test": 0,
+    "entry:packages/preset-react-spa/package.json#test": 0,
+    "entry:packages/runtime-bridge/package.json#test": 31
+  },
+  "limits": "Bounded source audit, no shell interpreter or dynamic certification. Existing probe bytes and member archive unchanged."
+}

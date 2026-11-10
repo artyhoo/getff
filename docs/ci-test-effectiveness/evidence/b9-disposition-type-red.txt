@@ -1,0 +1,121 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > passes a complete GO block whose SHA matches head
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > passes a 12+-char SHA prefix
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > passes with CRLF line endings (GitHub API bodies are CRLF)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > passes skipped with rationale >=20 chars
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — accept path > accepts an ASCII hyphen as the skipped separator
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section structure > fails when the section is missing
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section structure > fails when a second Fidelity section exists (first-wins would hide a later STOP)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section structure > ignores HTML-commented content (a section that renders empty must not pass)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section structure > does not read past an H1 heading into unrelated body text
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails a recorded REVISE even when the rest of the block is complete
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails a recorded STOP even when the rest of the block is complete
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails when a skipped line is appended below a recorded REVISE (no neutralising by append)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails when a round-2 GO is appended below the round-1 REVISE (replace, do not append)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails a lowercase verdict token (case-sensitive by design)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — verdict semantics > fails skipped with short rationale (template default stays red)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails GO whose Audited-SHA mismatches head (staleness guard)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails GO with no Audited-SHA line
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails GO without file:line evidence
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > does not accept the Basis path as evidence (vacuous-evidence guard)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails GO missing Basis and Round, reporting both
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — GO completeness > fails when headSha is empty (bin guards this, but the check must not pass a GO blind)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > two-file contract: the shipped PR template matches the checker > template ships exactly one `## Fidelity verdict` heading with the red-by-default line
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section boundary (any heading closes it) > does not borrow file:line evidence from a neighbouring §1.7 block
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — section boundary (any heading closes it) > is not confused by a FIDELITY line living under a later H3
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > rejects skipped when Provenance declares a substrate
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > allows skipped when Provenance is the unfilled template placeholder
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > allows skipped when Provenance is explicitly n/a
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > allows skipped when there is no Provenance section at all
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — skipped is unavailable to a stage PR > still accepts a real GO on a stage PR
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — stage detector cannot be decoyed > rejects skipped when a decoy placeholder Provenance precedes the real one
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — stage detector cannot be decoyed > rejects skipped when the real Provenance comes after the verdict section
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — fenced blocks do not truncate the section > reads Evidence that follows a fenced block containing a # comment
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — fenced blocks do not truncate the section > still closes the section on a real heading after a fenced block
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — evidence exclusion is case-insensitive > does not accept a lowercase basis: path as evidence
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > fails a MAJOR-graded entry without a Failure-scenario line
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > fails a BLOCKER-graded bare-line entry without a scenario
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > passes when the scenario sits on the same line
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > passes when the scenario is an indented sub-bullet of the entry
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > does not let one scenario cover a following scenario-less entry
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > ignores digit-led summary count lines
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > exempts ESCALATED and MINOR entries
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > is not satisfied by a Failure-scenario mention inside an HTML comment
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > fails a NUMBERED-LIST BLOCKER entry without a scenario (A4-3: digit-led opener was invisible)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > fails a TABLE-ROW BLOCKER entry without a scenario (A4-3: leading-pipe opener was invisible)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > passes a numbered-list entry whose indented continuation carries the scenario
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > passes a table-row entry whose later row carries the scenario
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings) > reports the arm error alongside the skipped path too
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > exempts the review-sidecar tally shape `- BLOCKER: 1` / `- MAJOR: 3`
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > exempts the digit zero-tally `- BLOCKER: 0` (control — pre-A4-5 behavior)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > exempts the natural zero-form `- BLOCKER: none` / `- MAJOR: none` (A4-5)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > still gates a bare grade word with trailing prose after `none` (`- BLOCKER: none found so far`)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — sidecar count lines are not findings > still gates a real finding whose text follows the colon
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — ONE shared FILE_LINE_RE (R-8 contract pin) > the shared s17.ts regex judges each citation as declared
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — ONE shared FILE_LINE_RE (R-8 contract pin) > the fidelity gate accepts evidence exactly when the shared regex does
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > an unbalanced `<!--` inside an INLINE code span does not swallow the section
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > an unbalanced `<!--` inside a FENCED block does not swallow the section
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > CONTROL: a commented-out verdict is still ignored (the original invariant)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > CONTROL: a commented-out verdict inside a fence is still ignored (no widening)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — comment stripping is markdown-aware > an unterminated `<!--` in PROSE hides the rest of the body, as GitHub renders it
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not borrow evidence after literal or list-contained     ```
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not borrow evidence after literal or list-contained      ~~~
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not borrow evidence after literal or list-contained 	```
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not borrow evidence after literal or list-contained - example
+
+    ```
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts a real fence with  indentation
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts a real fence with   indentation
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts a real fence with    indentation
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts a real fence with     indentation
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > accepts evidence after a closed list-nested fence
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not close a four-backtick fence with ~~~
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not close a four-backtick fence with ```
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — CommonMark section boundaries > does not close a four-backtick fence with ```` trailing text
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — quoted section headings > does not accept an entire quoted verdict as a real section
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — quoted section headings > does not count a quoted verdict as a duplicate
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — quoted section headings > ignores quoted sibling section ## Provenance
+Substrate: quoted example
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — quoted section headings > ignores quoted sibling section ## Review findings
+- MAJOR: quoted example
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > checkPrBodyFidelity — merged indented-fence compatibility corpus > preserves merged PR #1639 (9e6c778fafad)
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > preserves the GO grammar with one matched history trace
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects wrong version
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects missing original report
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects missing basis
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects missing findings assessment
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects too many history traces
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects unsupported unavailable decision
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects missing finding scenario
+ × packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects non-string disposition 41ms
+   → expected true to be false // Object.is equality
+ ↓ packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects missing finding evidence
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/checks/pr-body-fidelity.test.ts > protection record structure (not semantic truth) > rejects non-string disposition
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/core/hooks/checks/pr-body-fidelity.test.ts:475:76
+    473|     ['missing finding evidence', { findings: [{ id: 'M1', class: 'orac…
+    474|   ]) it(`rejects ${name}`, () => {
+    475|     expect(check({ ...record, ...(patch as Record<string, unknown>) })…
+       |                                                                            ^
+    476|   });
+    477| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 85 skipped (86)
+   Start at  19:53:53
+   Duration  721ms (transform 176ms, setup 58ms, import 308ms, tests 43ms, environment 0ms)

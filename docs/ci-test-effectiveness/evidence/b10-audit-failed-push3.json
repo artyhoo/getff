@@ -1,0 +1,9 @@
+{
+  "head": "acdc333110b396c72545546f5305e8b25fc5c00d",
+  "command": "PATH=<private real tools> PREPUSH_HEAVY_RUNNER=/usr/bin/env git push origin codex/ci-test-effectiveness",
+  "exitCode": 1,
+  "startedAt": "2026-11-08T21:23:45.702972+00:00",
+  "wallSeconds": 229.23,
+  "log": "/workspace/scratch/ci-test-effectiveness-final-push-3.txt",
+  "meaning": "Normal configured hooks and same suites via documented bounded600s runner; no bypass, no force push."
+}

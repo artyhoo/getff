@@ -1,0 +1,78 @@
+
+ RUN  v4.1.8 /workspace/getff-native
+
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts (5 tests | 2 failed) 2346ms
+     ✓ releases the listener when no case matches  528ms
+     × releases the listener with one harmless selected case 689ms
+     × releases the listener with a distinct harmless selection 307ms
+     ✓ reaches the TCP prohibition and exits nonzero after assertion failure  410ms
+     ✓ retains the separate HTTP prohibition and cleans up its failing aftermath  385ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > releases the listener with one harmless selected case
+AssertionError: expected '▶ A1 composed repair\n  ✔ A1 CQ round…' to match /# pass 1\b/
+
+- Expected:
+/# pass 1\b/
+
++ Received:
+"▶ A1 composed repair
+  ✔ A1 CQ round1: pure record construction does not certify a caller-supplied home (8.765637ms)
+✔ A1 composed repair (14.41959ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 556.559386
+"
+
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:58:27
+     56|     finished(result, 0);
+     57|     expect(result.stdout).toContain('pure record construction does not…
+     58|     expect(result.stdout).toMatch(/# pass 1\b/);
+       |                           ^
+     59|   }, 12000);
+     60|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/core/hooks/autonomy-binding-lifecycle.test.ts > autonomy recorder lifecycle > releases the listener with a distinct harmless selection
+AssertionError: expected '▶ A1 composed repair\n  ✔ A1 CQ round…' to match /# pass 1\b/
+
+- Expected:
+/# pass 1\b/
+
++ Received:
+"▶ A1 composed repair
+  ✔ A1 CQ round1: malformed authority home selection provenance is rejected (3.301699ms)
+✔ A1 composed repair (6.059013ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 215.558922
+"
+
+ ❯ packages/core/hooks/autonomy-binding-lifecycle.test.ts:64:27
+     62|     const result = run('^A1 CQ round1: malformed authority home select…
+     63|     finished(result, 0);
+     64|     expect(result.stdout).toMatch(/# pass 1\b/);
+       |                           ^
+     65|   }, 12000);
+     66|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  16:06:04
+   Duration  3.06s (transform 51ms, setup 72ms, import 52ms, tests 2.35s, environment 0ms)
+

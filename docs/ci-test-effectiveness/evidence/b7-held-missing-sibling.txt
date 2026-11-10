@@ -1,0 +1,165 @@
+
+> @rules-as-tests/core@0.1.0 test:principles
+> vitest run principles/ -t ^Principle (38|41) --exclude **/principles/!(38-vitest*|41-shell*).test.ts
+
+
+ RUN  v4.1.8 <DISPOSABLE>/packages/core
+
+ ❯ principles/38-vitest-include-ci-coverage.test.ts (18 tests | 1 failed) 988ms
+     × (a) real-tree: every nonempty workspace population is invoked 536ms
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 41 passed (42)
+   Start at  18:38:42
+   Duration  4.57s (transform 608ms, setup 183ms, import 1.73s, tests 4.14s, environment 2ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  principles/38-vitest-include-ci-coverage.test.ts > Principle 38 — workspace Vitest population reaches actual CI invocations > (a) real-tree: every nonempty workspace population is invoked
+AssertionError: Unwired Vitest files; add an actual package command. Unsupported shapes: .: while IFS= read -r f
+.: if ! bash -n "$f" 2>err.log
+.: while IFS= read -r f
+.: if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" 2>err.log
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: if grep -rn "ai-factory-RULES\.md" --include="*.md" --include="*.sh" --exclude-dir=orchestrator-prompts .
+.: if grep -rn "best-practices-sidecar\.react\.md" --include="*.md" --exclude-dir=orchestrator-prompts .
+.: exit "$fail"
+.: for rules_file in packages/preset-next-15-canonical/RULES.md packages/preset-next-15-canonical/RULES.react-next.md
+.: while IFS= read -r r
+.: if find packages/core/audit-self packages/preset-next-15-canonical/audit-self \( -name "*.sh" -o -name "*.ts" \) -print0 2>/dev/null |         xargs -0 grep -qE "$r.*manual|manual.*$r|$r.*delegated|delegated.*$r" 2>/dev/null
+.: if [ "$in_audit" -eq 0 ]
+.: if [ -f packages/core/audit-self/audit-ai-docs.test.ts ]
+.: if [ -f packages/core/audit-self/first-steps-parity.test.ts ]
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: if ! command -v jq >/dev/null 2>&1
+.: unsupported shell block (heredoc/substitution/quotes)
+.: bash scripts/run-install-sh-suite.test.sh 3>/dev/null
+.: curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
+.: echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
+.: tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP" --strip-components=1
+.: "$RUNNER_TEMP/lychee" --version
+.: if grep -qF 'SKIP: lychee not on PATH' "$RUNNER_TEMP/lychee-test.out"
+.: unsupported shell block (heredoc/substitution/quotes)
+.: npm script cycle/limit .:typecheck
+.: git fetch --no-tags --quiet origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+.: curl -sSfL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz -o "$RUNNER_TEMP/vale.tgz"
+.: echo "cc35445a45186b8f0b01e11c01359694cf941e72cf6ab0fc44774f0e54c9d5fc  $RUNNER_TEMP/vale.tgz" | sha256sum -c -
+.: mkdir -p "$RUNNER_TEMP/vale-bin"
+.: tar -xzf "$RUNNER_TEMP/vale.tgz" -C "$RUNNER_TEMP/vale-bin"
+.: "$RUNNER_TEMP/vale-bin/vale" --version
+.: curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
+.: echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
+.: mkdir -p "$RUNNER_TEMP/lychee-bin"
+.: tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP/lychee-bin" --strip-components=1
+.: "$RUNNER_TEMP/lychee-bin/lychee" --version
+.: if grep -q '⚠ arms' "$RUNNER_TEMP/docs-check-test.out"
+.: if grep -q 'SKIPPED' "$RUNNER_TEMP/render-terms-style-test.out"
+.: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+__outside_repository__: echo '{"name":"fake-consumer-ts","version":"0.0.0","private":true}' > package.json
+.: npm ci --prefix "$GITHUB_WORKSPACE/packages/core" --silent
+__outside_repository__: echo '{"name":"fake-consumer-rn","version":"0.0.0","private":true}' > package.json
+unsupported step condition: matrix.fixture == 'empty-manifest'
+unsupported step condition: matrix.fixture == 'empty-manifest'
+unsupported step condition: matrix.fixture == 'empty-manifest'
+unsupported step condition: matrix.fixture == 'empty-manifest'
+unsupported step condition: matrix.fixture == 'empty-manifest'
+unsupported step condition: matrix.fixture == 'empty-manifest'
+unsupported step condition: matrix.fixture == 'empty-manifest'
+unsupported step condition: matrix.fixture == 'empty-manifest'
+unsupported step condition: matrix.fixture == 'empty-manifest'
+unsupported step condition: matrix.fixture == 'own-configs' || matrix.fixture == 'vite-shape' || matrix.fixture == 'red-lint'
+.: unsupported shell block (heredoc/substitution/quotes)
+.: cd "$CONSUMER"
+.: for bin in eslint depcruise
+.: cd "$CONSUMER"
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+.: if [ "$RUN_CELL" != true ]
+.: [ "$RUN_CELL" = true ] || echo "::notice::cell skipped by path-scope (install=$INSTALL); nothing below runs"
+unsupported step condition: env.RUN_CELL == 'true' && runner.os == 'Windows'
+unsupported step condition: matrix.cell == 'pnpm-monorepo'
+unsupported step condition: matrix.cell == 'python-unfamiliar-stack'
+unsupported step condition: matrix.cell == 'python-unfamiliar-stack'
+unsupported step condition: matrix.cell == 'pnpm-monorepo'
+unsupported step condition: matrix.cell == 'python-unfamiliar-stack'
+unsupported step condition: matrix.cell == 'npm-tarball'
+unsupported step condition: env.RUN_CELL == 'true' && matrix.cell == 'getff-dist' && runner.os == 'Windows'
+unsupported step condition: env.RUN_CELL == 'true' && matrix.cell == 'getff-dist' && runner.os == 'Windows'
+unsupported step condition: env.RUN_CELL == 'true' && matrix.cell == 'getff-dist'
+.: unsupported shell block (heredoc/substitution/quotes)
+unsupported step condition: env.GATE_RANGE != ''
+.: bash scripts/ci-success-gate.sh $RESULTS
+unsupported job condition: needs.path-scope.outputs.runtime == 'false'
+.: unsupported shell block (heredoc/substitution/quotes)
+unsupported job condition: github.event.pull_request.base.ref != 'main'
+.: unsupported shell block (heredoc/substitution/quotes)
+unsupported step condition: ${{ env.METRICS_PAT != '' }}
+unsupported step condition: ${{ env.METRICS_PAT == '' }}
+.: unsupported shell block (heredoc/substitution/quotes)
+.: unsupported shell block (heredoc/substitution/quotes)
+unsupported job condition: github.event.pull_request.base.ref == 'staging'
+.: unsupported shell block (heredoc/substitution/quotes)
+unsupported job condition: github.event.pull_request.base.ref == 'staging'
+.: unsupported shell block (heredoc/substitution/quotes): expected [ …(31) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "packages/runtime-bridge/test/aif-active-observation.test.ts",
++   "packages/runtime-bridge/test/aif-answer.test.ts",
++   "packages/runtime-bridge/test/aif-backend-semantics.test.ts",
++   "packages/runtime-bridge/test/aif-claim-split.test.ts",
++   "packages/runtime-bridge/test/aif-dispatch-dedup.test.ts",
++   "packages/runtime-bridge/test/aif-dispatch-preflight.test.ts",
++   "packages/runtime-bridge/test/aif-ensure-parallel.test.ts",
++   "packages/runtime-bridge/test/aif-fire-backend.test.ts",
++   "packages/runtime-bridge/test/aif-http.test.ts",
++   "packages/runtime-bridge/test/aif-park-live.test.ts",
++   "packages/runtime-bridge/test/aif-park.test.ts",
++   "packages/runtime-bridge/test/aif-questions.test.ts",
++   "packages/runtime-bridge/test/aif-rest-dispatch.test.ts",
++   "packages/runtime-bridge/test/aif-result-consumption.test.ts",
++   "packages/runtime-bridge/test/aif-self-cleaning.test.ts",
++   "packages/runtime-bridge/test/aif-status-readback.test.ts",
++   "packages/runtime-bridge/test/await-actionable.test.ts",
++   "packages/runtime-bridge/test/cli-entry.test.ts",
++   "packages/runtime-bridge/test/cli-symlink-entry.test.ts",
++   "packages/runtime-bridge/test/dispatch-import-no-sideeffect.test.ts",
++   "packages/runtime-bridge/test/dispatch-spec-invalid.test.ts",
++   "packages/runtime-bridge/test/economy-build.test.ts",
++   "packages/runtime-bridge/test/harvest-cli.test.ts",
++   "packages/runtime-bridge/test/harvest-host-repo.test.ts",
++   "packages/runtime-bridge/test/harvest-merge-report.test.ts",
++   "packages/runtime-bridge/test/harvest.test.ts",
++   "packages/runtime-bridge/test/questions-cli-output.test.ts",
++   "packages/runtime-bridge/test/result-review-effects.test.ts",
++   "packages/runtime-bridge/test/runtime-bridge.test.ts",
++   "packages/runtime-bridge/test/supervision.test.ts",
++   "packages/runtime-bridge/test/vendor-hook-stderr.test.ts",
++ ]
+
+ ❯ principles/38-vitest-include-ci-coverage.test.ts:30:7
+     28|       missing(),
+     29|       `Unwired Vitest files; add an actual package command. Unsupporte…
+     30|     ).toEqual([]);
+       |       ^
+     31|   });
+     32|   it('(b) non-vacuity: tracked configs and core population cannot disa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

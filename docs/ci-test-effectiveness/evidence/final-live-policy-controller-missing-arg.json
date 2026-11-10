@@ -1,0 +1,8 @@
+{
+  "observedAt": "2026-11-08T20:17:29.731711+00:00",
+  "command": "GH_REPO=artyhoo/getff bash scripts/check-required-contexts.sh",
+  "exitCode": 2,
+  "wallSeconds": 0.019,
+  "log": "final-live-policy.txt",
+  "meaning": "known missing contexts=1, unknown access/schema=2, satisfied=0; read-only, no settings write"
+}
