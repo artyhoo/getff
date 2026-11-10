@@ -85,7 +85,7 @@
     "source": {
       "positionals": "setup:73",
       "laneTable": "install.sh:302",
-      "flags": "README.md:197"
+      "flags": "README.md:199"
     },
     "stacks": [
       "ts-server",
@@ -114,19 +114,19 @@
     "flags": [
       {
         "flag": "--yes",
-        "line": 199
-      },
-      {
-        "flag": "--global",
-        "line": 200
-      },
-      {
-        "flag": "--all",
         "line": 201
       },
       {
-        "flag": "--dry-run",
+        "flag": "--global",
         "line": 202
+      },
+      {
+        "flag": "--all",
+        "line": 203
+      },
+      {
+        "flag": "--dry-run",
+        "line": 204
       }
     ]
   },
