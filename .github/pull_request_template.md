@@ -37,6 +37,10 @@ Grep the file NAME, including presence-based detection (`[ -f … ]`). A path wi
 - [ ] If hook code touched: `bash tests/hooks/prior-art-trailer-hook.test.sh` green
 - [ ] Manual smoke per change <list specific scenarios>
 
+<!-- For claims about live user-facing behavior, link the real task and observed
+result at the installed revision, host, and entry point. Mark the item open
+when real use is pending. See CONTRIBUTING.md#verify-user-facing-behavior-through-real-work. -->
+
 ## Provenance
 
 <stage PRs: kickoff/spec path · base SHA · substrate (aif task <id> + bridge-profile <name> | in-session) · models per stage · fidelity Round. Non-stage PRs: n/a>

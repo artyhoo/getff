@@ -14,6 +14,8 @@ AI agents can't silently bypass undocumented conventions. Every rule is an execu
 
 Recursive self-application — framework validates itself via own logic. Quality signal (GCC bootstrap precedent, `rustc` compile-self analogy), not the project's goal.
 
+For user-facing acceptance, apply [verification through real work](../CONTRIBUTING.md#verify-user-facing-behavior-through-real-work).
+
 ## Invariants
 
 The invariant list lives in one place: [README.md «What must not break (invariants)»](../README.md#what-must-not-break-invariants). This file does not restate it. The session digest's `Invariants:` line (injected on every prompt and subagent start by [`.claude/hooks/inject-session-bootstrap.sh`](hooks/inject-session-bootstrap.sh)) is rendered from that README block by [`scripts/render-invariants.mjs`](../scripts/render-invariants.mjs); `--check` fails at pre-push (`invariants-render` section) and in CI (the hook's vitest suite) whenever the two differ.

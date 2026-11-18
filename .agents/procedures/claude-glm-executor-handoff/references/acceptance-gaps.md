@@ -15,6 +15,10 @@ Per `night-mode` §5 (empirical-over-inferred) — the following claims about GL
 
 **Promotion criterion:** before this skill is trusted in production, each of #1–#4 should be backed by a research patch in `docs/meta-factory/research-patches/` recording a live probe. #5 is a usage guard, not a probe target. Until then, treat the GLM-edge contract as **designed-not-proven**, matching `night-mode`'s own stated posture on non-CC harnesses. The verified facts in §1 stand independently (sourced from Z.ai docs); the contract sections (§2–§4) are the designed-not-proven parts.
 
+For production acceptance, gather the applicable observations during real work
+through the intended handoff and cite its original evidence in the research patch.
+Keep any constructed controls scoped to the diagnosis they support.
+
 ## See also
 
 - [`.claude/skills/night-mode/SKILL.md`](../../night-mode/SKILL.md) — tier posture + advisor strategy + verification discipline this skill subordinates to.

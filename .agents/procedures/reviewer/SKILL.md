@@ -34,6 +34,9 @@ the missing slot. For an input-only question, use the supplied premises and the 
 review protocol; do not discover, read, or run adjacent acceptance fixtures. For a bound
 artifact, read its declared criteria and run only its acceptance commands. Preserve a
 failed or denied execution as failure or unverified evidence, never a pass.
+For a claim about live user-facing behavior, inspect the evidence from the real
+task on the intended host and installed entry point. Record that claim as open
+when the available evidence covers only a fixture or diagnostic.
 
 1. **Question** — "is this right?" / "does X match the plan?" → read the relevant
    artifacts, answer `YES / NO / PARTIALLY` + one-line why + `file:line` evidence.

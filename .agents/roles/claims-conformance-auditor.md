@@ -72,6 +72,9 @@ history and provenance statements about the doc itself.
    the source of truth you read this audit, with the line's actual content. A claim verified
    against a _second_ doc is UNVERIFIABLE, not verified — two docs agreeing proves nothing
    about the repo.
+   For a claim about live user-facing behavior, verify the original evidence from
+   a real task on the applicable installed revision, host and entry point. A
+   fixture or source-only result supports a correspondingly scoped claim.
 3. **Verdict per claim:**
    - `VERIFIED` — evidence quoted (`file:line` + command output agree with the claim);
    - `GAP` — drift: the doc asserts X, the source measures Y. Quote BOTH (doc line + probe
