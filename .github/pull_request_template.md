@@ -35,7 +35,7 @@ Grep the file NAME, including presence-based detection (`[ -f … ]`). A path wi
 - [ ] `make self-audit` green
 - [ ] `npm run --prefix packages/core test:principles` green (principle 08 enforces SSOT citations on phase research files)
 - [ ] If hook code touched: `bash tests/hooks/prior-art-trailer-hook.test.sh` green
-- [ ] Manual smoke per change <list specific scenarios>
+- [ ] Manual smoke per change <list specific scenarios>. For live user-facing claims, link [evidence from real work](../CONTRIBUTING.md#verify-user-facing-behavior-through-real-work) or mark live acceptance open.
 
 ## Provenance
 

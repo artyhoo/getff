@@ -103,6 +103,10 @@ Keep GLM worker-only. Status reliability, tool-loop convergence, Sonnet/GLM capa
 
 Before production reliance or planning acceptance probes, read [acceptance gaps and provenance](references/acceptance-gaps.md). Trust requires live research-patch evidence for each of gaps #1–#4; #5 is the worker-only guard, not a probe target. No live probe is authorized merely by reading this card.
 
+Bind production-behavior evidence to real work through the intended handoff.
+Record constructed probes at their diagnostic scope and leave real-use claims
+open until the applicable behavior is observed on a real task.
+
 ## Without this skill
 
 A Claude coordinator inside aif-handoff dispatches to a GLM-5.2 worker using a prompt written «as for another Claude» — and the cross-provider divergence silently corrupts the handoff: an image path is passed that GLM cannot read (D1); `reasoning_effort: medium` is set expecting a middle tier and silently behaves as `high` (D2); the worker's reply lacks a parseable status field and the coordinator either accepts unverified prose as success or stalls parsing freeform text; on a `BLOCKED` return the coordinator blindly retries the same prompt instead of re-planning. None of these failure modes are caught at the dispatch moment — they propagate to the next pipeline step.

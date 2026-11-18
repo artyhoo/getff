@@ -264,6 +264,20 @@ the hook does not skip the principle test; principle 08 runs in
 `principles-meta-tests` CI job and catches research-file violations
 regardless of hook bypass.
 
+## Verify user-facing behavior through real work
+
+Use a real task that the operator or a consumer already needs to do. Exercise the
+ordinary installed entry point on the intended host and profile. For a skill or
+workflow fix, retain the actual task, installed revision, host and entry point,
+observed behavior, and an evidence link. The accountable owner checks that this
+evidence supports the specific acceptance claim.
+
+Keep deterministic regression, delivery, and diagnostic checks. Record what they
+prove. Rehearsals, synthetic fixtures, and isolated probes can diagnose failures
+and verify their bounded contracts. Live acceptance requires an observation from
+real use. When no qualifying task is ready, record the installed candidate as
+prepared where applicable and leave the live acceptance item open until real use.
+
 ## Reference
 
 - `docs/meta-factory/self-application.md` — why author-side enforcement exists

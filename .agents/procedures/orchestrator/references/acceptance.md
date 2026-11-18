@@ -43,6 +43,11 @@ Push and PR creation are the senior's, and the mechanics (branch push, `gh pr cr
 
 4. **Pre-mark PR body checkboxes** (MANDATORY before `gh pr create` / `gh pr edit --body`): put an **already-checked** `[x]` on everything verified through (a) green CI, (b) a Worker REPORT verify-trace (literally enumerated observed results), (c) reviewer probes (`gh pr diff` / `git show` / grep / DB probe). Leave `[ ]` **only** for the physically pending (visual acceptance / runtime after a migration / third-party access). Do NOT extrapolate «merged means runtime verified» — an `[x]` goes only on an item literally mentioned in the verify-trace. Anti-pattern: copying the kickoff checklist over empty — that shifts the work onto the user, who then re-walks what is already verified. This matters most for aggregating epic→staging PRs.
 
+   For a live user-facing claim, the verify-trace must link a real task and the
+   observed result on the installed revision, host, and ordinary entry point.
+   Keep this item open when real use is pending. Record CI, fixtures, and
+   manual probes at the scope each one actually verifies.
+
 > If Phase 4.5 audit finds ≥1 unverified claim → escalate before PR creation. Zero ATTN → proceed to push + PR.
 
 ---
