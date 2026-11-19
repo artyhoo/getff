@@ -54,6 +54,9 @@ declared command passed on this host, OR a valid opt-out was found; 1 = one fail
 contract is a FAIL, not a pass — fail-closed, because "nobody declared anything" is precisely
 the state this rule exists to end.
 
+Report each host command at its actual verification scope. Claims about live
+user-facing behavior in this framework follow [verification through real work](../../CONTRIBUTING.md#verify-user-facing-behavior-through-real-work).
+
 **Grammar lives in one place.** Both contract extraction AND opt-out recognition live in
 `host-verify.sh`. The edit-time gate does not re-implement either — it shells out to
 `host-verify.sh --list` and surfaces the runner's stderr verbatim in its violation text, so the
