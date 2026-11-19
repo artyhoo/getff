@@ -384,7 +384,7 @@ npm install zod@^3.24.0
 ```bash
 npm install --save-dev \
   jsdom \
-  @testing-library/react @testing-library/jest-dom @testing-library/user-event \
+  @testing-library/react @testing-library/jest-dom@~6.9.1 @testing-library/user-event \
   @next/eslint-plugin-next \
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y \
   eslint-plugin-testing-library \
