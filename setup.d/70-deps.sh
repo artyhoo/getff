@@ -255,7 +255,9 @@ CORE_DEVDEPS=(
 # at import). Unpinned like its @testing-library siblings; also in REACT_SPA_DEVDEPS below.
 REACT_DEVDEPS=(
   jsdom @testing-library/react
-  @testing-library/jest-dom @testing-library/user-event @next/eslint-plugin-next
+  # jest-dom ~6.9.1 (2026-11-19): 8.0.0 added an optional vitest>=5<6 peer that ERESOLVEs
+  # against the shipped Vitest 4; 6.10+/7.0 raise engines.node to >=22 — the tilde keeps the Node 20.19 floor.
+  @testing-library/jest-dom@~6.9.1 @testing-library/user-event @next/eslint-plugin-next
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
   concurrently@^9.0.0 http-server@^14.1.0 wait-on@^8.0.0
@@ -266,7 +268,8 @@ REACT_DEVDEPS=(
 # (Feature-Sliced Design layering the shipped SPA eslint.config enforces). Mirrors REACT_DEVDEPS otherwise.
 REACT_SPA_DEVDEPS=(
   jsdom @testing-library/react
-  @testing-library/jest-dom @testing-library/user-event eslint-plugin-boundaries
+  # jest-dom ~6.9.1 (2026-11-19): same Vitest-4 peer / Node 20.19 floor pin as REACT_DEVDEPS above.
+  @testing-library/jest-dom@~6.9.1 @testing-library/user-event eslint-plugin-boundaries
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
 )
