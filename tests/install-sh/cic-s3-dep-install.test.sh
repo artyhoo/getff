@@ -348,6 +348,166 @@ for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.
   fi
 done
 
+# ════ Parity (jest-dom ~6.9.1 pin, 2026-11-19; reworked same day) — §4 React/Next command + BOTH arrays ════
+# 8.0.0 added an optional vitest>=5<6 peer (ERESOLVE against the shipped Vitest 4) and 6.10+/7.0
+# raise engines.node to >=22 — the tilde keeps the Node 20.19 brownfield floor. The pin must be
+# an EXACT shell token of the §4 React/Next fenced npm command AND of each React array.
+# Rework (owner repro 2026-11-19 — the first cut had two false positives): the doc side now reads
+# ONLY the fence under "### React/Next.js" inside "## Section 4", so a decoy literal in an HTML
+# comment, another section or another fence can never satisfy it; and every comparison is
+# whole-token equality, because grep -F substring-matches (a ~6.9.10 token passed as "~6.9.1").
+# Focused follow-up (owner repro, same day): the extraction must be the ACTUAL command — the
+# "npm install --save-dev" header plus its contiguous backslash continuations only. An arbitrary
+# command in the fence (e.g. the header swapped to `echo`) or a LATER command after the npm
+# install ends must not satisfy it. Scratch mutations below are STRUCTURAL (anchored to the
+# known heading/token/array), never line offsets.
+# Section-boundary follow-up (Sol repro, same day): the selected subsection ends at the next
+# peer level-3 heading (a valid fence moved under a later ### subheading is NOT the React/Next
+# command), and Markdown HTML comment blocks (<!-- ... --> lines) are skipped BEFORE heading/
+# fence detection (a pinned fake fence inside a comment is not a fence).
+_jd_s4_command() (  # $1 = INSTALL.md path → stdout: the §4 React/Next "npm install --save-dev" command only
+  awk '
+    in_comment  { if ($0 ~ /-->/) in_comment = 0; next }       # inside an HTML comment block: skip the line
+    /<!--/      { if ($0 !~ /-->/) in_comment = 1; next }      # comment opener (single-line comments skip too)
+    /^## Section 4/            { s4 = 1; next }
+    /^## / && s4               { exit }                        # Section 4 ends at the next ## heading
+    s4 && /^###/ && !rn        { if ($0 ~ /^### React\/Next/) rn = 1; next }
+    s4 && rn && /^###/         { exit }                        # peer level-3 heading ends the subsection
+    rn && /^```bash/           { fence = 1; next }
+    rn && /^```/               { exit }                        # closing fence of the React/Next command
+    fence && !hdr {                                            # first content line MUST be the npm header
+      if ($0 !~ /^[[:space:]]*npm install --save-dev[[:space:]]*(\\)?[[:space:]]*$/) exit
+      hdr = 1; print
+      if ($0 !~ /\\$/) exit                                    # single-line command: done
+      next
+    }
+    fence                      { print; if ($0 !~ /\\$/) exit }  # last continuation line ends the command —
+  ' "$1" | sed 's/#.*$//'                                     # later commands in the same fence are excluded.
+)                                                              # In-fence # comments stripped (extract_array style).
+check_jestdom_pin() (  # reads $REPO_ROOT → echoes failing surfaces (empty = pinned everywhere)
+  _jd='@testing-library/jest-dom@~6.9.1'
+  _bad=""
+  _found=""
+  for _tok in $(_jd_s4_command "$REPO_ROOT/INSTALL.md"); do
+    [ "$_tok" = "$_jd" ] && _found=y
+  done
+  [ -n "$_found" ] || _bad="$_bad s4-command"
+  for _arr in REACT_DEVDEPS REACT_SPA_DEVDEPS; do
+    _found=""
+    for _tok in $(extract_array "$_arr"); do
+      [ "$_tok" = "$_jd" ] && _found=y
+    done
+    [ -n "$_found" ] || _bad="$_bad $_arr"
+  done
+  echo "$_bad"
+)
+_jd_missing=$(check_jestdom_pin)
+[ -z "$_jd_missing" ] \
+  && ok "parity-jd: @testing-library/jest-dom@~6.9.1 is an exact token of the §4 React/Next command and both React arrays" \
+  || bad "parity-jd: pin missing from:$_jd_missing"
+# negatives (owner repro 2026-11-19): each scratch root must break exactly its own surfaces.
+_JD_NEG=$(mktemp -d)
+mkdir -p "$_JD_NEG/setup.d"
+# neg1 — defect 1: real §4 argument unpinned, the previously matched fragment parked in an HTML
+# comment OUTSIDE the fence (whole-file grep passed on that decoy) → s4-command ONLY.
+sed 's#\(@testing-library/react \)@testing-library/jest-dom@~6\.9\.1#\1@testing-library/jest-dom#' \
+  "$REPO_ROOT/INSTALL.md" \
+ | awk '/^## Section 4/ && !d { print "<!-- manual fallback: @testing-library/react @testing-library/jest-dom@~6.9.1 @testing-library/user-event -->"; d=1 } { print }' \
+  > "$_JD_NEG/INSTALL.md"
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg1: §4 token unpinned + HTML-comment decoy → s4-command only (decoy ignored)" \
+  || bad "parity-jd neg1: decoy scratch wrong result:[$_jd_neg]"
+# neg2 — defect 2: BOTH array tokens bumped to ~6.9.10 (grep -F substring-matched the longer
+# version) → both arrays fail, doc stays clean (restore it: neg1 left it unpinned).
+cp "$REPO_ROOT/INSTALL.md" "$_JD_NEG/INSTALL.md"
+sed 's#@testing-library/jest-dom@~6\.9\.1#@testing-library/jest-dom@~6.9.10#g' \
+  "$REPO_ROOT/setup.d/70-deps.sh" > "$_JD_NEG/setup.d/70-deps.sh"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " REACT_DEVDEPS REACT_SPA_DEVDEPS" ] \
+  && ok "parity-jd neg2: arrays at ~6.9.10 → both arrays fail (no substring match on longer pins)" \
+  || bad "parity-jd neg2: 6.9.10 scratch wrong result:[$_jd_neg]"
+# neg3 — wrong fence: pin valid inside the §4 SERVER-TS fence while the React/Next token is
+# unpinned → still s4-command (a right literal in a wrong fence/command never satisfies).
+# Structural: append the pin to the server fence's @types/node line (that fence's last token),
+# never a line offset.
+sed -e 's#\(@types/node@^22\.10\.0\)$#\1 @testing-library/jest-dom@~6.9.1#' \
+    -e 's#\(@testing-library/react \)@testing-library/jest-dom@~6\.9\.1#\1@testing-library/jest-dom#' \
+  "$REPO_ROOT/INSTALL.md" > "$_JD_NEG/INSTALL.md"
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg3: pin in the §4 server fence + unpinned React/Next token → s4-command (wrong fence rejected)" \
+  || bad "parity-jd neg3: wrong-fence scratch wrong result:[$_jd_neg]"
+# neg4 — single surface: pin stripped from REACT_DEVDEPS only → exactly that array fails.
+# Structural: sed range over the REACT_DEVDEPS block itself (same idiom as extract_array).
+cp "$REPO_ROOT/INSTALL.md" "$_JD_NEG/INSTALL.md"
+sed '/^REACT_DEVDEPS=(/,/^)/ s#@testing-library/jest-dom@~6\.9\.1#@testing-library/jest-dom#' \
+  "$REPO_ROOT/setup.d/70-deps.sh" > "$_JD_NEG/setup.d/70-deps.sh"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " REACT_DEVDEPS" ] \
+  && ok "parity-jd neg4: pin stripped from REACT_DEVDEPS only → exactly that array fails" \
+  || bad "parity-jd neg4: single-array scratch wrong result:[$_jd_neg]"
+# neg5 — wrong command on the ACTUAL React/Next fence: only the "npm install --save-dev" header
+# swapped to `echo` (owner repro), argument rows unchanged → s4-command (the extraction demands
+# the real npm header). Structural: the SECOND "npm install --save-dev \" header in the doc is
+# the React/Next one (the first belongs to the server fence).
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+awk '!d && /^npm install --save-dev \\$/ { c++; if (c==2) { print "echo \\"; d=1; next } } { print }' \
+  "$REPO_ROOT/INSTALL.md" > "$_JD_NEG/INSTALL.md"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg5: React/Next fence header swapped to echo → s4-command (arbitrary command rejected)" \
+  || bad "parity-jd neg5: echo-header scratch wrong result:[$_jd_neg]"
+# neg6 — later command: the fence's npm install ends (last arg line, no backslash) and a
+# FOLLOWING line carries the pin as a later command's argument → s4-command (only the contiguous
+# backslash continuations of the npm header are checked). Structural: insert after the fence's
+# last argument line (the one ending in http-server@^14.1.0), with the real token unpinned.
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+sed 's#\(@testing-library/react \)@testing-library/jest-dom@~6\.9\.1#\1@testing-library/jest-dom#' \
+  "$REPO_ROOT/INSTALL.md" \
+ | awk '/http-server@\^14\.1\.0$/ && !d { print; print "echo @testing-library/jest-dom@~6.9.1"; d=1; next } { print }' \
+  > "$_JD_NEG/INSTALL.md"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg6: pin only in a later command after the npm install ends → s4-command (later commands excluded)" \
+  || bad "parity-jd neg6: later-command scratch wrong result:[$_jd_neg]"
+# neg7 — wrong subsection (Sol repro): the valid PINNED fence moved out of the React/Next
+# subsection to a NEW peer level-3 subheading (the React/Next subsection left with no fence) →
+# s4-command (the selection ends at the next peer ### heading). Structural: buffer the fence
+# under the actual "### React/Next" heading and re-emit it after a new peer subheading —
+# no line offsets.
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+awk '
+  /^### React\/Next/          { rn2 = 1; print; next }
+  rn2 && !fence2 && /^```bash/ { fence2 = 1; next }
+  rn2 && fence2 && /^```/     { print ""; print "### Different subsection"; print ""; print "```bash";
+                                printf "%s", moved2; print "```"; fence2 = 0; moved2 = ""; next }
+  rn2 && fence2               { moved2 = moved2 $0 "\n"; next }
+  { print }
+' "$REPO_ROOT/INSTALL.md" > "$_JD_NEG/INSTALL.md"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg7: pinned fence moved to a peer ### subsection, React/Next left bare → s4-command (subsection-bounded)" \
+  || bad "parity-jd neg7: moved-fence scratch wrong result:[$_jd_neg]"
+# neg8 — commented fake fence (Sol repro): a pinned fence entirely inside a multiline HTML
+# comment placed after the heading, before the ACTUAL unpinned fence → s4-command (comment
+# blocks are skipped before heading/fence detection). Structural: anchored on the actual
+# "### React/Next" heading, no line offsets.
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+sed 's#\(@testing-library/react \)@testing-library/jest-dom@~6\.9\.1#\1@testing-library/jest-dom#' \
+  "$REPO_ROOT/INSTALL.md" \
+ | awk '/^### React\/Next/ && !d8 { print; print ""; print "<!--"; print "```bash";
+        print "npm install --save-dev \\"; print "  @testing-library/jest-dom@~6.9.1 \\";
+        print "```"; print "-->"; d8 = 1; next } { print }' \
+  > "$_JD_NEG/INSTALL.md"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg8: pinned fake fence inside an HTML comment + actual token unpinned → s4-command (comments skipped)" \
+  || bad "parity-jd neg8: commented-fence scratch wrong result:[$_jd_neg]"
+rm -rf "$_JD_NEG"
+
 # ════ No third pin copy (npx-float follow-up) — storybook-package-additions.json stays retired ════
 # The former sibling template (merged by retired setup.sh Batch K, #946) duplicated these pins —
 # and pinned @storybook/addon-essentials@^10.3.3, a version that does not exist (the addon died
