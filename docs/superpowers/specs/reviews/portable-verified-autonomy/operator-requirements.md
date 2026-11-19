@@ -1,0 +1,7 @@
+# Recorded operator requirements for product review
+
+The operator wants getff to automate development transitions that currently need a coordinator or human relay, while involving the operator where their decision is actually necessary. Reuse substantial existing work, including intent/arch/pipeline, vertical slices, tracer bullets, TAK tests, Dot review and current memory rather than rebuilding those capabilities. The development system must apply to getff itself first and be usable by consumer repositories.
+
+Investigate getff, grokbot-field-notes and ready-made bot platforms before settling architecture. OpenMausBot is one candidate; native Codex/Dot and Grok bots and suitable free options must be considered. Do not fixate on OpenMausBot, but explicitly retain its heterogeneous-agent/agnostic advantage in the comparison. The resulting getff must be agnostic. Prefer existing subscriptions without additional charges or free components. Investigate the existing integration the operator calls hi-memory; its usefulness is not assumed. Cross-environment cooperation, such as GLM through Claude Code and GPT through Codex, and memory responsibility matter.
+
+The operator now requests a final review and clear, unambiguous full PRD. Architecture follows research and reconsideration. The operator has separately delegated exact-content product brief approval to Codex, preserving implementation review, acceptance, publication gates and existing scope. No new spend or main merge is authorized by that delegation.

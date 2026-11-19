@@ -17,6 +17,7 @@ import {
   DOCS_CARD_IDS,
   DOCS_CARD_SKIP_MIN,
   isDocsSiteProsePath,
+  isMechanicalProseDiff,
   isMergeCommit,
   parseDocsCardTrailer,
   runDocsCardCheck,
@@ -255,10 +256,198 @@ describe('runDocsCardCheck', () => {
     expect(report.failures[0]?.sha).toBe('k11');
   });
 
+  it('a Docs-card-for line does not count as the commit\'s own Docs-card trailer', () => {
+    expect(parseDocsCardTrailer('Docs-card-for: abc1234 skipped — citation re-point only, no prose change').kind).toBe(
+      'absent',
+    );
+  });
+
   it('constant sanity: exactly 13 card ids', () => {
     expect(DOCS_CARD_IDS).toHaveLength(13);
     expect(DOCS_CARD_IDS[0]).toBe('C1');
     expect(DOCS_CARD_IDS[12]).toBe('C13');
     expect(DOCS_CARD_SKIP_MIN).toBe(20);
+  });
+});
+
+// ─── Docs-card-for: a verified claim a later range commit makes for an earlier one ────────────────
+//
+// Join incident 2026-09-30: seven range commits touched docs/site prose with no `Docs-card:`
+// trailer. The arm already existed in their parents; the part branches were never pushed, so no
+// pre-push ran, and the part commits sit under merges and cannot be amended. A later commit in the
+// range may carry the card for one of them. The skip form is accepted only for a MECHANICAL diff
+// (paired lines differing only in digits, or docs-refresh deferral marker lines); any other diff
+// needs the full card.
+
+const MECHANICAL_DIFF = [
+  'diff --git a/docs/site/guide/install.md b/docs/site/guide/install.md',
+  '--- a/docs/site/guide/install.md',
+  '+++ b/docs/site/guide/install.md',
+  '@@ -3,3 +3,4 @@ title: Install',
+  ' kind: guide',
+  '+docs-refresh: deferred — re-verified 2026-09-30, the cited sample moved in this range',
+  ' ---',
+  '@@ -40,2 +41,2 @@ the steps.',
+  '-  by step 1271 of the sample. The method file is on the list at',
+  '-  entry 239 of the sample.',
+  '+  by step 1272 of the sample. The method file is on the list at',
+  '+  entry 247 of the sample.',
+  '',
+].join('\n');
+
+/** The real lane-cell change from 2173453a7bc (docs/site/reference/D.md) — content, not digits. */
+const CONTENT_DIFF = [
+  'diff --git a/docs/site/reference/D.md b/docs/site/reference/D.md',
+  '--- a/docs/site/reference/D.md',
+  '+++ b/docs/site/reference/D.md',
+  '@@ -68,1 +68,1 @@ types it.',
+  '-| `inject-handoff-on-compact` | SessionStart | SessionStart:compact hook — re-injects the model-authored handoff after compaction | @cc-only-rationale | not installed on any lane (no-lane) |',
+  '+| `inject-handoff-on-compact` | SessionStart | SessionStart:compact hook — re-injects the model-authored handoff after compaction | @cc-only-rationale | framework: react-native, react-next, react-spa, ts-server |',
+  '',
+].join('\n');
+
+const SKIP_CLAIM_REASON = 'citation re-point / deferral marker, no prose change';
+
+function claimGit(
+  commits: Record<string, FakeCommit & { diff?: string }>,
+): GitProvider {
+  const g = fakeGit(commits);
+  return { ...g, diffForPaths: (sha: string) => commits[sha]?.diff ?? '' } as GitProvider;
+}
+
+describe('isMechanicalProseDiff', () => {
+  it('digit-only re-points and deferral marker lines are mechanical', () => {
+    expect(isMechanicalProseDiff(MECHANICAL_DIFF)).toBe(true);
+  });
+
+  it('a rewritten deferral marker is mechanical', () => {
+    const d = [
+      '@@ -20,1 +20,1 @@',
+      '-docs-refresh: deferred — re-verified 2026-09-24, the fingerprint changed two hash values',
+      '+docs-refresh: deferred — re-verified 2026-09-29, the fingerprint gained two lines above the block',
+    ].join('\n');
+    expect(isMechanicalProseDiff(d)).toBe(true);
+  });
+
+  it('a changed table cell (words, not digits) is NOT mechanical', () => {
+    expect(isMechanicalProseDiff(CONTENT_DIFF)).toBe(false);
+  });
+
+  it('an added prose line with no pair is NOT mechanical', () => {
+    expect(isMechanicalProseDiff(['@@ -1,0 +1,1 @@', '+A new sentence for the reader.'].join('\n'))).toBe(false);
+  });
+
+  it('an empty diff is NOT mechanical (nothing was verified)', () => {
+    expect(isMechanicalProseDiff('')).toBe(false);
+  });
+});
+
+describe('runDocsCardCheck — Docs-card-for claims', () => {
+  const OLD = 'aaaaaaa1111111111111111111111111111111111';
+  const OLD2 = 'bbbbbbb2222222222222222222222222222222222';
+  const CLAIMER = 'ccccccc3333333333333333333333333333333333';
+
+  it('POSITIVE: a skip claim for a mechanical commit and a card claim for a content commit pass', () => {
+    const report = runDocsCardCheck(
+      [OLD, OLD2, CLAIMER],
+      claimGit({
+        [OLD]: { files: PROSE_FILES, body: 'docs: re-point citations', diff: MECHANICAL_DIFF },
+        [OLD2]: { files: [{ status: 'M', path: 'docs/site/reference/D.md' }], body: 'feat: ship the group', diff: CONTENT_DIFF },
+        [CLAIMER]: {
+          files: [{ status: 'M', path: 'packages/core/hooks/checks/docs-card.ts' }],
+          body: `fix: cards\n\nDocs-card-for: ${OLD.slice(0, 11)} skipped — ${SKIP_CLAIM_REASON}\nDocs-card-for: ${OLD2.slice(0, 11)} ${FULL_CARD.replace('Docs-card: ', '')}\n`,
+        },
+      }),
+    );
+    expect(report.failures).toEqual([]);
+    expect(report.proseCommits).toBe(2);
+  });
+
+  it('NEGATIVE: a skip claim for a content (non-mechanical) commit stays red', () => {
+    const report = runDocsCardCheck(
+      [OLD2, CLAIMER],
+      claimGit({
+        [OLD2]: { files: [{ status: 'M', path: 'docs/site/reference/D.md' }], body: 'feat: ship the group', diff: CONTENT_DIFF },
+        [CLAIMER]: { files: [], body: `fix\n\nDocs-card-for: ${OLD2.slice(0, 7)} skipped — ${SKIP_CLAIM_REASON}` },
+      }),
+    );
+    expect(report.failures).toHaveLength(1);
+    expect(report.failures[0]?.sha).toBe(OLD2);
+    expect(report.failures[0]?.reason).toContain('not mechanical');
+  });
+
+  it('NEGATIVE: a claim naming a sha outside the range stays red', () => {
+    const report = runDocsCardCheck(
+      [OLD, CLAIMER],
+      claimGit({
+        [OLD]: { files: PROSE_FILES, body: 'docs: re-point', diff: MECHANICAL_DIFF },
+        [CLAIMER]: { files: [], body: `fix\n\nDocs-card-for: 1234567 skipped — ${SKIP_CLAIM_REASON}` },
+      }),
+    );
+    const reasons = report.failures.map((f) => f.reason);
+    expect(reasons).toContain('missing Docs-card trailer');
+    expect(reasons.some((r) => r.includes('outside the range'))).toBe(true);
+  });
+
+  it('NEGATIVE: a claim for a commit that carries its own trailer stays red', () => {
+    const report = runDocsCardCheck(
+      [OLD, CLAIMER],
+      claimGit({
+        [OLD]: { files: PROSE_FILES, body: `docs\n\n${FULL_CARD}`, diff: MECHANICAL_DIFF },
+        [CLAIMER]: { files: [], body: `fix\n\nDocs-card-for: ${OLD.slice(0, 7)} skipped — ${SKIP_CLAIM_REASON}` },
+      }),
+    );
+    expect(report.failures).toHaveLength(1);
+    expect(report.failures[0]?.sha).toBe(CLAIMER);
+    expect(report.failures[0]?.reason).toContain('own');
+  });
+
+  it('NEGATIVE: a claim for a merge commit stays red', () => {
+    const report = runDocsCardCheck(
+      [OLD, CLAIMER],
+      claimGit({
+        [OLD]: { files: PROSE_FILES, body: 'Merge branch x', subject: 'Merge branch x', diff: MECHANICAL_DIFF },
+        [CLAIMER]: { files: [], body: `fix\n\nDocs-card-for: ${OLD.slice(0, 7)} skipped — ${SKIP_CLAIM_REASON}` },
+      }),
+    );
+    expect(report.failures).toHaveLength(1);
+    expect(report.failures[0]?.sha).toBe(CLAIMER);
+    expect(report.failures[0]?.reason).toContain('merge');
+  });
+
+  it('NEGATIVE: a short or placeholder claim reason stays red', () => {
+    const report = runDocsCardCheck(
+      [OLD, CLAIMER],
+      claimGit({
+        [OLD]: { files: PROSE_FILES, body: 'docs: re-point', diff: MECHANICAL_DIFF },
+        [CLAIMER]: { files: [], body: `fix\n\nDocs-card-for: ${OLD.slice(0, 7)} skipped — later` },
+      }),
+    );
+    expect(report.failures).toHaveLength(1);
+    expect(report.failures[0]?.sha).toBe(OLD);
+  });
+
+  it('NEGATIVE: a claim for a commit that touches no docs/site prose stays red', () => {
+    const report = runDocsCardCheck(
+      [OLD, CLAIMER],
+      claimGit({
+        [OLD]: { files: [{ status: 'M', path: 'scripts/x.mjs' }], body: 'fix: script' },
+        [CLAIMER]: { files: [], body: `fix\n\nDocs-card-for: ${OLD.slice(0, 7)} skipped — ${SKIP_CLAIM_REASON}` },
+      }),
+    );
+    expect(report.failures).toHaveLength(1);
+    expect(report.failures[0]?.sha).toBe(CLAIMER);
+  });
+
+  it('NEGATIVE: two claims for the same commit stay red', () => {
+    const line = `Docs-card-for: ${OLD.slice(0, 7)} skipped — ${SKIP_CLAIM_REASON}`;
+    const report = runDocsCardCheck(
+      [OLD, CLAIMER],
+      claimGit({
+        [OLD]: { files: PROSE_FILES, body: 'docs: re-point', diff: MECHANICAL_DIFF },
+        [CLAIMER]: { files: [], body: `fix\n\n${line}\n${line}` },
+      }),
+    );
+    expect(report.failures.some((f) => f.reason.includes('more than one'))).toBe(true);
   });
 });

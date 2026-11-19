@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "kind": "ack",
+  "id": "DOT-EVT-ACK-FIXTURE-0001",
+  "producer": "01a11aac-a354-776a-b766-eb4f3047f082",
+  "parents": [],
+  "payload": {
+    "delivery_id": "DOT-DELIV-FIXTURE-0001",
+    "event_id": "DOT-EVT-BATCH-FIXTURE-0001",
+    "event_sha256": "471f53b74ccfb973b07015f9efbcd910d54fca1c00ca31240d470b58a46e0249",
+    "artifact_sha256": "b7ba8109533929a5a4792f0a87b4bdb6aeb28c9ddd9f0a176563c3d4a007dec1",
+    "accepted": true,
+    "duplicate": false
+  },
+  "sha256": "1dd51e80dffb6c39efd4663f740bff9fcc1fb70e9c1ca69eb09010a4f0279b5c"
+}

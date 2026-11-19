@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+const root = resolve(import.meta.dirname, '..');
+test('selected ARCH delivers the real retell gate and rejects malformed provenance', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'arch closure space '));
+  t.after(() => rmSync(dir, { recursive:true, force:true }));
+  mkdirSync(join(dir,'.agents/procedures/arch'), { recursive:true });
+  writeFileSync(join(dir,'.agents/procedures/arch/SKILL.md'),'selected env ARCH fixture\n');
+  assert.equal(spawnSync('git',['init','-q'],{ cwd:dir,encoding:'utf8' }).status,0);
+  const env={ ...process.env,PKG_ROOT:root,PROJECT_ROOT:dir,PROFILE:'env',FORCE:'',REFRESH:'',DRY_RUN:'' };
+  const r=spawnSync('bash',['-c','source "$PKG_ROOT/setup.d/lib.sh"; source "$PKG_ROOT/setup.d/portable-bindings.sh"; _portable_workflow_resources'],{ cwd:dir,env,encoding:'utf8' });
+  assert.equal(r.status,0,r.stdout+r.stderr);
+  const checker=join(dir,'scripts/check-arch-retell.mjs');
+  assert.equal(readFileSync(checker,'utf8'),readFileSync(join(root,'scripts/check-arch-retell.mjs'),'utf8'));
+  const spec=join(dir,'spec with spaces.md');
+  const text='# Written specification\n\n## Consensus retell\n\nBaseline: none\n\n| # | Claim | Source |\n| --- | --- | --- |\n| 1 | Exact fixture decision | SOURCE |\n\n### Unconfirmed — author derivations\n\n- none\n';
+  writeFileSync(spec,text.replace('SOURCE','author'));
+  let check=spawnSync('node',[checker,spec],{ cwd:dir,encoding:'utf8' });
+  assert.equal(check.status,1,check.stderr);
+  assert.match(check.stderr,/author.*belongs/);
+  writeFileSync(spec,text.replace('SOURCE','operator «Exact fictional choice»'));
+  check=spawnSync('node',[checker,spec],{ cwd:dir,encoding:'utf8' });
+  assert.equal(check.status,0,check.stderr);
+});

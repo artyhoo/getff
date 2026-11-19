@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "kind": "analysis",
+  "id": "DOT-EVT-ANALYSIS-FIXTURE-0001",
+  "producer": "01a11aac-a354-776a-b766-eb4f3047f082",
+  "parents": [
+    {
+      "id": "DOT-EVT-BATCH-FIXTURE-0001",
+      "sha256": "471f53b74ccfb973b07015f9efbcd910d54fca1c00ca31240d470b58a46e0249"
+    }
+  ],
+  "payload": {
+    "consumed_report_keys": [
+      "ff1059b269302d7e92d1134dda37b6ce4968bff0c3e8bb507dc07c9472a489e7",
+      "298f06fd6c748bc24cdf2f95865c05570def3b5070e5259fc7367840d3b2c934",
+      "40515cf6d68a5868280887f1a875db96f5935dac23b2aeb3acc76f6a04182090",
+      "47eb460c8eb3414c3dd16db156e0512a30cb4bb0492f1c23ee32be9cc050f0b5",
+      "15223ea8e74ba7659d6739d1f6c165e459557eaae3805b54370cfcbdd3c5e8d6",
+      "789d3244b287c07d5c13e7c1f10b284f63e23e267115acb4250f4f7c4714fa30",
+      "9f088e8567b89d0740be9f0d2f326271ff40d7c62b8dedb706dc46bac87ff0cd",
+      "394d8ae59ef8fbee7d250d944dddeaba3df451ed2148bafeb17be1f66e944905",
+      "bfe502f08169b26d0b9283ac65832d4db864ec185d02e578ba9b3cf791a1dd88",
+      "7636660f1c096f5b20620c8bf444cb0935d6a63e0c49900d84dc8227aa095818"
+    ],
+    "candidates": [],
+    "excluded": []
+  },
+  "sha256": "84453f6e77ae712699221795c3955e389482a503381f5ca480bdc328a9cabd39"
+}

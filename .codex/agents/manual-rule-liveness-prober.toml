@@ -1,0 +1,4 @@
+name = "manual-rule-liveness-prober"
+description = "Probes a manifest manual rule for liveness via with/without-rule fresh-subagent dispatch, capturing a RED→GREEN delta (baseline fails → rule-loaded complies). Reporting-only; never invoked from CI."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/manual-rule-liveness-prober.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

@@ -1,0 +1,21 @@
+{
+  "command": [
+    "node",
+    ".agents/procedures/intent/helpers/current-decisions.mjs",
+    "--check-plan-prep",
+    "--feature",
+    "deterministic-core",
+    "--spec",
+    "docs/superpowers/specs/2026-10-14-deterministic-core-design.md",
+    "--orch-home",
+    "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/.claude/orchestrator-prompts",
+    "--roots",
+    "/Users/art/.codex/worktrees/6612/rules-as-tests-aif,/Users/art/.codex/worktrees/e220/rules-as-tests-aif"
+  ],
+  "exitCode": 2,
+  "result": {
+    "ok": false,
+    "code": "spec_agreement_missing",
+    "reason": "no current operator-agreed spec is recorded for this feature"
+  }
+}

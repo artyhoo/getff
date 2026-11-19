@@ -1,0 +1,21 @@
+{
+  "featureId": "development-efficiency",
+  "decision": "approved",
+  "approvedSha256": "e1d88b90d4996999c058aab6a52df6d28ed707c56d2bdc5c835dbe6d56c8100e",
+  "approver": "Codex under explicit operator delegated brief-approval authority",
+  "date": "2026-10-22",
+  "authority": "Operator-provided AGENTS.md: delegated checking and approving product briefs within already-authorized scope; exact content must be reviewed; no new spend, destructive operations, security changes or main merges.",
+  "review": {
+    "scope": "Updated prioritized specification using the operator-selected five-step working hypothesis and useful SPEC-A content, preserving all cause dispositions and effective AI control.",
+    "checks": [
+      "E1 preserves the economy outcome while matching the operator-selected stable-reference first step and conditional fingerprint migration.",
+      "E2 retains effective defect detection, independent decisions and applicable authority.",
+      "E3 retains all investigated causes, including explicit unknowns and separate recovery work.",
+      "E4 rejects new general infrastructure and retains removal/reuse as the default.",
+      "E5 records the five-priority sequence as a working hypothesis, not measured optimal ROI.",
+      "E6 explicitly distinguishes active/resumed-owner consumption from separately deferred automatic recovery after owner termination, as requested."
+    ],
+    "decision": "Approve these exact revised brief bytes as faithful to the latest operator request. The changed scenarios reflect explicit user steering; they do not silently weaken a previously promised delivered outcome.",
+    "limits": "This is delegated product-brief approval, not operator written-spec agreement or implementation authorization."
+  }
+}

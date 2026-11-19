@@ -1,0 +1,139 @@
+{
+  "rules": [
+    {
+      "entryId": "ts-no-as-any",
+      "ruleId": "no-as-any",
+      "title": "Do not assert a value to any",
+      "stack": [
+        "react-spa"
+      ],
+      "presence": "forbid",
+      "selector": "TSAsExpression[typeAnnotation.type='TSAnyKeyword']",
+      "message": "Do not cast to `any` — it switches type checking off. Assert to `unknown` and narrow instead.",
+      "examples": {
+        "bad": "declare const input: string; export const v = input as any;",
+        "good": "declare const input: string; export const v = input as unknown;"
+      },
+      "negativeTest": {
+        "input": [
+          "declare const input: string; export const v = input as any;"
+        ],
+        "expect-violation": "no-restricted-syntax"
+      }
+    },
+    {
+      "entryId": "ts-no-boxed-primitive-types",
+      "ruleId": "no-boxed-primitive-types",
+      "title": "Use the primitive type string, not the boxed String type",
+      "stack": [
+        "react-spa"
+      ],
+      "presence": "forbid",
+      "selector": "TSTypeReference[typeName.name='String']",
+      "message": "Use the primitive type string, not the boxed String object type.",
+      "examples": {
+        "bad": "export type S = String;",
+        "good": "export type S = string;"
+      },
+      "safeForms": [
+        "const s = String(value);"
+      ],
+      "negativeTest": {
+        "input": [
+          "export type S = String;"
+        ],
+        "expect-violation": "no-restricted-syntax"
+      }
+    },
+    {
+      "entryId": "dom-no-innerhtml-assignment",
+      "ruleId": "no-innerhtml-assignment",
+      "title": "Do not assign to element.innerHTML",
+      "stack": [
+        "react-spa"
+      ],
+      "presence": "forbid",
+      "selector": "AssignmentExpression > MemberExpression.left[property.name='innerHTML']",
+      "message": "Assigning innerHTML is an XSS vector — use textContent for plain text.",
+      "examples": {
+        "bad": "export function put(el: HTMLElement, text: string): void { el.innerHTML = text; }",
+        "good": "export function put(el: HTMLElement, text: string): void { el.textContent = text; }"
+      },
+      "safeForms": [
+        "const html = el.innerHTML;"
+      ],
+      "negativeTest": {
+        "input": [
+          "export function put(el: HTMLElement, text: string): void { el.innerHTML = text; }"
+        ],
+        "expect-violation": "no-restricted-syntax"
+      }
+    },
+    {
+      "entryId": "react-no-dangerously-set-inner-html",
+      "ruleId": "no-dangerously-set-inner-html",
+      "title": "Do not use dangerouslySetInnerHTML",
+      "stack": [
+        "react-spa"
+      ],
+      "presence": "forbid",
+      "selector": "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+      "message": "dangerouslySetInnerHTML bypasses React's escaping (XSS risk) — render the content as JSX children.",
+      "examples": {
+        "bad": "export function D({ markup }: { markup: { __html: string } }) { return <div dangerouslySetInnerHTML={markup} />; }",
+        "good": "export function D({ markup }: { markup: { __html: string } }) { return <div title={markup.__html} />; }"
+      },
+      "negativeTest": {
+        "input": [
+          "export function D({ markup }: { markup: { __html: string } }) { return <div dangerouslySetInnerHTML={markup} />; }"
+        ],
+        "expect-violation": "no-restricted-syntax"
+      }
+    },
+    {
+      "entryId": "react-no-index-as-key",
+      "ruleId": "no-index-as-key",
+      "title": "Do not use the array index as a list key",
+      "stack": [
+        "react-spa"
+      ],
+      "presence": "forbid",
+      "selector": "JSXAttribute[name.name='key'] > JSXExpressionContainer > Identifier[name='index']",
+      "message": "Use a stable id from the data as key, not the array index.",
+      "examples": {
+        "bad": "export function L({ index }: { index: number }) { return <li key={index} />; }",
+        "good": "export function L({ id }: { id: string }) { return <li key={id} />; }"
+      },
+      "safeForms": [
+        "<li key={item.id} />"
+      ],
+      "negativeTest": {
+        "input": [
+          "export function L({ index }: { index: number }) { return <li key={index} />; }"
+        ],
+        "expect-violation": "no-restricted-syntax"
+      }
+    },
+    {
+      "entryId": "html-img-requires-alt",
+      "ruleId": "img-requires-alt",
+      "title": "Every <img> has an alt attribute",
+      "stack": [
+        "react-spa"
+      ],
+      "presence": "forbid",
+      "selector": "JSXOpeningElement[name.name='img']:not(:has(JSXAttribute[name.name='alt']))",
+      "message": "Give every <img> an alt attribute (alt=\"\" for a decorative image).",
+      "examples": {
+        "bad": "export function I({ logo }: { logo: string }) { return <img src={logo} />; }",
+        "good": "export function I({ logo }: { logo: string }) { return <img src={logo} alt=\"\" />; }"
+      },
+      "negativeTest": {
+        "input": [
+          "export function I({ logo }: { logo: string }) { return <img src={logo} />; }"
+        ],
+        "expect-violation": "no-restricted-syntax"
+      }
+    }
+  ]
+}

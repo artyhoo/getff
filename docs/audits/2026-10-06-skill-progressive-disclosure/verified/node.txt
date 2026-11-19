@@ -1,0 +1,73 @@
+✖ the full migration population has authored owners and reachable native entries (23.543458ms)
+✔ story helper and hook are shared owners, including edits through compatibility entries (39.897584ms)
+✔ authority hook still distinguishes clean and violating edits through both entries (624.755167ms)
+✔ one output-language instruction preserves CC plain output and ZCode JSON adaptation (28.840375ms)
+✔ CC report warning calls the shared grammar with clean, violation and noise controls (95.038125ms)
+✔ Codex bindings load one canonical procedure and helpers without copying its body (5.485167ms)
+✔ native check executes the canonical owner without a Claude compatibility tree (8.887917ms)
+✔ Git carries exact native bindings while private runtime files stay ignored (96.868ms)
+✔ native role descriptions preserve folded and literal canonical YAML scalars (1.949541ms)
+✔ all add/update/delete/rename targets are checked, not only first file (1.8725ms)
+✔ source marker gate receives Codex patch target and exits 2 (25.444166ms)
+✔ source rule injection fires on second patch path and returns native context (409.52775ms)
+✔ pre-tool seal denies settings in a later patch operation before effects (3.60325ms)
+✔ native shell and question canonical names retain original arguments (0.217542ms)
+✔ missing source hook is visibly failed (0.29975ms)
+✔ stable latest assistant wins over known rollout messages, unknown schema adds no usage (0.842125ms)
+✔ native emitter preserves lifecycle coverage, replaces only ZCode rewrite, all skill populations (7.813208ms)
+✔ missing targets beneath symlinked protected parents remain sealed (1.5035ms)
+✔ SubagentStop adapts agent_transcript_path fallback (57.242833ms)
+✔ retired generated source skills disappear and drift fails before refresh (192.50075ms)
+✔ retired inventory cannot remove files through traversal or symlink parents (190.714416ms)
+✔ native doctor rejects stale commands, metadata and missing duplicate registrations (0.435833ms)
+✔ generation refuses destination symlinks without rewriting canonical or foreign files (97.724167ms)
+✔ observed native rollout retains completed shell/MCP calls and per-response usage (0.513958ms)
+✔ malformed or cumulative-only native usage cannot invent a context estimate (0.316458ms)
+✔ usage after native final text cannot hide incomplete SubagentStop report (58.598875ms)
+✔ Codex retains dormant handoff policy and shares wrapper language fallback (109.549875ms)
+✔ native model window reaches source context tier while explicit override wins (1187.18575ms)
+✔ native evidence preserves completion, identity and parse diagnostics additively (1.032167ms)
+✔ native evidence retains observed starts without changing default hook output (0.676708ms)
+✔ native evidence correlates observed requests with completion cycle (0.780417ms)
+✔ native evidence rejects contradictory outer and inner effect turn identities (2.171708ms)
+✔ M02 shell reader transport: quoted and multiple absolute paths use Read selector independently of events (1218.228167ms)
+✔ M02 head/tail transport: only tested -n decimal and -- grammar resolves targets (475.585084ms)
+✔ M02 unresolved transport: native cwd does not prove relative identity and substitutions stay unresolved (515.618542ms)
+✔ M08 canonical shell denies: command operands are never executed and echo remains a non-effect control (71.035917ms)
+✔ M08 canonical read distinction: direct and shell credentials are denied; ordinary read and env writes remain allowed (91.147375ms)
+✔ M08 patch policy: later target, delete, rename source/destination, and symlink parents remain sealed (40.471584ms)
+✔ M08 explicit degradation: unknown tool and unsupported canonical syntax never claim full policy coverage (49.829875ms)
+✔ M02/M08 emitted registration flip: known native effect aliases select real adapter branches (228.545667ms)
+✔ M08 symlink resolution flip: dangling protected targets and credential aliases use physical parents (2.757208ms)
+✔ M08 primary seal control: canonical hook retains primary settings.local seal from another fixture cwd (110.155959ms)
+✔ M02 effective cwd flip: explicit raw exec_command workdir resolves relative reader; native session cwd stays unresolved (352.04175ms)
+✔ M08 R1 argv boundary regression: real deny tokens differ from quoted single arguments and executables (107.721792ms)
+✔ M02 R2 executor regression: supported shell reads and native events differ from Python overrides (2322.295333ms)
+✔ M08 R2 executor regression: shell denies differ from identical Python command text (54.693625ms)
+✔ M02 leading-dash regression: end-of-options enables a filename while quoted reader text stays inert (1397.88375ms)
+✔ M02 cat stdin regression: bare dash is unresolved while explicit dash filenames remain reads (1167.213ms)
+ℹ tests 48
+ℹ suites 0
+ℹ pass 47
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10680.846208
+
+✖ failing tests:
+
+test at scripts/canonical-agents-source.test.mjs:12:1
+✖ the full migration population has authored owners and reachable native entries (23.543458ms)
+  AssertionError [ERR_ASSERTION]: skills/getff/SKILL.md
+      at TestContext.<anonymous> (file:///Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif/scripts/canonical-agents-source.test.mjs:19:19)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.start (node:internal/test_runner/test:959:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:332:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '=='
+  }

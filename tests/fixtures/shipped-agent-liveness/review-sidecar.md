@@ -2,7 +2,7 @@
 
 ```yaml
 agent: review-sidecar
-tools-required: Read, Glob, Grep
+tools-required: Read, Glob, Grep, Bash   # Bash added GH #1516 — read-only diff inspection (see agent description); the RED->GREEN evidence surface stays Read/Grep/Glob (prober Step 2 living-docs-auditor treatment of Bash carriers)
 shape: read-grep-glob
 ```
 

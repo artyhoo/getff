@@ -433,6 +433,6 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
     // principle enforces a convention ABOUT the always-on rule population without itself
     // becoming a member of it.
     expect(ALWAYS_ON_CORE).not.toContain('31-rule-channel-declaration.md');
-    expect(existsSync(resolve(REPO_ROOT, '.claude/rules/31-rule-channel-declaration.md'))).toBe(false);
+    expect(existsSync(resolve(REPO_ROOT, '.agents/rules/31-rule-channel-declaration.md'))).toBe(false);
   });
 });

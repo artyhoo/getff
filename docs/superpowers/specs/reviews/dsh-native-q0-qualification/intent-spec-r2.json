@@ -1,0 +1,195 @@
+{
+  "kind": "spec-review",
+  "version": 1,
+  "featureId": "dsh-native-q0-qualification",
+  "prdRef": {
+    "path": "docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8.md",
+    "sha256": "ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8"
+  },
+  "specRef": {
+    "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md",
+    "sha256": "5b7acf5db05c9d1140e08cb25f09c9c2fa03b67ed7e4e92845dd94c5bec1aad4"
+  },
+  "approvalRef": {
+    "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval-r2.md",
+    "sha256": "f1297216cba71ecfd8bfd9704af98f3b11a23bfbeb31c5538962b4ee758c7adb"
+  },
+  "reviewer": {
+    "independence": "Fresh artifact-only semantic reviewer q0_openmaus_spec_fidelity. I did not author the approved PRD, approval, candidate specification, revised contract or source decision. I authored only this review and its companion findings. I did not consult chat history, memory, recovery logs, previous review opinions or implementation narrative.",
+    "context": "The exact approved R2 PRD is the primary yardstick. Inputs are its approval, the candidate specification, digest-bound effective R2 task/output contract, recorded OpenMaus-retained decision and PA/PC baseline. I applied intent/references/spec-review.md and inspected validateSpecReview without publishing or changing authority. The review judges preservation of the investigation promises and builder readiness for that investigation; it claims no observed build, supported API, account eligibility, isolation, runtime acceptance or execution release. Full population: five essential promises, 19 task clauses (A5/B5/C5/D4), nine output obligations and the explicit scope/ownership boundaries.",
+    "documents": [
+      {
+        "path": "docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8.md",
+        "sha256": "ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8"
+      },
+      {
+        "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval-r2.md",
+        "sha256": "f1297216cba71ecfd8bfd9704af98f3b11a23bfbeb31c5538962b4ee758c7adb"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md",
+        "sha256": "5b7acf5db05c9d1140e08cb25f09c9c2fa03b67ed7e4e92845dd94c5bec1aad4"
+      },
+      {
+        "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/q0-openmaus-contract-r2.md",
+        "sha256": "9292006b6fe12a58d791673bc97c151f90bbd6b0b943f42b7101c0b2dba1d83d"
+      },
+      {
+        "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/scope-correction-r2.md",
+        "sha256": "3efaef8ed6288b324366f4e057131feebc7f5d13aa1c813d804d01790f055b3d"
+      },
+      {
+        "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-baseline.md",
+        "sha256": "cbe189f1541b595e5d712a1dedb9aa599f2d50363e12d8b7c9192c0ec3599719"
+      }
+    ]
+  },
+  "promises": [
+    {
+      "id": "Q0-P1",
+      "comparison": "supported",
+      "reason": "The design requires actual destination/tool/profile identity, complete pinned DSH and matching Harness satellite sources, inspected lifecycle/setup manifests, upstream-declared checks, complete receipts and retained failures. Its digest-bound instruction to execute the complete R2 contract preserves A1-A5, including detect-first setup, independent Harness diagnostics and the refusal to turn a cloud build or missing dependency into an installed passing result. Source/build feasibility is the investigation output rather than an assumed pass.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Record the isolated host/profile, exact DSH/Harness revisions, declared setup/dependency closure, inspected lifecycle scripts and actual check commands with complete exits and sanitized output; preserve concrete missing prerequisites.",
+          "location": "Essential promises table, Q0-P1, line 20"
+        },
+        {
+          "source": "spec",
+          "quote": "Execute that complete revised contract, not the historical replacement-route excerpt.",
+          "location": "Section 1, line 20; effective contract SHA256 9292006b6fe12a58d791673bc97c151f90bbd6b0b943f42b7101c0b2dba1d83d, Task A lines 16-20"
+        },
+        {
+          "source": "spec",
+          "quote": "Use the complete DSH application at trial commit `6337fc823ce20251c8de8085948165c81aaa701e`, with matching Harness source `d743267388641bc76f17c45ce8b4c231aed1d32c`, as separate upstream satellite data/checkouts.",
+          "location": "Section 1, line 26"
+        },
+        {
+          "source": "spec",
+          "quote": "Inspect complete outputs and real exits; record each observed level separately as DOC, SOURCE, TEST, RUNTIME, REPORTED or UNKNOWN. An OS denial remains a denial even if a wrapper exits0.",
+          "location": "Section 3, line 46"
+        }
+      ]
+    },
+    {
+      "id": "Q0-P2",
+      "comparison": "supported",
+      "reason": "The design distinguishes global registration, effective restricted managed-worker visibility and fake invocation; it does not call a stock DSH worker an OpenMaus bridge. The complete incorporated B1-B5 requires submission/callback/error/cancel/disconnect, assignment and result identities, separate coordinator/child entitlement, actual review inputs and conditional sentinels. Live account/profile or port absence remains an explicit prerequisite, with no login, paid call or isolation inference. The existing-subscription GLM investigation executor is explicitly distinct from DSH eligibility being researched.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Inspect effective managed-worker tools and reviewer inputs; use fake/synthetic providers on the real managed path where feasible; retain submission/callback/error/cancel/disconnect observations separately from supported nonsecret account-route information.",
+          "location": "Essential promises table, Q0-P2, line 21"
+        },
+        {
+          "source": "spec",
+          "quote": "Task B distinguishes global provider registration, effective managed-worker exposure, successful fake/synthetic invocation, lifecycle callbacks/error/cancel/disconnect, legitimate account-route evidence and actual reviewer inputs/isolation.",
+          "location": "Section 2, Q0-P2 row, line 33; incorporated R2 Task B lines 24-28"
+        },
+        {
+          "source": "spec",
+          "quote": "Existing-subscription GLM is the retained investigation executor under its standing launch policy; this is distinct from testing DSH's coordinator/child billing or eligibility. Unknown DSH entitlement remains UNKNOWN and gates the relevant later work.",
+          "location": "Section 3, line 48"
+        },
+        {
+          "source": "spec",
+          "quote": "Source observations do not prove installed behavior; synthetic fixture tests do not prove subscription eligibility, isolation or whole-system autonomy.",
+          "location": "Section 5, line 62"
+        }
+      ]
+    },
+    {
+      "id": "Q0-P3",
+      "comparison": "supported",
+      "reason": "The design preserves the complete duty inventory before any retained/moved/removed proposal and leaves AIF allocation undecided. Incorporated C1-C5 lists admission/claim, plan review, execution, technical rework, result identity, custody, product acceptance and delivery; enumerates ready/dropped/PR close/merge/stop/restart/late/provider hold/uncertain effects; requires authority fixtures, anchors, smallest delta and both false-acceptance refusal and continuation. It keeps one retained investigation executor and a sole corrective owner while reviewers remain read-only; applicable OCR and Dot duties remain distinct. Disposable helper records cannot become real reviews or production task identities.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Enumerate the existing AIF duties and terminal/effect paths with source/function anchors, acceptance guard, continuing owner/wake, smallest delta, required tests and unresolved prerequisites; exercise existing authority helpers on clearly labeled disposable fixtures.",
+          "location": "Essential promises table, Q0-P3, line 22"
+        },
+        {
+          "source": "spec",
+          "quote": "Task C inventories every existing AIF/getff duty and proposed retained/moved/removed allocation and terminal/effect/recovery path, acceptance guard, continuing owner/wake, minimal delta, tests/consumer impact and missing prerequisites; existing authority helpers run only on clearly labeled disposable fixtures.",
+          "location": "Section 2, Q0-P3 row, line 34; incorporated R2 Task C lines 32-36"
+        },
+        {
+          "source": "spec",
+          "quote": "One retained execution owner performs the investigation in the existing isolated local task checkout and task-private satellite/profile/state directories. Read-only reviewers inspect frozen artifacts.",
+          "location": "Section 3, line 44"
+        },
+        {
+          "source": "spec",
+          "quote": "The contract must bind work/assignment/candidate identity, accepted current result, cancel/late/duplicate/unknown outcome, restart/custody/wake and review finding return to the sole corrective owner.",
+          "location": "Section 4, line 56"
+        }
+      ]
+    },
+    {
+      "id": "Q0-P4",
+      "comparison": "supported",
+      "reason": "The design explicitly preserves every output rather than allowing a manifest over a reduced population; Q1-PLAN is conditional and otherwise a precise prerequisite/action owner is required by the incorporated output contract. D1-D4 preserves the strongest retained OpenMaus recurring/native-return comparison, source-bound disposition, maintenance/delta analysis and fresh artifact-only evidence review. It keeps historical old hashes historical, preserves PA1-PA9/PC1-PC7 meanings, and grants no Q1-Q4/product adoption or execution release through this opinion. Missing research evidence may produce a complete and useful HOLD, never a concealed pass or automatic incompatibility.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Return the complete Q0 artifact population, raw receipts and manifest; classify QUALIFIED_FOR_Q1, HOLD_PREREQUISITE or REJECT_PRESENT_CONSTRAINTS with source-bound reasons, compare the strongest existing OpenMaus recurring/native-return route, and provide a Q1 plan only when feasible; obtain fresh artifact-only review.",
+          "location": "Essential promises table, Q0-P4, line 23"
+        },
+        {
+          "source": "spec",
+          "quote": "Preserve the original output population: `Q0-REPORT.md`, `environment.json`, `sources.json`, `providers-and-context.md`, `replacement-map.csv`, `terminal-paths.csv`, sanitized `raw/`, `output-manifest.json` excluding itself, and `Q1-PLAN.md` only when feasible. The report must name missing required artifacts; missing output is never hidden by a manifest over a smaller population.",
+          "location": "Section 2, line 38; incorporated R2 output contract lines 53-61"
+        },
+        {
+          "source": "spec",
+          "quote": "Task D returns a source-bound qualification/hold/rejection, complete artifacts/raw receipts/manifest, comparison with the strongest existing OpenMaus recurring/native-return baseline, a concrete Q1 proposal only when feasible, and fresh artifact-only independent review.",
+          "location": "Section 2, Q0-P4 row, line 35; incorporated R2 Task D lines 40-43"
+        },
+        {
+          "source": "spec",
+          "quote": "Q0 accepts no whole-feature runtime, useful live cycle, PC wake/intake/safe-sleep, consumer or second-host claim. Those obligations keep their original meaning and later gates.",
+          "location": "Section 2, line 40"
+        },
+        {
+          "source": "spec",
+          "quote": "It is a proposal requiring its own review/admission, not authorization to implement.",
+          "location": "Section 5, line 64"
+        }
+      ]
+    },
+    {
+      "id": "Q0-P5",
+      "comparison": "supported",
+      "reason": "The corrected retained-OpenMaus decision governs both design and digest-bound tasks. The design requires actual source/version and assignment/result/control/recovery seams before a supported adapter or bounded host delta can become a Q1 proposal, and explicitly permits a missing-seam HOLD. It excludes OpenMaus replacement, leaves AIF removal undecided, preserves OCR/Dot/corrective custody, and identifies stock native workers as separate evidence. Thus an unspecified API is a named research question with an honest stopping outcome, not a material instruction to invent an integration. No installed bridge, live bot or reviewer account is enrolled.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "Identify actual OpenMaus assignment/result/control/recovery interfaces and version; map how DSH could advance the same obligation without a competing manager; classify supported adapter, bounded host delta or missing prerequisite, preserving OCR/Dot and sole corrective custody.",
+          "location": "Essential promises table, Q0-P5, line 24"
+        },
+        {
+          "source": "spec",
+          "quote": "Tasks A-C identify actual OpenMaus source/version and assignment/result/cancel/recovery APIs, distinguish them from stock DSH worker activation, and map a single coordinator/worker obligation with preserved OCR/Dot review and corrective custody.",
+          "location": "Section 2, Q0-P5 row, line 36; incorporated R2 A3/B1-B2/C2"
+        },
+        {
+          "source": "spec",
+          "quote": "These are Q0 research alternatives, not operator-approved implementation choices.",
+          "location": "Section 4, line 54"
+        },
+        {
+          "source": "spec",
+          "quote": "Replacing OpenMaus is excluded; AIF allocation is undecided. Unknown OpenMaus source/API access is a precise prerequisite, never invented compatibility.",
+          "location": "Section 4, line 54"
+        },
+        {
+          "source": "spec",
+          "quote": "No live production bot, reviewer account, plugin or integration is enrolled by Q0.",
+          "location": "Section 4, line 56"
+        }
+      ]
+    }
+  ],
+  "outcome": "matches"
+}

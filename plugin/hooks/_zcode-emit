@@ -2,11 +2,15 @@
 #
 # Sourced (NOT executed) by plugin/hooks twins that want a single, consistent
 # adapter between plain-stdout CC semantics and strict-JSON ZCode semantics.
-# Adoption is per-twin and OPTIONAL; zero existing twins source this today
-# (declared follow-up umbrella — plan-v3 §"Non-goals"). This file is internal
-# infrastructure, not a delivery-channel artifact, so it intentionally does NOT
-# carry @dual-pair / @cc-only-rationale (it is in tests/plugin/hook-paths.test.sh
-# skip-list for exactly that reason — T-ZP-C).
+# Adoption is per-twin and OPTIONAL. Current adopter: warn-subagent-report-zcode
+# (the 4D-hybrid ZCode twin, #1046) — it sources this file at runtime from its
+# own directory (`. "$(dirname "$0")/_zcode-emit"`) and emits through _ze_emit.
+# Same-directory runtime sourcing, not a copy: this helper has no .claude/hooks/
+# source, is hand-maintained, and sits outside scripts/generate-plugin-twins.sh /
+# the pre-commit twin regeneration — there is no generated twin to keep in sync.
+# This file is internal infrastructure, not a delivery-channel artifact, so it
+# intentionally does NOT carry @dual-pair / @cc-only-rationale (it is in
+# tests/plugin/hook-paths.test.sh skip-list for exactly that reason — T-ZP-C).
 #
 # Sourcing contract: the adopter MUST define `_is_zcode` BEFORE sourcing this
 # file (canonical form: `_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }`,

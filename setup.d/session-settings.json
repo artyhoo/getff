@@ -1,0 +1,58 @@
+{
+  "autoCompactWindow": 400000,
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "AIF_HANDOFF_GATE": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Task",
+      "Agent"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push --no-verify*)",
+      "Bash(git push --mirror*)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git reset --hard*)",
+      "Bash(git checkout -- *)",
+      "Bash(git branch -D *)",
+      "Bash(git filter-branch*)",
+      "Bash(git update-ref*)",
+      "Bash(rm -rf *)",
+      "Bash(shred *)",
+      "Bash(dd if=*)",
+      "Bash(mkfs*)",
+      "Bash(sudo *)",
+      "Bash(curl * | bash*)",
+      "Bash(curl * | sh*)",
+      "Bash(wget * | bash*)",
+      "Bash(wget * | sh*)",
+      "Bash(nc *)",
+      "Bash(netcat *)",
+      "Bash(socat *)",
+      "Bash(gh secret set*)",
+      "Bash(gh secret delete*)",
+      "Bash(gh auth logout*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.config/gh/**)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Edit(~/.zshrc)",
+      "Write(~/.zshrc)",
+      "Edit(~/.bashrc)",
+      "Write(~/.bashrc)",
+      "Edit(~/.bash_profile)",
+      "Write(~/.bash_profile)",
+      "Edit(.git/hooks/**)",
+      "Write(.git/hooks/**)",
+      "Edit(.husky/**)",
+      "Write(.husky/**)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/settings.json)"
+    ]
+  }
+}

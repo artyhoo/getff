@@ -24,6 +24,8 @@ ln -s /abs/path/to/main-checkout/node_modules node_modules
 ln -s /abs/path/to/main-checkout/packages/core/node_modules packages/core/node_modules
 ```
 
+A worktree may run another checkout's hook files: the Claude desktop app writes an absolute `core.hooksPath=<main-checkout>/.husky` into every worktree it opens. Each `.husky/*` hook therefore begins with a `husky-own-worktree-delegate` block that re-executes the worktree's own copy, and the pre-push `hooks-path` section repoints the worktree (`git config --worktree core.hooksPath .husky`) when the foreign copy predates that block. Keep the block at the top of any new hook — `packages/core/hooks/husky-self-delegate.test.ts` fails a hook without it.
+
 ## What hooks check
 
 ### pre-commit (target: <5 seconds)
@@ -48,7 +50,7 @@ Runs on every `git push`:
 |---|---|---|
 | Workflow linting | `.github/workflows/*.yml` | `actionlint` |
 | Security scan | `.github/workflows/` | `zizmor` |
-| Self-test pipeline | `packages/core/audit-self/` | `npx vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts` |
+| Self-test pipeline | `packages/core/audit-self/` fixtures, then the whole repo live | `npx vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts`, then `bash packages/core/audit-self/audit-ai-docs.sh` + `npx tsx packages/core/audit-self/audit-ai-docs.ts` (a FAIL blocks the push) |
 | Manifest render drift | `packages/core/manifest/rules-manifest.json` ↔ rendered `RULES.md` | `npx tsx packages/core/render/render-rules.ts --check` |
 | Spec discipline | staged `.claude/orchestrator-prompts/*.md` | `npx tsx packages/core/spec-validation/validate-batch-spec.ts` (pre-commit soft warn, pre-push hard fail) |
 
@@ -104,7 +106,7 @@ make self-audit          # run both
 ## Bash mutation testing (on-demand, local)
 
 TypeScript hooks are mutation-tested by Stryker (`npx stryker run`, a `devDep`,
-run by hand — not in CI). Bash hooks (`.claude/hooks/*.sh`) are mutation-tested
+run by hand — not in CI). Bash hooks (`.agents/hooks/*.sh`) are mutation-tested
 by a thin wrapper over [universalmutator](https://github.com/agroce/universalmutator)
 — same delivery model: **run locally on demand, not in CI** (mutation is slow and
 CI minutes are metered; README doctrine is «CI = last resort»).
@@ -124,7 +126,7 @@ discipline that replaces a CI gate (no automated reminder; it is a convention):
 ```bash
 # <hook>  <its paired-negative test command>  [min-kill-% floor, default 60]
 packages/core/audit-self/run-bash-mutation.sh \
-  .claude/hooks/deps-hash-check.sh \
+  .agents/hooks/deps-hash-check.sh \
   "npx vitest run hooks/deps-hash-check.test.ts" \
   60
 ```
@@ -149,7 +151,7 @@ Notes:
   that spawns its hook must spawn `$BASHMUT_HOOK` (falling back to the tracked
   path when unset), or every mutant survives and the gate fails loudly.
   `packages/core/audit-self/hooks-tree-guard.ts` (vitest globalSetup) is the
-  suite-level tripwire that fails a run which leaks into `.claude/hooks/`.
+  suite-level tripwire that fails a run which leaks into `.agents/hooks/`.
 
 ## Build-vs-reuse + `Prior-art:` trailer convention (Phase 8.8)
 
@@ -210,7 +212,7 @@ independently):
 
 ```text
 Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).
-Prior-art: REUSE — setup.d/lib.sh:359 (the copy_safe idiom this reuses).
+Prior-art: REUSE — setup.d/lib.sh:952 (the copy_safe idiom this reuses).
 Prior-art: see PR #1094 (the squash-trailer-loss incident this gate came from).
 ```
 
@@ -261,6 +263,20 @@ checks (T9 — added hook regression test under `tests/hooks/`). Skipping
 the hook does not skip the principle test; principle 08 runs in
 `principles-meta-tests` CI job and catches research-file violations
 regardless of hook bypass.
+
+## Verify user-facing behavior through real work
+
+Use a real task that the operator or a consumer already needs to do. Exercise the
+ordinary installed entry point on the intended host and profile. For a skill or
+workflow fix, retain the actual task, installed revision, host and entry point,
+observed behavior, and an evidence link. The accountable owner checks that this
+evidence supports the specific acceptance claim.
+
+Keep deterministic regression, delivery, and diagnostic checks. Record what they
+prove. Rehearsals, synthetic fixtures, and isolated probes can diagnose failures
+and verify their bounded contracts. Live acceptance requires an observation from
+real use. When no qualifying task is ready, record the installed candidate as
+prepared where applicable and leave the live acceptance item open until real use.
 
 ## Reference
 

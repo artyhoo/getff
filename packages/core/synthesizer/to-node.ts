@@ -9,7 +9,7 @@
 // (stack, applies-to, negative-test, fixture, liveness-mode, pressure-scenario, and the
 // check-detail fields that do NOT project into the node backbone: engine, exact message,
 // messageId). Enrichment is passed/merged from the producer's own source — never read off
-// the node (ir/types.ts:3 field freeze).
+// the node (ir/types.ts:3 core-field freeze).
 //
 // Byte-identity lock (brief §3, T-3B-A): this врезка MUST keep synthesize()'s output
 // byte-identical to today — byte-EXACT, INCLUDING object key order (emit.ts serializes the

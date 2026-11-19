@@ -1,0 +1,22 @@
+# Cold top-down design review: intent continuity
+
+Inputs-ref: `6d26ba299a27da49a1efc145e1184f44f208e495`.
+Scope: the five supplied immutable artifacts and read-only verification against `/Users/art/.codex/worktrees/0166/rules-as-tests-aif`. No authoring dialogue or prior review report was read. This is an architecture verdict, not an implementation acceptance.
+
+VERDICT: REVISE
+
+## MAJOR (1): Specification agreement has no independently resolved authority binding
+
+Evidence: The approved brief requires operator discussion of the specification before autonomous plans and permits both autonomous and manual launch routes (`/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/seat-snapshot.EmvNmz/docs__superpowers__specs__2026-10-12-intent-continuity-idea@6d26ba299a27.md:14`, `:29`, `:54-55`). The proposed design correctly says a `matches` fidelity verdict cannot confer operator specification agreement (`/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/seat-snapshot.EmvNmz/docs__superpowers__specs__2026-10-12-intent-continuity-design@6d26ba299a27.md:102`). It defines an independent current-approval selector for the PRD (`:82`) but only says a spec/kickoff carries its own applicable approval/decision references (`:78`). At launch, the consumer is required to re-resolve the "exact agreed specification" (`:110`), yet the design does not identify an independent agreement record or selection rule binding the operator's agreement to the exact spec bytes. The acceptance cases check current PRD approval and a spec-review match, not the provenance and currency of specification agreement (`:130`, `:133`).
+
+Failure-scenario: After the operator agrees to spec A, an architecture author materially replaces a component or evidence contract in spec B while preserving the PRD promises. A fresh intent review can truthfully mark B `matches`; a kickoff can point to B and its review. Without a separately resolved agreement binding, either existing launch route can treat B as the "agreed" spec and start work before the operator discusses the replacement, contrary to the design's own material-change boundary (`design:112`) and the approved brief's decision boundary (`PRD:14`, `:29`).
+
+The revision needs to state which existing owner records specification agreement, how that record binds exact content and feature identity, and how both launch effects distinguish the current agreed spec from a candidate. The record's storage/schema can remain an implementation detail. A positive test for an agreed spec and a negative test for a newly reviewed but unagreed material revision would make this boundary observable. This finding does not require a new approval of each kickoff or plan.
+
+## Top-down assessment outside the finding
+
+The proposal preserves the reported design-time failure and tests it with a confidently wrong template-substitution spec (`design:94-104`, `:124-127`; `PRD:26`, `:36`). The advisor split gives product, architecture, and task questions distinct primary documents without a mandatory relay or permanent sessions (`design:70-92`; `PRD:16`, `:27-28`). It places the new semantic check before specification agreement, then reuses existing review, launch, and result paths while explicitly retaining both approved launch routes (`design:96-116`, `:139-150`; `PRD:14`, `:29-32`). The preserved PRD snapshot matches the approval digest: `shasum -a 256` returned `f1a42d1c375b9f4b96dc662da714ed9abf54885fa93716b847d65d0cd7a7ee2a`, and `cmp -s` confirmed the supplied readable PRD and snapshot have identical bytes (`approval:8-11`).
+
+Existing implementation must remain distinct from this proposal. The current runtime treats zero `intent-contract` blocks as `unscoped` (`/Users/art/.codex/worktrees/0166/rules-as-tests-aif/packages/runtime-bridge/src/resultReview.ts:6-10`, `:124`) and holds `contract-revision`/`product-decision` continuations (`:419-425`). The current `/arch` exit already offers factory auto-dispatch and an in-session route (`/Users/art/.codex/worktrees/0166/rules-as-tests-aif/.agents/procedures/arch/references/exit-and-escalation.md:19-25`). The new admission discriminator, specification-review publisher, current-approval selector, and expanded effect checks are proposed work (`design:78-82`, `:98-104`, `:110`, `:145-150`), not observed behavior.
+
+Next step: Clarify the exact-content specification-agreement binding and its launch-time consumption in the written design, then review the revised artifact.

@@ -1,0 +1,4 @@
+name = "fidelity-auditor"
+description = "Cold WHAT-conformance acceptance audit at a stage-PR boundary. Given ONLY the kickoff/spec (or a scoped section of it) and the 3-dot diff — NEVER the chat, the design dialogue, or the implementation log — judges whether the diff is what the kickoff asked for, reporting missing/extra/diverged drift with file:line and a machine-consumed FIDELITY verdict consumed by the pr-body-fidelity CI gate. Design altitude only, never code quality. Dialogue-blind by dispatch contract; reporting-only; never invoked from CI."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/fidelity-auditor.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

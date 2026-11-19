@@ -24,6 +24,8 @@
 #                  transform's effect, not "this file has a table").
 #   5. population— .claude/skills is enumerated WHOLE, not as an allowlist of shipped slugs
 #                  (GH #1377 class: eight shipped slugs were outside the old hand-maintained list).
+#   6. aliases   — canonical sources retain their selected delivery routes, including spaces,
+#                  source deduplication, scoped filters and skills/.claude/skills precedence.
 #
 # Deterministic, no network beyond the pinned `npx prettier@3.8.3` the rest of the battery uses.
 set -uo pipefail
@@ -92,19 +94,23 @@ write_probe "$TMP/agents/control.md" outside
 
 ( cd "$TMP" && git init -q && git add -A ) >/dev/null 2>&1
 
-run_gate() { ( cd "$TMP" && bash scripts/format-shipped.sh --check 2>&1 ); }
+run_gate() { ( cd "$TMP" && bash scripts/format-shipped.sh --check "$@" 2>&1 ); }
 
 # ── Arm 1: positive — the REAL tree's delivered phase is green ───────────────────────────────────
 real_out=$(cd "$REPO_ROOT" && bash "$FMT" --check 2>&1); real_rc=$?
-if [ "$real_rc" -eq 0 ]; then
+if [ "$real_rc" -eq 0 ] && grep -qF 'format-shipped: checking ' <<<"$real_out" \
+  && grep -qF '.claude/' <<<"$real_out"; then
   ok "delivered phase is GREEN on the real tree (shipped skills + agents survive transform_internal_refs)"
 else
   bad "delivered phase RED on the real tree: $(printf '%s' "$real_out" | grep -c '^\[warn\]') warn line(s)"
+  printf '%s\n' "$real_out" | grep '^\[warn\]' || true
 fi
 
 # ── Arm 2: NEG (LOAD-BEARING) — the seeded in-cell ref must turn the gate RED ────────────────────
 seeded_out=$(run_gate); seeded_rc=$?
-if [ "$seeded_rc" -ne 0 ] && printf '%s' "$seeded_out" | grep -qF '.claude/agents/seeded.md'; then
+echo "  seeded delivered gate exit: $seeded_rc"
+printf '%s\n' "$seeded_out" | grep '^\[warn\]' || true
+if [ "$seeded_rc" -ne 0 ] && grep -qF '.claude/agents/seeded.md' <<<"$seeded_out"; then
   ok "neg: a ref seeded INSIDE a table cell turns the gate RED and names .claude/agents/seeded.md"
 else
   bad "neg: seeded in-cell ref did NOT fail the gate (rc=$seeded_rc) → delivered phase is VACUOUS"
@@ -123,11 +129,90 @@ fi
 rm -f "$TMP/agents/seeded.md"
 ( cd "$TMP" && git add -A ) >/dev/null 2>&1
 ctrl_out=$(run_gate); ctrl_rc=$?
-if [ "$ctrl_rc" -eq 0 ]; then
+echo "  populated positive gate exit: $ctrl_rc"
+printf '%s\n' "$ctrl_out" | grep -F '.claude/agents/control.md' || true
+if [ "$ctrl_rc" -eq 0 ] && grep -qF '.claude/agents/control.md' <<<"$ctrl_out"; then
   ok "control: the same ref OUTSIDE the table cell stays GREEN (gate flags the transform, not tables)"
 else
   bad "control: a ref outside any table cell failed the gate → over-broad: $(printf '%s' "$ctrl_out" | grep '^\[warn\]' | head -3)"
 fi
+
+# ── Arm 6: actual canonical sources, routed through tracked aliases ────────────────────────────
+mkdir -p "$TMP/.agents/roles" "$TMP/.agents/procedures/alias fixture" \
+  "$TMP/skills/alias fixture" "$TMP/.claude/skills/alias fixture"
+write_probe "$TMP/.agents/roles/aliased role.md" in-cell
+ln -s '../.agents/roles/aliased role.md' "$TMP/agents/canonical alias.md"
+ln -s '../.agents/roles/aliased role.md' "$TMP/agents/second alias.md"
+write_probe "$TMP/.agents/procedures/alias fixture/SKILL.md" in-cell
+ln -s '../../.agents/procedures/alias fixture/SKILL.md' "$TMP/skills/alias fixture/SKILL.md"
+# This source-clean but delivery-dirty twin must be skipped because skills/<slug> wins.
+write_probe "$TMP/.claude/skills/alias fixture/SKILL.md" in-cell
+( cd "$TMP" && git add -A ) >/dev/null 2>&1
+
+alias_out=$(run_gate 'agents/canonical alias.md' 'agents/second alias.md'); alias_rc=$?
+echo "  canonical agent alias gate exit: $alias_rc"
+printf '%s\n' "$alias_out" | grep '^\[warn\]' || true
+if [ "$alias_rc" -ne 0 ] && grep -qF '[warn] .claude/agents/canonical alias.md' <<<"$alias_out" \
+  && grep -qF '[warn] .claude/agents/second alias.md' <<<"$alias_out"; then
+  ok "alias neg: one canonical source is checked at both delivered agent paths, preserving spaces"
+else
+  bad "alias neg: canonical resolution lost a delivered agent route (rc=$alias_rc)"
+fi
+
+alias_src_rc=0
+npx --yes prettier@3.8.3 --check --ignore-path /dev/null "$TMP/.agents/roles/aliased role.md" >/dev/null 2>&1 || alias_src_rc=$?
+[ "$alias_src_rc" -eq 0 ] && ok "alias isolation: canonical source is clean; real transformed aliases fail" \
+  || bad "alias isolation: canonical source is dirty"
+
+skill_out=$(run_gate 'skills/alias fixture/SKILL.md'); skill_rc=$?
+echo "  canonical skill alias gate exit: $skill_rc"
+printf '%s\n' "$skill_out" | grep '^\[warn\]' || true
+if [ "$skill_rc" -ne 0 ] && grep -qF '[warn] .claude/skills/alias fixture/SKILL.md' <<<"$skill_out" \
+  && ! grep -qF '.claude/agents/' <<<"$skill_out"; then
+  ok "skill alias neg: selected skill maps to its delivered path; filter excludes dirty agents"
+else
+  bad "skill alias neg: selected skill mapping/filter did not hold (rc=$skill_rc)"
+fi
+
+write_probe "$TMP/.agents/roles/aliased role.md" outside
+write_probe "$TMP/.agents/procedures/alias fixture/SKILL.md" outside
+alias_ctrl_out=$(run_gate); alias_ctrl_rc=$?
+if [ "$alias_ctrl_rc" -eq 0 ] && grep -qF '.claude/agents/canonical alias.md' <<<"$alias_ctrl_out" \
+  && grep -qF '.claude/agents/second alias.md' <<<"$alias_ctrl_out" \
+  && grep -qF '.claude/skills/alias fixture/SKILL.md' <<<"$alias_ctrl_out"; then
+  ok "alias control: populated canonical routes pass; skills source takes precedence over dirty twin"
+else
+  bad "alias control: populated canonical routes or installer precedence failed (rc=$alias_ctrl_rc)"
+fi
+
+# --write formats the source, but must still reject a delivery-only defect without rewriting it.
+write_probe "$TMP/.agents/roles/aliased role.md" in-cell
+cp "$TMP/.agents/roles/aliased role.md" "$TMP/canonical-before"
+write_out=$(cd "$TMP" && bash scripts/format-shipped.sh --write 'agents/canonical alias.md' 2>&1); write_rc=$?
+if [ "$write_rc" -ne 0 ] && grep -qF '[warn] .claude/agents/canonical alias.md' <<<"$write_out" \
+  && cmp -s "$TMP/canonical-before" "$TMP/.agents/roles/aliased role.md"; then
+  ok "write mode: delivery-only defect rejected; canonical source bytes retained"
+else
+  bad "write mode: delivery-only failure or source preservation lost (rc=$write_rc)"
+fi
+
+for kind in escaped cyclic missing; do
+  case "$kind" in
+    escaped) target='/dev/null'; expected='alias leaves repository' ;;
+    cyclic) target='guard.md'; expected='cyclic alias' ;;
+    missing) target='../.agents/roles/missing.md'; expected='missing alias target' ;;
+  esac
+  ln -s "$target" "$TMP/agents/guard.md"
+  ( cd "$TMP" && git add agents/guard.md ) >/dev/null 2>&1
+  guard_out=$(run_gate agents/guard.md); guard_rc=$?
+  if [ "$guard_rc" -ne 0 ] && grep -qF "$expected" <<<"$guard_out"; then
+    ok "alias guard: $kind source rejected before delivered copying"
+  else
+    bad "alias guard: $kind source was not rejected (rc=$guard_rc)"
+  fi
+  rm -f "$TMP/agents/guard.md"
+  ( cd "$TMP" && git add -A ) >/dev/null 2>&1
+done
 
 echo ""
 echo "delivered-prettier-conformance: $PASS passed, $FAIL failed"

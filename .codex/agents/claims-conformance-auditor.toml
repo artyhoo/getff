@@ -1,0 +1,4 @@
+name = "claims-conformance-auditor"
+description = "Cold conformance audit of docs-site claims against shipped reality. Given ONLY the doc surface(s) to audit (never the authoring narrative), enumerates every factual claim the docs make about the repo/state, verifies each against the live source with command+output or file:line evidence, and reports VERIFIED/GAP/UNVERIFIABLE per claim plus a machine-consumed GO/REVISE/STOP verdict. Reporting-only; never invoked from CI."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/claims-conformance-auditor.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

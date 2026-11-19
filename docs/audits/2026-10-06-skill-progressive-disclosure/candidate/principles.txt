@@ -1,0 +1,78 @@
+
+ RUN  v4.1.8 /Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif/packages/core
+
+ ❯ principles/15-skill-paired-negative.test.ts (7 tests | 1 failed) 47ms
+     × every in-scope SKILL.md is grandfathered or carries a valid paired-negative block 27ms
+ ❯ principles/14-skill-drift-detection.test.ts (2 tests | 1 failed) 3246ms
+     × detects 0 broken refs and 0 missing frontmatter in current repo state 3244ms
+
+ Test Files  2 failed | 2 passed (4)
+      Tests  2 failed | 36 passed (38)
+   Start at  14:48:32
+   Duration  3.47s (transform 139ms, setup 59ms, import 156ms, tests 3.32s, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  principles/14-skill-drift-detection.test.ts > Principle 14 — skill drift detection (D-AuditC-5 channel 3 / CI last resort) > detects 0 broken refs and 0 missing frontmatter in current repo state
+AssertionError: script stdout:
+=== Skill drift check: broken internal refs ===
+BROKEN-REF: .claude/skills/claude-glm-executor-handoff/SKILL.md → references/model-facts.md
+BROKEN-REF: .claude/skills/claude-glm-executor-handoff/SKILL.md → references/acceptance-gaps.md
+BROKEN-REF: .claude/skills/self-reflection/SKILL.md → references/retro-prompts.md
+BROKEN-REF: .claude/skills/self-reflection/SKILL.md → references/origin-and-enforcement.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/egress.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/egress.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/fidelity.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/publication-and-closure.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/history.md
+FAIL: 9 broken ref(s) found.
+
+=== Skill drift check: frontmatter completeness ===
+OK: all skill/agent files have name: and description: frontmatter.
+
+=== Skill drift check: invocation-channel contract ===
+OK: every disable-model-invocation carrier states the invocation-channel contract.
+
+check-skill-drift: FAIL (1 error category/categories)
+
+stderr:
+
+=== Skill drift check: trigger-overlap inventory (WARN only) ===
+: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ principles/14-skill-drift-detection.test.ts:52:7
+     50|       result.status,
+     51|       `script stdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+     52|     ).toBe(0);
+       |       ^
+     53|   });
+     54| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  principles/15-skill-paired-negative.test.ts > Principle 15 — Skill paired-negative (body-section block per design §3) > every in-scope SKILL.md is grandfathered or carries a valid paired-negative block
+AssertionError: Violations:
+.agents/procedures/harvest/SKILL.md: missing "## Without this skill" section: expected [ Array(1) ] to have a length of +0 but got 1
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ principles/15-skill-paired-negative.test.ts:162:65
+    160|       if (!res.ok) violations.push(`${rel}: ${res.reason}`);
+    161|     }
+    162|     expect(violations, `Violations:\n${violations.join('\n')}`).toHave…
+       |                                                                 ^
+    163|   });
+    164|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯

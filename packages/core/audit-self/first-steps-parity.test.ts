@@ -20,7 +20,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+);
 const SOURCE_PATH = 'packages/core/templates/shared/first-steps.source.json';
 const RENDER_PATH = 'packages/core/templates/shared/AI-USAGE-GUIDE.md';
 
@@ -41,7 +46,9 @@ interface FirstStepsSource {
   sequences: Record<string, SourceSequence>;
 }
 
-const source: FirstStepsSource = JSON.parse(readFileSync(join(REPO_ROOT, SOURCE_PATH), 'utf8'));
+const source: FirstStepsSource = JSON.parse(
+  readFileSync(join(REPO_ROOT, SOURCE_PATH), 'utf8'),
+);
 const render = readFileSync(join(REPO_ROOT, RENDER_PATH), 'utf8');
 
 /** `### §2.N \`<profile>\` — …` opens a per-profile block; the next `###`/`---` closes it. */
@@ -68,7 +75,8 @@ function renderSections(md: string): Map<string, string> {
  * the bold text alone would have no stable identity to order against.
  */
 function renderedSteps(section: string): Array<{ id: string; title: string }> {
-  const re = /<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->\s*\n\s*\d+\.\s+\*\*(.+?)\*\*/g;
+  const re =
+    /<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->\s*\n\s*\d+\.\s+\*\*(.+?)\*\*/g;
   const steps: Array<{ id: string; title: string }> = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(section)) !== null) {
@@ -77,13 +85,16 @@ function renderedSteps(section: string): Array<{ id: string; title: string }> {
   return steps;
 }
 
-const key = (s: { id: string; title: string }): string => `${s.id} :: ${s.title}`;
+const key = (s: { id: string; title: string }): string =>
+  `${s.id} :: ${s.title}`;
 
 describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
   const sections = renderSections(render);
 
   it('renders every profile the source declares, and no extra ones', () => {
-    expect([...sections.keys()].sort()).toEqual(Object.keys(source.sequences).sort());
+    expect([...sections.keys()].sort()).toEqual(
+      Object.keys(source.sequences).sort(),
+    );
   });
 
   it('declares both renders in the source (the source knows who consumes it)', () => {
@@ -95,8 +106,13 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     it(`\`${profile}\`: rendered step list matches the source, in order`, () => {
       const sequence = source.sequences[profile] as SourceSequence;
       const section = sections.get(profile);
-      expect(section, `no §2.x section renders the \`${profile}\` sequence`).toBeDefined();
-      expect(renderedSteps(section as string).map(key)).toEqual(sequence.steps.map(key));
+      expect(
+        section,
+        `no §2.x section renders the \`${profile}\` sequence`,
+      ).toBeDefined();
+      expect(renderedSteps(section as string).map(key)).toEqual(
+        sequence.steps.map(key),
+      );
     });
 
     it(`\`${profile}\`: every source step carries runnable evidence`, () => {
@@ -104,13 +120,160 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
       expect(sequence.steps.length).toBeGreaterThan(0);
       for (const step of sequence.steps) {
         // An unevidenced step is exactly the aspirational instruction this guide must not ship.
-        expect(step.evidence.trim().length, `step \`${step.id}\` has no evidence`).toBeGreaterThan(
-          0,
-        );
+        expect(
+          step.evidence.trim().length,
+          `step \`${step.id}\` has no evidence`,
+        ).toBeGreaterThan(0);
         expect(step.action.trim().length).toBeGreaterThan(0);
       }
     });
   }
+
+  // ── Negative controls: the ordered comparison must read the rendered bytes ───────────────
+  //
+  // The green arms above prove equality on the CURRENT bytes; these three mutate the loaded
+  // render's TEXT (not the extracted list) with the minimal drift a silent re-render or a hand
+  // edit could introduce, re-extract, and prove the SAME `renderedSteps` + ordered `key`
+  // comparison goes RED on it. If any of these ever passes, the comparison has gone vacuous —
+  // the extractor stopped matching the real markers, or equality degenerated to shape/counts.
+  it('a reordered rendered guide is detected (the comparison is not vacuous)', () => {
+    const profile = Object.keys(source.sequences)[0] as string;
+    const section = sections.get(profile) as string;
+    const markerRe = /<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->/g;
+    const marks: Array<{ start: number; end: number }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = markerRe.exec(section)) !== null) {
+      marks.push({ start: m.index, end: markerRe.lastIndex });
+    }
+    expect(marks.length).toBeGreaterThanOrEqual(2);
+    const first = marks[0] as { start: number; end: number };
+    const second = marks[1] as { start: number; end: number };
+    // Swap block A (first marker + its step prose) past block B in the raw markdown.
+    const blockA = section.slice(first.start, second.start);
+    const blockB = section.slice(second.start);
+    const mutated = `${section.slice(0, first.start)}${blockB}${blockA}`;
+    expect(mutated).not.toBe(section);
+    expect(
+      renderedSteps(mutated).map(key),
+      'extraction swallowed the swap — the ordered comparison is vacuous',
+    ).not.toEqual((source.sequences[profile] as SourceSequence).steps.map(key));
+  });
+
+  it('a renamed step id in the render is detected (marker ids are load-bearing)', () => {
+    const profile = Object.keys(source.sequences)[0] as string;
+    const section = sections.get(profile) as string;
+    const steps = renderedSteps(section);
+    expect(steps.length).toBeGreaterThan(0);
+    const firstId = (steps[0] as { id: string }).id;
+    const mutated = section.replace(
+      `<!-- step: ${firstId} -->`,
+      `<!-- step: ${firstId}-drifted -->`,
+    );
+    expect(mutated).not.toBe(section);
+    expect(
+      renderedSteps(mutated).map(key),
+      'a marker-id drift survived extraction — ids are not load-bearing',
+    ).not.toEqual((source.sequences[profile] as SourceSequence).steps.map(key));
+  });
+
+  it('a rewritten step title in the render is detected (titles are compared, not skipped)', () => {
+    const profile = Object.keys(source.sequences)[0] as string;
+    const section = sections.get(profile) as string;
+    const steps = renderedSteps(section);
+    expect(steps.length).toBeGreaterThan(0);
+    const firstTitle = (steps[0] as { title: string }).title;
+    const mutated = section.replace(
+      `**${firstTitle}**`,
+      `**${firstTitle} (draft)**`,
+    );
+    expect(mutated).not.toBe(section);
+    expect(
+      renderedSteps(mutated).map(key),
+      'a title drift survived extraction — only ids are compared',
+    ).not.toEqual((source.sequences[profile] as SourceSequence).steps.map(key));
+  });
+
+  // ── Rendered BODY payload parity (the R5 afc7faea gap) ───────────────────────────────────
+  //
+  // Every arm above compares (id, title) order or the JSON source's own tier claims. None reads
+  // the rendered step BODY, and the R5 review proved the hole with a live counterexample
+  // (afc7faea): swapping the env verify-payload's `.claude/skills/arch/` for the factory-only
+  // `.claude/skills/harvest/` — ids, titles and order untouched — left all 42 arms green. A
+  // render that rewords prose is legitimate; a render that invents or re-tiers a PAYLOAD span
+  // (path, command, flag) is exactly the drift this SSOT exists to prevent.
+  //
+  // Direction: every payload span in a rendered step body must come from THAT step's source
+  // action/evidence. Containment runs render → source: the render may reword and may omit, but
+  // every payload it still claims must be traceable to the step's canonical data.
+  const isPayloadSpan = (s: string): boolean =>
+    s.includes('/') ||
+    /^--?/.test(s) ||
+    /\s/.test(s) ||
+    /\.(?:sh|mjs|cjs|md|json|toml|ya?ml|tsx?)\b/.test(s);
+  const spanRe = /`([^`\n]+)`/g;
+  const alienSpans = (
+    section: string,
+    sequence: SourceSequence,
+  ): Array<{ step: string; span: string }> => {
+    const byId = new Map(sequence.steps.map((s) => [s.id, s] as const));
+    const blockRe =
+      /<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->\s*\n\s*\d+\.\s+\*\*.+?\*\*([\s\S]*?)(?=<!--\s*step:|^###\s)/gm;
+    const aliens: Array<{ step: string; span: string }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = blockRe.exec(section)) !== null) {
+      const src = byId.get(m[1] as string);
+      if (src === undefined) continue; // orphan markers have their own arm above
+      const haystack = `${src.action}\n${src.evidence}`;
+      let sp: RegExpExecArray | null;
+      const bodyRe = new RegExp(spanRe.source, 'g');
+      while ((sp = bodyRe.exec(m[2] as string)) !== null) {
+        const span = (sp[1] as string).trim();
+        if (
+          span.length > 0 &&
+          isPayloadSpan(span) &&
+          !haystack.includes(span)
+        ) {
+          aliens.push({ step: m[1] as string, span });
+        }
+      }
+    }
+    return aliens;
+  };
+
+  for (const profile of Object.keys(source.sequences)) {
+    it(`\`${profile}\`: every payload span in the rendered body traces to that step's source`, () => {
+      const sequence = source.sequences[profile] as SourceSequence;
+      const section = sections.get(profile) as string;
+      expect(
+        alienSpans(section, sequence),
+        "rendered payload spans not present in the step's source action/evidence",
+      ).toEqual([]);
+    });
+  }
+
+  it('the exact env arch→harvest body corruption is rejected (afc7faea regression)', () => {
+    const profile = 'env';
+    const sequence = source.sequences[profile] as SourceSequence;
+    const section = sections.get(profile) as string;
+    expect(section).toBeDefined();
+    const clean = alienSpans(section, sequence);
+    expect(clean, 'the real guide must pass the payload check first').toEqual(
+      [],
+    );
+    // The exact R5 counterexample: swap the env-tier arch skill for the factory-only
+    // harvest in the rendered verify-payload body. Ids, titles and order stay identical.
+    const corrupted = section.replace(
+      '`.claude/skills/arch/`',
+      '`.claude/skills/harvest/`',
+    );
+    expect(corrupted).not.toBe(section);
+    const aliens = alienSpans(corrupted, sequence);
+    expect(
+      aliens.map((a) => a.span),
+      'the corrupted body sailed through — payload parity is vacuous',
+    ).toContain('.claude/skills/harvest/');
+    expect(aliens.every((a) => a.step === 'verify-payload')).toBe(true);
+  });
 
   // ── Profile claims vs setup.d/lib.sh (ledger A8-3) ──────────────────────────────────────
   //
@@ -129,25 +292,35 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     const lib = readFileSync(join(REPO_ROOT, 'setup.d/lib.sh'), 'utf8');
     const listOf = (name: string): string[] => {
       const m = new RegExp(`^${name}="([^"]*)"`, 'm').exec(lib);
-      expect(m, `setup.d/lib.sh no longer defines ${name} — the tier lists moved`).not.toBeNull();
+      expect(
+        m,
+        `setup.d/lib.sh no longer defines ${name} — the tier lists moved`,
+      ).not.toBeNull();
       return (m as RegExpExecArray)[1].split(/\s+/).filter(Boolean);
     };
     const tiers: Record<string, string> = {};
     for (const skill of listOf('GETFF_SKILLS_CORE')) tiers[skill] = 'core';
     for (const skill of listOf('GETFF_SKILLS_ENV')) tiers[skill] = 'env+';
-    for (const skill of listOf('GETFF_SKILLS_FACTORY')) tiers[skill] = 'factory';
+    for (const skill of listOf('GETFF_SKILLS_FACTORY'))
+      tiers[skill] = 'factory';
     return tiers;
   })();
 
   /** `.claude/skills/<name>/…` occurrences in a string, deduplicated in first-seen order. */
   const skillsNamedIn = (text: string): string[] => [
-    ...new Set([...text.matchAll(/\.claude\/skills\/([a-z0-9-]+)\//g)].map((m) => m[1] as string)),
+    ...new Set(
+      [...text.matchAll(/\.claude\/skills\/([a-z0-9-]+)\//g)].map(
+        (m) => m[1] as string,
+      ),
+    ),
   ];
 
   it('lib.sh still declares all three tier lists, and they are disjoint and non-empty', () => {
     // Non-vacuity floor: an empty or collapsed map would make both arms below pass for free.
     expect(Object.keys(SKILL_TIERS).length).toBeGreaterThanOrEqual(12);
-    expect(new Set(Object.values(SKILL_TIERS))).toEqual(new Set(['core', 'env+', 'factory']));
+    expect(new Set(Object.values(SKILL_TIERS))).toEqual(
+      new Set(['core', 'env+', 'factory']),
+    );
   });
 
   it('`factory`: verify-payload names EXACTLY the skills factory adds over env', () => {
@@ -189,12 +362,17 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     let checked = 0;
     for (const [profile, sequence] of Object.entries(source.sequences)) {
       for (const step of (sequence as SourceSequence).steps) {
-        const claim = /\.claude\/skills\/([a-z0-9-]+)\/SKILL\.md \(shipped at ([a-z+]+)/.exec(
-          step.evidence,
-        );
+        const claim =
+          /\.claude\/skills\/([a-z0-9-]+)\/SKILL\.md \(shipped at ([a-z+]+)/.exec(
+            step.evidence,
+          );
         if (!claim) continue;
         checked += 1;
-        const [, skill, claimedTier] = claim as unknown as [string, string, string];
+        const [, skill, claimedTier] = claim as unknown as [
+          string,
+          string,
+          string,
+        ];
         const realTier = SKILL_TIERS[skill];
         if (realTier !== claimedTier) {
           wrong.push(
@@ -205,8 +383,14 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
       }
     }
     // Non-vacuity: a regex that stopped matching would make this arm pass on any drift.
-    expect(checked, 'no «shipped at <tier>» evidence claim was parsed at all').toBeGreaterThan(0);
-    expect(wrong, `Evidence claims contradicting setup.d/lib.sh:\n${wrong.join('\n')}`).toEqual([]);
+    expect(
+      checked,
+      'no «shipped at <tier>» evidence claim was parsed at all',
+    ).toBeGreaterThan(0);
+    expect(
+      wrong,
+      `Evidence claims contradicting setup.d/lib.sh:\n${wrong.join('\n')}`,
+    ).toEqual([]);
   });
 
   it('every rendered step marker belongs to a declared source step (no orphan markers)', () => {
@@ -214,10 +398,475 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     for (const sequence of Object.values(source.sequences)) {
       for (const step of sequence.steps) declared.add(step.id);
     }
-    const rendered = [...render.matchAll(/<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->/g)].map(
-      (m) => m[1] as string,
-    );
+    const rendered = [
+      ...render.matchAll(/<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->/g),
+    ].map((m) => m[1] as string);
     expect(rendered.length).toBeGreaterThan(0);
     expect(rendered.filter((id) => !declared.has(id))).toEqual([]);
+  });
+});
+
+// ── The road: ONE ordered step list from install to report ───────────────────────────────────
+//
+// WHY: the install prompt is what an agent actually walks, and it used to be hand-written prose
+// that ended in «Stop here» and asked up to four questions. The road is that list as DATA (the
+// top-level `road` key of the same SSOT), and the prompt in INSTALL-FOR-AI.md is its render. A
+// step added to one side only, a reordered step or a renamed step is RED here, so a part that
+// plugs a step into the road cannot forget the prompt.
+//
+// `road` is deliberately NOT inside `sequences`: scripts/render-face-facts.mjs copies `sequences`
+// and `renders` verbatim into the site facts, and the road is not a per-profile First-Steps list.
+interface RoadStep {
+  id: string;
+  title: string;
+  action: string;
+  doneTest: string;
+}
+interface Road {
+  goal: string;
+  render: string;
+  steps: RoadStep[];
+}
+
+const PROMPT_PATH = 'INSTALL-FOR-AI.md';
+const README_PATH = 'README.md';
+const MANIFEST_PATH = 'setup.d/companions.manifest';
+
+/** Names of the `external-service` rows of a companions manifest (TAB-delimited, kind = field 4). */
+function externalServices(manifest: string): string[] {
+  return manifest
+    .split('\n')
+    .filter((line) => line.trim() !== '' && !line.startsWith('#'))
+    .map((line) => line.split('\t'))
+    .filter((fields) => fields[3] === 'external-service')
+    .map((fields) => fields[0] ?? '')
+    .sort();
+}
+
+/** Names a text leaves out as «external services <a> and <b>» / «<a>, <b> and <c>». */
+function excludedByRoad(text: string): string[] {
+  // A name is never a joining word: «…aif-handoff, and add context7» ends the list at the comma.
+  const name = '(?!(?:and|plus|add)\\b)[a-z0-9-]+';
+  const m = new RegExp(
+    `external services (${name}(?:(?:, | and )${name})*)`,
+  ).exec(text);
+  return m?.[1] ? m[1].split(/, | and /).sort() : [];
+}
+
+/** The first ```text fence after the «Quick install» heading — the prompt a human pastes. */
+function promptBlock(md: string): string {
+  const head = md.indexOf('## Quick install');
+  if (head === -1) return '';
+  const open = md.indexOf('```text\n', head);
+  if (open === -1) return '';
+  const close = md.indexOf('\n```', open + 8);
+  return close === -1 ? '' : md.slice(open + 8, close);
+}
+
+/** A rendered road step is a line `N. [<id>] <title>` — the id is the identity, the title the text. */
+function promptSteps(block: string): Array<{ id: string; title: string }> {
+  return [...block.matchAll(/^\d+\.\s+\[([a-z0-9-]+)\]\s+(.+?)\s*$/gm)].map(
+    (m) => ({
+      id: m[1] as string,
+      title: m[2] as string,
+    }),
+  );
+}
+
+describe('The road ↔ install prompt parity', () => {
+  const road = (source as unknown as { road?: Road }).road;
+  const prompt = promptBlock(
+    readFileSync(join(REPO_ROOT, PROMPT_PATH), 'utf8'),
+  );
+  const readme = readFileSync(join(REPO_ROOT, README_PATH), 'utf8');
+
+  it('the source declares the road, and every step carries an action and a done-test', () => {
+    expect(road, '`road` key missing from the first-steps SSOT').toBeDefined();
+    const steps = (road as Road).steps;
+    expect(steps.length).toBeGreaterThan(0);
+    expect((road as Road).render).toBe(PROMPT_PATH);
+    for (const step of steps) {
+      expect(
+        step.action.trim().length,
+        `road step \`${step.id}\` has no action`,
+      ).toBeGreaterThan(0);
+      expect(
+        step.doneTest.trim().length,
+        `road step \`${step.id}\` has no done-test`,
+      ).toBeGreaterThan(0);
+    }
+    expect(new Set(steps.map((s) => s.id)).size, 'duplicate road step id').toBe(
+      steps.length,
+    );
+  });
+
+  it('the prompt renders the road step list, in order', () => {
+    expect(
+      prompt.length,
+      'no ```text prompt under «Quick install»',
+    ).toBeGreaterThan(0);
+    const declared = ((road as Road | undefined)?.steps ?? []).map(key);
+    expect(
+      declared.length,
+      'the road is empty — nothing to compare',
+    ).toBeGreaterThan(0);
+    expect(promptSteps(prompt).map(key)).toEqual(declared);
+  });
+
+  it('a reordered prompt is detected (the comparison is not vacuous)', () => {
+    const steps = promptSteps(prompt);
+    expect(steps.length).toBeGreaterThanOrEqual(2);
+    const swapped = [steps[1], steps[0], ...steps.slice(2)] as Array<{
+      id: string;
+      title: string;
+    }>;
+    expect(swapped.map(key)).not.toEqual(
+      ((road as Road | undefined)?.steps ?? []).map(key),
+    );
+  });
+
+  it('the road ends with the report and asks its one question before the installer runs', () => {
+    const ids = ((road as Road | undefined)?.steps ?? []).map((s) => s.id);
+    expect(ids[ids.length - 1]).toBe('report');
+    expect(ids.indexOf('ask-once')).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf('ask-once')).toBeLessThan(ids.indexOf('install'));
+  });
+
+  it('no prompt tells the agent to stop before the report', () => {
+    expect(prompt).not.toMatch(/Stop here/);
+    expect(readme).not.toMatch(/Stop here/);
+  });
+
+  it('the prompt maps the one answer to the three installer flags', () => {
+    expect(prompt).toMatch(/setup -y <detected-stack>/);
+    expect(prompt).toMatch(/setup -y --global <detected-stack>/);
+    expect(prompt).toMatch(/setup --all <detected-stack>/);
+  });
+
+  it('the report format gives a step exactly two statuses and keeps findings out of the asks', () => {
+    // Found by the first agent run (2026-09-29): a third status «done, with findings», a passport
+    // summary in place of its text, and getff's own defects listed as questions to the human.
+    const doc = readFileSync(join(REPO_ROOT, PROMPT_PATH), 'utf8');
+    const head = doc.indexOf('## What the AI will produce');
+    expect(head).toBeGreaterThan(-1);
+    const section = doc.slice(head, doc.indexOf('\n---', head));
+    const statuses = [
+      ...section.matchAll(/^<n>\. \[<id>\] <title> — (.+)$/gm),
+    ].map((m) => m[1]);
+    expect(statuses).toEqual(['done', 'not done: <reason>']);
+    // Prose wraps, so the three rules are matched on whitespace-normalised text.
+    const prose = section.replace(/\s+/g, ' ');
+    expect(prose).toMatch(/no third status/);
+    expect(prose).toMatch(/never a summary/);
+    expect(prose).toMatch(/A defect of getff itself is a finding/);
+  });
+
+  it('the road places the rules with the installer and asks for their proof exactly once', () => {
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const place = steps.find((s) => s.id === 'place-rules');
+    const prove = steps.find((s) => s.id === 'prove-rules');
+    expect(place?.action).toMatch(/setup --full <stack>/);
+    expect(place?.doneTest).toMatch(/one row per rule/);
+    expect(prove?.doneTest).toMatch(/bad→exit ≠0, good→exit 0/);
+    // One run of the proof serves both steps: two rows that each run it would ask for the same proof.
+    const runs = steps.filter((s) =>
+      /run `node scripts\/prove-rules\.mjs --prove`/.test(s.action),
+    );
+    expect(runs.map((s) => s.id)).toEqual(['place-rules']);
+    expect(prompt).toMatch(/setup --full <detected-stack>/);
+    expect(
+      prompt.match(/node scripts\/prove-rules\.mjs --prove/g),
+    ).toHaveLength(1);
+  });
+
+  it('no road step is a placeholder: each one names what it reads', () => {
+    // Found by the cold run (2026-09-30): steps 7 and 8 still read «not built yet» after the things
+    // they read had shipped, so the report stated a false reason and the agent improvised the list.
+    const steps = (road as Road | undefined)?.steps ?? [];
+    expect(JSON.stringify(steps)).not.toMatch(/not built yet/i);
+    expect(prompt).not.toMatch(/not built yet/i);
+    const reads: Record<string, RegExp> = {
+      'tools-parity': /getff:installed-versions/,
+      'base-core-status': /\.claude\/skills\/getff\/references\/base-core\.md/,
+      'project-checks': /aif:project-checks/,
+    };
+    for (const [id, what] of Object.entries(reads)) {
+      const step = steps.find((s) => s.id === id);
+      expect(
+        step?.action,
+        `road step \`${id}\` does not name what it reads`,
+      ).toMatch(what);
+      expect(step?.action, `road step \`${id}\` has no fallback`).toMatch(
+        /«not done/,
+      );
+      expect(prompt, `the prompt does not name what \`${id}\` reads`).toMatch(
+        what,
+      );
+    }
+  });
+
+  it('the one question carries every pre-launch choice the installer waits for', () => {
+    // The installer writes two groups only on a pre-launch «yes» that reaches it as a variable;
+    // a choice the question never offers cannot be made through the road.
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
+    for (const name of ['GETFF_SESSION_SETTINGS=1', 'GETFF_STACK_TOOLS=1']) {
+      expect(ask?.action, `the question does not offer ${name}`).toContain(
+        name,
+      );
+      expect(prompt, `the prompt does not pass ${name}`).toContain(name);
+    }
+    expect(
+      prompt.match(/\bask once\b/gi),
+      'the prompt must ask exactly once',
+    ).toHaveLength(1);
+  });
+
+  it('a part the answer leaves out has one stated default, the same in the data and the prompt', () => {
+    // Both opt-in groups default to yes (operator decisions 2026-09-30). The road carries the
+    // defaults, not the installer: a bare `setup -y` run by hand behaves as before.
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
+    const defaults = /\(a\) 1, \(b\) yes, \(c\) yes, \(d\) yes/;
+    expect(ask?.action.replace(/\s+/g, ' ')).toMatch(defaults);
+    expect(prompt.replace(/\s+/g, ' ')).toMatch(defaults);
+    expect(prompt).toMatch(/unless I say no/);
+  });
+
+  it('a choice that defaults to yes says in plain words what the person gets', () => {
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
+    for (const text of [ask?.action ?? '', prompt]) {
+      const flat = text.replace(/\s+/g, ' ');
+      expect(flat).toMatch(/handoff gate holds a turn/);
+      expect(flat).toMatch(/deny list makes the agent refuse/);
+      expect(flat).toMatch(/one undo command/);
+    }
+  });
+
+  it("the tools choice says that some servers run on the person's computer and how to remove one", () => {
+    // A verified npm server is written as `npx -y <pkg>` (setup.d/35-stack-tools.sh) and runs at
+    // every session start, in agent sessions without any approval prompt — the pre-launch yes is
+    // the only consent, so it must name that (operator, 2026-09-30).
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
+    for (const text of [ask?.action ?? '', prompt]) {
+      const flat = text.replace(/\s+/g, ' ');
+      expect(flat).toMatch(
+        /some of these servers run on (?:my|the person's) computer/,
+      );
+      expect(flat).toMatch(/`npx`/);
+      expect(flat).toMatch(/the rest work over the internet/);
+      expect(flat).toMatch(/⚠ line/);
+      expect(flat).toMatch(/`claude mcp remove <name> -s project`/);
+    }
+  });
+
+  it("before the one question the agent names getff's own MCP servers and their cost", () => {
+    // Operator (log entry 44, 2026-09-30): warn at least about what will be installed. The names
+    // come from the dry run's «MCP servers …» line (COMPANION_MCP_NAMES); the road holds no copy.
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
+    for (const text of [ask?.action ?? '', prompt]) {
+      const flat = text.replace(/\s+/g, ' ');
+      expect(flat).toMatch(/getff's own MCP servers/);
+      expect(flat).toMatch(/«MCP servers …» line of the dry run/);
+      expect(flat).toMatch(/costs context in every session/);
+      expect(flat).not.toMatch(/context7, deepwiki/);
+    }
+  });
+
+  it('the tools step checks two sources and probes nothing itself', () => {
+    const tools = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'tools-parity',
+    );
+    for (const text of [tools?.action ?? '', prompt]) {
+      expect(text).toMatch(/getff:installed-versions/);
+      expect(text).toMatch(/NOT[- ]wired/);
+      expect(text).not.toMatch(/claude mcp get/);
+    }
+  });
+
+  it('the tools step takes its names from the selection the installer printed', () => {
+    // The dry run's «Companions» section skips MCP servers (deepwiki), so a name list read from it
+    // never checks them. The «Stack-aware companion selection» lines name every selected tool.
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const tools = steps.find((s) => s.id === 'tools-parity');
+    const preview = steps.find((s) => s.id === 'preview');
+    for (const text of [tools?.action ?? '', preview?.action ?? '', prompt]) {
+      expect(text).toMatch(/Stack-aware companion selection/);
+    }
+    for (const text of [tools?.action ?? '', prompt]) {
+      expect(text).toMatch(/context7/);
+      expect(text).toMatch(/runtime-bridge/);
+      expect(text).toMatch(/aif-handoff/);
+    }
+    expect(tools?.action).not.toMatch(/«Companions» section/);
+  });
+
+  it('the tools step leaves out exactly the external services the manifest holds', () => {
+    // The road names the external services in words. A name list kept true by attention is
+    // `#hope-as-gate`: a third external service in the manifest would read as a false «MISSING».
+    const tools = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'tools-parity',
+    );
+    const manifest = readFileSync(join(REPO_ROOT, MANIFEST_PATH), 'utf8');
+    const leftOut = excludedByRoad(tools?.action ?? '');
+    expect(
+      leftOut.length,
+      'the road row names no external service',
+    ).toBeGreaterThan(0);
+    expect(leftOut).toEqual(externalServices(manifest));
+    expect(excludedByRoad(prompt)).toEqual(leftOut);
+  });
+
+  it('a third external service in the manifest is detected (the comparison is not vacuous)', () => {
+    const tools = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'tools-parity',
+    );
+    const manifest = readFileSync(join(REPO_ROOT, MANIFEST_PATH), 'utf8');
+    const third = `${manifest}\nnew-service\t-\t-\texternal-service\t*\n`;
+    expect(externalServices(third)).toContain('new-service');
+    expect(excludedByRoad(tools?.action ?? '')).not.toEqual(
+      externalServices(third),
+    );
+    // A row of another kind changes nothing: only `external-service` rows are left out.
+    const other = `${manifest}\nnew-tool\t-\t-\tcli\t*\n`;
+    expect(externalServices(other)).toEqual(externalServices(manifest));
+  });
+
+  it('every installer run after the first carries the variables the answer picked', () => {
+    // Found by the second cold run (2026-09-30): step 10 re-ran the installer without them, so it
+    // printed «not chosen in the pre-launch list» for two choices the answer had made.
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const first = ['preview', 'ask-once', 'install'];
+    const reruns = steps.filter(
+      (s) =>
+        !first.includes(s.id) &&
+        /setup (?:--full|-y|--all|--refresh)/.test(s.action),
+    );
+    expect(reruns.map((s) => s.id)).toContain('place-rules');
+    for (const step of reruns) {
+      expect(
+        step.action,
+        `road step \`${step.id}\` re-runs the installer bare`,
+      ).toMatch(/same variables/);
+    }
+    expect(prompt).toMatch(
+      /same variables as in step 4[^\n]*setup --full <detected-stack>/,
+    );
+  });
+
+  it('the preview reads the selection and probes nothing itself', () => {
+    const preview = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'preview',
+    );
+    expect(preview?.action).toMatch(/Run no probe of your own/);
+    expect(prompt.match(/Run no probe of your own/g)).toHaveLength(2);
+  });
+
+  it('the preview says what the dry run prints for the MCP servers', () => {
+    // Since setup names the MCP servers at the end of «Companions» (companion_mcp_preview in
+    // setup.d/engine.sh), the old sentence «leaves MCP servers out» is false.
+    const preview = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'preview',
+    );
+    for (const text of [preview?.action ?? '', prompt]) {
+      expect(text).not.toMatch(/leaves MCP servers out/);
+      expect(text).toMatch(
+        /«Companions» section ends with a line «MCP servers … — not added in this mode»/,
+      );
+      expect(text).toMatch(/the command of step 4 adds them/);
+    }
+  });
+
+  it('the research step takes the one answer as its confirmation', () => {
+    const research = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'research',
+    );
+    expect(research?.action).toMatch(/without asking/);
+    expect(prompt).toMatch(/without asking/);
+  });
+
+  it('the preview shows the stack word as the installer prints it', () => {
+    const preview = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'preview',
+    );
+    expect(preview?.action).toMatch(/`generic`/);
+    expect(prompt).toMatch(/`generic`/);
+    expect(prompt).not.toMatch(/else unknown/);
+  });
+
+  it('no road step outside the one question asks the person anything', () => {
+    // The road promises «ask me nothing after the one question of step 3». A step that carries a
+    // yes/no of its own breaks that promise from inside the list.
+    const asks = /\?|yes[- ]or[- ]no|yes\/no/i;
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const asking = steps
+      .filter(
+        (s) => s.id !== 'ask-once' && asks.test(`${s.action} ${s.doneTest}`),
+      )
+      .map((s) => s.id);
+    expect(asking, 'road rows that ask the person outside `ask-once`').toEqual(
+      [],
+    );
+
+    const bodies = prompt.split(/^(?=\d+\.\s+\[[a-z0-9-]+\])/m);
+    const askingInPrompt = bodies
+      .filter((b) => !/^\d+\.\s+\[ask-once\]/.test(b) && asks.test(b))
+      .map(
+        (b) =>
+          /^\d+\.\s+\[([a-z0-9-]+)\]/.exec(b)?.[1] ?? '(text around the steps)',
+      );
+    expect(
+      askingInPrompt,
+      'prompt steps that ask the person outside step 3',
+    ).toEqual([]);
+    // Not vacuous: the one question itself is seen by the same pattern.
+    expect(bodies.filter((b) => asks.test(b))).toHaveLength(1);
+  });
+
+  it('an absent base-core list is refreshed by the road itself, which quotes the dry-run plan and every overwrite', () => {
+    // `setup` does not know `--refresh` (its flag loop drops it); the installer itself does.
+    const step = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'base-core-status',
+    );
+    expect(step?.action).toMatch(
+      /`bash <getff>\/install\.sh <stack> --refresh --dry-run`/,
+    );
+    expect(step?.action).toMatch(
+      /`bash <getff>\/install\.sh <stack> --refresh`/,
+    );
+    // The dry-run plan flags a person's edit as `<path> (locally modified)`; the real run
+    // prints `⚠ overwriting locally-modified file: …` and copies the edit to refresh-conflicts/.
+    expect(step?.action).toMatch(/locally modified/);
+    expect(step?.action).toMatch(/overwriting locally-modified file/);
+    expect(step?.action).toMatch(/refresh-conflicts\//);
+    expect(step?.action).toMatch(
+      /«not done: the refresh did not bring the list»/,
+    );
+    // The defect this replaces: the road printed the command for the person and forbade itself to run it.
+    expect(step?.action).not.toMatch(/the person may run|do not run it/i);
+    expect(prompt).not.toMatch(/I may run myself|do not run it/);
+    expect(prompt).toMatch(
+      /run `bash \/tmp\/getff\/install\.sh <detected-stack> --refresh --dry-run`[\s\S]*?then run `bash \/tmp\/getff\/install\.sh <detected-stack> --refresh`/,
+    );
+    expect(prompt).toMatch(/overwriting locally-modified file/);
+    expect(prompt).toMatch(/\.ai-factory\/refresh-conflicts\//);
+    // The dry-run-plan duty and the fallback are pinned on BOTH surfaces: a prompt-side edit
+    // dropping either reds the same way a source-side edit does.
+    expect(prompt).toMatch(/«\(locally modified\)»/);
+    expect(prompt).toMatch(/«not done: the refresh did not bring the list»/);
+  });
+
+  it('the shipped road names no internal program part', () => {
+    // The SSOT is part of the shipped package payload; «P1»…«P6» are this repo's planning names.
+    expect(road, '`road` key missing from the first-steps SSOT').toBeDefined();
+    expect(JSON.stringify(road)).not.toMatch(/\bP[0-6]\b/);
   });
 });

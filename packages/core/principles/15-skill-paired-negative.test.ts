@@ -11,7 +11,7 @@
  *   grandfathered must carry a body-section paired-negative block (design §3) — both
  *   `## Without this skill` and `## With this skill`, each non-trivial, and the two halves
  *   differing (anti-tautology — mirrors principle 02's bad !== good at
- *   02-paired-negative-test.test.ts:80).
+ *   02-paired-negative-test.test.ts:214).
  *
  * Grandfather (design §5): an explicit EXEMPT_SKILLS allowlist — mirrors principle 09's
  *   EXEMPT_PATTERNS mechanism (an allowlist, NOT a date-cutoff). The 5 skills predating this
@@ -33,11 +33,11 @@ const REPO_ROOT = resolve(HERE, '../../../');
  * paired-negative block to that SKILL.md.
  */
 const EXEMPT_SKILLS: readonly string[] = [
-  '.claude/skills/self-reflection/SKILL.md',
-  '.claude/skills/template-audit/SKILL.md',
-  '.claude/skills/tool-bootstrapping/SKILL.md',
-  'skills/getff/SKILL.md',
-  'skills/tool-bootstrapping/SKILL.md',
+  '.agents/procedures/self-reflection/SKILL.md',
+  '.agents/procedures/template-audit/SKILL.md',
+  '.agents/procedures/tool-bootstrapping/SKILL.md',
+  '.agents/procedures/getff/SKILL.md',
+  '.agents/procedures/tool-bootstrapping-consumer/SKILL.md',
 ];
 
 /**
@@ -130,7 +130,7 @@ function trackedSkillMds(roots: readonly string[]): Set<string> | null {
 
 /** Enumerate in-scope SKILL.md files (repo-root-relative POSIX paths). Zero glob dep. */
 function enumerateSkills(): string[] {
-  const roots = ['.claude/skills', 'skills'];
+  const roots = ['.agents/procedures'];
   const tracked = trackedSkillMds(roots);
   const found: string[] = [];
   for (const root of roots) {

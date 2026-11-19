@@ -8,9 +8,10 @@
 // Usage: node scripts/triage-kernel-v2-bench/make-tests.mjs
 
 import { writeFileSync } from 'node:fs';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { buildBenchInput } from './build-input.mjs';
+import { isMainEntry } from '../lib/is-main-entry.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -45,7 +46,7 @@ export function groupBySource(rows) {
   return groups.map((key) => ({ key, rows: byKey.get(key) }));
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainEntry(import.meta.url)) {
   const art = buildBenchInput();
   const c1 = art.rows.map((r) => ({ description: r.id, vars: { payload: r.payload } }));
   const groups = groupBySource(art.rows);

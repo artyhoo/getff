@@ -19,12 +19,31 @@ ruleTester.run('no-server-imports-in-client', noServerImportsInClient, {
     `"use client";\nimport { z } from 'zod';\nexport const s = z.string();`,
     // Exempt line
     `'use client';\nimport fs from 'fs'; // audit:exempt\nexport const x = 1;`,
-    // 'use client' but not in first 3 lines — rule does not apply
-    `// header\n// header\n// header\n'use client';\nimport fs from 'fs';\nexport const x = 1;`,
+    // directive after leading comments is still a directive prologue (SWEEP-4 §4.2) — covered
+    // by the matching invalid arm below; here: directive genuinely after code is NOT a prologue
+    `const x = 1;\n'use client';\nimport fs from 'fs';\nexport const y = 2;`,
+    // directive after an import statement is NOT in the prologue — rule does not apply
+    `import './side-effect';\n'use client';\nimport fs from 'fs';\nexport const y = 2;`,
     // false positive guard: 'infrastructure' as substring of unrelated word
     `'use client';\nimport { x } from './infrastructureless-helper';\nexport const x2 = 1;`,
   ],
   invalid: [
+    {
+      // SWEEP-4 §4.2 repro: license-header comment block before the directive — bundler honors
+      // it (comments are trivia), so the R12 ban must reach the server import.
+      code: `// header\n// header\n// header\n'use client';\nimport fs from 'fs';\nexport const x = 1;`,
+      errors: [{ messageId: 'noServerImportInClient', data: { module: 'fs' } }],
+    },
+    {
+      // single-line block comment before the directive — same prologue rule
+      code: `/* license */\n'use client';\nimport { db } from '@/infrastructure/db';\nexport const x = 1;`,
+      errors: [
+        {
+          messageId: 'noServerImportInClient',
+          data: { module: '@/infrastructure/db' },
+        },
+      ],
+    },
     {
       code: `'use client';\nimport fs from 'fs';\nexport const x = 1;`,
       errors: [{ messageId: 'noServerImportInClient', data: { module: 'fs' } }],

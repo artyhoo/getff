@@ -86,21 +86,28 @@ step.
 
 Modes:
 
-- **default** — block on `awaitDone` (WebSocket status stream) until the task is `done`/`verified`
-  (success) or `blocked_external` (resolves, not success), then print the `TaskResult` as JSON.
-  `--timeout-ms` bounds the wait.
+- **default** — AIF subscribes before authoritative REST reconciliation on initial open and
+  reconnect. Terminal or held detail settles the full `TaskResult`; status frames only request
+  reconciliation. The default observation deadline is one hour; `--timeout-ms` overrides it.
 - **`--once`** — non-blocking `getStatus` snapshot (point-in-time), print and exit.
+- **`--until-actionable`** — full REST observation with an explicit deadline, returning one
+  compact result plus canonical generation/candidate/pending-owner metadata. Park, pause and
+  adverse advisory override optimistic completion. Only unavailable transport gets bounded
+  retries (three consecutive failures); quota/auth/not-found responses return immediately.
 
-The backend is resolved the same way as `dispatch` (`RUNTIME_BRIDGE_MODE` + `available()`). In default
-mode with **no** `--timeout-ms`, this **blocks** until the task reaches a terminal state; for long
-autonomous runs that is intended. A startup notice is printed to stderr; pass `--timeout-ms` to bound
-the wait.
+The backend is resolved the same way as `dispatch` (`RUNTIME_BRIDGE_MODE` + `available()`).
+ManualBackend retains its indefinite response-file wait when no deadline is supplied.
+AIF timeout or transport failure means observation uncertainty. Validated candidate/generation
+metadata stays pending; it grants neither acceptance nor permission to retry external effects.
+Explicit resume uses a fresh `--once` read and reconciliation of the owner's retained actions.
+Source behavior does not establish that an existing host installation has been refreshed.
 
 ### Usage
 
 ```bash
 tsx packages/runtime-bridge/src/cli/await.ts <taskId> [--timeout-ms N]
 tsx packages/runtime-bridge/src/cli/await.ts <taskId> --once
+tsx packages/runtime-bridge/src/cli/await.ts <taskId> --until-actionable --timeout-ms 3600000
 ```
 
 ### Flags
@@ -110,6 +117,7 @@ tsx packages/runtime-bridge/src/cli/await.ts <taskId> --once
 | `<taskId>`       | **Required (positional).** The dispatched task to watch.  |
 | `--timeout-ms N` | Bound the wait in default (await) mode.                   |
 | `--once`         | Non-blocking snapshot: print the current status and exit. |
+| `--until-actionable` | REST observation; requires `--timeout-ms`, excludes `--once`. |
 
 Exit codes:
 
@@ -118,12 +126,43 @@ Exit codes:
 - `--once` (snapshot): `0` unless the backend reports an `error` state. A still-running task
   (`pending`/`running`) also exits `0` — a snapshot is not a verdict; use the default mode when you
   need a terminal success/fail code.
+- `--until-actionable`: `0` only for unheld `done`/`verified`; parked, paused, unknown,
+  error and observation deadline return `1`. A deadline is not worker failure or retry authority.
 
 ### Example
 
 ```bash
 tsx packages/runtime-bridge/src/cli/await.ts "$HANDOFF_TASK_ID" --timeout-ms 600000
 ```
+
+### Local economy payload
+
+The bounded host payload has a separate scratch emit route; `typecheck` remains `noEmit`:
+
+```bash
+node packages/runtime-bridge/scripts/emit-economy.mjs --out /absolute/absent/scratch/build
+```
+
+It uses the checkout's TypeScript5.9.3 compiler, emits fifteen explicitly admitted JS modules
+plus the exact module package metadata, and prints input/output hashes and compiler/Node versions.
+It executes no source, rejects imports outside that closure and refuses existing output or any
+overlap with the OS user's stable `~/.local/share/getff-economy/build` target, including symlink
+aliases. Changing `HOME` does not change that exclusion. No answer/harvest/dispatch CLI is emitted.
+The existing supervision ledger source is retained without changing its keys, cursor or data;
+its `snapshot` writes state and is not a read-only acceptance probe.
+
+An independent delivery owner verifies the accepted source and emit receipt, preserves the
+complete installed preimage, establishes reader/writer exclusion and performs the separately
+authorized complete-directory delivery/rollback. Two directory renames have a crash gap:
+reconcile actual paths and hashes before retry. The emitter itself never installs the payload.
+The project vendor copy includes the await CLI through the existing manual copy/formatter path;
+layer55 project installation and stable host installation remain separate destinations.
+
+Installed acceptance requires an actual active or explicitly resumed owner to consume the
+installed result, persist a pending action before acknowledgment, and reconcile current
+generation, candidate and authority. Missing external-effect receipts remain unknown without
+replay. Neither a source merge nor scratch tests establish that consumption or wake a terminated
+chat; automatic terminated-owner recovery remains outside this observation interface.
 
 ---
 
@@ -256,7 +295,7 @@ tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
 | `--body-file <path>` | File whose contents become the PR body.                                                           |
 | `--no-auto-merge`    | Do not arm GitHub native auto-merge.                                                              |
 | `--container <name>` | aif container holding the task's checkout (default `$RUNTIME_BRIDGE_AIF_CONTAINER`, else `aif-handoff-agent-1`). |
-| `--host-repo <path>` | Host clone the push runs from — where `.husky/pre-push` fires (default `$RUNTIME_BRIDGE_HOST_REPO`, else the cwd's `git rev-parse --show-toplevel`). |
+| `--host-repo <path>` | Host clone the push runs from — where `.husky/pre-push` fires (default `$RUNTIME_BRIDGE_HOST_REPO`, else the cwd's `git rev-parse --show-toplevel` — refused when that checkout is not of the repository `harvest.ts` lives in). |
 
 Exit codes: `0` = branch pushed + PR opened; `1` = guard failed / push or PR error (the operator runs
 the printed fallback commands).
@@ -266,6 +305,43 @@ the printed fallback commands).
 ```bash
 tsx packages/runtime-bridge/src/cli/harvest.ts "$HANDOFF_TASK_ID" --base staging
 ```
+
+### Closing the task after the merge (return channel)
+
+Every PR body harvest opens ends with an `aif-task: <taskId>` line — the PR → task mapping. Once the
+PR merges, the task is closed through the same route the web UI's **Approve** button uses:
+`POST /tasks/:id/events {event:"approve_done", commitOnApprove:false, deletePlanFile:false}`
+(`done → verified`). `commitOnApprove:false` matters: the UI defaults it to true, which would start
+aif's `/aif-commit` flow for work that is already on the base branch.
+
+```bash
+# every done/review task whose harvested PR has merged (no url needed)
+tsx packages/runtime-bridge/src/cli/harvest.ts --close-merged --project <id> [--repo <owner/repo>]
+# one task, PR resolved the same way
+tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --close-merged
+# one task, PR given
+tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --report-merge <prUrl>
+```
+
+The PR must read `state: MERGED` with a recorded `mergeCommit` (`gh pr view --json state,mergeCommit`),
+or nothing is written. One exception: a PR the merge-train seat squashed into a train and closed with
+a «Landed via merge train … (#<train>, …) as the squash commit `<sha>`» comment. The comment is only a
+pointer (anyone can comment on a public PR); the PR counts as merged only when GitHub confirms all of:
+the train PR is MERGED; the sha resolves to one commit; the train body has a `| #<pr> |` row naming
+that sha after «into»; the sha is one of the train PR's own commits (`GET pulls/<train>/commits`, so a
+commit already on the base cannot qualify); and it is an ancestor of the train's base branch
+(`gh api repos/<r>/compare/<base>...<sha>` reads `behind` or `identical`). The merge time is then the
+train's. An already-`verified` task is a no-op. The PR must also BE the task's harvest
+— an exact `aif-task: <taskId>` body line, or the task's own `branchName` as the PR head — and must
+have merged after the task's last agent activity (the newest `[<ISO>]` stamp in `agentActivityLog`),
+so an earlier merge never closes a rework round on the same branch; either refusal writes nothing.
+This holds for `--report-merge` too. A whole-list sweep needs `--project` (or
+`RUNTIME_BRIDGE_AIF_PROJECT_ID`) and searches one repo (`--repo`, default the cwd's checkout); zero
+or several matches are reported, never guessed. A `review` task is first moved by `complete_review`.
+In participants mode that covers any review task; with it off, only a manual-review park
+(human-owned, `manualReviewRequired` — the auto review hit its iteration cap) has that exit
+(artyhoo/aif-handoff#1). Any other merged `review` task gets a comment and a reason, never a
+handoff hint: the work is merged, so a handoff would only re-run a capped review.
 
 ---
 

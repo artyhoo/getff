@@ -1,0 +1,151 @@
+{
+  "record_type": "review_report",
+  "protocol_version": "dot-pr-review/2.0.0",
+  "review_identity": {
+    "review_id": "00000000-0000-4000-8000-000000000003",
+    "assignment_id": "assign-0003",
+    "mode": "FOLLOW_UP",
+    "repository": {
+      "id": 1231007068,
+      "full_name": "artyhoo/getff"
+    },
+    "pull_request": {
+      "number": 2056,
+      "node_id": "PRR_kwDOExample2056"
+    },
+    "comparison_basis": "FOLLOW_UP_DELTA",
+    "revisions": {
+      "head_sha": "0000000000000000000000000000000000000001",
+      "base_sha": "0000000000000000000000000000000000000002",
+      "merge_base_sha": "0000000000000000000000000000000000000003",
+      "tested_merge_sha": "0000000000000000000000000000000000000004",
+      "current_staging_sha": null
+    },
+    "policy": {
+      "version": "dot-review-v2-policy-1",
+      "sha256": "abababababababababababababababababababababababababababababababab",
+      "epoch": 1
+    },
+    "issued_at": "2026-10-06T12:00:00Z",
+    "supersedes_review_id": "00000000-0000-4000-8000-000000000001"
+  },
+  "scope": {
+    "changed_paths": [
+      {
+        "path": "scripts/dot-review-gate/intake.mjs",
+        "treatment": "SYSTEM_ANALYZED",
+        "rationale": "Targeted follow-up on the correction for F-001.",
+        "affected_consumers": [
+          "intake"
+        ]
+      }
+    ],
+    "omissions": []
+  },
+  "assessments": {
+    "system_coverage": "COMPLETE",
+    "prior_review_sufficiency": "SUFFICIENT",
+    "execution_evidence": [
+      {
+        "claim": "correction verified by paired fixtures",
+        "level": "HELPER_REPRODUCED",
+        "reference": "tests/dot-review-gate/intake.test.sh#negative-accept",
+        "uncertainty": null
+      }
+    ]
+  },
+  "dimensions": [
+    {
+      "dimension": "GOAL_ARCHITECTURE",
+      "status": "ASSESSED",
+      "rationale": "Change set keeps the documented goal and architecture boundaries intact.",
+      "affected_scope": [],
+      "evidence": []
+    },
+    {
+      "dimension": "AI_DOC_AUTHORITY",
+      "status": "ASSESSED",
+      "rationale": "Doc edits follow the authority hierarchy; no shipped doc contradicts its declared scope.",
+      "affected_scope": [],
+      "evidence": []
+    },
+    {
+      "dimension": "SKILL_RULE_ROUTING",
+      "status": "ASSESSED",
+      "rationale": "No new skill or rule routing surface introduced; existing bindings unaffected.",
+      "affected_scope": [],
+      "evidence": []
+    },
+    {
+      "dimension": "AGNOSTICISM_PORTABILITY",
+      "status": "ASSESSED",
+      "rationale": "Change stays runtime-agnostic; no consumer-specific assumptions added.",
+      "affected_scope": [],
+      "evidence": []
+    },
+    {
+      "dimension": "CONTEXT_ECONOMY",
+      "status": "ASSESSED",
+      "rationale": "Docs stay within resident-set budgets; no resident rule grew past its class limit.",
+      "affected_scope": [],
+      "evidence": []
+    },
+    {
+      "dimension": "DETERMINISTIC_ENFORCEMENT",
+      "status": "ASSESSED",
+      "rationale": "Every load-bearing check introduced is deterministic at the earliest reachable channel.",
+      "affected_scope": [],
+      "evidence": []
+    },
+    {
+      "dimension": "PRIOR_REVIEW_ADEQUACY",
+      "status": "ASSESSED",
+      "rationale": "Pre-PR review covered the changed behavior and consumers; evidence immutable and bound to the reviewed revision.",
+      "affected_scope": [],
+      "evidence": []
+    }
+  ],
+  "verdict": {
+    "outcome": "GO",
+    "rationale": "Targeted follow-up confirms F-001 corrected at this revision.",
+    "blockers": []
+  },
+  "change_review_receipt": {
+    "artifact_reference": "review-artifacts/pre-pr-2056.json",
+    "artifact_sha256": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "reviewer": "change-reviewer/cc-implementation-session",
+    "independence": "Reviewer session has no merge authority and did not author the change.",
+    "limits": [
+      "Session-local evidence; no installed-consumer run."
+    ],
+    "reviewed_revision": "0000000000000000000000000000000000000001",
+    "comparison_basis": "head 000000000000 vs base 000000000000",
+    "reviewed_scope": [
+      "scripts/dot-review-gate/ledger.mjs"
+    ],
+    "scenarios": [
+      "finding-to-fix round trip"
+    ],
+    "finding_ids": [],
+    "resolutions": [],
+    "equivalence": {
+      "claim": "IDENTICAL_RELEVANT_TREES",
+      "basis": "Only intake.mjs changed since the receipt; its scope is exactly this delta."
+    }
+  },
+  "findings": [],
+  "report": {
+    "summary": "System review found no violation; admission may proceed per policy.",
+    "limitations": [],
+    "machine_reference": "ledger/report-0001.json",
+    "machine_sha256": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef"
+  },
+  "self_review": {
+    "questions": [],
+    "gaps": [],
+    "resolutions": [],
+    "validation_limitations": [
+      "Static review; no live service evidence claimed."
+    ]
+  }
+}

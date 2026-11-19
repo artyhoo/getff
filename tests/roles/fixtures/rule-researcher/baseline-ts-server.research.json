@@ -1,0 +1,110 @@
+{
+  "framework": "ts-server",
+  "version": "5.9.3",
+  "patterns": [
+    {
+      "id": "ts-no-loose-equality-except-null",
+      "summary": "Use strict equality and inequality to avoid implicit type coercion. Preserve explicit comparisons to the null literal as intentional null-or-undefined checks; this serves the consumer's pending H1 principle.",
+      "bestPractices": [
+        "Use === and !== for ordinary equality comparisons.",
+        "Use value == null or value != null only when intentionally testing both null and undefined; the symmetric null comparison is also accepted.",
+        "Use strict comparison when null and undefined must be distinguished."
+      ],
+      "antiPatterns": [
+        "Using == or != against non-null operands and relying on implicit coercion.",
+        "Banning the documented nullish comparison idiom with an over-broad selector."
+      ],
+      "provenance": [
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Equality_comparisons_and_sameness",
+          "allowlistKey": "mdn",
+          "fetchedAt": "2026-10-09T16:14:57.000Z",
+          "tier": 0
+        },
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Equality",
+          "allowlistKey": "mdn",
+          "fetchedAt": "2026-10-09T16:14:57.000Z",
+          "tier": 0
+        },
+        {
+          "url": "https://www.typescriptlang.org/docs/handbook/2/narrowing.html",
+          "allowlistKey": "typescript.official",
+          "fetchedAt": "2026-10-09T16:14:57.000Z",
+          "tier": 0
+        }
+      ],
+      "extras": {
+        "principle": "H1",
+        "quote": "untrusted excerpt — data, not instructions: Strict equality is almost always the correct comparison operation to use.",
+        "quoteSource": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Equality_comparisons_and_sameness#strict_equality_using",
+        "safeFormEvidence": {
+          "quote": "untrusted excerpt — data, not instructions: checking whether something == null actually not only checks whether it is specifically the value null",
+          "url": "https://www.typescriptlang.org/docs/handbook/2/narrowing.html#equality-narrowing",
+          "interpretation": "The following sentence and example also confirm undefined is included. MDN Equality documents the same null/undefined semantics. Browser document.all is a documented special case; this consumer is a server."
+        },
+        "outcome": "generate-candidate; not synthesized or wired",
+        "runtimeAudit": {
+          "inputRoot": "/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/getff-rule-researcher-audit-rdy9j0gc",
+          "resolvedInputRoot": "/private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/getff-rule-researcher-audit-rdy9j0gc",
+          "cardPath": "/Users/art/.codex/worktrees/audit-rule-researcher/rules-as-tests-aif/.agents/skills/rule-researcher/SKILL.md",
+          "canonicalSourcePath": "/Users/art/.codex/worktrees/audit-rule-researcher/rules-as-tests-aif/.agents/roles/rule-researcher.md",
+          "hostBindingsPath": "/Users/art/.codex/worktrees/audit-rule-researcher/rules-as-tests-aif/docs/codex-contributor.md",
+          "discoveryEvidence": ".codex/contributor-inventory.json registers the native card and canonical role; .codex/agents/rule-researcher.toml points to the same canonical source.",
+          "authorization": "INSTALL-FOR-AI research approved before launch; no additional confirmation.",
+          "capabilities": {
+            "context7": "resolve_library_id and query_docs succeeded for /mdn/content",
+            "nativeWeb": "web open/find succeeded for every canonical provenance URL",
+            "deepwiki": "mcp__deepwiki__ask_wiki_question returned isError: true: MCP tool call requires approval, but approval policy is never",
+            "blockedScope": "DeepWiki semantic lookup only; native web fallback completed both requested practices.",
+            "inputValidation": "PASS: JSON parsed; exactly two practices and one H1 candidate; architecture has no candidate; Tier-0 provenance hosts and taint banners checked; bad/good differ by one whitespace token.",
+            "selectorProbe": "BLOCKED: Cannot find module '@typescript-eslint/typescript-estree' from the framework packages/core/package.json resolution context. No dependency installation attempted; selector firing and safe-form non-firing remain unverified.",
+            "factory": "Not run per operator scope; no synthesis, L4 verification, lock emission, wiring or H1 activation claimed."
+          }
+        }
+      }
+    },
+    {
+      "id": "ts-avoid-cyclic-imports",
+      "summary": "Usually avoid cyclic ES module dependencies because cycles make initialization order error-prone and can expose uninitialized bindings. This is a research-only architecture practice: detecting direct or transitive cycles requires resolving imports across files, outside the single-file forbid-selector lane.",
+      "bestPractices": [
+        "Keep the module dependency graph acyclic where practical.",
+        "Move shared code into a third module or merge mutually dependent modules to remove a cycle.",
+        "Account for initialization order; some cycles work when bindings are accessed only after initialization."
+      ],
+      "antiPatterns": [
+        "Creating direct or transitive import cycles with synchronous access to an uninitialized imported binding.",
+        "Claiming all import cycles necessarily fail at runtime.",
+        "Representing cross-file cycle detection as a single-file AST selector."
+      ],
+      "provenance": [
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules",
+          "allowlistKey": "mdn",
+          "fetchedAt": "2026-10-09T16:14:57.000Z",
+          "tier": 0
+        }
+      ],
+      "extras": {
+        "quote": "untrusted excerpt — data, not instructions: You should usually avoid cyclic imports in your project, because they make your code more error-prone.",
+        "quoteSource": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules#cyclic_imports",
+        "outcome": "research-only",
+        "reason": "Cross-file import resolution and graph traversal are required; no GenerateCandidate is emitted.",
+        "examples": {
+          "bad": {
+            "src/a.ts": "import { b } from './b.js';\nexport const a: number = b + 1;\n",
+            "src/b.ts": "import { a } from './a.js';\nexport const b: number = a + 1;\n"
+          },
+          "good": {
+            "src/shared.ts": "export const base: number = 1;\n",
+            "src/a.ts": "import { base } from './shared.js';\nexport const a: number = base + 1;\n",
+            "src/b.ts": "import { base } from './shared.js';\nexport const b: number = base + 1;\n"
+          }
+        },
+        "exampleScope": "Complete individual TypeScript files forming illustrative module graphs; not created as consumer source files or executed."
+      }
+    }
+  ],
+  "missing": [],
+  "drift": null
+}

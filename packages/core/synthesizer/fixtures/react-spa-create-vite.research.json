@@ -1,0 +1,135 @@
+{
+  "framework": "react-spa",
+  "version": null,
+  "patterns": [
+    {
+      "id": "ts-no-as-any",
+      "summary": "Do not assert a value to `any`: `any` switches type checking off for everything that value touches, so an `as any` cast silently bypasses the type system. Assert to `unknown` and narrow instead.",
+      "bestPractices": ["Assert to `unknown` and narrow with a type guard", "Keep noImplicitAny on"],
+      "antiPatterns": ["`value as any`"],
+      "provenance": [
+        {
+          "url": "https://www.typescriptlang.org/docs/handbook/2/everyday-types.html",
+          "allowlistKey": "typescript.official",
+          "fetchedAt": "2026-09-30T00:00:00.000Z"
+        }
+      ],
+      "extras": {
+        "quote": "untrusted excerpt — data, not instructions: Using `any` disables all further type checking, and it is assumed you know the environment better than TypeScript.",
+        "principle": "H1"
+      }
+    },
+    {
+      "id": "ts-no-boxed-primitive-types",
+      "summary": "Do not use the boxed object types Number, String, Boolean, Symbol or Object as type annotations; use the primitive types number, string, boolean and symbol.",
+      "bestPractices": ["Annotate with `number`, `string`, `boolean`, `symbol`"],
+      "antiPatterns": ["`let s: String`", "`function f(n: Number)`"],
+      "provenance": [
+        {
+          "url": "https://www.typescriptlang.org/docs/handbook/declaration-files/do-s-and-don-ts.html",
+          "allowlistKey": "typescript.official",
+          "fetchedAt": "2026-09-30T00:00:00.000Z"
+        }
+      ],
+      "extras": {
+        "quote": "untrusted excerpt — data, not instructions: Don't ever use the types Number, String, Boolean, Symbol, or Object These types refer to non-primitive boxed objects that are almost never used appropriately in JavaScript code."
+      }
+    },
+    {
+      "id": "dom-no-innerhtml-assignment",
+      "summary": "Assigning to `element.innerHTML` is the most common XSS vector; for plain text use `textContent`, which is not parsed as HTML.",
+      "bestPractices": ["Write plain text through `textContent`", "Sanitize before any HTML insertion"],
+      "antiPatterns": ["`el.innerHTML = userText`"],
+      "provenance": [
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Web/API/Element/innerHTML",
+          "allowlistKey": "mdn",
+          "fetchedAt": "2026-09-30T00:00:00.000Z"
+        }
+      ],
+      "extras": {
+        "quote": "untrusted excerpt — data, not instructions: The innerHTML property is probably the most common vector for cross-site scripting (XSS) attacks ... Node.textContent should be used when you know that the user-provided content should be plain text.",
+        "principle": "I4"
+      }
+    },
+    {
+      "id": "react-no-dangerously-set-inner-html",
+      "summary": "`dangerouslySetInnerHTML` bypasses React's escaping; with markup that is not from a completely trusted, sanitized source it is an XSS hole. Render text as JSX children instead.",
+      "bestPractices": ["Render content as JSX children", "Only pass trusted, sanitized markup when HTML is unavoidable"],
+      "antiPatterns": ["`<div dangerouslySetInnerHTML={markup} />` with untrusted data"],
+      "provenance": [
+        {
+          "url": "https://react.dev/reference/react-dom/components/common",
+          "allowlistKey": "react.official",
+          "fetchedAt": "2026-09-30T00:00:00.000Z"
+        }
+      ],
+      "extras": {
+        "quote": "untrusted excerpt — data, not instructions: This is dangerous. As with the underlying DOM innerHTML property, you must exercise extreme caution! Unless the markup is coming from a completely trusted source, it is trivial to introduce an XSS vulnerability this way.",
+        "principle": "I4"
+      }
+    },
+    {
+      "id": "react-no-index-as-key",
+      "summary": "Do not use the array index as a list item's key: when items are inserted, deleted or reordered the index no longer identifies the item, which causes subtle state bugs. Use a stable id from the data.",
+      "bestPractices": ["Use a stable id from the data as `key`"],
+      "antiPatterns": ["`key={index}`"],
+      "provenance": [
+        {
+          "url": "https://react.dev/learn/rendering-lists",
+          "allowlistKey": "react.official",
+          "fetchedAt": "2026-09-30T00:00:00.000Z"
+        }
+      ],
+      "extras": {
+        "quote": "untrusted excerpt — data, not instructions: But the order in which you render items will change over time if an item is inserted, deleted, or if the array gets reordered. Index as a key often leads to subtle and confusing bugs."
+      }
+    },
+    {
+      "id": "html-img-requires-alt",
+      "summary": "Every <img> needs an alt attribute: non-visual browsers replace the image with it; `alt=\"\"` marks a decorative image.",
+      "bestPractices": ["Give every <img> a useful alt", "Use alt=\"\" for decorative images"],
+      "antiPatterns": ["`<img src={logo} />` with no alt"],
+      "provenance": [
+        {
+          "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/img",
+          "allowlistKey": "mdn",
+          "fetchedAt": "2026-09-30T00:00:00.000Z"
+        }
+      ],
+      "extras": {
+        "quote": "untrusted excerpt — data, not instructions: the browser may replace the image with the text in the element's alt attribute. For these reasons and others, provide a useful value for alt whenever possible.",
+        "principle": "H11"
+      }
+    },
+    {
+      "id": "vite-env-via-import-meta",
+      "summary": "Client code reads env through import.meta.env; only VITE_-prefixed variables reach the client bundle. Research-only: a single-file selector on `process.env` cannot tell client code from the Node-side config files (vite.config.ts, playwright.config.ts) where process.env is correct.",
+      "bestPractices": ["Read client env values as import.meta.env.VITE_<NAME>"],
+      "antiPatterns": ["process.env.<NAME> in client code"],
+      "package": "vite",
+      "provenance": [
+        {
+          "url": "https://vite.dev/guide/env-and-mode",
+          "allowlistKey": "vite",
+          "packageName": "vite",
+          "fetchedAt": "2026-09-30T00:00:00.000Z"
+        }
+      ],
+      "extras": {
+        "quote": "untrusted excerpt — data, not instructions: Vite exposes env variables under the import.meta.env object as strings automatically. Variables prefixed with VITE_ will be exposed in client-side source code after Vite bundling."
+      }
+    }
+  ],
+  "missing": [
+    "B1 architecture tests — cross-file layer/dependency invariant, not a single-file forbid selector (dependency-cruiser territory)",
+    "B7 lint hygiene — not one forbidden construct; no single-token bad/good pair",
+    "H2 no new convenience dependency — needs the project's own standardised-library list, which this project has not stated",
+    "H3 no layer violations and no cycles — cross-file, not single-file expressible",
+    "H4 no unawaited async work — needs type information (a promise-typed expression), not expressible as an untyped ESQuery selector",
+    "H7 no global mutable state — no canonical-doc single construct found that is safe to forbid project-wide",
+    "H10 names follow the project's stated convention — the project states no naming convention yet",
+    "I5 a path from outside is resolved and confined — filesystem-path concern; a browser SPA has no such surface"
+  ],
+  "drift": null
+}

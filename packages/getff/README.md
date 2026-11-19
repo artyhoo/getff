@@ -27,9 +27,32 @@ required nor used. See [INSTALL.md § Windows](https://github.com/artyhoo/getff/
 
 Depth is a product decision, not a flag combination: `core` = rules + tests + guards; `env` = plus the in-session tooling; `factory` = plus the pipeline. Upgrade by re-running `init` with a deeper profile.
 
+Beyond the files it copies, `init` can install **companion tools** — the Claude Code plugins, MCP
+servers and CLIs listed in `setup.d/companions.manifest`. Each row's detect and install commands
+are `eval`'d verbatim by the shipped engine (`setup.d/engine.sh:39` and `setup.d/engine.sh:65`), so
+installing getff means trusting those command strings the same way you trust the installer itself;
+without `-y` each one is confirmed interactively first. Companions carry **no version pin** — they
+are installed through their own official registries and update to whatever those registries serve,
+independently of the getff version you installed.
+
 ## What is in the tarball
 
-This package is **assembled**, not hand-authored: its contents mirror the repository root (`install.sh`, `setup`, `setup.d/`, `agents/`, `skills/`, `templates/`, `.claude/`, `packages/`, `scripts/`) so that the installer reads every path exactly where it does in a clone. `MANIFEST.sha256` lists every shipped file; `scripts/build-getff-dist.sh --check` in the repository is the drift gate that keeps the two in sync.
+This package is **assembled**, not hand-authored: its payload keeps the repository lookup paths (`install.sh`, `setup`, `setup.d/`, common `.agents/` resources, Claude aliases, Codex adapter helpers, `packages/`, `scripts/`) so the installer can deliver both native adapters from the same package. `MANIFEST.sha256` lists the npm-delivered tracked payload. Five required package entries sit outside its payload rows: `LICENSE`, `MANIFEST.sha256`, `README.md`, `bin/getff`, and `package.json`. The archive check also verifies their bytes against independent package inputs.
+
+npm excludes exactly six fixture VCS metadata files from this payload:
+
+```text
+packages/core/backends/cargo/demo/crate/.gitignore
+packages/core/backends/cargo/fixtures/firing/invalid/.gitignore
+packages/core/backends/cargo/fixtures/firing/valid-clean/.gitignore
+packages/core/backends/cargo/fixtures/firing/valid/.gitignore
+packages/core/synthesizer/fixtures/live-generation/rust/firing/bad/.gitignore
+packages/core/synthesizer/fixtures/live-generation/rust/firing/good/.gitignore
+```
+
+Their canonical source files remain tracked, each containing `/target` followed by a newline, and are checked separately in source and staged-index checks. No other missing, changed, or extra archive member is allowed. If these packaged fixture crates are built inside Git without another parent ignore, their missing ignore files can expose `target` outputs; packaged fixtures do not promise source-exact Git hygiene. Supported Rust installation uses delivered configuration templates and independent temporary self-check crates rather than those six fixture copies. A supported consumer requiring the exact fixture ignore names needs a revised transport contract, following the existing dotless-template precedent (#1528).
+
+In a repository checkout, `bash scripts/build-getff-dist.sh --check` checks source drift and a real temporary npm archive with lifecycle scripts suppressed to prevent prepack recursion. After an ordinary `npm pack`, run `bash scripts/build-getff-dist.sh --check-packed /absolute/path/getff-0.1.0.tgz` to check that final archive against independently assembled source and metadata. A source build or npm dry-run alone does not establish archive acceptance. `--check-index` separately compares the staged manifest and staged source, including the six canonical ignore witnesses.
 
 The universal entry point for non-JS projects — `curl -fsSL getff.ai/install | sh` — installs the same tree by clone.
 

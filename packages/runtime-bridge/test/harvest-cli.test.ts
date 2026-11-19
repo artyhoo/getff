@@ -17,11 +17,17 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { parseArgs, resolveRepoPath, selfPath } from '../src/cli/harvest.js';
+import {
+  LEGACY_AIF_CONTAINER,
+  parseArgs,
+  resolveAgentContainer,
+  resolveRepoPath,
+  selfPath,
+} from '../src/cli/harvest.js';
 import type { AifProjectFull } from '../src/cli/aifHttp.js';
 import { CliArgError } from '../src/cli/cliEntry.js';
 
@@ -273,3 +279,65 @@ describe('selfPath — the HOLD re-run hints name the file that is actually runn
     expect(selfPath('', '/Users/dev/my-app')).toBe('harvest.ts');
   });
 });
+
+// ── Which container: the shared resolver (2026-09-30) ─────────────────────────────────────
+// The default used to be the fixed name `aif-handoff-agent-1`. On the operator's Mac the stack
+// runs on the PC (docker context `pc`, container `aif-agent-1`), so every harvest without
+// --container failed there. The runner is injected: these arms assert how harvest reads the
+// resolver's three outcomes, not docker itself (the resolver's own arms live in
+// packages/core/skills/dispatcher/probe-inflight.test.ts and tests/aif-doctor/aif-agent-target.test.sh).
+describe('harvest resolveAgentContainer — the shared resolver decides the default container', () => {
+  const root = mkdtempSync(join(tmpdir(), 'harvest-agent-'));
+  mkdirSync(join(root, '.claude/skills/aif-doctor/helpers'), { recursive: true });
+  writeFileSync(join(root, '.claude/skills/aif-doctor/helpers/aif-agent-target.sh'), '# stub\n');
+
+  it('parseArgs no longer bakes in the fixed name — the default is resolved later', () => {
+    const saved = process.env['RUNTIME_BRIDGE_AIF_CONTAINER'];
+    delete process.env['RUNTIME_BRIDGE_AIF_CONTAINER'];
+    try {
+      expect(parseArgs(['task-1']).container).toBe('');
+      expect(parseArgs(['task-1', '--container', 'pinned']).container).toBe('pinned');
+    } finally {
+      if (saved !== undefined) process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] = saved;
+    }
+  });
+
+  it('FOUND on another docker context → that container and its context', () => {
+    const t = resolveAgentContainer(root, () => ({ status: 0, stdout: 'aif-agent-1\tpc\n', stderr: '' }));
+    expect(t).toEqual({ container: 'aif-agent-1', dockerContext: 'pc', note: 'aif-agent-1 on docker context pc' });
+  });
+
+  it('FOUND on the current context → no context is set', () => {
+    const t = resolveAgentContainer(root, () => ({ status: 0, stdout: 'aif-agent-1\t\n', stderr: '' }));
+    expect(t.container).toBe('aif-agent-1');
+    expect(t.dockerContext).toBeUndefined();
+  });
+
+  it('AMBIGUOUS → throws with the candidates; harvest never bundles from a guessed container', () => {
+    expect(() =>
+      resolveAgentContainer(root, () => ({
+        status: 1,
+        stdout: '',
+        stderr: 'ambiguous-agent: aif-agent-1 aif-e2e-agent-1 on the current docker context\n',
+      })),
+    ).toThrow(/ambiguous-agent: aif-agent-1 aif-e2e-agent-1 .*refusing to guess; pass --container/);
+  });
+
+  it('NONE → the legacy name, with the resolver\'s reason in the note', () => {
+    const t = resolveAgentContainer(root, () => ({ status: 2, stdout: '', stderr: 'no aif agent on the current context; scanned: pc=none\n' }));
+    expect(t.container).toBe(LEGACY_AIF_CONTAINER);
+    expect(t.note).toContain('scanned: pc=none');
+  });
+
+  it('resolver not installed → the legacy name, and the runner is never called', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'harvest-agent-none-'));
+    let called = false;
+    const t = resolveAgentContainer(empty, () => {
+      called = true;
+      return { status: 0, stdout: 'x\t\n', stderr: '' };
+    });
+    expect(called).toBe(false);
+    expect(t.container).toBe(LEGACY_AIF_CONTAINER);
+  });
+});
+

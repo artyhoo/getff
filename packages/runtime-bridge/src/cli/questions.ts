@@ -219,7 +219,8 @@ async function main(): Promise<void> {
   } else {
     process.stdout.write(formatHuman(parked) + '\n');
   }
-  process.exit(0);
+  // Let pending stdout writes drain before a successful exit (large piped JSON).
+  process.exitCode = 0;
 }
 
 // Run only as a real entrypoint — importing the module (e.g. from tests) must

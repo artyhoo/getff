@@ -43,17 +43,20 @@ touch "$BROKEN_REF_TMP"
 # ── 1. Broken internal refs check ────────────────────────────────────────────
 # Scan .claude/skills/**/*.md, agents/**/*.md, skills/**/*.md
 # For each markdown link [text](relative/path.md) verify the target file exists.
-# Skip: http/https/mailto URLs, absolute paths (/...), same-file anchors (#...).
+# Skip: http/https/mailto URLs, absolute paths (/...), same-file anchors (#...), and anything
+# inside a ``` or ~~~ fenced block — a link there is sample text no renderer follows (the
+# vendored upstream CONTEXT-FORMAT.md shows sample ./src/<context>/CONTEXT.md links in one).
 
 echo "=== Skill drift check: broken internal refs ==="
 
 while IFS= read -r -d '' md_file; do
   file_dir="$(dirname "$md_file")"
 
-  # Extract href targets from markdown links [text](href).
+  # Extract href targets from markdown links [text](href), fenced blocks dropped first.
   # grep -Eo (without -n) avoids line-number prefixes in output.
   # || true: grep exits 1 when no matches; that is fine under set -e.
-  hrefs=$(grep -Eo '\[([^]]*)\]\(([^)]+)\)' "$md_file" 2>/dev/null \
+  hrefs=$(awk '/^[[:space:]]*(```|~~~)/ { f = !f; next } !f' "$md_file" 2>/dev/null \
+          | grep -Eo '\[([^]]*)\]\(([^)]+)\)' \
           | sed -E 's/\[([^]]*)\]\(([^)]+)\)/\2/' || true)
 
   [ -z "$hrefs" ] && continue

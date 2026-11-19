@@ -1,0 +1,32 @@
+[
+  {
+    "path": "shared/routines.ts",
+    "requested_ref": "3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b",
+    "repository": "milind-soni/OpenMausBot",
+    "blob_sha": "6f79a20fcdfbe9343b0fd51cc33fe238ad0b6bbc",
+    "source_url": "https://github.com/milind-soni/OpenMausBot/blob/3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b/shared/routines.ts",
+    "local_capture": "docs/superpowers/specs/reviews/portable-verified-autonomy/q1-source-addendum/shared__routines.ts",
+    "encoding": "utf-8",
+    "fetch_tool": "mcp__codex_apps__github_fetch_file",
+    "fetched_at": "2026-10-26 15:22:29 UTC",
+    "sha256": "21ee8ff28bd71243dc39a9a7ce823a73fc07f6c673c29ed3cb161177f373aa96",
+    "bytes": 7719,
+    "lines": 223,
+    "git_blob_verified": true
+  },
+  {
+    "path": "server/host/proactive.ts",
+    "requested_ref": "3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b",
+    "repository": "milind-soni/OpenMausBot",
+    "blob_sha": "f64c694936941a00e9d6335a6815961f0ca67d5d",
+    "source_url": "https://github.com/milind-soni/OpenMausBot/blob/3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b/server/host/proactive.ts",
+    "local_capture": "docs/superpowers/specs/reviews/portable-verified-autonomy/q1-source-addendum/server__host__proactive.ts",
+    "encoding": "utf-8",
+    "fetch_tool": "mcp__codex_apps__github_fetch_file",
+    "fetched_at": "2026-10-26 15:22:31 UTC",
+    "sha256": "0aaaa0dc2a72e5576816cc19298db3fb36658d7908a2c65fe29d0769e78a2133",
+    "bytes": 14038,
+    "lines": 258,
+    "git_blob_verified": true
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "featureId": "portable-verified-autonomy",
+  "decision": "approved",
+  "approvedSha256": "ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721",
+  "snapshotRef": {
+    "path": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md",
+    "sha256": "ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721"
+  },
+  "approvalRecordRef": {
+    "path": "docs/superpowers/specs/reviews/portable-verified-autonomy/approval.md",
+    "sha256": "f47200daf3b47147d8be26c66e9213689757d4dd84c00e255218ccc93782e0ea"
+  },
+  "approver": "Codex under explicit operator-delegated product-brief approval authority",
+  "reviewRef": {
+    "path": "docs/superpowers/specs/reviews/portable-verified-autonomy/product-review.md",
+    "sha256": "87be87e9f0699f377c0a6d2c19e9c85dfcc20016578a67b15222c141e876d56e"
+  }
+}

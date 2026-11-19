@@ -10,7 +10,7 @@
 #   byte-copy             — verbatim tree copy (frontmatter stays byte-verbatim; NO header
 #                          is ever injected: SKILL.md frontmatter must open on line 1).
 #   transform             — copy + `transform_internal_refs` (the 15 sed arms mirrored from
-#                          setup.d/lib.sh:144-165, rewriting repo-internal links to blob URLs).
+#                          setup.d/lib.sh:175-196, rewriting repo-internal links to blob URLs).
 #   transform+textstrip   — transform + a 16th, link-TEXT-scoped arm stripping the `../`
 #                          ladder from link TEXT (the shape today's plugin/skills/getff
 #                          hand-copy carries; Stage 0 probe B proved byte-identity — see
@@ -47,22 +47,24 @@
 # differently from an existing payload still refuses (exit 3): with no HEAD evidence the
 # payload is not known reproducible, so the guard fails safe.
 #
-# Enforcement channels TODAY (2026-09-12): CI only. `.github/workflows/audit-self.yml` runs
-# tests/plugin/skills-generation.test.sh (regen no-op + sandbox contract arms), and principle 24
-# (packages/core/principles/24-plugin-manifest-integrity.test.ts, tiers (g)/(h)) guards drift
-# population-wide. The pre-commit regen arm is MAINTAINER-PENDING, NOT wired: `.husky/` is
-# maintainer-owned per the Artifact Ownership Contract, and the exact block to insert is
-# recorded in docs/meta-factory/research-patches/2026-09-11-plugin-skills-generator-stage0-reverif.md
-# §7. No hook invokes this script yet — stating otherwise would be the #hope-as-gate shape, so
-# this comment is the contract until the arm lands.
+# Enforcement channels (corrected 2026-09-28 — the 2026-09-12 «CI only / pre-commit arm
+# MAINTAINER-PENDING» wording went stale when PR #1732, commit b4b58428e2e, 2026-09-13, wired
+# the arm):
+#   1. pre-commit — `.husky/pre-commit:421-429`: when a staged path is under `skills/` or
+#      `.claude/skills/`, runs this script (`:352`) and re-stages `plugin/skills/`; a non-zero
+#      exit fails the commit.
+#   2. CI — `.github/workflows/audit-self.yml` runs tests/plugin/skills-generation.test.sh
+#      (regen no-op + sandbox contract arms + transform-arm parity).
+#   3. CI backstop — principle 24 (packages/core/principles/24-plugin-manifest-integrity.test.ts,
+#      tiers (g)/(h)) guards payload drift and link form population-wide.
 #
 # Transform parity obligation: the arm block below is a DELIBERATE mirror of
-# setup.d/lib.sh:148-162 (F2 verdict: reimplement + parity gate — the kickoff §6 non-goal
+# setup.d/lib.sh:192-206 (F2 verdict: reimplement + parity gate — the kickoff §6 non-goal
 # «No installer changes» blocks sourcing or extracting lib.sh). The two arm sets are held
 # equal by tests/plugin/skills-generation.test.sh, which extracts both blocks and diffs them;
-# edit them only in pairs. UPSTREAM_BLOB_URL default must match setup.d/lib.sh:47.
+# edit them only in pairs. UPSTREAM_BLOB_URL default must match setup.d/lib.sh:49.
 #
-# Zero deps beyond bash + sed + git. Idempotent. Consult record: prior-art-evaluations.md#270
+# Zero deps beyond bash + sed + awk + git. Idempotent. Consult record: prior-art-evaluations.md#270
 # (trigger fired) + #266; control-flow analog obra/superpowers sync-to-codex-plugin.sh.
 set -euo pipefail
 
@@ -77,22 +79,25 @@ UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/ma
 # ── The recorded membership decision ─────────────────────────────────────────
 # name|source-population|mode. Population keys: skills → top-level skills/, claude-skills →
 # .claude/skills/. Stage 2 (2026-09-11) promoted the CORE four — the installer's
-# GETFF_SKILLS_CORE tier (setup.d/lib.sh:61, "always shipped, consumer-facing"), link-only
+# GETFF_SKILLS_CORE tier (setup.d/lib.sh:63, "always shipped, consumer-facing"), link-only
 # derivability proven per-skill in research-patch ...-stage0-reverif.md §3. This supersedes the
 # 2026-09-03 packaging decision that kept rule-research/rule-tests OFF the plugin channel
 # (plugin/README.md + spec 2026-06-22:111 + decisions ledger — supersession notes landed with
 # this change; operator GO 2026-09-11, kickoff §0/§7).
 ENTRY_TABLE=(
-  "getff|skills|transform+textstrip"
-  "tool-bootstrapping|skills|byte-copy"
-  "ai-doc|claude-skills|transform"
-  "rule-research|claude-skills|transform"
-  "rule-tests|claude-skills|transform"
-  "template-audit|claude-skills|transform"
+  "getff|procedures|transform+textstrip"
+  "tool-bootstrapping|consumer-procedures|transform"
+  "ai-doc|procedures|transform"
+  "rule-research|procedures|transform"
+  "rule-tests|procedures|transform"
+  "template-audit|procedures|transform"
+  "using-getff|procedures|transform"
+  "installing-enforcement|procedures|transform"
 )
 
 population_dir() {
   case "$1" in
+    procedures|consumer-procedures) printf '%s/.agents/procedures' "$REPO_ROOT" ;;
     skills)        printf '%s/skills' "$REPO_ROOT" ;;
     claude-skills) printf '%s/.claude/skills' "$REPO_ROOT" ;;
     *) return 1 ;;
@@ -107,22 +112,29 @@ population_dir() {
 # frozen by this generator (byte-copy from skills/), so plugin-side rot via the fork is no
 # longer representable. Never silently delete the hand-fork (kickoff Stage 1 item 5).
 
-# ── Transform (parity-guarded mirror of setup.d/lib.sh:144-165 + the 16th arm) ──────
+# ── Transform (parity-guarded mirror of setup.d/lib.sh:175-196 + the 16th arm) ──────
 # BEGIN TRANSFORM ARMS (parity-extracted by tests/plugin/skills-generation.test.sh; edit in
 # pairs with setup.d/lib.sh transform_internal_refs)
 transform_one_file() {
   local f="$1"
   [ -f "$f" ] || return 0
   # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup — the same idiom
-  # as the mirrored setup.d/lib.sh:147 (bare `-i` is GNU-only). Portable so the script behaves
-  # identically wherever it runs — CI today; the maintainer-pending pre-commit arm later (see
-  # «Enforcement channels TODAY» in the header).
+  # as the mirrored setup.d/lib.sh:191 (bare `-i` is GNU-only). Portable so the script behaves
+  # identically wherever it runs — the pre-commit arm on a developer machine and CI (see
+  # «Enforcement channels» in the header).
   sed -E -i.bak \
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
     -e "s#\]\((\.\./)+CLAUDE\.md#](${UPSTREAM_BLOB_URL}/CLAUDE.md#g" \
     -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/rules/#](${UPSTREAM_BLOB_URL}/.agents/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/procedures/#](${UPSTREAM_BLOB_URL}/.agents/procedures/#g" \
+    -e "s#\]\((\.\./)+\.agents/roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+procedures/#](${UPSTREAM_BLOB_URL}/.agents/procedures/#g" \
+    -e "s#\]\((\.\./)+hooks/#](${UPSTREAM_BLOB_URL}/.agents/hooks/#g" \
+    -e "s#\]\((\.\./)+roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+\.agents/hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.agents/hooks/check-worker-dispatch-channel.sh#g" \
     -e "s#\]\((\.\./)+\.claude/skills/#](${UPSTREAM_BLOB_URL}/.claude/skills/#g" \
     -e "s#\]\((\.\./)+\.claude/orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
     -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
@@ -132,7 +144,6 @@ transform_one_file() {
     -e "s#\]\((\.\./)+orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
     -e "s#\]\((\.\./)+\.github/#](${UPSTREAM_BLOB_URL}/.github/#g" \
     -e "s#\]\((\.\./)+scripts/run-local-ci-sweep\.sh#](${UPSTREAM_BLOB_URL}/scripts/run-local-ci-sweep.sh#g" \
-    -e "s#\]\((\.\./)+hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh#g" \
     -e "s#\[((\.\./)+)([^]]*\]\()#[\3#g" \
     "$f"
   rm -f "${f}.bak"
@@ -143,13 +154,85 @@ transform_one_file() {
 # can never be corrupted. Census at Stage 0: the ladder shape exists only in the five
 # skills/getff/references/*.md README links (patch §2, consequence 1).
 
+# Native plugin installation is independent of the universal consumer installer.
+# Adapt only marked invocation blocks; canonical owners and link provenance stay intact.
+plugin_binding_script() {
+  local slug="$1"
+  cat <<'BINDING'
+getff_invocation_cwd="${getff_invocation_cwd:-$PWD}"
+[ "${getff_arguments+x}" = x ] || getff_arguments=("$@")
+GETFF_SKILL_DIR="${CLAUDE_SKILL_DIR}"
+[ -n "$GETFF_SKILL_DIR" ] && [ -f "$GETFF_SKILL_DIR/SKILL.md" ] || {
+  printf '%s\n' 'STOP: missing native plugin skill/resource root (CLAUDE_SKILL_DIR)' >&2
+  exit 2
+}
+_getff_require_resource() {
+  [ -f "$GETFF_SKILL_DIR/\$1" ] || {
+    printf 'STOP: missing plugin resource: %s\n' "$GETFF_SKILL_DIR/\$1" >&2
+    return 2
+  }
+}
+GETFF_PROJECT_ROOT="$getff_invocation_cwd"
+BINDING
+  printf 'while [ ! -f "$GETFF_PROJECT_ROOT/.agents/procedures/%s/SKILL.md" ] && [ "$GETFF_PROJECT_ROOT" != / ]; do\n' "$slug"
+  cat <<'BINDING'
+  GETFF_PROJECT_ROOT="$(dirname "$GETFF_PROJECT_ROOT")"
+done
+if [ "$GETFF_PROJECT_ROOT" = / ]; then
+  GETFF_PROJECT_ROOT="${CLAUDE_PROJECT_DIR}"
+  GETFF_PROJECT_ROOT="$(cd "$GETFF_PROJECT_ROOT" 2>/dev/null && pwd -P)" || { printf '%s\n' 'STOP: missing native plugin project directory' >&2; exit 2; }
+  [ -d "$GETFF_PROJECT_ROOT" ] || { printf '%s\n' 'STOP: missing native plugin project directory' >&2; exit 2; }
+  getff_containment_cwd="$(cd "$getff_invocation_cwd" && pwd -P)" || exit 2
+  case "$getff_containment_cwd/" in
+    "$GETFF_PROJECT_ROOT/"*) ;;
+    *) printf '%s\n' 'STOP: native plugin project directory does not contain invocation cwd' >&2; exit 2 ;;
+  esac
+fi
+BINDING
+}
+
+adapt_plugin_binding() {
+  local f="$1" slug script footer rewritten
+  grep -q '<!-- getff:common-invocation-binding -->' "$f" || return 0
+  slug=$(sed -n 's/^name:[[:space:]]*//p' "$f" | head -1)
+  [ -n "$slug" ] || { echo "[ERROR] missing native plugin skill name: $f" >&2; exit 2; }
+  script=$(mktemp); footer=$(mktemp); rewritten=$(mktemp)
+  plugin_binding_script "$slug" > "$script"
+  {
+    printf '%s\n' '<!-- getff:common-invocation-binding -->' '## Native plugin invocation binding' ''
+    printf '%s\n' 'Preserve the complete supplied arguments and operator request. Execute this native' 'plugin binding before resolving resources. Native Skill supplies CLAUDE_SKILL_DIR;' 'use the actual plugin directory even when a universal installation also exists.' 'Keep supplied relative inputs invocation-cwd-relative and absolute paths unchanged.' '' '<!-- plugin-native:bind -->' '```bash'
+    cat "$script"
+    printf '%s\n' '```' '' 'Do not change cwd before resolving supplied arguments against getff_invocation_cwd.' 'Use GETFF_PROJECT_ROOT for project checks and GETFF_SKILL_DIR for skill resources.' 'Before reading or executing each mandatory resource, run _getff_require_resource' 'with its skill-relative path; STOP on its diagnostic and nonzero status. Quote every' 'path and argument separately and preserve helper exits. Missing companions or' 'framework-only executables remain explicit prerequisites; plugin discovery grants' 'no permissions, hook trust, global configuration changes or external messaging.' 'When explaining an idea, design or workflow with meaningful relationships, use a' 'small Mermaid diagram plus equivalent readable text in an existing permitted output' 'section. Preserve strict report grammars and closing anchors. Show only supplied or' 'verified relationships, label uncertainty, and do not depict an unobserved execution' 'or authorization as completed. Skip diagrams when they add no explanatory value.' '<!-- /getff:common-invocation-binding -->'
+  } > "$footer"
+  awk -v footer="$footer" -v script="$script" '
+    /<!-- getff:common-invocation-binding -->/ { while ((getline line < footer)>0) print line; close(footer); common=1; next }
+    common { if ($0 ~ /<!-- \/getff:common-invocation-binding -->/) common=0; next }
+    /installed project containing this canonical procedure, never an enclosing Git root\./ { print "project through its native plugin binding below. Preserve invocation cwd for inputs."; next }
+    /<!-- template-audit:bind -->/ {
+      print; print "```bash";
+      while ((getline line < script)>0) print line; close(script);
+      print "rendered_documents=()";
+      print "for input in \"${getff_arguments[@]}\"; do";
+      print "  case \"$input\" in";
+      print "    /*) rendered_documents+=(\"$input\") ;;";
+      print "    *) rendered_documents+=(\"$getff_invocation_cwd/$input\") ;;";
+      print "  esac"; print "done"; print "cd \"$GETFF_PROJECT_ROOT\" || exit 2"; print "```";
+      template=1; next
+    }
+    template { if ($0 == "```") template=0; next }
+    { print }
+  ' "$f" > "$rewritten"
+  cat "$rewritten" > "$f"
+  rm -f "$script" "$footer" "$rewritten"
+}
+
 apply_mode_to_tree() {
   local mode="$1" tree="$2"
   case "$mode" in
     byte-copy) return 0 ;;
     transform|transform+textstrip)
       local md
-      while IFS= read -r -d '' md; do transform_one_file "$md"; done \
+      while IFS= read -r -d '' md; do transform_one_file "$md"; adapt_plugin_binding "$md"; done \
         < <(find "$tree" -name '*.md' -type f -print0 2>/dev/null)
       ;;
   esac
@@ -160,7 +243,7 @@ render_one() {
   local src="$1" mode="$2" tmp
   tmp=$(mktemp /tmp/gps-render.XXXXXX.md)
   cp "$src" "$tmp"
-  [ "$mode" = "byte-copy" ] || transform_one_file "$tmp"
+  if [ "$mode" != "byte-copy" ]; then transform_one_file "$tmp"; adapt_plugin_binding "$tmp"; fi
   cat "$tmp"
   rm -f "$tmp"
 }
@@ -186,6 +269,16 @@ marker_rationale() {
 guard_tree_clobber() {
   local src_dir="$1" dst_dir="$2" mode="$3" name="$4"
   local src_rel="${src_dir#"$REPO_ROOT"/}"
+  local previous_mode="$mode"
+  if ! git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel" 2>/dev/null && [[ "$src_rel" == .agents/procedures/* ]]; then
+    local source_name="${src_rel##*/}"
+    case "$source_name" in
+      getff) src_rel="skills/getff" ;;
+      tool-bootstrapping-consumer) src_rel="skills/tool-bootstrapping"; previous_mode=byte-copy ;;
+      using-getff|installing-enforcement) src_rel="plugin/skills/$source_name"; previous_mode=byte-copy ;;
+      *) src_rel=".claude/skills/$source_name" ;;
+    esac
+  fi
   local have_head=0
   if git -C "$REPO_ROOT" rev-parse --verify -q HEAD >/dev/null 2>&1 \
      && git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel" 2>/dev/null; then
@@ -216,7 +309,7 @@ guard_tree_clobber() {
       local head_src_file
       head_src_file=$(mktemp)
       if git -C "$REPO_ROOT" show "HEAD:$src_rel/$rel" > "$head_src_file" 2>/dev/null \
-         && cmp -s <(render_one "$head_src_file" "$mode") "$dst_file"; then
+         && cmp -s <(render_one "$head_src_file" "$previous_mode") "$dst_file"; then
         rm -f "$head_src_file"
         continue  # stale payload — the normal case this generator exists to fix
       fi
@@ -263,7 +356,9 @@ for entry in "${ENTRY_TABLE[@]}"; do
     *) echo "[ERROR] generate-plugin-skills: $name — unknown derivation mode: $mode" >&2; exit 2 ;;
   esac
 
-  src_dir="$(population_dir "$pop")/$name" || { echo "[ERROR] unknown population: $pop" >&2; exit 1; }
+  source_name="$name"
+  [ "$pop" != "consumer-procedures" ] || source_name="tool-bootstrapping-consumer"
+  src_dir="$(population_dir "$pop")/$source_name" || { echo "[ERROR] unknown population: $pop" >&2; exit 1; }
   if [ ! -d "$src_dir" ]; then
     echo "[ERROR] generate-plugin-skills: $name — source population missing: $src_dir" >&2
     exit 1

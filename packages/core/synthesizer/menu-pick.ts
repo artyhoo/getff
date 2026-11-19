@@ -62,7 +62,7 @@ export async function synthesizeLive(
     };
     // MT S3b врезка: thread the composed rule through the IR plane (grammar gate + npm
     // adapter for the declarative-syntax class); output stays byte-identical (mergeEnrichment
-    // preserves the composed rule's key order). Mirrors synthesize.ts:90-102.
+    // preserves the composed rule's key order). Mirrors synthesize.ts:97-109.
     const rule = wireRuleThroughNode(composed);
     rules.push(rule);
     if (rule.check.type === 'declarative') {

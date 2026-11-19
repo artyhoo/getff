@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/check-kickoff-traps.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/check-kickoff-traps.sh');
 
 function hasJq(): boolean {
   try {
@@ -647,11 +647,11 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     // silently dropped every `env` key except ZCODE_PROJECT_DIR, so the B6 LC_ALL
     // legs above were the ONLY tests passing another variable, and they could not
     // detect a spread reversion: the runner's locale-independent `tr -d '\200-\277'`
-    // count is invariant across LC_ALL (verified at scripts/host-verify.sh:328-332),
+    // count is invariant across LC_ALL (verified at scripts/host-verify.sh:402-407),
     // so removing the spread leaves them passing. The sibling
-    // inject-session-bootstrap.test.ts:196 case uses AIF_HOOK_LANG because that
+    // inject-session-bootstrap.test.ts:216 case uses AIF_HOOK_LANG because that
     // hook echoes it; this hook does not echo any var, so the observable side
-    // effect is REL_PATH — `.claude/hooks/check-kickoff-traps.sh:45` reads
+    // effect is REL_PATH — `.claude/hooks/check-kickoff-traps.sh:50` reads
     // CLAUDE_PROJECT_DIR into REPO_ROOT, and line 77 computes REL_PATH as
     // `ABS_PATH#"$REPO_ROOT/"`. A foreign CLAUDE_PROJECT_DIR (one that is NOT a
     // prefix of ABS_PATH) leaves REL_PATH equal to ABS_PATH unchanged; that
@@ -857,7 +857,7 @@ describe.skipIf(!JQ)('host-verify runner miss is applicability-scoped (A3-6)', (
     mkdirSync(join(hooksDir, 'lib'), { recursive: true });
     _copyFileSync2(HOOK, join(hooksDir, 'check-kickoff-traps.sh'));
     _copyFileSync2(
-      resolve(REPO_ROOT, '.claude/hooks/lib/hook-emit.sh'),
+      resolve(REPO_ROOT, '.agents/hooks/lib/hook-emit.sh'),
       join(hooksDir, 'lib', 'hook-emit.sh'),
     );
     return { root, kickoff };

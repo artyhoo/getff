@@ -62,7 +62,7 @@ keys=$(grep -oE "^[[:space:]]*'[a-z0-9-]+':[[:space:]]*[A-Za-z]" "$BARREL" 2>/de
 refs=$(grep -oE "rules-as-tests/[a-z0-9-]+" "$T/eslint.config.mjs" 2>/dev/null | sed 's#rules-as-tests/##' | sort -u)
 unresolved=""
 for r in $refs; do
-  printf '%s\n' "$keys" | grep -qx "$r" || unresolved="$unresolved $r"
+  grep -qx "$r" <<<"$keys" || unresolved="$unresolved $r"
 done
 if [ -n "$refs" ] && [ -z "$unresolved" ]; then
   ok "A5: every SPA template ref resolves to a barrel export ($(echo $refs | tr '\n' ' '))"
@@ -74,7 +74,7 @@ fi
 # unresolved. Proves A5's green is real resolution, not a vacuous loop over an empty ref set.
 neg_unresolved=""
 for r in $refs "zzz-nonexistent-rule"; do
-  printf '%s\n' "$keys" | grep -qx "$r" || neg_unresolved="$neg_unresolved $r"
+  grep -qx "$r" <<<"$keys" || neg_unresolved="$neg_unresolved $r"
 done
 case "$neg_unresolved" in
   *zzz-nonexistent-rule*) ok "A5-neg: injected fabricated ref flagged unresolved → resolver non-vacuous" ;;

@@ -61,7 +61,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/priority-score.sh',
+  '.agents/procedures/pipeline/helpers/priority-score.sh',
 );
 
 // Every test here spawns the real priority-score.sh against a sandbox repo — real

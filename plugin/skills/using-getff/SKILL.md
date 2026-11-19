@@ -3,6 +3,8 @@ name: using-getff
 description: Use when starting any conversation in a repo that has the getff plugin installed — establishes how to find and use the getff skills, the instruction-priority ladder (the project's own CLAUDE.md/AGENTS.md win), and the "invoke the relevant skill before responding" discipline. Trigger on session start, before any first reply, and whenever code quality, linting, CI, pre-commit/pre-push hooks, architecture rules, mutation/contract testing, or "stop the AI breaking my conventions" comes up.
 ---
 
+<!-- @harness-posture: cc-native-with-fallback — native Skill invocation on Claude Code; other harnesses load the complete canonical procedure through their discovered native entry before acting -->
+
 # Using Getff
 
 > **Authoritative for:** the getff plugin's skill-activation protocol — the instruction-priority ladder (the consumer's own instructions win), the "invoke the relevant skill before responding" discipline, and the in-plugin skill map.
@@ -24,7 +26,7 @@ The plugin never overrides the consumer's repo. It supplies discipline; the cons
 
 **Invoke the relevant skill BEFORE you respond or act — even before clarifying questions.** If there is even a ~1% chance a skill applies to what you are about to do, invoke it to check. If it turns out not to fit, you do not have to use it. Knowing the concept is not the same as using the skill — invoke it; skills evolve.
 
-Access skills with the **Skill tool** (Claude Code) / your harness's skill mechanism. Never read a skill file with the Read tool to "use" it — invoke it.
+Use the **Skill tool** when available and permitted, or the harness's actual skill-reading mechanism (including reading SKILL.md directly). When that mechanism discovers a thin entry, load its complete canonical procedure before acting. Preserve each skill's invocation flags: reading an explicit-only procedure does not authorize self-initiation; already authorized work may follow its documented steps.
 
 ## Skills in this plugin
 
@@ -32,6 +34,8 @@ Access skills with the **Skill tool** (Claude Code) / your harness's skill mecha
 |---|---|
 | `getff` | The user is setting up or reasoning about enforcement: linting, CI, pre-commit/pre-push hooks, architecture/dependency rules, meta-tests, spec-by-example, mutation testing (Stryker), contract testing (Pact), living documentation, fitness functions, or "make my codebase resist AI agents breaking conventions". This is the core methodology skill. |
 | `installing-enforcement` | The user wants to actually **wire** the hard layer (git hooks + CI) into their repo — see the `/getff:install-enforcement` command. (Ships in S5.) |
+
+For enforcement-status and soft/hard-boundary questions, including read-only audits and requests to claim that hooks or CI are green, the sequence is: load `using-getff` → invoke/load `getff` → perform authorized inspection → answer. These questions reason about enforcement and therefore use the `getff` row above even when no installation is authorized. A refusal of silent installation preserves the boundary but does not replace methodology activation. If `getff` cannot be loaded, report the loading failure and the unverified scope; do not proceed with enforcement inspection or claim complete activation.
 
 ## What the plugin delivers (and what it honestly does not)
 
@@ -51,3 +55,11 @@ Access skills with the **Skill tool** (Claude Code) / your harness's skill mecha
 ## Skill priority when several could apply
 
 Process / methodology skills first (they decide *how* to approach the task), implementation skills second. "Let's harden this repo against AI drift" → invoke `getff` first, then act on its guidance.
+
+## Without this skill
+
+The session starts acting before loading the relevant enforcement discipline. It can mistake plugin advice for installed git or CI gates and lose the consumer instruction priority.
+
+## With this skill
+
+Load the activation protocol before the first relevant action, choose the applicable skill, and preserve the consumer instruction priority and explicit hard-layer opt-in boundary.

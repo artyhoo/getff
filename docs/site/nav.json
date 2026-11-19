@@ -1,0 +1,86 @@
+{
+  "schema": "getff-site-nav/1",
+  "_note": "Information architecture for getff.ai/docs (site design D4, D4b, D4c; face-pages spec §4). `pinned` is the Get started group in journey order. `tabs` are the four sidebar tabs. `source` is a path under docs/site/. Reference families other than B are rendered from docs/site/reference/<family>.json by the conveyor stage and are listed here only by family id. A page joins a tab when it is written; this file never lists a page that does not exist.",
+  "header": { "label": "Docs", "href": "/docs/" },
+  "pinned": {
+    "label": "Get started",
+    "pages": [
+      { "title": "Introduction", "url": "/docs/", "source": "index.md" },
+      {
+        "title": "Quick start",
+        "url": "/docs/quick-start/",
+        "source": "quick-start.md",
+        "children": [
+          { "title": "TypeScript and React", "url": "/docs/quickstart-ts/", "source": "quickstart-ts.md" },
+          { "title": "Python", "url": "/docs/quickstart-python/", "source": "quickstart-python.md" },
+          { "title": "Rust", "url": "/docs/quickstart-rust/", "source": "quickstart-rust.md" },
+          { "title": "Go", "url": "/docs/quickstart-go/", "source": "quickstart-go.md" }
+        ]
+      },
+      { "title": "Installation", "url": "/docs/installation/", "source": "installation.md" },
+      { "title": "Why getff", "url": "/docs/why/", "source": "why.md" },
+      { "title": "How it works", "url": "/docs/how-it-works/", "source": "how-it-works.md" },
+      { "title": "Foundations", "url": "/docs/foundations/", "source": "foundations.md" },
+      { "title": "Use getff with your AI agent", "url": "/docs/ai-agents/", "source": "ai-agents.md" }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "learn",
+      "label": "Learn",
+      "kind": "learn-tutorial",
+      "dir": "learn/",
+      "pages": [{ "title": "Stop a bad commit", "source": "learn/stop-a-bad-commit.md" }]
+    },
+    {
+      "id": "guides",
+      "label": "Guides",
+      "kind": "guide",
+      "dir": "guides/",
+      "pages": [
+        { "title": "Add the design and review skills", "source": "guides/add-design-and-review-skills.md" }
+      ]
+    },
+    {
+      "id": "understand",
+      "label": "Understand",
+      "kind": "understand",
+      "dir": "understand/",
+      "pages": [
+        { "title": "Why a rule must prove it fires", "source": "understand/why-a-rule-must-prove-it-fires.md" }
+      ]
+    },
+    {
+      "id": "reference",
+      "label": "Reference",
+      "kinds": ["family-overview", "reference-sheet"],
+      "dir": "reference/",
+      "families": ["A", "B", "C", "D", "E", "F1", "F2", "F3", "G", "H", "I"],
+      "written": ["B"],
+      "overviews": [{ "title": "Skills", "family": "B", "source": "reference/B.md" }],
+      "sheets": {
+        "B": [
+          { "title": "ai-doc", "source": "reference/B/ai-doc.md" },
+          { "title": "aif-doctor", "source": "reference/B/aif-doctor.md" },
+          { "title": "arch", "source": "reference/B/arch.md" },
+          { "title": "claude-glm-executor-handoff", "source": "reference/B/claude-glm-executor-handoff.md" },
+          { "title": "dispatcher", "source": "reference/B/dispatcher.md" },
+          { "title": "docs-author", "source": "reference/B/docs-author.md" },
+          { "title": "getff", "source": "reference/B/getff.md" },
+          { "title": "harvest", "source": "reference/B/harvest.md" },
+          { "title": "night-mode", "source": "reference/B/night-mode.md" },
+          { "title": "orchestrator", "source": "reference/B/orchestrator.md" },
+          { "title": "pipeline", "source": "reference/B/pipeline.md" },
+          { "title": "reviewer", "source": "reference/B/reviewer.md" },
+          { "title": "rule-research", "source": "reference/B/rule-research.md" },
+          { "title": "rule-tests", "source": "reference/B/rule-tests.md" },
+          { "title": "self-reflection", "source": "reference/B/self-reflection.md" },
+          { "title": "story", "source": "reference/B/story.md" },
+          { "title": "template-audit", "source": "reference/B/template-audit.md" },
+          { "title": "tool-bootstrapping", "source": "reference/B/tool-bootstrapping.md" }
+        ]
+      }
+    }
+  ],
+  "glossary": { "title": "Terms", "source": "terms.md" }
+}

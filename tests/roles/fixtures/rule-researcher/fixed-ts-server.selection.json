@@ -1,0 +1,32 @@
+{
+  "rules": [
+    {
+      "entryId": "ts-no-loose-equality-except-null",
+      "ruleId": "no-loose-equality-except-null",
+      "title": "Use strict comparisons except intentional nullish checks",
+      "stack": [
+        "ts-server"
+      ],
+      "presence": "forbid",
+      "selector": "BinaryExpression[operator='==']:not([left.type='Literal'][left.raw='null']):not([right.type='Literal'][right.raw='null']), BinaryExpression[operator='!=']:not([left.type='Literal'][left.raw='null']):not([right.type='Literal'][right.raw='null'])",
+      "message": "Use === or !== to avoid implicit coercion; explicit == null and != null checks are accepted.",
+      "examples": {
+        "bad": "export function isZero(value: string | number): boolean {\n  return value == 0;\n}\n",
+        "good": "export function isZero(value: string | number): boolean {\n  return value === 0;\n}\n",
+        "safeForms": [
+          "export function isNullish(value: unknown): boolean {\n  return value == null;\n}\n",
+          "export function isPresent(value: unknown): boolean {\n  return value != null;\n}\n",
+          "export function isNullish(value: unknown): boolean {\n  return null == value;\n}\n",
+          "export function isPresent(value: unknown): boolean {\n  return null != value;\n}\n"
+        ]
+      },
+      "negativeTest": {
+        "input": [
+          "export function isZero(value: string | number): boolean {\n  return value == 0;\n}\n",
+          "export function isNonZero(value: string | number): boolean {\n  return value != 0;\n}\n"
+        ],
+        "expect-violation": "no-restricted-syntax"
+      }
+    }
+  ]
+}

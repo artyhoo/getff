@@ -40,7 +40,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { renderAstgrep } from '../backends/astgrep/render-astgrep.ts';
 import type { ResolveCtx } from '../research/allowlist-resolver.ts';
 import {
@@ -48,6 +48,7 @@ import {
   type AstgrepResearchedPractice,
   type ResearchOnlyReason,
 } from './research-to-node.ts';
+import { isDirectRun } from '../install/is-direct-run.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -286,7 +287,4 @@ function main(): void {
 
 // Run only when invoked directly (`tsx render-researched-astgrep.ts`), never on import — the drift
 // gate imports the pure planners and must not trigger fs writes.
-const isMain =
-  Boolean(process.argv[1]) &&
-  import.meta.url === pathToFileURL(process.argv[1] as string).href;
-if (isMain) main();
+if (isDirectRun(process.argv[1], import.meta.url)) main();

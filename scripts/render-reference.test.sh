@@ -78,7 +78,7 @@ JSON
   # readTierSets matches `${name}="([^"]+)"` — the value must be non-empty; a name with no
   # matching skill dir is harmless (tiers only classify names buildB enumerates from dirs).
   printf 'GETFF_SKILLS_CORE="fixture-core"\nGETFF_SKILLS_ENV="fixture-env"\nGETFF_SKILLS_FACTORY="fixture-factory"\n' >"$root/setup.d/lib.sh"
-  printf '#!/usr/bin/env bash\n# setup.d/20-agents.sh — write the fixture agent skip-list.\n    docs-writer.md) continue ;;\n' >"$root/setup.d/20-agents.sh"
+  printf '#!/usr/bin/env bash\n# setup.d/20-agents.sh — write the fixture agent skip-list.\n    docs-writer.md) continue ;;\n    orchestrator-worker-discipline.md|reviewer-discipline.md) continue ;;\n' >"$root/setup.d/20-agents.sh"
 }
 
 # ── Arm 2: census on an empty fixture — the zero-population shape still exits 0 ───────────────

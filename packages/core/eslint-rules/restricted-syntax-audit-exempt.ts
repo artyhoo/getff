@@ -1,5 +1,4 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-import type { TSESTree } from '@typescript-eslint/utils';
+import type { TSESLint, TSESTree } from '@typescript-eslint/utils';
 
 // Generic exempt-aware counterpart to ESLint's built-in `no-restricted-syntax`.
 //
@@ -14,11 +13,6 @@ import type { TSESTree } from '@typescript-eslint/utils';
 // Options shape mirrors `no-restricted-syntax`: a variadic list of {selector, message}
 // entries. Reports under messageId `restrictedSyntax` with the entry's message.
 
-const createRule = ESLintUtils.RuleCreator(
-  () =>
-    `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`,
-);
-
 interface RestrictedEntry {
   selector: string;
   message?: string;
@@ -29,11 +23,14 @@ type MessageIds = 'restrictedSyntax';
 
 const EXEMPT_TOKEN = 'audit:exempt';
 
-export const restrictedSyntaxAuditExempt = createRule<Options, MessageIds>({
-  name: 'restricted-syntax-audit-exempt',
+export const restrictedSyntaxAuditExempt: TSESLint.RuleModule<
+  MessageIds,
+  Options
+> = {
   meta: {
     type: 'problem',
     docs: {
+      url: `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`,
       description:
         'Disallow syntax matching the given selector(s), honouring per-line `audit:exempt` suppression (exempt-aware no-restricted-syntax).',
     },
@@ -88,4 +85,4 @@ export const restrictedSyntaxAuditExempt = createRule<Options, MessageIds>({
 
     return listeners;
   },
-});
+};

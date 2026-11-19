@@ -76,5 +76,19 @@ mkdir -p "$W/apps/api"; printf '{ "name":"@w/api","version":"0.0.0" }\n' > "$W/a
 [ -f "$W/apps/api/.lintstagedrc.json" ] \
   && ok "install M3: workspace detected → per-package .lintstagedrc.json stub dropped in apps/api" \
   || bad "install M3: workspace present but no per-package stub dropped in apps/api"
+# PR #1985 CI, pnpm-monorepo cell (d-2): the stub's eslint step sat behind the record's `npm run lint`, which is
+# the ROOT's lint — on a per-workspace monorepo it has no config to load (#973), exits 2 at install, is recorded
+# not-armed, and the stub then skipped eslint on a staged violation the package's own eslint flags. The stub's
+# eslint step runs in its package whenever eslint is the linter there; its prettier step still follows the record,
+# and a single-root project keeps the eslint step behind `npm run lint`.
+grep -qF '"eslint --fix --max-warnings=0 --no-warn-ignored"' "$W/apps/api/.lintstagedrc.json" \
+  && ok "stub: the eslint step runs in the package, not behind the root's npm run lint record" \
+  || bad "stub: the eslint step is still keyed on the root's npm run lint: $(grep eslint "$W/apps/api/.lintstagedrc.json" | head -1)"
+grep -qF "\"bash ../../scripts/run-armed.sh --if-armed 'npm run format:check' prettier --write\"" "$W/apps/api/.lintstagedrc.json" \
+  && ok "stub: the prettier step still follows the record" \
+  || bad "stub: the prettier step lost its record wrapper"
+grep -qF "\"bash scripts/run-armed.sh --if-armed 'npm run lint' eslint --fix" "$W/.lintstagedrc.json" \
+  && ok "root: the eslint step stays behind npm run lint (the root's lint is the whole project's)" \
+  || bad "root: the eslint step lost its npm run lint wrapper"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

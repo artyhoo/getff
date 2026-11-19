@@ -6,7 +6,7 @@
  * sequence + BackendError mapping. Live HTTP mechanics were verified against a
  * running instance in the R-phase; these unit tests lock the contract.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AifHandoffBackend } from '../src/AifHandoffBackend.js';
 import { BackendError } from '../src/backend.js';
 import type { KickoffSpec } from '../src/types.js';
@@ -25,7 +25,12 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 

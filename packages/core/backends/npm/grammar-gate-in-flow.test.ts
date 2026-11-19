@@ -11,7 +11,7 @@ import type { ConventionNode } from '../../ir/types.ts';
 import { renderNpmDeclarative } from './from-node.ts';
 
 // A structurally-invalid candidate: valid enough to have an id, but MISSING pairedExamples
-// (mandatory per ir/types.ts:41 + convention-node.schema.json). ajv -> FF1001.
+// (mandatory per ir/types.ts:86 + convention-node.schema.json). ajv -> FF1001.
 const INVALID_NODE = {
   id: 'no-paired-examples',
   claim: 'x',

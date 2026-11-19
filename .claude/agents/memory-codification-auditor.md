@@ -1,0 +1,1 @@
+../../.agents/roles/memory-codification-auditor.md
