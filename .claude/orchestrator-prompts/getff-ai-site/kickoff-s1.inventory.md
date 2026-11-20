@@ -32,6 +32,18 @@ F1 member `coordinator-seat-delegation`. §6 carries the same population delta; 
 measurement notes above retain their original dates. The page scope is unchanged in kind;
 no consumer page is authored by this inventory refresh.
 
+**Population-2 re-measure 2026-10-15 at `9868fe50791` (planning PR for F2):** the drift
+falsifier fired again — eight members landed after `41cc5642f3a` and were absent from §3:
+`B.json` members `installing-enforcement`, `tool-bootstrapping-consumer`, `using-getff`
+(all added by #2066, `9f22c9e6a76`) and `intent` (#2098, `7ae1471b682`); `F3.json` members
+`codex-hook-adapter.mjs` (#2066) and `snapshot-for-seat.sh` (#2099, `f1411658d12`);
+`H.json` members `start-reviewed` (#2098) and `recover-legacy-task` (#2102, `bdd199255db`).
+All eight rows are added below in `members[]` order; the §6 counts are amended in the same
+commit (247→255 rows, 236→244 members, 228→236 owed). Regeneration of all eleven families
+at `9868fe50791` produced 255 rows matching the amended §3 exactly (0 stale, 0 duplicate
+slugs); the eight new rows are the complete delta. No malformed member and no unsupported
+renderer arm was found — this is routine population-2 drift, not a source hole.
+
 ## §0 Why this file exists
 
 D49 ([`site-design.md:176`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md))
@@ -61,7 +73,7 @@ D49 forbids. Its rows are still greppable by slug from this file.
 | Population                  | Enumerated from                                                                                               | Command / citation                                                                                                                                                                                                      |
 |---|---|---|
 | 1 — D28 §4 | the page-set table, the census URL paragraph, the post-census stub list | [`face.md:88`–`:111`](../../../docs/superpowers/specs/2026-09-14-getff-ai-face-pages-design.md); census set re-read at D33 ([`site-design.md:157`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md)) |
-| 2 — D29 families            | the eleven per-family JSONs the generator owns                                                                | `node -e` over `docs/site/reference/<F>.json` `.members[]` — 11 families, 236 members (re-measured 2026-10-07, see header); the rows in §3 are that read, ordered by D19's family order                                 |
+| 2 — D29 families            | the eleven per-family JSONs the generator owns                                                                | `node -e` over `docs/site/reference/<F>.json` `.members[]` — 11 families, 244 members (re-measured 2026-10-15, see header); the rows in §3 are that read, ordered by D19's family order                                 |
 | 3 — Learn/Guides/Understand | the four sidebar tabs, `nav.json`, D19's task shape, D30's kind registry, and the R7/D37 successor obligation | per-row in §4; no row without a named source |
 | 5 — legacy URL dispositions           | the live site's own tree                                                                                      | `git ls-tree -r --name-only origin/main -- content/docs` in `artyhoo/getff-landing` @ `c091883`                                                                                                                         |
 
@@ -141,15 +153,15 @@ that are readable today. The three, with their live headings:
 
 ## §3 Population 2 — the D29 reference families
 
-Eleven families, 236 members, one `family-overview` each: **247 rows.** Family order is D19's
+Eleven families, 244 members, one `family-overview` each: **255 rows.** Family order is D19's
 ([`site-design.md:136`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md)) —
 STRUCTURED first (B → D → F1 → F2 → I), then the PARTIAL families (A, C, E, F3, G, H), which
 D19 gates behind their D14d source holes being fixed (S0a). Family B is the gold family: its
 overview and 18 sheets shipped in S0b, so they are `writer: gold`, not conveyor.
 
 The slug is the member id with its extension dropped and `/` folded to `-`; the mapping is
-injective across all 247 rows (checked over the regenerated set at
-`41cc5642f3a`, 2026-10-07).
+injective across all 255 rows (re-checked over the regenerated set at `9868fe50791`,
+2026-10-15; the same check passed at 247 rows on `41cc5642f3a`, 2026-10-07).
 
 | slug | kind | stage | writer | provenance |
 |---|---|---|---|---|
@@ -162,6 +174,8 @@ injective across all 247 rows (checked over the regenerated set at
 | `/docs/reference/B/docs-author/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `docs-author` |
 | `/docs/reference/B/getff/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `getff` |
 | `/docs/reference/B/harvest/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `harvest` |
+| `/docs/reference/B/installing-enforcement/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `B.json` member `installing-enforcement` (added at `9f22c9e6a76`, 2026-10-15 re-measure; shipped by #2066) |
+| `/docs/reference/B/intent/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `B.json` member `intent` (added at `7ae1471b682`, 2026-10-15 re-measure; shipped by #2098) |
 | `/docs/reference/B/night-mode/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `night-mode` |
 | `/docs/reference/B/orchestrator/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `orchestrator` |
 | `/docs/reference/B/pipeline/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `pipeline` |
@@ -172,6 +186,8 @@ injective across all 247 rows (checked over the regenerated set at
 | `/docs/reference/B/story/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `story` |
 | `/docs/reference/B/template-audit/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `template-audit` |
 | `/docs/reference/B/tool-bootstrapping/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `tool-bootstrapping` |
+| `/docs/reference/B/tool-bootstrapping-consumer/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `B.json` member `tool-bootstrapping-consumer` (added at `9f22c9e6a76`, 2026-10-15 re-measure; shipped by #2066) |
+| `/docs/reference/B/using-getff/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `B.json` member `using-getff` (added at `9f22c9e6a76`, 2026-10-15 re-measure; shipped by #2066) |
 | `/docs/reference/D/` | `family-overview` | S1 RUN | conveyor (aif/GLM) | `D.json` `familyName: hooks` |
 | `/docs/reference/D/adopt-orchestrator-prompts/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `adopt-orchestrator-prompts` |
 | `/docs/reference/D/apply-husky-patch-gate/`                                    | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `apply-husky-patch-gate`                                         |
@@ -363,6 +379,7 @@ injective across all 247 rows (checked over the regenerated set at
 | `/docs/reference/F3/check-skill-drift/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-skill-drift.sh` |
 | `/docs/reference/F3/ci-path-scope/`                                            | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `ci-path-scope.sh`                                              |
 | `/docs/reference/F3/ci-success-gate/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `ci-success-gate.sh` |
+| `/docs/reference/F3/codex-hook-adapter/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `codex-hook-adapter.mjs` (added at `9f22c9e6a76`, 2026-10-15 re-measure; shipped by #2066) |
 | `/docs/reference/F3/create-worktree/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `create-worktree.sh` |
 | `/docs/reference/F3/docs-check/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `docs-check.mjs` |
 | `/docs/reference/F3/format-shipped/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `format-shipped.sh` |
@@ -381,6 +398,7 @@ injective across all 247 rows (checked over the regenerated set at
 | `/docs/reference/F3/render-rule-index/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `render-rule-index.mjs` |
 | `/docs/reference/F3/render-terms-style/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `render-terms-style.mjs` |
 | `/docs/reference/F3/run-local-ci-sweep/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `run-local-ci-sweep.sh` |
+| `/docs/reference/F3/snapshot-for-seat/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `snapshot-for-seat.sh` (added at `f1411658d12`, 2026-10-15 re-measure; shipped by #2099) |
 | `/docs/reference/F3/worktree-node-modules/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `worktree-node-modules.sh` |
 | `/docs/reference/G/` | `family-overview` | S1 RUN | conveyor (aif/GLM) | `G.json` `familyName: packages` |
 | `/docs/reference/G/core/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `G.json` member `core` |
@@ -400,6 +418,8 @@ injective across all 247 rows (checked over the regenerated set at
 | `/docs/reference/H/harvest/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `H.json` member `harvest` |
 | `/docs/reference/H/park/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `H.json` member `park` |
 | `/docs/reference/H/questions/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `H.json` member `questions` |
+| `/docs/reference/H/recover-legacy-task/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `H.json` member `recover-legacy-task` (added at `bdd199255db`, 2026-10-15 re-measure; shipped by #2102) |
+| `/docs/reference/H/start-reviewed/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `H.json` member `start-reviewed` (added at `7ae1471b682`, 2026-10-15 re-measure; shipped by #2098) |
 
 ## §4 Population 3 — Learn / Guides / Understand (enumerated here for the first time)
 
@@ -501,15 +521,15 @@ _URL_ population, and R7's coverage gate is what joins them.
 | Population | Rows | Written (S0b) | Owed by S1 RUN |
 |---|---|---|---|
 | 1 — D28 §4 + census + AI surface | 17 | 12 | 3 pages + 2 build projections |
-| 2 — D29 families                 | 247     | 19            | 228                           |
+| 2 — D29 families                 | 255     | 19            | 236                           |
 | 3 — Learn / Guides / Understand | 19 | 3 | 16 |
-| **Total pages**                  | **283** | **34**        | **247**                       |
+| **Total pages**                  | **291** | **34**        | **255**                       |
 | 5 — legacy URL dispositions | 17 | — | landing build: only stub rows via R7; real retained rows via shared source |
 
-**The inventory now enumerates 247 pages originally owed by S1 RUN** (3 + 228 + 16),
+**The inventory now enumerates 255 pages originally owed by S1 RUN** (3 + 236 + 16),
 not the early «~105» estimate. These are scope totals relative to the S0b baseline, NOT a
 remaining-work counter: family D's first 27-page batch has since merged (#1850).
-Population 2 has 247 rows (236 members + 11 overviews), of which B's 19 rows are gold.
+Population 2 has 255 rows (244 members + 11 overviews), of which B's 19 rows are gold.
 D19's task-size falsifier remains load-bearing. On 2026-10-07 the operator approved F1 as
 **two sequential 16-page batches** instead of one 32-page task; their inventories live in
 `kickoff-s1rf1a.md` and `kickoff-s1rf1b.md`. This is a scoped exception to D19's one-family /
