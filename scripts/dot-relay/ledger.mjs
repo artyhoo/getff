@@ -15,8 +15,9 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync, renameSync, lstatSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { sha256Hex } from '../dot-review-gate/digest.mjs';
-import { canonical, digest as canonicalDigest, CHAT_IDS, validateSolution, probeOutcome } from './contract.mjs';
+import { canonical, digest as canonicalDigest, CHAT_IDS, validateSolution, probeOutcome, REVIEW_VERIFY_BUDGET_MS } from './contract.mjs';
 import { nativeSourceStore } from './native-source-store.mjs';
+import { glmIntakeStore } from './glm-intake.mjs';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS events (
@@ -202,10 +203,9 @@ const KNOWN_BATCHES = ['DOT-BATCH-0001', 'DOT-BATCH-0002', 'DOT-BATCH-0003', 'DO
 const INTAKE_ID = 'DOT-INTAKE-20261008-01';
 const INITIAL_ANALYST_CURSOR = 'b80b6957-cf4d-434a-9581-33008606603b:5';
 const SOURCE_SHA = '35738554faf029e9fe3b8b4c25bfdde242f65c66';
-// F12: the finite total for post-review CI verification polling — a bounded
-// individual operation budget (NOT an executor-duration cap), allocated once
-// per execution in review_verify_budget and consumed additively.
-export const REVIEW_VERIFY_BUDGET_MS = 30 * 60_000;
+// F12: the finite verification total lives in contract.mjs (shared with the
+// GLM task budget); re-exported here to keep the ledger's public surface.
+export { REVIEW_VERIFY_BUDGET_MS };
 const PLAN_LIMIT = 32 * 1024;
 const TICK_PAGE_BUDGET = 10;
 // F15: delivery-eligibility scan — one persisted page per call, bounded
@@ -2826,5 +2826,6 @@ export function openLedger(path, {
   };
 
   api.nativeSources = nativeSourceStore(db, api);
+  api.glmTasks = glmIntakeStore(db, api);
   return api;
 }

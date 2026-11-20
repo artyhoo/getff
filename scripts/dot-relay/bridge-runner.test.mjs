@@ -19,9 +19,10 @@ import vm from 'node:vm';
 import {
   mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync,
   existsSync, symlinkSync, lstatSync, renameSync, statSync, readdirSync,
+  copyFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -86,6 +87,30 @@ function cli(args, { expectFail = false } = {}) {
 
 function cliJson(args, opts = {}) {
   return JSON.parse(cli(args, opts).stdout);
+}
+
+// Copies the CLI relative-import closure plus the deployed body into a
+// throwaway tree. Symlink/tamper probes run against the COPY so the live
+// dot-relay files are never swapped out from under sibling suites that hash
+// them into native-binding fixtures concurrently (NATIVE_BINDING_UNTRUSTED
+// flakes under `node --test` parallelism).
+function sandboxCliTree(t) {
+  const sandbox = mkdtempSync(join(tmpdir(), `dot-br-cli-${process.pid}-`));
+  t.after(() => rmSync(sandbox, { recursive: true, force: true }));
+  const here = fileURLToPath(new URL('.', import.meta.url));
+  const queue = [CLI, BODY_PATH];
+  const copied = new Set();
+  while (queue.length) {
+    const src = queue.pop();
+    if (copied.has(src)) continue;
+    copied.add(src);
+    const dst = join(sandbox, relative(here, src));
+    mkdirSync(dirname(dst), { recursive: true });
+    copyFileSync(src, dst);
+    const specifiers = [...readFileSync(src, 'utf8').matchAll(/from\s+'(\.[^']+)'/g)].map((m) => m[1]);
+    for (const spec of specifiers) queue.push(resolve(dirname(src), spec));
+  }
+  return { sandbox, cliPath: join(sandbox, relative(here, CLI)), bodyPath: join(sandbox, relative(here, BODY_PATH)) };
 }
 
 let rootSeq = 0;
@@ -448,32 +473,36 @@ test('bridge-source: dual-pin agreement returns exact source + trusted config (i
   rmSync(root, { recursive: true, force: true });
 });
 
-test('bridge-source: missing flag exits 2; symlinked body refused before any compile', () => {
+test('bridge-source: missing flag exits 2; symlinked body refused before any compile', (t) => {
   const root = freshRoot();
   const noFlag = cli(['bridge-source', '--root', root], { expectFail: true });
   assert.equal(noFlag.status, 2);
-  const realSha = createHash('sha256').update(readFileSync(BODY_PATH)).digest('hex');
+  // The swap targets a sandboxed copy of the CLI tree, never the deployed
+  // body (see sandboxCliTree).
+  const box = sandboxCliTree(t);
+  const realSha = createHash('sha256').update(readFileSync(box.bodyPath)).digest('hex');
   writeFileSync(join(root, 'bridge-runner-pin.json'), `${JSON.stringify({
     version: 1, sha256: realSha, source_commit: 'b'.repeat(40), reviewed_at: '2026-10-08T00:00:00.000Z',
   })}\n`);
-  // swap the deployed body for a symlink pointing outside the CLI dir
-  const backup = `${BODY_PATH}.testbackup`;
+  // swap the copied body for a symlink pointing outside the CLI dir
+  const backup = `${box.bodyPath}.testbackup`;
   const evil = join(tmpdir(), `dot-br-evil-${randomUUID().slice(0, 6)}.js`);
   writeFileSync(evil, '// evil twin\nreturn await 1;\n');
   let restored = false;
   try {
-    renameSync(BODY_PATH, backup);
-    symlinkSync(evil, BODY_PATH);
-    const sym = cli(['bridge-source', '--expected-sha256', realSha, '--root', root], { expectFail: true });
+    renameSync(box.bodyPath, backup);
+    symlinkSync(evil, box.bodyPath);
+    const sym = spawnSync(process.execPath, [box.cliPath, 'bridge-source', '--expected-sha256', realSha, '--root', root], { encoding: 'utf8' });
+    assert.notEqual(sym.status, 0);
     assert.ok(sym.stdout.includes('BRIDGE_SOURCE_UNTRUSTED'));
     assert.ok(!sym.stdout.includes('evil twin'));
   } finally {
-    try { rmSync(BODY_PATH, { force: true }); } catch { /* already gone */ }
-    renameSync(backup, BODY_PATH);
+    try { rmSync(box.bodyPath, { force: true }); } catch { /* already gone */ }
+    renameSync(backup, box.bodyPath);
     restored = true;
   }
   assert.ok(restored, 'body restored');
-  assert.equal(lstatSync(BODY_PATH).isSymbolicLink(), false);
+  assert.equal(lstatSync(box.bodyPath).isSymbolicLink(), false);
   rmSync(evil, { force: true });
   rmSync(root, { recursive: true, force: true });
 });
