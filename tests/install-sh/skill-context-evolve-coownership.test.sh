@@ -37,6 +37,13 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 SRC_REL="packages/core/templates/shared/skill-context/aif-review/SKILL.md"
 SRC="$REPO_ROOT/$SRC_REL"
 SC_REL=".ai-factory/skill-context/aif-review/SKILL.md"
+# Frozen nested-revision fixtures (native round-1 finding C1) — the MANDATORY floor for the
+# history-derived cases: a depth-1/squashed checkout holds no template history, so cases
+# (7)/(8b)/(8c)/(8d) must also run on a checked-in, sha256-pinned pair. Byte-pinned via
+# provenance.json (see the frozen_nest_ok validator at (8b)).
+NESTFIX_DIR="$REPO_ROOT/tests/install-sh/fixtures/skill-context-nested"
+NESTFIX_SHORT="$NESTFIX_DIR/aif-review-short-478b1a62.md"
+NESTFIX_LONG="$NESTFIX_DIR/aif-review-long-9de4c22f.md"
 BEG='<!-- getff:begin section=getff-skill-context'
 END='<!-- getff:end section=getff-skill-context -->'
 # A heading that occurs exactly once in the template: counting it proves getff's content is present
@@ -319,6 +326,9 @@ fi
 W=$(consumer); PROJECT_ROOT="$W"; d="$W/$SC_REL"
 OLDSRC=$(mktemp); cur=$(git -C "$REPO_ROOT" hash-object "$SRC")
 for blob in $(history_blobs "$SRC_REL"); do [ "$blob" != "$cur" ] && git -C "$REPO_ROOT" cat-file -p "$blob" > "$OLDSRC"; done
+# C1 (native round 1): a depth-1/squashed checkout holds no historical blob — the frozen
+# long revision (a shipped body, provenance-pinned) is the mandatory floor for this case.
+[ -s "$OLDSRC" ] || cp "$NESTFIX_LONG" "$OLDSRC"
 evolve_create "$d"; install_skill_context "$OLDSRC" "$d" >/dev/null 2>&1
 OUT=$(install_skill_context "$SRC" "$d" 2>&1)
 if getff_once "$d" && ! ls "$W/.ai-factory/refresh-conflicts/"* >/dev/null 2>&1 && case "$OUT" in *⚠*) false ;; *) true ;; esac; then
@@ -347,6 +357,335 @@ if fence_ok "$d" && getff_once "$d" && grep -qF EVOLVED-RULE-KEEPME "$d" && grep
   ok "(8) stripped markers: bare getff block replaced by one fenced block, evolved rules kept"
 else
   bad "(8) stripped markers: template $(count "$GETFF_LINE" "$d")x, note $(count '> Managed by getff:' "$d")x, evolved $(count EVOLVED-RULE-KEEPME "$d")/$(count EVOLVED-STRIPPED-KEEPME "$d")"
+fi
+
+# (8b) NESTED STRIPPED, historical — template revisions NEST: an older registered body is a
+#      strict line-prefix of a newer one (aif-review history: the 38-line body of the 42-line
+#      revision 478b prefixes the 58/60/66-line bodies, because the template grew by appending).
+#      A FIRST-match stripped recognition removed only the short prefix and stranded the old
+#      body's tail as fake project rules (fix 7e76b817ec3: longest provable body wins). For
+#      every nested pair git history holds: whole old body gone, current template inside the
+#      fence EXACTLY once and byte-exact, every consumer-owned non-blank byte outside the fence
+#      preserved, evolved rules kept.
+CURBODY=$(mktemp)
+_skill_context_template_body "$SRC" > "$CURBODY"
+CURPAT=$(mktemp); tr -d '\r' < "$SRC" | grep -v '^[[:space:]]*$' > "$CURPAT"  # exact-line exclusion set
+block_body() {  # the body getff's fenced block in $1 actually carries (note + blanks dropped)
+  awk '/getff:begin section=getff-skill-context/{f=1;next} /getff:end section=getff-skill-context/{f=0} f' "$1" \
+    | grep -vF "$SKILL_CONTEXT_NOTE_LEAD" | _skill_context_trim
+}
+consumer_text() {  # every NON-BLANK line outside the fence — the bytes that must stay the consumer's
+  awk '/getff:begin section=getff-skill-context/{inblock=1} !inblock; /getff:end section=getff-skill-context/{inblock=0}' "$1" \
+    | grep -v '^[[:space:]]*$'
+}
+before_fence() {  # the whole pre-fence region (witness leak checks read only this)
+  awk '/getff:begin section=getff-skill-context/{b=1} !b' "$1"
+}
+NEST=$(mktemp -d)
+outside_fence_full() {  # every byte outside the fence, blanks included (C2/C6 byte-exact oracles)
+  awk '/getff:begin section=getff-skill-context/{inblock=1} !inblock; /getff:end section=getff-skill-context/{inblock=0}' "$1"
+}
+trim_trail_blanks() {  # drop only TRAILING blank lines — getff may append a separator blank before its fence
+  awk '{ l[NR] = $0 } END { for (i = NR; i >= 1; i--) if (l[i] ~ /[^ \t\r]/) { last = i; break } for (i = 1; i <= last; i++) print l[i] }' "$1"
+}
+nested_body_pairs() {  # echoes "<short-file> <long-file>" for every history pair whose BODIES nest
+  local p bs bb ls pairn=0
+  p=$(tpl aif-review)
+  for bs in $(history_blobs "$p"); do
+    git -C "$REPO_ROOT" cat-file -p "$bs" | tr -d '\r' > "$NEST/hs"
+    _skill_context_template_body "$NEST/hs" > "$NEST/hsb"
+    ls=$(wc -l < "$NEST/hsb" | tr -d ' ')
+    for bb in $(history_blobs "$p"); do
+      [ "$bs" = "$bb" ] && continue
+      git -C "$REPO_ROOT" cat-file -p "$bb" | tr -d '\r' > "$NEST/hl"
+      _skill_context_template_body "$NEST/hl" > "$NEST/hlb"
+      if [ "$ls" -lt "$(wc -l < "$NEST/hlb" | tr -d ' ')" ] && head -n "$ls" "$NEST/hlb" | cmp -s - "$NEST/hsb"; then
+        pairn=$((pairn + 1))
+        cp "$NEST/hs" "$NEST/pair${pairn}s"; cp "$NEST/hl" "$NEST/pair${pairn}l"
+        printf '%s %s\n' "$NEST/pair${pairn}s" "$NEST/pair${pairn}l"
+      fi
+    done
+  done
+}
+# C1 (native round 1): the nested cases must not depend on git history — a depth-1/squashed
+# checkout holds no historical blobs and discovery found nothing, leaving (7)/(8b)-(8d)
+# vacuous. The frozen pair (sha256-pinned in provenance.json, bodies self-nesting) is the
+# MANDATORY floor; history discovery only ADDS pairs on top of it.
+frozen_nest_ok() {
+  [ -f "$NESTFIX_SHORT" ] && [ -f "$NESTFIX_LONG" ] && [ -f "$NESTFIX_DIR/provenance.json" ] \
+    && [ "$(hash256 "$NESTFIX_SHORT")" = "$(grep -o '"shortSha256": *"[0-9a-f]*"' "$NESTFIX_DIR/provenance.json" | grep -o '[0-9a-f]\{64\}')" ] \
+    && [ "$(hash256 "$NESTFIX_LONG")" = "$(grep -o '"longSha256": *"[0-9a-f]*"' "$NESTFIX_DIR/provenance.json" | grep -o '[0-9a-f]\{64\}')" ] \
+    && _skill_context_template_body "$NESTFIX_SHORT" > "$NEST/fsb" \
+    && _skill_context_template_body "$NESTFIX_LONG" > "$NEST/flb" \
+    && [ "$(wc -l < "$NEST/fsb" | tr -d ' ')" -lt "$(wc -l < "$NEST/flb" | tr -d ' ')" ] \
+    && head -n "$(wc -l < "$NEST/fsb" | tr -d ' ')" "$NEST/flb" | cmp -s - "$NEST/fsb"
+}
+if frozen_nest_ok; then
+  ok "(8b) frozen nested pair pinned (provenance sha256 + nesting: $(wc -l < "$NEST/fsb" | tr -d ' ')L ⊂ $(wc -l < "$NEST/flb" | tr -d ' ')L)"
+else
+  bad "(8b) frozen nested fixture broken or missing — re-pin tests/install-sh/fixtures/skill-context-nested"
+fi
+# C1 + native round-2 comment 2: the frozen pair is not merely a fallback — it is ALWAYS the
+# first (and therefore the specimen (8c)/(8d) run on), so the regression cases exercise the
+# same pinned pair on every checkout depth; git-history discovery only APPENDS extra pairs.
+# A partial-history checkout must never swap the specimen for whatever its truncated history
+# happens to surface first. Discovered pairs byte-identical to the frozen pair are skipped
+# (in a full checkout the frozen long revision IS a history blob).
+DISCOVERED=$(nested_body_pairs)
+N_NESTED=$(grep -c . <<<"$DISCOVERED" || true)
+FROZEN_L_SHA=$(hash256 "$NESTFIX_LONG")
+PAIRS="$NESTFIX_SHORT $NESTFIX_LONG"
+if [ "${N_NESTED:-0}" -gt 0 ]; then
+  ok "(8b) supplementary: $N_NESTED nested historical pair(s) discovered in git history (frozen pair stays first)"
+else
+  ok "(8b) no history pairs (depth-1/squashed checkout) — the frozen pair is the specimen"
+fi
+while read -r sfile lfile; do
+  [ -n "$sfile" ] || continue
+  [ "$(hash256 "$lfile")" = "$FROZEN_L_SHA" ] && continue
+  PAIRS="$PAIRS
+$sfile $lfile"
+done <<<"$DISCOVERED"
+strip_fence_markers() {  # what /aif-evolve-era tooling left: the delivered body without markers
+  grep -vF 'getff:begin section=getff-skill-context' "$1" | grep -vF 'getff:end section=getff-skill-context' > "$1.x" && mv "$1.x" "$1"
+}
+first_sfile=""; first_lfile=""
+while read -r sfile lfile; do [ -n "$sfile" ] && { first_sfile="$sfile"; first_lfile="$lfile"; break; }; done <<<"$PAIRS"
+while read -r sfile lfile; do
+  [ -n "$sfile" ] || continue
+  stag=$(hash256 "$sfile" | cut -c1-8); ltag=$(hash256 "$lfile" | cut -c1-8)
+  cp "$lfile" "$NEST/old.md"
+  _skill_context_template_body "$NEST/old.md" > "$NEST/oldbody"
+  tr -d '\r' < "$sfile" > "$NEST/s2"
+  _skill_context_template_body "$NEST/s2" > "$NEST/shortbody"
+  sb=$(wc -l < "$NEST/shortbody" | tr -d ' ')
+  # witness: an old-body TAIL line (beyond the short prefix) the current template no longer carries
+  witness=$(tail -n +"$((sb + 1))" "$NEST/oldbody" | grep -vxF -f "$CURPAT" | grep -v '^[[:space:]]*$' | head -n 1)
+  # A pair whose long body IS the current body (e.g. the HEAD revision — reachable since the
+  # repair commit registered a new template revision) has NO tail line the current template
+  # dropped: the old-body-gone predicate has nothing to witness and the reclaim-over-current
+  # scenario is already case (7). Skip it explicitly — never run the predicates (and the
+  # grep below) with an empty witness, which would count every outside-fence line.
+  if [ -z "$witness" ]; then
+    ok "(8b) nested pair $ltag: long body fully carried by the current template — no unique old-tail witness, vacuous for this predicate (reclaim-over-current is case (7))"
+    continue
+  fi
+  W=$(consumer); PROJECT_ROOT="$W"; d="$W/$SC_REL"
+  evolve_create "$d"; evolve_add "$d" EVOLVED-NESTED-STRIPPED-KEEPME
+  EXPECTED_TEXT=$(mktemp); consumer_text "$d" > "$EXPECTED_TEXT"  # consumer bytes BEFORE any getff delivery
+  install_skill_context "$NEST/old.md" "$d" >/dev/null 2>&1
+  strip_fence_markers "$d"
+  install_skill_context "$SRC" "$d" >/dev/null 2>&1
+  if [ -n "$witness" ] && fence_ok "$d" && getff_once "$d" && grep -qF EVOLVED-NESTED-STRIPPED-KEEPME "$d" \
+     && [ "$(before_fence "$d" | grep -cxF -- "$witness")" = "0" ] \
+     && block_body "$d" | cmp -s - "$CURBODY" \
+     && diff <(consumer_text "$d") "$EXPECTED_TEXT" >/dev/null; then
+    ok "(8b) nested stripped $ltag (body ⊃ $stag's): whole old body gone, current body in-fence exact, consumer text preserved"
+  else
+    bad "(8b) nested stripped $ltag: fence $(count "$BEG" "$d"), getff $(count "$GETFF_LINE" "$d"), witness-outside-fence×$(before_fence "$d" | grep -cxF -- "$witness"), in-fence-body $(block_body "$d" | cmp -s - "$CURBODY" && echo exact || echo DRIFTED), consumer-text $(diff <(consumer_text "$d") "$EXPECTED_TEXT" >/dev/null && echo preserved || echo CHANGED)"
+  fi
+done <<<"$PAIRS"
+
+# (8c) NESTED STRIPPED, edited tail — the same marker-less nested body, but /aif-evolve EDITED
+#      its last line: the long body is no longer provable, only the short prefix body is. Only
+#      the provable prefix may be reclaimed — the edited tail is consumer bytes and must SURVIVE
+#      outside the fence (never remove bytes getff cannot attribute).
+if [ -n "$first_lfile" ]; then
+  cp "$first_lfile" "$NEST/old.md"
+  tr -d '\r' < "$first_sfile" > "$NEST/s2"
+  _skill_context_template_body "$NEST/s2" > "$NEST/shortbody"
+  provlast=""  # last provable line the current body dropped — must occur exactly once, or a
+  # repeat inside the un-attributable tail would false-flag the leak check
+  while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    if [ "$(grep -cxF -- "$cand" "$NEST/oldbody")" = "1" ]; then provlast="$cand"; break; fi
+  done < <(grep -vxF -f "$CURPAT" "$NEST/shortbody" | grep -v '^[[:space:]]*$' \
+    | awk '{ a[NR] = $0 } END { for (i = NR; i >= 1; i--) print a[i] }')
+  # the old BODY's last non-blank line (inside the file, before the evolve rule) is what gets edited
+  lastbodyline=$(_skill_context_template_body "$NEST/old.md" | grep -v '^[[:space:]]*$' | tail -n 1)
+  W=$(consumer); PROJECT_ROOT="$W"; d="$W/$SC_REL"
+  evolve_create "$d"
+  install_skill_context "$NEST/old.md" "$d" >/dev/null 2>&1
+  strip_fence_markers "$d"
+  EDITLINE="$lastbodyline" awk '$0 == ENVIRON["EDITLINE"] { print "EDITED-OLD-TAIL-KEEPME was: " $0; next } { print }' "$d" > "$d.x" && mv "$d.x" "$d"
+  evolve_add "$d" EVOLVED-EDITED-TAIL-KEEPME
+  # C2 (native round 1): byte-exact oracle for the whole reclaim — the post-install bytes
+  # OUTSIDE the fence must be exactly the pre-install file minus the register-pinned stripped
+  # span [K..L]: K = note line, START = first non-blank after K, and BL = the LONGEST register
+  # row whose raw span at START hashes to bh. Derived from the register + the documented
+  # lib.sh contract, independent of _skill_context_stripped_block; the old marker-grep
+  # assertions below stay as witness semantics, this oracle pins the bytes.
+  tr -d '\r' < "$d" > "$NEST/c2lf"
+  K2=$(awk -v P="$SKILL_CONTEXT_NOTE_LEAD" 'index($0, P) == 1 { print NR; exit }' "$NEST/c2lf")
+  ST2=$(awk -v K="$K2" 'NR > K && /[^ \t]/ { print NR; exit }' "$NEST/c2lf")
+  BL2=0; L2=0
+  while read -r _sk _ln _sh bl2 bh2; do
+    [ -n "$bh2" ] && [ -n "$ST2" ] || continue
+    [ "$bl2" -le 0 ] && continue
+    sed -n "${ST2},$((ST2 + bl2 - 1))p" "$NEST/c2lf" > "$NEST/c2probe"
+    if [ "$(_hash256 "$NEST/c2probe")" = "$bh2" ] && [ "$bl2" -gt "$BL2" ]; then
+      BL2=$bl2; L2=$((ST2 + bl2 - 1))
+    fi
+  done <<EOF
+$(_skill_context_revisions "$(basename "$(dirname "$d")")")
+EOF
+  awk -v K="$K2" -v L="$L2" 'NR < K || NR > L' "$d" > "$NEST/expect8c"
+  install_skill_context "$SRC" "$d" >/dev/null 2>&1
+  outside_fence_full "$d" > "$NEST/post8c"
+  trim_trail_blanks "$NEST/expect8c" > "$NEST/expect8c.t"
+  trim_trail_blanks "$NEST/post8c" > "$NEST/post8c.t"
+  c2cmp=$(cmp -s "$NEST/expect8c.t" "$NEST/post8c.t" && echo exact || echo DIFFERS)
+  # non-vacuity: deleting one visible outside-fence line from the expectation must break the
+  # comparison (a byte-blind comparator would pass anything)
+  SAB=$(( $(grep -c . "$NEST/expect8c.t") / 2 + 1 ))
+  awk -v N="$SAB" '/[^ \t\r]/ { c++ } c == N { next } { print }' "$NEST/expect8c.t" > "$NEST/sab8c"
+  c2sab=$(cmp -s "$NEST/sab8c" "$NEST/post8c.t" && echo SILENT || echo breaks)
+  # NOTE: no getff_once here — with only the provable prefix reclaimed, getff-authored lines may
+  # legitimately survive inside the un-attributable edited tail (getff cannot remove them).
+  if fence_ok "$d" && grep -qF EVOLVED-EDITED-TAIL-KEEPME "$d" \
+     && [ "$(before_fence "$d" | grep -cF 'EDITED-OLD-TAIL-KEEPME')" -ge 1 ] \
+     && { [ -z "$provlast" ] || [ "$(before_fence "$d" | grep -cxF -- "$provlast")" = "0" ]; } \
+     && [ "$BL2" -gt 0 ] && [ "$c2cmp" = exact ] && [ "$c2sab" = breaks ]; then
+    ok "(8c) nested stripped, edited tail: only the provable prefix reclaimed; edited tail kept as consumer bytes; outside-fence bytes exact vs register-derived oracle (span K=$K2 L=$L2)"
+  else
+    bad "(8c) nested stripped, edited tail: edited-tail-outside-fence×$(before_fence "$d" | grep -cF 'EDITED-OLD-TAIL-KEEPME'), provable-line-leak×$(before_fence "$d" | grep -cxF -- "$provlast"), oracle-span=K${K2:-?}-L${L2:-?}, outside-fence=$c2cmp, sabotage=$c2sab"
+  fi
+else
+  bad "(8c) frozen fixture broken — the frozen pair must supply this case (see the (8b) frozen pin)"
+fi
+
+# (8d) ALGORITHM PAIRED NEGATIVE — replicas of the PRE-fix FIRST-match helpers, checked in
+#      HERE (test isolation; setup.d/lib.sh is never modified). Each replica must reproduce the
+#      stranding the longest-provable rule removed: fed the same fixture, its split is the SHORT
+#      prefix and the (8b) predicates reject its outcome. A case that cannot fail on the replica
+#      was vacuous. (Raw replica mirrors _skill_context_delivered_lines pre-7e76b817ec3; the
+#      stripped replica mirrors _skill_context_stripped_block pre-fix.)
+_first_match_lines_replica() {  # <src> <dst>: FIRST register row whose (lines,sha) matches wins
+  local src="$1" dst="$2" lf probe total n _skill lines sha _bl _bh h
+  lf=$(mktemp); probe=$(mktemp); tr -d '\r' < "$dst" > "$lf"
+  total=$(wc -l < "$lf" | tr -d ' ')
+  n=$(wc -l < "$src" | tr -d ' ')
+  if [ "$n" -gt 0 ] && [ "$n" -le "$total" ] && head -n "$n" "$lf" | cmp -s - "$src"; then
+    rm -f "$lf" "$probe"; echo "$n"; return 0
+  fi
+  while read -r _skill lines sha _bl _bh; do
+    [ -z "$sha" ] && continue
+    [ "$lines" -gt "$total" ] && continue
+    head -n "$lines" "$lf" > "$probe"
+    if h=$(_hash256 "$probe") && [ "$h" = "$sha" ]; then rm -f "$lf" "$probe"; echo "$lines"; return 0; fi
+  done <<EOF
+$(_skill_context_revisions "$(basename "$(dirname "$dst")")")
+EOF
+  rm -f "$lf" "$probe"; return 1
+}
+_first_match_stripped_replica() {  # <dst>: FIRST register body hash match wins
+  local dst="$1" lf probe k start _skill _l _h bl bh h
+  lf=$(mktemp); probe=$(mktemp); tr -d '\r' < "$dst" > "$lf"
+  k=$(awk -v P="$SKILL_CONTEXT_NOTE_LEAD" 'index($0, P) == 1 { print NR; exit }' "$lf")
+  start=""; [ -n "$k" ] && start=$(awk -v K="$k" 'NR > K && /[^ \t]/ { print NR; exit }' "$lf")
+  if [ -n "$start" ]; then
+    while read -r _skill _l _h bl bh; do
+      [ -n "$bh" ] || continue
+      sed -n "${start},$((start + bl - 1))p" "$lf" > "$probe"
+      if h=$(_hash256 "$probe") && [ "$h" = "$bh" ]; then rm -f "$lf" "$probe"; echo "$k $((start + bl - 1))"; return 0; fi
+    done <<EOF
+$(_skill_context_revisions "$(basename "$(dirname "$dst")")")
+EOF
+  fi
+  rm -f "$lf" "$probe"; return 1
+}
+if [ -n "$first_lfile" ]; then
+  # RAW: a fence-less nested legacy copy. Fixed = longest; replica must split SHORTER.
+  W=$(consumer); PROJECT_ROOT="$W"; d="$W/$SC_REL"
+  mkdir -p "$(dirname "$d")"; cp "$first_lfile" "$d"
+  evolve_add "$d" EVOLVED-REPLICA-RAW-KEEPME
+  fixed_n=$(_skill_context_delivered_lines "$SRC" "$d")
+  repl_n=$(_first_match_lines_replica "$SRC" "$d")
+  rawwitness=""; [ -n "$repl_n" ] && rawwitness=$(tail -n +"$((repl_n + 1))" "$d" | grep -vxF -f "$CURPAT" | grep -v '^[[:space:]]*$' | head -n 1)
+  if [ -n "$fixed_n" ] && [ -n "$repl_n" ] && [ "$repl_n" -lt "$fixed_n" ] && [ -n "$rawwitness" ]; then
+    # replay the replica's OWN split (keep everything after its short prefix), then let the real
+    # merge append the current block: the pre-fix final state, which (8b)'s witness predicate rejects
+    tail -n +"$((repl_n + 1))" "$d" | awk '/[^ \t\r]/ { p = 1 } p' > "$d.x" && mv "$d.x" "$d"
+    install_skill_context "$SRC" "$d" >/dev/null 2>&1
+    [ "$(before_fence "$d" | grep -cxF -- "$rawwitness")" -gt 0 ] \
+      && ok "(8d) raw first-match replica splits at $repl_n (fixed: $fixed_n) and its outcome strands the old tail — the (8b) predicate catches it" \
+      || bad "(8d) raw first-match replica failed to reproduce the stranding — the raw nested case may be vacuous"
+  else
+    bad "(8d) raw replica: fixed=${fixed_n:-none} replica=${repl_n:-none} witness=${rawwitness:+set} — replica no longer embodies first-match (register reordered?)"
+  fi
+  # C6 (native round 1): the repaired RAW path, POSITIVELY — the same fence-less legacy copy fed
+  # to the FIXED helper must reclaim exactly the register-pinned LONGEST provable prefix and
+  # leave outside-fence bytes equal to that suffix (the documented delivered-lines contract:
+  # keep tail -n +n+1 with leading blanks of the remainder trimmed), not merely "not strand
+  # the witness". EXP2 is derived from the register independently of the helper: the largest
+  # `lines` whose whole-head hash matches. The replica-reject control proves the byte oracle
+  # can tell fixed from pre-fix outcome (non-vacuity).
+  W2=$(consumer); PROJECT_ROOT="$W2"; d2="$W2/$SC_REL"
+  mkdir -p "$(dirname "$d2")"; cp "$first_lfile" "$d2"
+  evolve_add "$d2" EVOLVED-RAW2-KEEPME
+  tr -d '\r' < "$d2" > "$NEST/d2lf"
+  EXP2=0
+  while read -r _sk lines2 sha2 _bl2 _bh2; do
+    [ -n "$sha2" ] || continue
+    [ "$lines2" -le "$(wc -l < "$NEST/d2lf" | tr -d ' ')" ] || continue
+    head -n "$lines2" "$NEST/d2lf" > "$NEST/c6probe"
+    if [ "$(_hash256 "$NEST/c6probe")" = "$sha2" ] && [ "$lines2" -gt "$EXP2" ]; then EXP2=$lines2; fi
+  done <<EOF
+$(_skill_context_revisions "$(basename "$(dirname "$d2")")")
+EOF
+  fixed2_n=$(_skill_context_delivered_lines "$SRC" "$d2")
+  tail -n +"$((EXP2 + 1))" "$NEST/d2lf" | awk '/[^ \t\r]/ { p = 1 } p' > "$NEST/c6suffix"
+  install_skill_context "$SRC" "$d2" >/dev/null 2>&1
+  outside_fence_full "$d2" > "$NEST/c6post"
+  trim_trail_blanks "$NEST/c6suffix" > "$NEST/c6suffix.t"
+  trim_trail_blanks "$NEST/c6post" > "$NEST/c6post.t"
+  # replica-reject control (native round-2 comment 3): install the FIRST-match replica's own
+  # split, then compare. Both consumers carry the IDENTICAL pre-split bytes (same fixture +
+  # same EVOLVED-RAW2-KEEPME marker — different markers alone would make the byte comparison
+  # differ and the control pass vacuously), so the replica outcome can only differ from the
+  # repaired bytes by the stranded old lines, and the replica must split STRICTLY shorter.
+  W3=$(consumer); PROJECT_ROOT="$W3"; d3="$W3/$SC_REL"
+  mkdir -p "$(dirname "$d3")"; cp "$first_lfile" "$d3"
+  evolve_add "$d3" EVOLVED-RAW2-KEEPME
+  c6same=$(cmp -s "$d3" "$NEST/d2lf" && echo yes || echo no)
+  repl2_n=$(_first_match_lines_replica "$SRC" "$d3")
+  [ -n "$repl2_n" ] && { tail -n +"$((repl2_n + 1))" "$d3" | awk '/[^ \t\r]/ { p = 1 } p' > "$d3.x" && mv "$d3.x" "$d3"; }
+  install_skill_context "$SRC" "$d3" >/dev/null 2>&1
+  outside_fence_full "$d3" > "$NEST/c6replica"
+  trim_trail_blanks "$NEST/c6replica" > "$NEST/c6replica.t"
+  if [ "$EXP2" -gt 0 ] && [ "$fixed2_n" = "$EXP2" ] \
+     && block_body "$d2" | cmp -s - "$CURBODY" \
+     && cmp -s "$NEST/c6suffix.t" "$NEST/c6post.t" \
+     && [ "$c6same" = yes ] \
+     && [ -n "$repl2_n" ] && [ "$repl2_n" -lt "$EXP2" ] \
+     && ! cmp -s "$NEST/c6replica.t" "$NEST/c6post.t"; then
+    ok "(8d) C6 repaired raw path: helper split == register-derived longest ($EXP2), in-fence body exact, outside-fence bytes == longest-prefix suffix, replica split $repl2_n rejected on identical input"
+  else
+    bad "(8d) C6 repaired raw path: exp=${EXP2:-none} fixed=${fixed2_n:-none}, in-fence=$(block_body "$d2" | cmp -s - "$CURBODY" && echo exact || echo DRIFTED), suffix-vs-post=$(cmp -s "$NEST/c6suffix.t" "$NEST/c6post.t" && echo exact || echo DIFFERS), identical-input=$c6same, replica-split=${repl2_n:-none}, replica=$(cmp -s "$NEST/c6replica.t" "$NEST/c6post.t" && echo UNDETECTED || echo rejected)"
+  fi
+  # STRIPPED: the (8b) marker-less fixture. Fixed = longest body span; replica = short one.
+  cp "$first_lfile" "$NEST/old.md"
+  W=$(consumer); PROJECT_ROOT="$W"; d="$W/$SC_REL"
+  evolve_create "$d"
+  install_skill_context "$NEST/old.md" "$d" >/dev/null 2>&1
+  strip_fence_markers "$d"
+  evolve_add "$d" EVOLVED-REPLICA-STRIP-KEEPME
+  fixed_kl=$(_skill_context_stripped_block "$d")
+  repl_kl=$(_first_match_stripped_replica "$d")
+  fixed_l=${fixed_kl#* }; repl_l=${repl_kl#* }
+  stripwitness=""
+  [ -n "$repl_kl" ] && [ -n "$fixed_kl" ] && stripwitness=$(sed -n "$((repl_l + 1)),${fixed_l}p" "$d" | grep -vxF -f "$CURPAT" | grep -v '^[[:space:]]*$' | head -n 1)
+  if [ -n "$fixed_kl" ] && [ -n "$repl_kl" ] && [ "$repl_l" -lt "$fixed_l" ] && [ -n "$stripwitness" ]; then
+    awk -v K="${repl_kl% *}" -v L="$repl_l" 'NR < K || NR > L' "$d" > "$d.x" && mv "$d.x" "$d"
+    install_skill_context "$SRC" "$d" >/dev/null 2>&1
+    [ "$(before_fence "$d" | grep -cxF -- "$stripwitness")" -gt 0 ] \
+      && ok "(8d) stripped first-match replica ends at $repl_l (fixed: $fixed_l) and strands the old body tail — the (8b) predicate catches it" \
+      || bad "(8d) stripped first-match replica failed to reproduce the stranding — the stripped nested case may be vacuous"
+  else
+    bad "(8d) stripped replica: fixed=${fixed_kl:-none} replica=${repl_kl:-none} witness=${stripwitness:+set} — replica no longer embodies first-match"
+  fi
+else
+  bad "(8d) frozen fixture broken — the frozen pair must supply these cases (see the (8b) frozen pin)"
 fi
 
 # ── §2 PAIRED NEGATIVE — the same predicates must catch the old whole-file verbs ──────────────

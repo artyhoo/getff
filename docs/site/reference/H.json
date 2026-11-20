@@ -89,6 +89,20 @@
       "example": null
     },
     {
+      "name": "ocrTrustedReview",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "one native OCR review invocation bound to a current, complete declared input set.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/ocrTrustedReview.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    },
+    {
       "name": "park",
       "kind": "cli-command",
       "shipsTo": {

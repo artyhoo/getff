@@ -860,12 +860,12 @@
     {
       "path": ".codex/agents/review-sidecar.toml",
       "kind": "text",
-      "fingerprint": "d4bfad6d7f16a2bd2125226381c0ff8481f6d921a0cde526c554b62c9906b188"
+      "fingerprint": "5038575084c01d575f8160417bd9c15df6f922602ec90e56a0705da0a0e88920"
     },
     {
       "path": ".agents/skills/review-sidecar/SKILL.md",
       "kind": "text",
-      "fingerprint": "e132f14156ab1ed4f9822f5518aba632f2aa91f357bc93da39eb80baac724aed"
+      "fingerprint": "89c32d57905ad1edd8d04cc7f2f4b14ec235f1103b6f64f6ba09af4c249eb715"
     },
     {
       "path": ".agents/skills/review-sidecar/agents/openai.yaml",

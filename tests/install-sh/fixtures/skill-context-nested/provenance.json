@@ -1,0 +1,12 @@
+{
+  "purpose": "Frozen nested historical revision pair for skill-context-evolve-coownership (native round-1 finding C1): a depth-1 or squashed checkout has no git history for the template, so history-based pair discovery finds nothing and cases (7)/(8b)/(8c)/(8d) were vacuous. This pair is the checked-in mandatory floor; history discovery stays supplementary.",
+  "skill": "aif-review",
+  "templatePath": "packages/core/templates/shared/skill-context/aif-review/SKILL.md",
+  "shortBlob": "478b1a622a4bdeea8dd54e5c916420b7bb0e5b60",
+  "longBlob": "9de4c22f2b33b194733d90665962533977dd496f",
+  "shortSha256": "fcf5933063730451f53ada7b865c4774d3808d6c7be9df6633b1fa73091f699a",
+  "longSha256": "3106251f0e08b06a73313587198bf09b0c31af14ba7d52c08a9d8c193902c5d0",
+  "capturedAtCommit": "b6669888791db97f57387eb466f21e4feb97d364",
+  "capturedAt": "2026-11-03",
+  "derived": "git cat-file -p <blob> from first-parent history of templatePath at capturedAtCommit; the short revision's 38-line body is a strict line-prefix of the long revision's 58-line body (bodies nest)."
+}
