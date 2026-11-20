@@ -22,7 +22,7 @@
     "@typescript-eslint/utils": "^8.59.0",
     "@types/node": "^22.0.0",
     "typescript": "^5.6.0",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.12"
   },
   "author": "Artem Safronov <122199423+artyhoo@users.noreply.github.com>"
 }
