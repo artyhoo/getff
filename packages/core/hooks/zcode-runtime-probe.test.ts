@@ -33,6 +33,23 @@ const here = dirname(fileURLToPath(import.meta.url));
 const script = join(here, '../../../scripts/probe-zcode-runtime.sh');
 const defaultBundle = '/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs';
 
+// Complete baseline markers, including internal events that are not hook schema literals.
+const validMarkers = [
+  '["SessionStart","UserPromptSubmit","PreToolUse","PermissionRequest","PostToolUse","PostToolUseFailure","Stop"]',
+  'WorktreeCreated pendingWorktreeCreated',
+  'config_project_hooks_pending_trust',
+  'workspaceHookReview',
+  'trusted_persistent',
+  'runnable:["skills","commands","hooks","mcpServers","userConfig"]',
+  '"allow","ask","deny"',
+  '"continue"',
+  'stopReason',
+  'systemMessage',
+  'updatedInput',
+  'CLAUDE_PROJECT_DIR',
+  '',
+].join('\n');
+
 interface RunResult {
   status: number;
   out: string;
@@ -63,6 +80,27 @@ describe('zcode-runtime-probe — parity SSOT vs installed binary (Fork B)', () 
     expect(r.status).toBe(0);
     expect(r.out).toContain('all assertions green');
     expect(r.out).not.toContain('DRIFT');
+  });
+
+  it('accepts internal WorktreeCreated identifiers without a WorktreeCreate hook literal', () => {
+    const fake = join(mkdtempSync(join(tmpdir(), 'zcp-probe-')), 'zcode.cjs');
+    writeFileSync(fake, validMarkers);
+    const r = runProbe({ ZCODE_RUNTIME_BUNDLE: fake });
+    expect(r.status).toBe(0);
+    expect(r.out).toContain('all assertions green');
+    expect(r.out).not.toContain('DRIFT');
+    expect(r.out.match(/✓/g)).toHaveLength(17);
+  });
+
+  it('detects the quoted WorktreeCreate hook literal while the other assertions pass', () => {
+    const fake = join(mkdtempSync(join(tmpdir(), 'zcp-probe-')), 'zcode.cjs');
+    writeFileSync(fake, validMarkers + '"WorktreeCreate"\n');
+    const r = runProbe({ ZCODE_RUNTIME_BUNDLE: fake });
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('✗ WorktreeCreate absent (row 20) — DRIFT');
+    expect(r.out.match(/✓/g)).toHaveLength(16);
+    expect(r.out.match(/✗/g)).toHaveLength(1);
+    expect(r.out).toContain('1 DRIFT assertion(s)');
   });
 
   it('N2: absent bundle → script SKIPs (exit 0, loud notice), never fails CI', () => {
