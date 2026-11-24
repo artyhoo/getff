@@ -29,6 +29,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -810,4 +811,86 @@ exec "$REAL_MKDIR" "$@"
       c.cleanup();
     }
   });
+
+  // P19 (2026-11-20): stock Apple bash 3.2.57 backs a here-string with a temp file, and the
+  // backing file can land under /private/var/tmp even when TMPDIR is set elsewhere or is
+  // unusable. Where the runtime disallows that backing write, the unchanged hook loses the
+  // real matching run (a denial in stderr, no expected context). The repair feeds the
+  // consuming loops via process substitution instead. This regression runs the REAL hook
+  // under stock /bin/bash inside sandbox-exec: writes to the system temp roots — including
+  // /private/var/folders, the physical ancestor of os.tmpdir() — are denied, except the
+  // exact cc-rule-injector- cache subtree under the fixture's TMPDIR, so ordinary once-cache
+  // writes really work while every here-string backing write stays unavailable.
+  const P19_OK =
+    process.platform === 'darwin' &&
+    (() => {
+      try {
+        const ver = execFileSync('/bin/bash', ['-c', 'printf %s "$BASH_VERSION"'], {
+          encoding: 'utf8',
+        });
+        execSync('command -v sandbox-exec', { stdio: 'ignore' });
+        return /^3\.2\./.test(ver);
+      } catch {
+        return false;
+      }
+    })();
+
+  (P19_OK ? it : it.skip)(
+    'stock bash 3.2.x with here-string backing writes denied still injects (P19)',
+    async () => {
+      const c = corpus(ONE);
+      const cacheReal = realpathSync(c.env.TMPDIR as string);
+      const profileRoot = mkdtempSync(join(tmpdir(), `imr-p19-${uniq()}-`));
+      const profile = join(profileRoot, 'deny-temp.sb');
+      writeFileSync(
+        profile,
+        [
+          '(version 1)',
+          '(allow default)',
+          '(deny file-write* (subpath "/private/var/tmp"))',
+          '(deny file-write* (subpath "/var/tmp"))',
+          '(deny file-write* (subpath "/tmp"))',
+          '(deny file-write* (subpath "/private/tmp"))',
+          '(deny file-write* (subpath "/private/var/folders"))',
+          `(allow file-write* (regex #"^${cacheReal}/cc-rule-injector-"))`,
+        ].join('\n'),
+      );
+      try {
+        const s = uniq();
+        const run = (input: Record<string, unknown>) =>
+          new Promise<{ out: string; err: string }>((res, rej) => {
+            const p = spawn('sandbox-exec', ['-f', profile, '/bin/bash', HOOK], {
+              cwd: cacheReal,
+              env: { ...process.env, ...c.env },
+            });
+            let out = '';
+            let err = '';
+            p.stdout.on('data', (d) => (out += d));
+            p.stderr.on('data', (d) => (err += d));
+            p.on('error', rej);
+            p.on('close', (code, signal) => {
+              if (code !== 0) rej(new Error(`hook exit=${code} signal=${signal}: ${err}`));
+              else res({ out: out.trim(), err });
+            });
+            p.stdin.end(JSON.stringify(input));
+          });
+        // Unchanged hook: the here-string backing write is denied, the match is lost and
+        // the expected additionalContext never appears. Repaired hook: process
+        // substitution needs no backing file — the match injects with clean stderr.
+        const first = await run(edit('src/a.ts', s));
+        expect(first.err).toBe('');
+        expect(ctx(first.out)).toContain('ONCE-CARD');
+        // once-cache: the card is claimed inside the writable cache subtree, so the
+        // second same-card/same-session call is suppressed.
+        const second = await run(edit('src/b.ts', s));
+        expect(second.out).toBe('');
+        // no-match stays quiet under the same confinement.
+        const nomatch = await run(edit('lib/a.ts', uniq()));
+        expect(nomatch.out).toBe('');
+      } finally {
+        rmSync(profileRoot, { recursive: true, force: true });
+        c.cleanup();
+      }
+    },
+  );
 });

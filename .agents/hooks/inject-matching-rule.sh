@@ -285,7 +285,7 @@ parse_frontmatter() {
     if [[ -z "$v" ]]; then key="$k"; continue; fi
     if [[ "$v" == \[*\] ]]; then
       v="${v#\[}"; v="${v%\]}"
-      while IFS= read -r v; do [[ -n "$v" ]] && _add "$k" "$v"; done <<< "$(split_list "$v")"
+      while IFS= read -r v; do [[ -n "$v" ]] && _add "$k" "$v"; done < <(printf '%s\n' "$(split_list "$v")")
     else
       _add "$k" "$(unquote "$v")"
     fi
@@ -305,11 +305,14 @@ card_body() {
 
 matches_path() {  # $1 = newline list of globs
   local p re
+  # Feed the loop via process substitution, not a here-string: bash 3.2 backs `<<<` with a
+  # temp file (possibly under /private/var/tmp even when TMPDIR is set elsewhere or is
+  # unusable), and where the runtime disallows that backing write every record is lost.
   while IFS= read -r p; do
     [[ -z "$p" ]] && continue
     re="$(glob_to_ere "$p")"
     [[ "$REL_PATH" =~ $re ]] && return 0
-  done <<< "$1"
+  done < <(printf '%s\n' "$1")
   return 1
 }
 
@@ -318,7 +321,7 @@ matches_command() {  # $1 = newline list of extended regexes
   while IFS= read -r re; do
     [[ -z "$re" ]] && continue
     [[ "$COMMAND" =~ $re ]] && return 0
-  done <<< "$1"
+  done < <(printf '%s\n' "$1")
   return 1
 }
 
@@ -370,7 +373,7 @@ while IFS= read -r card; do
     pointer=" (see ${RULES_DIR#"$REPO_ROOT/"}/${slug}.md)"
   fi
   INJECTED="${INJECTED}📎 ${LABEL} — ${summary}${pointer}"$'\n'
-done <<< "$CANDIDATES"
+done < <(printf '%s\n' "$CANDIDATES")
 
 [[ -z "$INJECTED" ]] && exit 0
 

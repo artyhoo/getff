@@ -11,7 +11,7 @@
 # Method rule (survey §2 disambiguation): probe DISPATCH SITES and schema LITERALS, never bare
 # strings — `grep -c SubagentStop` returns 9 in a bundle where the hook event does not exist
 # (internal `V.SubagentStopped` task event). Assertions below therefore use quoted literals
-# ("SubagentStart") or names with no internal-event homographs (PreCompact, WorktreeCreate).
+# ("SubagentStart", "WorktreeCreate") or names with no internal-event homographs (PreCompact).
 #
 # Scope: maintainer machines with /Applications/ZCode.app present. Absent → SKIP (exit 0 with a
 # loud notice) so CI on other hosts stays green; the skip is itself asserted by the vitest
@@ -55,7 +55,7 @@ assert() {
 echo "— hook-event enum (survey §2; doctrine §2 ZCODE_EVENTS) —"
 assert "7-event enum literal present"        ge 1 '"SessionStart","UserPromptSubmit","PreToolUse","PermissionRequest","PostToolUse","PostToolUseFailure","Stop"'
 assert "PreCompact absent (row 21)"          eq 0 'PreCompact'
-assert "WorktreeCreate absent (row 20)"      eq 0 'WorktreeCreate'
+assert "WorktreeCreate absent (row 20)"      eq 0 '"WorktreeCreate"'
 assert '"SubagentStart" hook event absent'   eq 0 '"SubagentStart"'
 assert '"SessionEnd" hook event absent'      eq 0 '"SessionEnd"'
 
