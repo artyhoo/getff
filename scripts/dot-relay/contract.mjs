@@ -36,6 +36,12 @@ export const MAX_ENVELOPE_BYTES = 1048576; // 1 MiB whole private envelope (mult
 export const MAX_PART_BYTES = 200000;
 export const MAX_PARTS = 8;
 
+// F12: the finite total for post-review CI verification polling — a bounded
+// individual operation budget (NOT an executor-duration cap), allocated once
+// per review-gated unit and consumed additively. Shared by the legacy
+// execution budget and the GLM task budget so the two can never drift.
+export const REVIEW_VERIFY_BUDGET_MS = 30 * 60_000;
+
 // F18: the transport wrapper carries the actual claim identity while keeping
 // the producer's immutable manifest string byte-for-byte. Both sender and
 // recipient use this same parser; receipt creation follows byte verification.
