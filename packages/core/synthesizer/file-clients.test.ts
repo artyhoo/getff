@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ResearchPlanError } from '../research/validate-plan.ts';
 import type { GenerateCandidate, GenerateClient, GenerateSelection, Menu } from './generate-port.ts';
 import { FileResearchClient, withManualDrop, routesToManual } from './file-clients.ts';
 
@@ -34,7 +33,7 @@ describe('FileResearchClient', () => {
     expect(plan.patterns.map((p) => p.id)).toContain('next-no-head-element');
   });
 
-  it('throws ResearchPlanError on non-allowlisted provenance host', async () => {
+  it('drops (never ships) an entry with a non-allowlisted provenance host, naming it', async () => {
     const bad = tmpFile(
       'bad.research.json',
       JSON.stringify({
@@ -55,9 +54,14 @@ describe('FileResearchClient', () => {
         drift: null,
       }),
     );
-    await expect(new FileResearchClient(bad).research(STUB_DETECTION)).rejects.toBeInstanceOf(
-      ResearchPlanError,
-    );
+    // P5 A2: one refused entry drops only itself (file-clients-partial-drop.test.ts has the
+    // mixed plan); the whole-plan rejection is kept for plan-level shape errors.
+    const lines: string[] = [];
+    const client = new FileResearchClient(bad, { log: (m) => lines.push(m) });
+    const plan = await client.research(STUB_DETECTION);
+    expect(plan.patterns).toEqual([]);
+    expect(client.dropped.map((d) => [d.id, d.reason.slice(0, 6)])).toEqual([['x', 'FF2006']]);
+    expect(lines[0]).toMatch(/^\[rule-bootstrap\] dropped research entry x — FF2006/);
   });
 });
 

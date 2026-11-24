@@ -7,11 +7,22 @@
 # in CI per .claude/rules/no-paid-llm-in-ci.md.
 #
 # Tests:
-#   (a) install.sh <stack> --full --force → .mcp.json exists with correct context7 shape
-#   (b) idempotency: second --full run → context7 not duplicated, deepwiki not double-installed
+#   (a) install.sh <stack> --full --force --global → .mcp.json exists with correct context7 shape,
+#       and the user-scope deepwiki row is installed (--global is its consent)
+#   (b) idempotency: second --full run → context7 not duplicated; and WITHOUT --global the
+#       user-scope deepwiki row is never installed (critical-review S1-4: -y = project only)
 #   (c) --full --dry-run → no .mcp.json written
 #   (d) byte-identical guard (D2): --force WITHOUT --full → no .mcp.json (gate proven)
 #   (e) brownfield: pre-seeded .mcp.json with non-context7 entry preserved (additive merge)
+#   (f) deepwiki absent machine-wide (stub `claude mcp get` → not found) → deepwiki http entry
+#       in the project .mcp.json (one-button P3, point 8); and the manifest row then reads it as present, so the
+#       summary has no «deepwiki — not installed» line (also under (h), the project's own entry)
+#   (g) paired negative: deepwiki at user scope (stub reports «Scope: User config») → no project
+#       entry; and under --global the user-scope row owns it, so the project file carries none
+#   (h) the project's own context7 / deepwiki entries survive --force and are named in the summary,
+#       without their values (one-button fork 1 = A: the project's own setup wins)
+#   (i) getff's own earlier stdio context7 entry (npx @latest) moves to http without --force, and is
+#       not reported as the project's value
 
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -31,12 +42,22 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 # ── Shared stub setup ─────────────────────────────────────────────────────────
-# Create a claude stub that records calls and exits 0, so claude mcp add is testable.
+# Create a claude stub that records calls, so claude mcp add is testable. `claude mcp get deepwiki`
+# answers like Claude Code 2.1.270: «Scope: User config …» when STUB_DEEPWIKI_USER=1, else the
+# not-found error (exit 1) — the probe getff_deepwiki_machine_wide (lib.sh) reads.
 _stub_bin=$(mktemp -d)
 _claude_log=$(mktemp)
 cat > "$_stub_bin/claude" <<'EOF'
 #!/bin/sh
 printf 'claude-stub %s\n' "$*" >> "$CLAUDE_LOG"
+if [ "$1 $2 $3" = "mcp get deepwiki" ]; then
+  if [ "${STUB_DEEPWIKI_USER:-0}" = 1 ]; then
+    printf 'deepwiki:\n  Scope: User config (available in all your projects)\n  Type: http\n'
+    exit 0
+  fi
+  echo 'No MCP server found with name: deepwiki' >&2
+  exit 1
+fi
 exit 0
 EOF
 chmod +x "$_stub_bin/claude"
@@ -57,7 +78,7 @@ _run_install() {
 echo "  ── (a) greenfield: --full --force creates .mcp.json with context7 ──"
 _proj_a=$(mktemp -d)
 echo '{}' > "$_proj_a/package.json"
-_run_install "$_proj_a" --full --force >/dev/null 2>&1 || true
+_run_install "$_proj_a" --full --force --global >/dev/null 2>&1 || true
 
 _mcp_a="$_proj_a/.mcp.json"
 [ -f "$_mcp_a" ] && ok "(a) .mcp.json created" || bad "(a) .mcp.json not created"
@@ -65,20 +86,25 @@ if [ -f "$_mcp_a" ]; then
   jq -e '.mcpServers.context7' "$_mcp_a" >/dev/null 2>&1 \
     && ok "(a) context7 key present in .mcp.json" \
     || bad "(a) context7 key missing from .mcp.json"
-  jq -e '.mcpServers.context7.command == "npx"' "$_mcp_a" >/dev/null 2>&1 \
-    && ok "(a) context7.command = npx" \
-    || bad "(a) context7.command != npx"
-  jq -e '.mcpServers.context7.args[0] == "-y"' "$_mcp_a" >/dev/null 2>&1 \
-    && ok "(a) context7.args[0] = -y" \
-    || bad "(a) context7.args[0] != -y"
-  jq -e '.mcpServers.context7.args[1] == "@upstash/context7-mcp@latest"' "$_mcp_a" >/dev/null 2>&1 \
-    && ok "(a) context7.args[1] = @upstash/context7-mcp@latest" \
-    || bad "(a) context7.args[1] mismatch"
+  # http remote, like getff's own .mcp.json — nothing runs locally, no client version to pin
+  jq -e '.mcpServers.context7.type == "http"' "$_mcp_a" >/dev/null 2>&1 \
+    && ok "(a) context7.type = http" \
+    || bad "(a) context7.type != http"
+  jq -e '.mcpServers.context7.url == "https://mcp.context7.com/mcp"' "$_mcp_a" >/dev/null 2>&1 \
+    && ok "(a) context7.url = https://mcp.context7.com/mcp" \
+    || bad "(a) context7.url mismatch"
+  jq -e '.mcpServers.context7 | has("command") | not' "$_mcp_a" >/dev/null 2>&1 \
+    && ok "(a) context7 has no local command (no npx @latest)" \
+    || bad "(a) context7 still carries a local command"
+  # --global: the user-scope manifest row owns deepwiki, so the project file carries none
+  jq -e '.mcpServers | has("deepwiki") | not' "$_mcp_a" >/dev/null 2>&1 \
+    && ok "(a) --global: no project deepwiki entry (user-scope row owns it)" \
+    || bad "(a) --global: a project deepwiki entry was written as well"
 fi
 
-# claude mcp add (deepwiki row) must have been invoked
+# claude mcp add (deepwiki row, --scope user) must have been invoked — --global allowed it
 grep -q 'claude-stub mcp add' "$_claude_log" \
-  && ok "(a) claude mcp add was invoked (kind=mcp row)" \
+  && ok "(a) claude mcp add was invoked under --global (kind=mcp row)" \
   || bad "(a) claude mcp add was NOT invoked"
 rm -f "$_claude_log"; > "$_claude_log"
 rm -rf "$_proj_a"
@@ -94,7 +120,7 @@ _mcp_b="$_proj_b/.mcp.json"
 if [ -f "$_mcp_b" ]; then
   _ctx7_count=$(jq '[.mcpServers | keys[] | select(. == "context7")] | length' "$_mcp_b" 2>/dev/null || echo 0)
   [ "$_ctx7_count" -le 1 ] \
-    && ok "(b) context7 not duplicated ($_ ctx7_count entry)" \
+    && ok "(b) context7 not duplicated ($_ctx7_count entry)" \
     || bad "(b) context7 duplicated ($_ctx7_count entries)"
 fi
 # deepwiki detect-first: second run should show skip (already present stub logic returns 0)
@@ -103,6 +129,10 @@ fi
 #  empty output → installs on each run via stub. We just assert the stub was called, not the
 #  exact idempotency of the stub itself — true idempotency is a cold-QA / manual step per T-MIF-C.)
 ok "(b) second-run idempotency: context7 checked (deepwiki idempotency is manual cold-QA per T-MIF-C)"
+# paired negative for (a): neither --full run passed --global, so the user-scope row stays out.
+grep -q 'claude-stub mcp add' "$_claude_log" \
+  && bad "(b) claude mcp add ran WITHOUT --global — a machine-global install under plain --full" \
+  || ok "(b) without --global the user-scope MCP row is skipped (project-only install)"
 rm -f "$_claude_log"; > "$_claude_log"
 rm -rf "$_proj_b"
 
@@ -148,6 +178,91 @@ if [ -f "$_mcp_e" ]; then
     || bad "(e) brownfield: context7 not added"
 fi
 rm -rf "$_proj_e"
+
+# ── (f) deepwiki absent machine-wide → project http entry ────────────────────
+echo "  ── (f) deepwiki not configured machine-wide → added to the project .mcp.json ──"
+_proj_f=$(mktemp -d)
+echo '{}' > "$_proj_f/package.json"
+STUB_DEEPWIKI_USER=0 _run_install "$_proj_f" --full --force > "$_proj_f.log" 2>&1 || true
+_mcp_f="$_proj_f/.mcp.json"
+if [ -f "$_mcp_f" ]; then
+  jq -e '.mcpServers.deepwiki.type == "http" and .mcpServers.deepwiki.url == "https://mcp.deepwiki.com/mcp"' \
+    "$_mcp_f" >/dev/null 2>&1 \
+    && ok "(f) deepwiki http entry in the project .mcp.json" \
+    || bad "(f) deepwiki http entry missing from the project .mcp.json"
+  jq -e '.mcpServers.context7.type == "http"' "$_mcp_f" >/dev/null 2>&1 \
+    && ok "(f) context7 written alongside deepwiki" \
+    || bad "(f) context7 missing when deepwiki was added"
+else
+  bad "(f) .mcp.json not created"
+fi
+grep -q 'claude-stub mcp get deepwiki' "$_claude_log" \
+  && ok "(f) the probe asked \`claude mcp get deepwiki\` (not the removed \`mcp list --scope\`)" \
+  || bad "(f) the machine-wide probe never asked \`claude mcp get deepwiki\`"
+# The project entry is getff's deepwiki (05-mcp T1), so the manifest row (T2) reads it as present:
+# no «not installed» line for a server the same run just wired.
+grep -q 'deepwiki — not installed' "$_proj_f.log" \
+  && bad "(f) the summary calls deepwiki not installed while .mcp.json has it: $(grep 'deepwiki — not installed' "$_proj_f.log" | head -1)" \
+  || ok "(f) no «deepwiki — not installed» line once the project .mcp.json carries it"
+rm -f "$_claude_log"; > "$_claude_log"
+rm -rf "$_proj_f" "$_proj_f.log"
+
+# ── (g) paired negative: deepwiki at user scope → no project entry ───────────
+echo "  ── (g) deepwiki configured machine-wide → no project entry ──"
+_proj_g=$(mktemp -d)
+echo '{}' > "$_proj_g/package.json"
+STUB_DEEPWIKI_USER=1 _run_install "$_proj_g" --full --force >/dev/null 2>&1 || true
+_mcp_g="$_proj_g/.mcp.json"
+if [ -f "$_mcp_g" ]; then
+  jq -e '.mcpServers | has("deepwiki") | not' "$_mcp_g" >/dev/null 2>&1 \
+    && ok "(g) user-scope deepwiki → the project .mcp.json carries none" \
+    || bad "(g) user-scope deepwiki → a duplicate project entry was written"
+  jq -e '.mcpServers.context7.type == "http"' "$_mcp_g" >/dev/null 2>&1 \
+    && ok "(g) context7 still written" \
+    || bad "(g) context7 missing"
+else
+  bad "(g) .mcp.json not created"
+fi
+rm -f "$_claude_log"; > "$_claude_log"
+rm -rf "$_proj_g"
+
+# ── (h) the project's own entries win, --force or not (one-button fork 1 = A) ──
+echo "  ── (h) a project's own context7 and deepwiki entries are kept under --force, and reported ──"
+_proj_h=$(mktemp -d)
+echo '{}' > "$_proj_h/package.json"
+cat > "$_proj_h/.mcp.json" <<'EOF'
+{"mcpServers":{"context7":{"type":"http","url":"https://example.test/c7","headers":{"X-Team":"a"}},"deepwiki":{"command":"own-deepwiki"}}}
+EOF
+cp "$_proj_h/.mcp.json" "$_proj_h/own.json"
+STUB_DEEPWIKI_USER=0 _run_install "$_proj_h" --full --force > "$_proj_h.log" 2>&1 || true
+if jq -e --slurpfile own "$_proj_h/own.json" '.mcpServers.context7 == $own[0].mcpServers.context7 and .mcpServers.deepwiki == $own[0].mcpServers.deepwiki' \
+    "$_proj_h/.mcp.json" >/dev/null 2>&1; then
+  ok "(h) --force left the project's own context7 and deepwiki entries as they were"
+else bad "(h) --force replaced a project's own entry: $(jq -c .mcpServers "$_proj_h/.mcp.json" 2>/dev/null)"; fi
+if grep -q 'of the project.s own value(s) kept' "$_proj_h.log" \
+    && grep -q -- '- .mcp.json: context7 — the project.s own entry kept (getff.s: http https://mcp.context7.com/mcp)' "$_proj_h.log" \
+    && grep -q -- '- .mcp.json: deepwiki — the project.s own entry kept' "$_proj_h.log"; then
+  ok "(h) the summary names both kept entries and getff's value"
+else bad "(h) the kept entries are not in the summary"; fi
+grep -q 'deepwiki — not installed' "$_proj_h.log" \
+  && bad "(h) the summary calls deepwiki not installed while the project's own entry is kept" \
+  || ok "(h) no «deepwiki — not installed» line beside the project's own deepwiki entry"
+if grep -q 'example.test' "$_proj_h.log"; then bad "(h) the summary printed the project's own entry (it may carry secrets)"
+else ok "(h) the summary does not print the project's own entry"; fi
+rm -rf "$_proj_h" "$_proj_h.log"
+
+# ── (i) getff's own earlier stdio context7 entry moves to http, without --force ──
+echo "  ── (i) getff's earlier npx @latest context7 entry is moved to http ──"
+_proj_i=$(mktemp -d)
+echo '{}' > "$_proj_i/package.json"
+printf '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp@latest"]}}}\n' > "$_proj_i/.mcp.json"
+STUB_DEEPWIKI_USER=1 _run_install "$_proj_i" --full > "$_proj_i.log" 2>&1 || true
+if jq -e '.mcpServers.context7 == {"type":"http","url":"https://mcp.context7.com/mcp"}' "$_proj_i/.mcp.json" >/dev/null 2>&1; then
+  ok "(i) getff's former entry is now the http remote"
+else bad "(i) getff's former entry was not moved: $(jq -c .mcpServers.context7 "$_proj_i/.mcp.json" 2>/dev/null)"; fi
+if grep -q 'own value(s) kept' "$_proj_i.log"; then bad "(i) getff's own former entry was reported as the project's"
+else ok "(i) getff's own former entry is not reported as a kept project value"; fi
+rm -rf "$_proj_i" "$_proj_i.log"
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 rm -rf "$_stub_bin" "$_claude_log"

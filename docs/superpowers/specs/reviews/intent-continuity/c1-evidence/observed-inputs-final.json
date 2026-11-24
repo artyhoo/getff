@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "resultId": "c1-result-continuity",
+  "sourceInputs": [
+    {
+      "path": ".agents/procedures/intent/helpers/check-result-review.mjs",
+      "sha256": "9962c464d126acfcef8d1b77c292d708d8b8a3b8f78f8d36197b50bd17d434d7"
+    },
+    {
+      "path": ".agents/procedures/intent/helpers/publish-result-review.mjs",
+      "sha256": "ea6243fc3c5fabb0ace3315961c34b7746a10f89c0caa42bb8f08006c9591f80"
+    },
+    {
+      "path": "packages/runtime-bridge/src/resultReview.ts",
+      "sha256": "12790901d7ddd0718291aa8c75a91241f449608b504812b0a2b396576780e9e6"
+    },
+    {
+      "path": "packages/runtime-bridge/src/AifHandoffBackend.ts",
+      "sha256": "06992963999c078101eb871306c5dbe8de58950ba305c8ed02d2b8c4858a1420"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/claim.ts",
+      "sha256": "6b1c4f62f6e2d0cf022e37e6dd9995d10a26a13af5484a4962a782712a4ada67"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/recover-legacy-task.ts",
+      "sha256": "e0720a6f10e76756a0b0e8a3db7ba51f95049daf30b507ff0ccede57d3333bec"
+    },
+    {
+      "path": "packages/core/skills/intent-result-review.test.ts",
+      "sha256": "abb3d3aacaec08737e70d3e02aee032f22dbe9719312b8a58d4bf802c45d2219"
+    },
+    {
+      "path": "packages/runtime-bridge/test/result-review-effects.test.ts",
+      "sha256": "36b794ad6b764ad82df791a7efa17fadf97db4c3a92b40378c407c242b796e79"
+    }
+  ],
+  "observation": {
+    "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/focused-vitest-final.log",
+    "sha256": "eb400dbf2118951fe69a9170b1d01baf2566633e725c7768cf24b0ca5a0d8b17"
+  },
+  "environment": {
+    "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/environment.md",
+    "sha256": "8ab315764f57008288b3bc0acc73d30ae6a962a04975e70e03e5ac6e27090322"
+  },
+  "liveRecovery": {
+    "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/legacy-recovery.md",
+    "sha256": "d8ef43f88a4f6999dce9dc80c6d93fe540553218929c6b6d17b8112b4b2bd481"
+  }
+}

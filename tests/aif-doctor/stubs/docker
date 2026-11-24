@@ -4,14 +4,29 @@
 # without a real aif-handoff agent container (kickoff §3 final paragraph).
 #
 # Mapping:
-#   docker exec <C> <cmd> <args...>  ->  <cmd> <args...>          (run locally)
+#   docker exec [-u U] [-i] [-e K=V] <C> <cmd> <args...>
+#                                    ->  <cmd> <args...>          (run locally)
 #   docker cp <src> <C>:<dst>        ->  cp <src> <dst>            (local copy)
 #   docker ps --filter ...            ->  echo "aif-test-agent"     (fake container name)
+#
+# When STUB_EXEC_LOG is set, every exec appends «<user>\t<cmd args>» to it (<user> is the
+# -u value, or «default» when absent — i.e. the container's default user, root on aif), so
+# a test can assert WHICH user the helper ran each in-container command as.
 set -euo pipefail
 
 if [ "${1:-}" = "exec" ]; then
   shift            # remove "exec"
+  user="default"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -u|--user) user="$2"; shift 2 ;;
+      -e|--env) shift 2 ;;
+      -i|-t|-it) shift ;;
+      *) break ;;
+    esac
+  done
   shift            # remove container name ($C)
+  if [ -n "${STUB_EXEC_LOG:-}" ]; then printf '%s\t%s\n' "$user" "$*" >> "$STUB_EXEC_LOG"; fi
   exec "$@"
 elif [ "${1:-}" = "cp" ]; then
   shift            # remove "cp"

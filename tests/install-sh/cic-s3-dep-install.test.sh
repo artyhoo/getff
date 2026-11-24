@@ -30,12 +30,10 @@
 #     (two-sided) so neither can drift alone.
 #
 # #two-prompts-drift (printed manual fallback vs automated install):
-#   - Arm F: react-native + npm, NO --full → the Next-steps manual commands (devDep AND runtime)
-#     carry --legacy-peer-deps, mirroring the §8 npm arms' $NPM_PEER_FLAG (the a11y-peer ERESOLVE
-#     workaround) — a consumer who declined the automated install and copy-pastes must not hit
-#     the very ERESOLVE abort the automated path avoids.
-#   - Arm G (paired-negative): ts-server + npm, NO --full → NEITHER printed npm command carries
-#     --legacy-peer-deps (the flag is react-native-scoped, not blanket).
+#   - Arms F (react-native) + G (ts-server), NO --full → no dependency command is printed at all and
+#     the dependencies are one NOT-wired line with the reason (operator directive 2026-09-28, Q4.7).
+#     They used to assert that the printed copy carried --legacy-peer-deps for react-native only;
+#     with no printed copy there is nothing left that could drift from the §8 npm arms.
 #
 # npx-float (2026-07-10, same failure class as P0.2's typescript@7.0.2): the shipped react-next CI
 # template (packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml, test-storybook
@@ -203,49 +201,36 @@ grep -q 'typescript@\^5\.7\.0' <<< "$_rn_devdep_line" \
   && ok "E: the surviving react-native typescript spec is the pinned typescript@^5.7.0 (not the old bare entry)" \
   || bad "E: react-native devDep line missing the pinned typescript@^5.7.0"
 
-# ════ Arm F (#two-prompts-drift) — react-native + npm, NO --full → printed fallback carries --legacy-peer-deps ════
-# The automated §8 npm arms (setup.d/70-deps.sh devDep + runtime installs) pass $NPM_PEER_FLAG
-# (--legacy-peer-deps) for react-native because eslint-plugin-react-native-a11y peer-deps
-# eslint ^3..^8 while the preset ships eslint ^9 → npm 7+ ERESOLVE hard-fail. The Next-steps
-# manual fallback (setup.d/99-finalize.sh) is built from the same DEVDEPS/RUNTIME_DEPS arrays but
-# used to drop the flag — an RN consumer who declined the automated install and copy-pasted the
-# printed command got the exact ERESOLVE abort the automated path avoids. Both printed npm lines
-# (devDep + runtime) must carry the flag.
+# ════ Arm F (#two-prompts-drift, retired form) — react-native + npm, NO --full → nothing to copy ════
+# The Next-steps block used to print the npm commands for a declined install, and an RN copy lacking
+# $NPM_PEER_FLAG (--legacy-peer-deps) hit the ERESOLVE abort the automated §8 arms avoid. Since the
+# operator directive of 2026-09-28 (Q4.7) the install prints no command to run: the dependencies are
+# one NOT-wired line with the reason. The drift class is gone with the printed copy — nothing is left
+# that could drop the flag.
 F=$(mktemp -d); export AIF_PM_LOG="$F.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"f","version":"0.0.0" }\n' > "$F/package.json"
 ( cd "$F" && git init -q )
 F_OUT=$( cd "$F" && bash "$REPO_ROOT/install.sh" react-native --force < /dev/null 2>&1 )
 
-_f_dev_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install --save-dev' || true)
-_f_rt_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install' | grep -v -- '--save-dev' || true)
-[ -n "$_f_dev_line" ] \
-  && ok "F: no --full → Next-steps prints the manual 'npm install --save-dev' fallback" \
-  || bad "F: printed devDep fallback command missing from install output"
-case "$_f_dev_line" in
-  *--legacy-peer-deps*) ok "F: printed RN devDep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
-  *) bad "F: printed RN devDep command LACKS --legacy-peer-deps → copy-paste ERESOLVE abort ($_f_dev_line)" ;;
-esac
-case "$_f_rt_line" in
-  *--legacy-peer-deps*) ok "F: printed RN runtime-dep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
-  *) bad "F: printed RN runtime-dep command LACKS --legacy-peer-deps ($_f_rt_line)" ;;
-esac
+grep -qE '^ *(npm install|pnpm add|yarn add)' <<<"$F_OUT" \
+  && bad "F: no --full → the install still prints a dependency command to copy" \
+  || ok "F: no --full → no dependency command to copy"
+grep -q 'not installed' <<<"$(printf '%s\n' "$F_OUT" | grep -E '^[[:space:]]*- dependencies')" \
+  && ok "F: no --full → the dependencies are a NOT-wired line with the reason" \
+  || bad "F: no NOT-wired dependencies line in the react-native install output"
 
-# ════ Arm G (paired-negative for F) — ts-server + npm, NO --full → NO --legacy-peer-deps ════
-# Proves the printed flag is react-native-scoped: every other stack keeps strict peer resolution,
-# so a blanket flag (weakening peer checks for everyone) would be its own defect.
+# ════ Arm G — ts-server + npm, NO --full → the same NOT-wired line, no command ════
 G=$(mktemp -d); export AIF_PM_LOG="$G.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"g","version":"0.0.0" }\n' > "$G/package.json"
 ( cd "$G" && git init -q )
 G_OUT=$( cd "$G" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 )
 
-_g_npm_lines=$(printf '%s\n' "$G_OUT" | grep -E '^ *npm install' || true)
-[ -n "$_g_npm_lines" ] \
-  && ok "G: ts-server no --full → Next-steps prints the manual npm fallback" \
-  || bad "G: printed npm fallback commands missing from ts-server install output"
-case "$_g_npm_lines" in
-  *--legacy-peer-deps*) bad "G neg: ts-server printed command carries --legacy-peer-deps (flag not RN-scoped): $_g_npm_lines" ;;
-  *) ok "G neg: ts-server printed commands carry NO --legacy-peer-deps (flag is RN-scoped)" ;;
-esac
+grep -qE '^ *(npm install|pnpm add|yarn add)' <<<"$G_OUT" \
+  && bad "G: ts-server no --full → the install still prints a dependency command to copy" \
+  || ok "G: ts-server no --full → no dependency command to copy"
+grep -q 'not installed' <<<"$(printf '%s\n' "$G_OUT" | grep -E '^[[:space:]]*- dependencies')" \
+  && ok "G: ts-server no --full → the dependencies are a NOT-wired line with the reason" \
+  || bad "G: no NOT-wired dependencies line in the ts-server install output"
 
 # ════ Arm H (npx-float) — react-next --full → storybook-CI npx toolchain lands as devDeps ════
 # The shipped react-next CI template runs `npx concurrently/http-server/wait-on`; without these in
@@ -274,9 +259,8 @@ grep -q '@testing-library/user-event' "$AIF_PM_LOG" \
 # ════ Arm I (npx-float) — every `npx <tool>` in a shipped CI workflow template is covered by ════
 # the DEVDEPS arrays the installer delivers for that stack. Static grep, no install.sh execution.
 # Extraction is a per-line heuristic (second token after `npx`, including inside quoted
-# concurrently sub-commands); the arrays contain no comments inside the parens, so array-block
-# membership means the installer actually delivers the package.
-extract_array() { sed -n "/^$1=(/,/^)/p" "$REPO_ROOT/setup.d/70-deps.sh"; }
+# concurrently sub-commands); strip comments before testing array-block membership.
+extract_array() { sed -n "/^$1=(/,/^)/p" "$REPO_ROOT/setup.d/70-deps.sh" | sed 's/#.*$//'; }
 map_bin_to_pkg() {
   case "$1" in
     playwright) echo "@playwright/test" ;;      # @playwright/test ships the `playwright` bin
@@ -295,7 +279,7 @@ $(extract_array "$_a")"; done
   _bins=$(grep -oE 'npx +(--?[a-zA-Z-]+ +)*[@a-zA-Z][@a-zA-Z0-9/_.-]*' "$_tpl" | awk '{print $NF}' | sort -u)
   for _bin in $_bins; do
     _pkg=$(map_bin_to_pkg "$_bin")
-    printf '%s\n' "$_allowed" | grep -qE "(^|[[:space:](])${_pkg}(@|[[:space:])]|$)" \
+    grep -qE "(^|[[:space:](])${_pkg}(@|[[:space:])]|$)" <<<"$_allowed" \
       || _missing="$_missing $_pkg"
   done
   echo "$_missing"
@@ -335,6 +319,18 @@ case "$_neg_missing" in
     bad "I neg: \`npx -y <tool>\` slips past the extractor — flag-prefixed invocations unswept" ;;
 esac
 
+# I paired-negative: a package appearing only in an array comment is not installed.
+_I_COMMENT_ROOT=$(mktemp -d)
+mkdir -p "$_I_COMMENT_ROOT/setup.d"
+printf 'CORE_DEVDEPS=(\n  real-tool@^1 # comment-only-tool\n)\n' > "$_I_COMMENT_ROOT/setup.d/70-deps.sh"
+printf 'npx comment-only-tool\n' > "$_I_COMMENT_ROOT/template.yml"
+_I_COMMENT_MISSING=$(REPO_ROOT="$_I_COMMENT_ROOT" check_template_npx "$_I_COMMENT_ROOT/template.yml" CORE_DEVDEPS)
+case "$_I_COMMENT_MISSING" in
+  *comment-only-tool*) ok "I neg: comment-only package is not counted as installed" ;;
+  *) bad "I neg: comment-only package was counted as installed" ;;
+esac
+rm -rf "$_I_COMMENT_ROOT"
+
 # ════ Parity check (P0.2) — INSTALL.md §4 pins vs setup.d/70-deps.sh arrays (two-sided) ════
 # Cheap, deterministic, no install.sh execution: neither side can drift without failing this.
 # npx-float: the three react-next storybook-CI npx tools joined the list 2026-07-10.
@@ -351,6 +347,166 @@ for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.
     bad "parity: $_pkg_spec — INSTALL.md=${_in_docs:-NO} setup.d/70-deps.sh=${_in_installer:-NO} (drifted)"
   fi
 done
+
+# ════ Parity (jest-dom ~6.9.1 pin, 2026-11-19; reworked same day) — §4 React/Next command + BOTH arrays ════
+# 8.0.0 added an optional vitest>=5<6 peer (ERESOLVE against the shipped Vitest 4) and 6.10+/7.0
+# raise engines.node to >=22 — the tilde keeps the Node 20.19 brownfield floor. The pin must be
+# an EXACT shell token of the §4 React/Next fenced npm command AND of each React array.
+# Rework (owner repro 2026-11-19 — the first cut had two false positives): the doc side now reads
+# ONLY the fence under "### React/Next.js" inside "## Section 4", so a decoy literal in an HTML
+# comment, another section or another fence can never satisfy it; and every comparison is
+# whole-token equality, because grep -F substring-matches (a ~6.9.10 token passed as "~6.9.1").
+# Focused follow-up (owner repro, same day): the extraction must be the ACTUAL command — the
+# "npm install --save-dev" header plus its contiguous backslash continuations only. An arbitrary
+# command in the fence (e.g. the header swapped to `echo`) or a LATER command after the npm
+# install ends must not satisfy it. Scratch mutations below are STRUCTURAL (anchored to the
+# known heading/token/array), never line offsets.
+# Section-boundary follow-up (Sol repro, same day): the selected subsection ends at the next
+# peer level-3 heading (a valid fence moved under a later ### subheading is NOT the React/Next
+# command), and Markdown HTML comment blocks (<!-- ... --> lines) are skipped BEFORE heading/
+# fence detection (a pinned fake fence inside a comment is not a fence).
+_jd_s4_command() (  # $1 = INSTALL.md path → stdout: the §4 React/Next "npm install --save-dev" command only
+  awk '
+    in_comment  { if ($0 ~ /-->/) in_comment = 0; next }       # inside an HTML comment block: skip the line
+    /<!--/      { if ($0 !~ /-->/) in_comment = 1; next }      # comment opener (single-line comments skip too)
+    /^## Section 4/            { s4 = 1; next }
+    /^## / && s4               { exit }                        # Section 4 ends at the next ## heading
+    s4 && /^###/ && !rn        { if ($0 ~ /^### React\/Next/) rn = 1; next }
+    s4 && rn && /^###/         { exit }                        # peer level-3 heading ends the subsection
+    rn && /^```bash/           { fence = 1; next }
+    rn && /^```/               { exit }                        # closing fence of the React/Next command
+    fence && !hdr {                                            # first content line MUST be the npm header
+      if ($0 !~ /^[[:space:]]*npm install --save-dev[[:space:]]*(\\)?[[:space:]]*$/) exit
+      hdr = 1; print
+      if ($0 !~ /\\$/) exit                                    # single-line command: done
+      next
+    }
+    fence                      { print; if ($0 !~ /\\$/) exit }  # last continuation line ends the command —
+  ' "$1" | sed 's/#.*$//'                                     # later commands in the same fence are excluded.
+)                                                              # In-fence # comments stripped (extract_array style).
+check_jestdom_pin() (  # reads $REPO_ROOT → echoes failing surfaces (empty = pinned everywhere)
+  _jd='@testing-library/jest-dom@~6.9.1'
+  _bad=""
+  _found=""
+  for _tok in $(_jd_s4_command "$REPO_ROOT/INSTALL.md"); do
+    [ "$_tok" = "$_jd" ] && _found=y
+  done
+  [ -n "$_found" ] || _bad="$_bad s4-command"
+  for _arr in REACT_DEVDEPS REACT_SPA_DEVDEPS; do
+    _found=""
+    for _tok in $(extract_array "$_arr"); do
+      [ "$_tok" = "$_jd" ] && _found=y
+    done
+    [ -n "$_found" ] || _bad="$_bad $_arr"
+  done
+  echo "$_bad"
+)
+_jd_missing=$(check_jestdom_pin)
+[ -z "$_jd_missing" ] \
+  && ok "parity-jd: @testing-library/jest-dom@~6.9.1 is an exact token of the §4 React/Next command and both React arrays" \
+  || bad "parity-jd: pin missing from:$_jd_missing"
+# negatives (owner repro 2026-11-19): each scratch root must break exactly its own surfaces.
+_JD_NEG=$(mktemp -d)
+mkdir -p "$_JD_NEG/setup.d"
+# neg1 — defect 1: real §4 argument unpinned, the previously matched fragment parked in an HTML
+# comment OUTSIDE the fence (whole-file grep passed on that decoy) → s4-command ONLY.
+sed 's#\(@testing-library/react \)@testing-library/jest-dom@~6\.9\.1#\1@testing-library/jest-dom#' \
+  "$REPO_ROOT/INSTALL.md" \
+ | awk '/^## Section 4/ && !d { print "<!-- manual fallback: @testing-library/react @testing-library/jest-dom@~6.9.1 @testing-library/user-event -->"; d=1 } { print }' \
+  > "$_JD_NEG/INSTALL.md"
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg1: §4 token unpinned + HTML-comment decoy → s4-command only (decoy ignored)" \
+  || bad "parity-jd neg1: decoy scratch wrong result:[$_jd_neg]"
+# neg2 — defect 2: BOTH array tokens bumped to ~6.9.10 (grep -F substring-matched the longer
+# version) → both arrays fail, doc stays clean (restore it: neg1 left it unpinned).
+cp "$REPO_ROOT/INSTALL.md" "$_JD_NEG/INSTALL.md"
+sed 's#@testing-library/jest-dom@~6\.9\.1#@testing-library/jest-dom@~6.9.10#g' \
+  "$REPO_ROOT/setup.d/70-deps.sh" > "$_JD_NEG/setup.d/70-deps.sh"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " REACT_DEVDEPS REACT_SPA_DEVDEPS" ] \
+  && ok "parity-jd neg2: arrays at ~6.9.10 → both arrays fail (no substring match on longer pins)" \
+  || bad "parity-jd neg2: 6.9.10 scratch wrong result:[$_jd_neg]"
+# neg3 — wrong fence: pin valid inside the §4 SERVER-TS fence while the React/Next token is
+# unpinned → still s4-command (a right literal in a wrong fence/command never satisfies).
+# Structural: append the pin to the server fence's @types/node line (that fence's last token),
+# never a line offset.
+sed -e 's#\(@types/node@^22\.10\.0\)$#\1 @testing-library/jest-dom@~6.9.1#' \
+    -e 's#\(@testing-library/react \)@testing-library/jest-dom@~6\.9\.1#\1@testing-library/jest-dom#' \
+  "$REPO_ROOT/INSTALL.md" > "$_JD_NEG/INSTALL.md"
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg3: pin in the §4 server fence + unpinned React/Next token → s4-command (wrong fence rejected)" \
+  || bad "parity-jd neg3: wrong-fence scratch wrong result:[$_jd_neg]"
+# neg4 — single surface: pin stripped from REACT_DEVDEPS only → exactly that array fails.
+# Structural: sed range over the REACT_DEVDEPS block itself (same idiom as extract_array).
+cp "$REPO_ROOT/INSTALL.md" "$_JD_NEG/INSTALL.md"
+sed '/^REACT_DEVDEPS=(/,/^)/ s#@testing-library/jest-dom@~6\.9\.1#@testing-library/jest-dom#' \
+  "$REPO_ROOT/setup.d/70-deps.sh" > "$_JD_NEG/setup.d/70-deps.sh"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " REACT_DEVDEPS" ] \
+  && ok "parity-jd neg4: pin stripped from REACT_DEVDEPS only → exactly that array fails" \
+  || bad "parity-jd neg4: single-array scratch wrong result:[$_jd_neg]"
+# neg5 — wrong command on the ACTUAL React/Next fence: only the "npm install --save-dev" header
+# swapped to `echo` (owner repro), argument rows unchanged → s4-command (the extraction demands
+# the real npm header). Structural: the SECOND "npm install --save-dev \" header in the doc is
+# the React/Next one (the first belongs to the server fence).
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+awk '!d && /^npm install --save-dev \\$/ { c++; if (c==2) { print "echo \\"; d=1; next } } { print }' \
+  "$REPO_ROOT/INSTALL.md" > "$_JD_NEG/INSTALL.md"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg5: React/Next fence header swapped to echo → s4-command (arbitrary command rejected)" \
+  || bad "parity-jd neg5: echo-header scratch wrong result:[$_jd_neg]"
+# neg6 — later command: the fence's npm install ends (last arg line, no backslash) and a
+# FOLLOWING line carries the pin as a later command's argument → s4-command (only the contiguous
+# backslash continuations of the npm header are checked). Structural: insert after the fence's
+# last argument line (the one ending in http-server@^14.1.0), with the real token unpinned.
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+sed 's#\(@testing-library/react \)@testing-library/jest-dom@~6\.9\.1#\1@testing-library/jest-dom#' \
+  "$REPO_ROOT/INSTALL.md" \
+ | awk '/http-server@\^14\.1\.0$/ && !d { print; print "echo @testing-library/jest-dom@~6.9.1"; d=1; next } { print }' \
+  > "$_JD_NEG/INSTALL.md"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg6: pin only in a later command after the npm install ends → s4-command (later commands excluded)" \
+  || bad "parity-jd neg6: later-command scratch wrong result:[$_jd_neg]"
+# neg7 — wrong subsection (Sol repro): the valid PINNED fence moved out of the React/Next
+# subsection to a NEW peer level-3 subheading (the React/Next subsection left with no fence) →
+# s4-command (the selection ends at the next peer ### heading). Structural: buffer the fence
+# under the actual "### React/Next" heading and re-emit it after a new peer subheading —
+# no line offsets.
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+awk '
+  /^### React\/Next/          { rn2 = 1; print; next }
+  rn2 && !fence2 && /^```bash/ { fence2 = 1; next }
+  rn2 && fence2 && /^```/     { print ""; print "### Different subsection"; print ""; print "```bash";
+                                printf "%s", moved2; print "```"; fence2 = 0; moved2 = ""; next }
+  rn2 && fence2               { moved2 = moved2 $0 "\n"; next }
+  { print }
+' "$REPO_ROOT/INSTALL.md" > "$_JD_NEG/INSTALL.md"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg7: pinned fence moved to a peer ### subsection, React/Next left bare → s4-command (subsection-bounded)" \
+  || bad "parity-jd neg7: moved-fence scratch wrong result:[$_jd_neg]"
+# neg8 — commented fake fence (Sol repro): a pinned fence entirely inside a multiline HTML
+# comment placed after the heading, before the ACTUAL unpinned fence → s4-command (comment
+# blocks are skipped before heading/fence detection). Structural: anchored on the actual
+# "### React/Next" heading, no line offsets.
+cp "$REPO_ROOT/setup.d/70-deps.sh" "$_JD_NEG/setup.d/70-deps.sh"
+sed 's#\(@testing-library/react \)@testing-library/jest-dom@~6\.9\.1#\1@testing-library/jest-dom#' \
+  "$REPO_ROOT/INSTALL.md" \
+ | awk '/^### React\/Next/ && !d8 { print; print ""; print "<!--"; print "```bash";
+        print "npm install --save-dev \\"; print "  @testing-library/jest-dom@~6.9.1 \\";
+        print "```"; print "-->"; d8 = 1; next } { print }' \
+  > "$_JD_NEG/INSTALL.md"
+_jd_neg=$(REPO_ROOT="$_JD_NEG" check_jestdom_pin)
+[ "$_jd_neg" = " s4-command" ] \
+  && ok "parity-jd neg8: pinned fake fence inside an HTML comment + actual token unpinned → s4-command (comments skipped)" \
+  || bad "parity-jd neg8: commented-fence scratch wrong result:[$_jd_neg]"
+rm -rf "$_JD_NEG"
 
 # ════ No third pin copy (npx-float follow-up) — storybook-package-additions.json stays retired ════
 # The former sibling template (merged by retired setup.sh Batch K, #946) duplicated these pins —

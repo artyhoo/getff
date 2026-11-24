@@ -1,0 +1,48 @@
+{
+  "framework": "react-next",
+  "version": null,
+  "patterns": [
+    {
+      "id": "next-no-head-element",
+      "summary": "Next.js App Router pages must not render a raw <head> element. Use the Metadata API (export const metadata / generateMetadata) or, in the Pages Router, next/head's <Head> — a raw <head> is not hoisted or deduplicated and conflicts with Next.js head management.",
+      "bestPractices": [
+        "Export a `metadata` object or `generateMetadata` from the route segment (App Router)",
+        "Use next/head's <Head> for per-page tags in the Pages Router",
+        "Never author a literal <head> element inside a component tree"
+      ],
+      "antiPatterns": [
+        "Rendering a raw <head> element inside a Next.js component",
+        "Duplicating <head> management instead of using the Metadata API"
+      ],
+      "provenance": [
+        {
+          "url": "https://nextjs.org/docs/messages/no-head-element",
+          "allowlistKey": "next.official",
+          "fetchedAt": "2026-06-29T00:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "next-server-only-boundary",
+      "summary": "Do not import server-only modules (database clients, secrets, server-only-marked packages) into Client Components. This is a cross-file import-boundary invariant — it is NOT expressible as a single-file forbid-selector and is recorded as a research-only finding (knowledge surfaced), NOT shipped as an executable rule in this slice.",
+      "bestPractices": [
+        "Mark server-only modules with the `server-only` package so an accidental client import fails the build",
+        "Keep data-access code in Server Components or route handlers",
+        "Pass data to Client Components via props, not by importing server modules"
+      ],
+      "antiPatterns": [
+        "Importing a server-only module from a 'use client' file",
+        "Leaking secrets into a Client Component bundle"
+      ],
+      "provenance": [
+        {
+          "url": "https://nextjs.org/docs/app/building-your-application/rendering/composition-patterns",
+          "allowlistKey": "next.official",
+          "fetchedAt": "2026-06-29T00:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "missing": [],
+  "drift": null
+}

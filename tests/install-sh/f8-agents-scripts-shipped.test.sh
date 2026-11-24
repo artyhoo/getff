@@ -52,7 +52,7 @@ else
 fi
 
 # ── gate (structural move, not a comment) ────────────────────────────────────
-if non_ui | grep -qE 'test-storybook|playwright'; then
+if grep -qE 'test-storybook|playwright' <<<"$(non_ui)"; then
   bad "test-storybook/playwright still in the unconditional core block — must be UI-gated"
 else
   ok "test-storybook + playwright are confined to the '### UI projects' subsection"

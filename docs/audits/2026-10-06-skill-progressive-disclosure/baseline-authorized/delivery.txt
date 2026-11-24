@@ -1,0 +1,32 @@
+  ✓ skill shipped: .claude/skills/dispatcher/SKILL.md
+  ✓ skill shipped: .claude/skills/aif-doctor/SKILL.md
+  ✓ skill shipped: .claude/skills/template-audit/SKILL.md
+  ✓ skill shipped: .claude/skills/night-mode/SKILL.md
+  ✓ skill shipped: .claude/skills/ai-doc/SKILL.md
+  ✓ skill shipped: .claude/skills/rule-research/SKILL.md
+  ✓ skill shipped: .claude/skills/harvest/SKILL.md
+  ✓ skill shipped: .claude/skills/story/SKILL.md
+  ✓ dispatcher repo-internal refs transformed (no surviving ../../../{docs,packages,README}; rules/+hooks/ stay relative by convention)
+  ✓ dispatcher refs rewritten to GitHub blob URLs
+  ✓ source dispatcher carries repo-internal refs (transform assertion is non-vacuous)
+  ✓ night-mode: no dangling transform-target link
+  ✓ ai-doc: no dangling transform-target link
+  ✓ rule-research: no dangling transform-target link
+  ✓ harvest: no dangling transform-target link
+  ✓ story: no dangling transform-target link
+  ✓ pipeline: no dangling transform-target link
+  ✓ dispatcher: no dangling transform-target link
+  ✓ aif-doctor: no dangling transform-target link
+  ✓ arch: no dangling transform-target link
+  ✓ orchestrator: no dangling transform-target link
+  ✓ night-mode transform ran (blob URLs present)
+  ✓ pipeline: every conditional reference delivered
+  ✓ dispatcher: every conditional reference delivered
+  ✓ aif-doctor: every conditional reference delivered
+  ✓ arch: every conditional reference delivered
+  ✓ orchestrator: every conditional reference delivered
+  ✓ night-mode: every conditional reference delivered
+  ✓ neg arm: cold-reference transform leak detected
+  ✓ neg arm: bogus skill path correctly absent (existence check discriminates)
+
+PASS=30 FAIL=0

@@ -1,0 +1,44 @@
+{
+  "prepare": {
+    "result": "Verbatim advisor bridge role reminder from my injected context:\n\n> Send the question, observed facts, actions, results, uncertainties and evidence. Do not prescribe the advisor's reasoning, tools, skills or verdict. Preserve failures and deviations.\n\nApplication before writing a REPORT: I will populate the REPORT with only the question, observed facts, actions taken, results, uncertainties and evidence \u2014 leaving any reasoning-chain, tool choice or verdict to the senior \u2014 and record failures and deviations exactly as they occurred instead of smoothing them over.",
+    "is_error": false,
+    "modelUsage": {
+      "glm-5.3": {
+        "inputTokens": 37588,
+        "outputTokens": 2126,
+        "cacheReadInputTokens": 1280,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.19312800000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000,
+        "thinkingTokens": 0,
+        "canonicalModel": "glm-5.3",
+        "provider": "firstParty",
+        "costBasis": "unknown"
+      }
+    },
+    "session_id": "8633501f-6022-441c-a9d8-eed26fbfd7f6"
+  },
+  "consume": {
+    "result": "\u0426\u0438\u0442\u0430\u0442\u0430 \u0434\u043e\u0441\u043b\u043e\u0432\u043d\u043e (\u0438\u0437 SessionStart-\u0438\u043d\u044a\u0435\u043a\u0446\u0438\u0438 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430):\n\n> Follow the current bound senior instruction within project policy and granted permissions. If it conflicts with those boundaries or is materially ambiguous, report the exact conflict and pause dependent work.\n\n\u041a\u0430\u043a \u043f\u0440\u0438\u043c\u0435\u043d\u044e: \u043f\u0440\u0435\u0436\u0434\u0435 \u0447\u0435\u043c \u0434\u0435\u0439\u0441\u0442\u0432\u043e\u0432\u0430\u0442\u044c \u043f\u043e \u0441\u0432\u044f\u0437\u0430\u043d\u043d\u043e\u043c\u0443 \u0440\u0435\u0448\u0435\u043d\u0438\u044e \u0441\u0442\u0430\u0440\u0448\u0435\u0433\u043e, \u044f \u0441\u0432\u0435\u0440\u044e \u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044e \u0441 \u043f\u043e\u043b\u0438\u0442\u0438\u043a\u043e\u0439 \u043f\u0440\u043e\u0435\u043a\u0442\u0430 \u0438 \u0432\u044b\u0434\u0430\u043d\u043d\u044b\u043c\u0438 \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u0438\u044f\u043c\u0438 \u0438 \u043f\u0440\u0438 \u043a\u043e\u043d\u0444\u043b\u0438\u043a\u0442\u0435 \u0438\u043b\u0438 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0435\u043d\u043d\u043e\u0439 \u043d\u0435\u043e\u0434\u043d\u043e\u0437\u043d\u0430\u0447\u043d\u043e\u0441\u0442\u0438 \u043f\u0440\u0438\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u044e \u0437\u0430\u0432\u0438\u0441\u0438\u043c\u0443\u044e \u0440\u0430\u0431\u043e\u0442\u0443, \u0434\u043e\u043b\u043e\u0436\u0438\u0432 \u0442\u043e\u0447\u043d\u044b\u0439 \u0442\u0435\u043a\u0441\u0442 \u043a\u043e\u043d\u0444\u043b\u0438\u043a\u0442\u0430, \u0432\u043c\u0435\u0441\u0442\u043e \u043c\u043e\u043b\u0447\u0430\u043b\u0438\u0432\u043e\u0433\u043e \u0438\u0441\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f.",
+    "is_error": false,
+    "modelUsage": {
+      "glm-5.3": {
+        "inputTokens": 25554,
+        "outputTokens": 768,
+        "cacheReadInputTokens": 15040,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.120584,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000,
+        "thinkingTokens": 0,
+        "canonicalModel": "glm-5.3",
+        "provider": "firstParty",
+        "costBasis": "unknown"
+      }
+    },
+    "session_id": "82ed1216-9100-41fb-a5f3-a9fd5dac99d6"
+  }
+}

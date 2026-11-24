@@ -29,6 +29,7 @@ const CYRILLIC = /[Ѐ-ӿ]/;
 
 // SKILL.md bodies that legitimately carry Cyrillic match-data (category 3).
 export const SKILL_BODY_RU_ALLOWLIST = [
+  '.agents/procedures/pipeline/SKILL.md',
   '.claude/skills/pipeline/SKILL.md', // decision-deferral phrases «выбирай сам / оба норм / я устал»
 ];
 
@@ -58,7 +59,7 @@ function bodyOf(relPath: string): string {
 
 describe('Principle 22 — internal machinery is English-only', () => {
   it('Surface 1: no Cyrillic in machinery shell scripts (outside lang/ packs)', () => {
-    const files = tracked('.claude/hooks', '.claude/skills', 'scripts').filter(
+    const files = tracked('.agents/hooks', '.agents/procedures', '.claude/hooks', '.claude/skills', 'scripts').filter(
       (f) => f.endsWith('.sh') && !/\/lang\/[^/]+\.sh$/.test(f),
     );
     const violations = files
@@ -73,7 +74,7 @@ describe('Principle 22 — internal machinery is English-only', () => {
   });
 
   it('Surface 2: no Cyrillic in SKILL.md bodies (outside frontmatter + allowlist)', () => {
-    const files = tracked('.claude/skills').filter(
+    const files = tracked('.agents/procedures', '.claude/skills').filter(
       (f) => /\/SKILL\.md$/.test(f) && !SKILL_BODY_RU_ALLOWLIST.includes(f),
     );
     const violations = files.filter((f) => CYRILLIC.test(bodyOf(f)));

@@ -1,0 +1,213 @@
+{
+  "kind": "spec-review",
+  "version": 1,
+  "featureId": "dsh-native-q0-qualification",
+  "prdRef": {
+    "path": "docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da.md",
+    "sha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da"
+  },
+  "specRef": {
+    "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md",
+    "sha256": "1adc905b57e1d78dc2ed2c54b2cc3edd7b39fe361e3ad5d4afb8e88f683fb03b"
+  },
+  "approvalRef": {
+    "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval.md",
+    "sha256": "ba2ab6e57a988f54650bc18730096683edd168d2b20a408e306e7809418c716e"
+  },
+  "reviewer": {
+    "independence": "Fresh artifact-only product-intent reviewer /root/q0_spec_fidelity. I did not author the approved brief, authority record, candidate specification or recovered source contract. I did not read implementation logs, chat history, memory, other reviewer opinions or producer discussion. The approval record's conformance prose was treated as the producer's assessment, not as my verdict.",
+    "context": "Primary document: exact approved Q0 PRD bf56e472. Compared every essential Q0-P1 through Q0-P4 and their failure cases against the exact candidate specification 1adc905b and all 19 A-D task clauses plus nine output rows in its digest-bound normative contract a8a2f79e. Read source-baseline only for recovered requirement meanings and parent PRD ec33fd3d solely to verify preserved whole-feature obligations. This is a semantic specification-fidelity judgment, not a runtime, architecture-adoption, execution-release or Q0-result acceptance judgment. Project bootstrap, review discipline, intent spec-review protocol and validator were read as procedural instructions.",
+    "documents": [
+      {
+        "path": "docs/superpowers/specs/snapshots/dsh-native-q0-qualification/prd-bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da.md",
+        "sha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md",
+        "sha256": "1adc905b57e1d78dc2ed2c54b2cc3edd7b39fe361e3ad5d4afb8e88f683fb03b"
+      },
+      {
+        "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/brief-approval.md",
+        "sha256": "ba2ab6e57a988f54650bc18730096683edd168d2b20a408e306e7809418c716e"
+      },
+      {
+        "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/authorized-q0-contract.txt",
+        "sha256": "a8a2f79e9768463dc1a34d52bf22b537891bcd401cdb34c6dde9e3f38c0e02b1"
+      },
+      {
+        "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-baseline.md",
+        "sha256": "cbe189f1541b595e5d712a1dedb9aa599f2d50363e12d8b7c9192c0ec3599719"
+      },
+      {
+        "path": "docs/superpowers/specs/snapshots/portable-verified-autonomy/prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md",
+        "sha256": "ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721"
+      }
+    ]
+  },
+  "promises": [
+    {
+      "id": "Q0-P1",
+      "comparison": "supported",
+      "reason": "The design requires the actual isolated destination/profile/tool identity and complete observed check receipts, pins both separate satellite revisions, and explicitly makes the complete digest-bound Tasks A-D executable under its new release conditions. The incorporated Task A at authorized-q0-contract.txt:46-50 requires host/OS/root/HEAD/tool/private-state identity, detect-first setup and lifecycle-script inspection, complete source/notices/revision/lockfile/dependency closure, actual upstream checks with cwd/exits/sanitized stdout and stderr, independent Harness setup/start diagnostics, and environment/sources/raw preservation with evidence levels. Its missing-dependency rule and cloud-versus-PC limitation remain binding. Specification line45 additionally requires real exits and preserves an OS denial even when a wrapper exits0. Thus a source archive, guessed command, skipped prerequisite or another host's result cannot satisfy an observed build. No build success is asserted by the candidate.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| Q0-P1 | Actual source, destination and build evidence are reproducible. | Record the isolated host/profile, exact DSH/Harness revisions, declared setup/dependency closure, inspected lifecycle scripts and actual check commands with complete exits and sanitized output; preserve concrete missing prerequisites. | A source archive, a guessed command, a skipped dependency or another host's result is reported as an observed successful build. | Yes |",
+          "location": "Essential promises, line20"
+        },
+        {
+          "source": "spec",
+          "quote": "The complete authorized task and output contract is preserved in `reviews/dsh-native-q0-qualification/authorized-q0-contract.txt`, SHA256 `a8a2f79e9768463dc1a34d52bf22b537891bcd401cdb34c6dde9e3f38c0e02b1`. It contains the original kickoff sections1-5, including every Q0 Task A-D clause, output artifact, acceptance condition and later-stage boundary. Its clause text matches the observed source prefix; only final blank section separators were normalized to one final LF.",
+          "location": "Section1, line20"
+        },
+        {
+          "source": "spec",
+          "quote": "Execute those Tasks A-D under this section0 release and the boundaries below.",
+          "location": "Section1, line22, first sentence"
+        },
+        {
+          "source": "spec",
+          "quote": "Use the complete DSH application at trial commit `6337fc823ce20251c8de8085948165c81aaa701e`, with matching Harness source `d743267388641bc76f17c45ce8b4c231aed1d32c`, as separate upstream satellite data/checkouts. Preserve notices and record actual revisions, lockfiles and dependency resolutions. A newer version is a distinct trial, not a relabeling of the frozen target.",
+          "location": "Section1, line26, first three sentences"
+        },
+        {
+          "source": "spec",
+          "quote": "| Q0-P1 | Task A records actual destination/profile/tool identity, inspected setup and lifecycle scripts, pinned source/build closure, upstream-declared checks with complete command receipts, and concrete failures/prerequisites. |",
+          "location": "Section2, line32"
+        },
+        {
+          "source": "spec",
+          "quote": "Read upstream setup and package/lock manifests, including lifecycle scripts, before dependency installation. After actual release, isolated supported dependency/build commands and synthetic/fake-provider fixtures are permitted. Inspect complete outputs and real exits; record each observed level separately as DOC, SOURCE, TEST, RUNTIME, REPORTED or UNKNOWN. An OS denial remains a denial even if a wrapper exits0.",
+          "location": "Section3, line45, first four sentences"
+        }
+      ]
+    },
+    {
+      "id": "Q0-P2",
+      "comparison": "supported",
+      "reason": "The specification separately requires provider registration, effective worker exposure, successful fake invocation, lifecycle outcomes, legitimate account evidence and reviewer inputs/isolation; it does not collapse them into one pass. Its normative Task B at authorized-q0-contract.txt:54-58 retains every investigation clause: restriction-filtered tools; real managed-path submission/callback/error/cancel/disconnect fixtures where feasible with identities and tool/input inventories; supported nonsecret eligibility for the coordinator separately from children while preserving normal authentication; full reviewer-context inventory and conditional author-rationale/cross-project sentinels; and a per-dimension providers-and-context report. The original no-history-is-not-isolation and standalone-provider-is-not-worker-activation limits remain binding. Line47 forbids paid models, login and credential/config copying, distinguishes the eligible GLM investigation executor from DSH coordinator/child eligibility, and holds unknown DSH entitlement. Line55 forbids synthetic fixtures from proving entitlement or isolation and requires explicit unexercised cases/prerequisites. Conditional unavailable live/profile evidence therefore remains unknown and gates later work, as the PRD permits; it is not a missing promise or a favorable account result.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| Q0-P2 | Direct worker capabilities, context and eligibility are distinguished by observed level. | Inspect effective managed-worker tools and reviewer inputs; use fake/synthetic providers on the real managed path where feasible; retain submission/callback/error/cancel/disconnect observations separately from supported nonsecret account-route information. | Global provider registration is called worker activation, a no-history flag is called isolation, or unavailable account evidence becomes a claimed pass. | Yes |",
+          "location": "Essential promises, line21"
+        },
+        {
+          "source": "prd",
+          "quote": "Unavailable live account or review-profile evidence remains UNKNOWN/UNVERIFIED and gates the relevant later work; it never becomes PASS. Actual check failures and unsupported managed-path fixture coverage must remain in the report.",
+          "location": "Permitted outcomes and deferrals, line27, final two sentences"
+        },
+        {
+          "source": "spec",
+          "quote": "Execute those Tasks A-D under this section0 release and the boundaries below.",
+          "location": "Section1, line22, first sentence"
+        },
+        {
+          "source": "spec",
+          "quote": "| Q0-P2 | Task B distinguishes global provider registration, effective managed-worker exposure, successful fake/synthetic invocation, lifecycle callbacks/error/cancel/disconnect, legitimate account-route evidence and actual reviewer inputs/isolation. |",
+          "location": "Section2, line33"
+        },
+        {
+          "source": "spec",
+          "quote": "Q0 invokes no paid DSH/provider model, performs no login, copies no credentials or whole private configuration, enrolls no production destination, and changes no production PC/power/access state. Existing-subscription GLM is the retained investigation executor under its standing launch policy; this is distinct from testing DSH's coordinator/child billing or eligibility. Unknown DSH entitlement remains UNKNOWN and gates the relevant later work.",
+          "location": "Section3, line47"
+        },
+        {
+          "source": "spec",
+          "quote": "Describe each unexercised case and its next prerequisite. Source observations do not prove installed behavior; synthetic fixture tests do not prove subscription eligibility, isolation or whole-system autonomy.",
+          "location": "Section4, line55, final two sentences"
+        }
+      ]
+    },
+    {
+      "id": "Q0-P3",
+      "comparison": "supported",
+      "reason": "Task C is incorporated in full rather than replaced by the table summary. At authorized-q0-contract.txt:62-66 its population covers admission/cross-route claim, plan review, workspace/execution, technical review/rework, observation/result identity, correction custody, independent product acceptance and delivery. Each duty needs its existing mechanism, concrete replacement seam, delta, tests, consumer assets and prerequisite. The terminal inventory explicitly includes ready/dropped, PR closed/merged, stop, restart, late result, quota/provider hold and uncertain effects; it requires both refusal of false acceptance and continuation under the same durable obligation. Disposable valid/invalid authority records remain clearly labeled fixtures and cannot be published as independent judgments. Both CSVs retain file/function anchors and observed levels. Specification lines34,49 and57 independently preserve the complete map, continuing owner/wake, absence of AIF fallback, preserved acceptance/recovery and proposal-only Q1 boundary. Nothing permits a ready-only gate, invented production identity, strand-without-continuation, lifecycle rewrite or fixture-as-real-review substitution.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| Q0-P3 | Replacement duties and terminal recovery are completely accounted for. | Enumerate the existing AIF duties and terminal/effect paths with source/function anchors, acceptance guard, continuing owner/wake, smallest delta, required tests and unresolved prerequisites; exercise existing authority helpers on clearly labeled disposable fixtures. | A ready-only gate misses another completion path, a task can strand without a continuation, an AIF fallback or synthetic production task ID hides a missing replacement, or a fixture is published as a real review. | Yes |",
+          "location": "Essential promises, line22"
+        },
+        {
+          "source": "spec",
+          "quote": "Execute those Tasks A-D under this section0 release and the boundaries below.",
+          "location": "Section1, line22, first sentence"
+        },
+        {
+          "source": "spec",
+          "quote": "| Q0-P3 | Task C inventories every AIF replacement duty and terminal/effect/recovery path, acceptance guard, continuing owner/wake, minimal delta, tests/consumer impact and missing prerequisites; existing authority helpers run only on clearly labeled disposable fixtures. |",
+          "location": "Section2, line34"
+        },
+        {
+          "source": "spec",
+          "quote": "The candidate task path uses no AIF runtime/task/claim/dispatch and no automatic AIF fallback. Existing unrelated AIF users remain with their owners. Product integration source, DSH scheduler/engine/executor, new general registries/routers/observers and Q1-Q4 execution are outside Q0. Existing workflow/admission/acceptance responsibilities must be mapped rather than waived.",
+          "location": "Section3, line49"
+        },
+        {
+          "source": "spec",
+          "quote": "If feasible, the Q1 proposal names actual files/interfaces, adverse tests, all completion and continuation paths and upgrade regression scope. It is a proposal requiring its own review/admission, not authorization to implement. Current authority/candidate checks, independent getff acceptance, one correction owner and normal recovery remain intact.",
+          "location": "Section4, line57"
+        }
+      ]
+    },
+    {
+      "id": "Q0-P4",
+      "comparison": "supported",
+      "reason": "The complete normative Task D and output/acceptance sections are retained at authorized-q0-contract.txt:70-107. They require the strongest existing OpenMaus recurring/native-return comparison, footprint and upgrade costs, three evidence-based dispositions, a Q1 plan only when feasible over actual seams with adverse/recovery/upgrade tests, and fresh independent review with evidence repair. All nine output rows survive: report, environment, sources, providers/context, two CSV maps, sanitized raw evidence, exact-byte manifest excluding itself, and conditional Q1 plan or a precise prerequisite/action owner. Specification line37 repeats the whole population and prevents using a reduced manifest to hide absent required output. Lines24 and39 reject old-hash attribution and whole-feature completion; lines53-59 require a useful independently reviewable disposition, truthful unknowns, bounded proposal, independent returned-evidence review and separate decisions for material scope changes. Sections0 and3 retain normal exact-content release/staging/destination gates, the parent and PC owners, and prohibit production changes, paid models and Q1-Q4 execution. Parent PRD ec33fd3d:38,42-50,96 requires eventual PA1-PA9 acceptance; the candidate's line39 preserves that boundary, while source-baseline:22-32 identifies PC1-PC7 as later operating/comparison requirements. The candidate does not adopt DSH or infer any later product proof from qualification.",
+      "citations": [
+        {
+          "source": "prd",
+          "quote": "| Q0-P4 | The returned decision is useful, bounded and independently reviewable. | Return the complete Q0 artifact population, raw receipts and manifest; classify QUALIFIED_FOR_Q1, HOLD_PREREQUISITE or REJECT_PRESENT_CONSTRAINTS with source-bound reasons, compare the strongest existing OpenMaus recurring/native-return route, and provide a Q1 plan only when feasible; obtain fresh artifact-only review. | Missing evidence is hidden, whole-feature completion/adoption is claimed, original hashes are attributed to reconstructed content, or Q1-Q4 are executed automatically. | Yes |",
+          "location": "Essential promises, line23"
+        },
+        {
+          "source": "prd",
+          "quote": "The existing parent PRD remains binding for whole-feature acceptance: PA1-PA9 and PC1-PC7 are retained, including independent current-result acceptance, continuing responsibility, useful real work, eligible existing subscriptions/free operation, PC wake/intake without the Mac, consumer delivery and a materially different second host. Q0 evidence alone satisfies none of those later runtime/product claims. The existing parent's revision2 and PC owner remain unchanged.",
+          "location": "Experience and outcome, line14"
+        },
+        {
+          "source": "spec",
+          "quote": "| Q0-P4 | Task D returns a source-bound qualification/hold/rejection, complete artifacts/raw receipts/manifest, the strongest existing OpenMaus recurring/native-return comparison, a concrete Q1 proposal only when feasible, and fresh artifact-only independent review. |",
+          "location": "Section2, line35"
+        },
+        {
+          "source": "spec",
+          "quote": "Preserve the original output population: `Q0-REPORT.md`, `environment.json`, `sources.json`, `providers-and-context.md`, `replacement-map.csv`, `terminal-paths.csv`, sanitized `raw/`, `output-manifest.json` excluding itself, and `Q1-PLAN.md` only when feasible. The report must name missing required artifacts; missing output is never hidden by a manifest over a smaller population. Use the actual run date and keep secret-bearing/host-private traces local.",
+          "location": "Section2, line37"
+        },
+        {
+          "source": "spec",
+          "quote": "The original full-design SHA256 `cb971d0995e6f53efba312ee44cd8370312b53b46779ce16555c5a44cd79ebee` and kickoff SHA256 `c98e43cf2c70992847269dbe203e43e4e13ec2237d23682669a942828b90f7ae` are historical reported bindings. Missing source ranges prevent verifying those full bytes locally. This specification and the qualified task contract carry their own hashes; missing-line drafts cannot be admitted as operational specifications.",
+          "location": "Section1, line24"
+        },
+        {
+          "source": "spec",
+          "quote": "The parent approved PRD snapshot remains `prd-ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721.md`. PA1-PA9 remain whole-feature requirements. Later PC1-PC7 are comparison/operating requirement IDs, not newly approved PRD promise numbers; their exact recovered definitions are retained in `reviews/dsh-native-q0-qualification/source-baseline.md`. Q0 accepts no whole-feature runtime, useful live cycle, PC wake/intake/safe-sleep, consumer or second-host claim. Those obligations keep their original meaning and later gates.",
+          "location": "Section2, line39"
+        },
+        {
+          "source": "spec",
+          "quote": "Return `QUALIFIED_FOR_Q1`, `HOLD_PREREQUISITE` or `REJECT_PRESENT_CONSTRAINTS` with source-bound reasons. A required new paid route or a plan to recreate the host lifecycle contradicts present constraints; identify the concrete cause and bounded alternative. Missing evidence or an unavailable profile/account is not automatically an incompatibility or a favorable result.",
+          "location": "Section4, line53"
+        },
+        {
+          "source": "spec",
+          "quote": "A precise observed prerequisite/rejection is a useful Q0 result only when the required investigation and output population are complete and independently reviewable.",
+          "location": "Section4, line55, first sentence"
+        },
+        {
+          "source": "spec",
+          "quote": "If feasible, the Q1 proposal names actual files/interfaces, adverse tests, all completion and continuation paths and upgrade regression scope. It is a proposal requiring its own review/admission, not authorization to implement.",
+          "location": "Section4, line57, first two sentences"
+        },
+        {
+          "source": "spec",
+          "quote": "Before accepting Q0, obtain a fresh artifact-only review of the exact returned evidence and proposed delta. Repair concrete evidence defects within Q0, preserving old failures and cumulative usage. Material product/architecture changes beyond the authorized investigation return as concrete decisions; unchanged internal run estimates do not require renewed general task permission.",
+          "location": "Section4, line59"
+        }
+      ]
+    }
+  ],
+  "outcome": "matches"
+}

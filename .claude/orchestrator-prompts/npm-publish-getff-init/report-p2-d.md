@@ -12,7 +12,7 @@ design) were **not** re-investigated.
 
 Enumerated BEFORE any finding (T10). Command and pin re-checked at audit time:
 
-```
+```text
 $ git diff --stat origin/main...origin/staging -- packages/runtime-bridge | tail -1
  49 files changed, 4968 insertions(+), 848 deletions(-)
 ```
@@ -47,7 +47,7 @@ because the shared checkout install is arm64-broken on this x64 host (same playb
 1. **§5 suite gate, changed files** — all 17 delta test files: **343/343 tests green**.
 2. **§5 suite gate, whole lane dir** (re-run for a fresh quotable summary at report time):
 
-   ```
+   ```text
    $ ... vitest.mjs run --reporter=default          (packages/runtime-bridge)
     Test Files  22 passed | 1 skipped (23)
          Tests  404 passed | 1 skipped (405)
@@ -62,7 +62,7 @@ because the shared checkout install is arm64-broken on this x64 host (same playb
    TypeScript-AST comparison (TS 5.9.3 `createSourceFile`; signature = node kind + literal
    text + child signatures, positions/trivia excluded) against its `src/` sibling:
 
-   ```
+   ```text
    TWIN TREE-IDENTICAL (19): AifHandoffBackend, ManualBackend, aifWsStatus, backend,
      cli/aifHttp, cli/answer, cli/claim, cli/cliEntry, cli/dispatch, cli/ensure-parallel,
      cli/harvest, cli/openQuestion, cli/park, cli/questions, harvest, idempotency,
@@ -77,7 +77,7 @@ because the shared checkout install is arm64-broken on this x64 host (same playb
 4. **Parity gate live run** — the mechanical channel that owns F1
    (`scripts/format-shipped.sh` Phase 3, `--check`, wired at `.husky/pre-commit:184-185`):
 
-   ```
+   ```text
    $ npm_config_cache=/tmp/p2d-cache bash scripts/format-shipped.sh --check \
        packages/runtime-bridge/vendor/src/cli/harvest.ts packages/runtime-bridge/src/cli/harvest.ts
    All matched files use Prettier code style!

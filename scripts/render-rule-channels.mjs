@@ -88,19 +88,29 @@ function findRoot(start) {
 }
 
 function listRuleFiles(root) {
-  const dir = join(root, '.claude/rules');
-  let tracked = null;
-  try {
-    const out = execFileSync('git', ['-C', root, 'ls-files', '--', '.claude/rules'], { encoding: 'utf8' });
-    tracked = new Set(out.split('\n').filter(Boolean));
-  } catch {
-    tracked = null;
+  const owners = new Set();
+  const names = new Set();
+  const found = [];
+  for (const ruleRoot of ['.agents/rules', '.claude/rules']) {
+    const dir = join(root, ruleRoot);
+    if (!existsSync(dir)) continue;
+    let tracked = null;
+    try {
+      const out = execFileSync('git', ['-C', root, 'ls-files', '--', ruleRoot], { encoding: 'utf8' });
+      tracked = new Set(out.split('\n').filter(Boolean));
+    } catch { /* off-repo fixture: enumerate the filesystem */ }
+    for (const name of readdirSync(dir).filter((f) => f.endsWith('.md') && f !== '00-rule-index.md').sort()) {
+      if (tracked && !tracked.has(`${ruleRoot}/${name}`)) continue;
+      const path = join(dir, name);
+      const owner = realpathSync(path);
+      if (owners.has(owner)) continue;
+      if (names.has(name)) throw new Error(`${name}: distinct canonical and legacy rule owners; compatibility must be a file link`);
+      owners.add(owner);
+      names.add(name);
+      found.push(path);
+    }
   }
-  return readdirSync(dir)
-    .filter((f) => f.endsWith('.md') && f !== '00-rule-index.md')
-    .filter((f) => !tracked || tracked.has(`.claude/rules/${f}`))
-    .sort()
-    .map((f) => join(dir, f));
+  return found;
 }
 
 /** Parse one rule file's channel-declaration fields — same fields principle 31 gates on. */

@@ -1,0 +1,11 @@
+{
+  "mode": "autonomous",
+  "reviewer_tier": "aif-own",
+  "marker": null,
+  "description": "Autonomous overnight aif-handoff dispatch (project-default profiles, no marker)",
+  "predicates": {
+    "bundle_opt_in": true,
+    "review_required": true,
+    "parallel_safe": true
+  }
+}

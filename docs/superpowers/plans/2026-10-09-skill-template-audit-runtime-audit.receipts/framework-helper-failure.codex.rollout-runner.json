@@ -1,0 +1,45 @@
+{
+  "rollout": "/Users/art/.codex/sessions/2026/10/09/rollout-2026-10-09T19-12-04-01a1216f-9853-7183-b860-d0d600fa741d.jsonl",
+  "events": [
+    {
+      "timestamp": "2026-10-09T16:12:31.469Z",
+      "ordinal": 34,
+      "type": "event_msg",
+      "payload": {
+        "type": "item_completed",
+        "thread_id": "01a1216f-9853-7183-b860-d0d600fa741d",
+        "turn_id": "01a1216f-9967-7151-b823-c6a1c1a6efc3",
+        "item": {
+          "type": "CommandExecution",
+          "id": "exec-2150a470-2374-4df3-9d76-e2e8dd26d5fd",
+          "process_id": "65888",
+          "command": [
+            "/bin/zsh",
+            "-lc",
+            "npm --prefix packages/core run test:template-render"
+          ],
+          "cwd": "file:///Users/art/.codex/worktrees/audit-template-audit/rules-as-tests-aif",
+          "parsed_cmd": [
+            {
+              "type": "unknown",
+              "cmd": "npm --prefix packages/core run test:template-render"
+            }
+          ],
+          "source": "unified_exec_startup",
+          "status": "failed",
+          "stdout": "\n> @rules-as-tests/core@0.1.0 test:template-render\n> vitest run audit-self/template-render.audit.ts\n\nsh: vitest: command not found\n",
+          "stderr": "",
+          "aggregated_output": "\n> @rules-as-tests/core@0.1.0 test:template-render\n> vitest run audit-self/template-render.audit.ts\n\nsh: vitest: command not found\n",
+          "exit_code": 127,
+          "duration": {
+            "secs": 0,
+            "nanos": 4173916
+          },
+          "formatted_output": "\n> @rules-as-tests/core@0.1.0 test:template-render\n> vitest run audit-self/template-render.audit.ts\n\nsh: vitest: command not found\n"
+        },
+        "started_at_ms": 1791562351464,
+        "completed_at_ms": 1791562351469
+      }
+    }
+  ]
+}

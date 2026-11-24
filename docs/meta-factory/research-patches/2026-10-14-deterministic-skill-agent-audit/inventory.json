@@ -1,0 +1,1278 @@
+{
+  "head": "80196f2f9e3546ceffa00c0cb362903d1eebaebe",
+  "root": "/Users/art/.codex/worktrees/e220/rules-as-tests-aif",
+  "files": [
+    {
+      "path": ".agents/procedures/ai-doc/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 5060,
+      "lines": 58,
+      "sha256": "7ebef5c724092112796085ce80fb9a7ca10926a0855f35bba2c2378c2abaff1f",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/aif-doctor/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 7238,
+      "lines": 95,
+      "sha256": "f8e9e6dc0199cdbdcf055ecb19ca234a8a48cfbb1d0bccc5fce5e62c5926ef01",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/arch/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 8455,
+      "lines": 113,
+      "sha256": "8088ee559cce7c4ef2ce8572b53546a557260ecbc9a238b570cfae5ee7cfbb22",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/claude-glm-executor-handoff/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 14839,
+      "lines": 134,
+      "sha256": "4afff085be261e5983c7298a1419ae91631f3b73235438f4635831993345684e",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/dispatcher/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 7166,
+      "lines": 98,
+      "sha256": "b335bfee328e0978a08e7ddd5eb0ff17f386f18e0f22d2c4d43a3ac55b3de672",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/docs-author/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 10564,
+      "lines": 158,
+      "sha256": "61db7a693d057faa7f9a991f67a40abdc47f200caeb8d022c2a43e5c78bc6f19",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/getff/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 11339,
+      "lines": 121,
+      "sha256": "d05a92207cb2964450d37e39e286efb85973a3fbd621d30309c34ef768f449cd",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/harvest/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 11772,
+      "lines": 117,
+      "sha256": "4bf4d6a319a5eca1aac96415045b52f91429dc168743d0881e7b816a74494bdf",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/installing-enforcement/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 7748,
+      "lines": 130,
+      "sha256": "d9ef56f95b987ea74c77385b408aa40936b1cc09122d7938036616d1dbc29cc0",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/intent/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 7512,
+      "lines": 66,
+      "sha256": "c6167f99b3212497231bc181d70c5563f8b6e3cc8ec7eaef263561a1ed024970",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/night-mode/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 6619,
+      "lines": 91,
+      "sha256": "c0f0408f6bb8f33e502244af39d0a05f2b11b3a37bbe46dbe508fbb88ec93c44",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/orchestrator/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 6849,
+      "lines": 80,
+      "sha256": "c9cf205ac8c19fdfeb2fe1ec16ab53b0e981d73afcd754922d12d255bff4e947",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/pipeline/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 10882,
+      "lines": 146,
+      "sha256": "ca71d8b50fcd496133f7e14c77944c7d2e9d5d5db051535f92d48e6c983e836f",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/reviewer/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 9733,
+      "lines": 132,
+      "sha256": "9f724c0d4dfbcdee428479f1afcb24897becb40d3cffdb9c81d3396d369679de",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/rule-research/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 5516,
+      "lines": 58,
+      "sha256": "205ef792dc22d188736fbad9680e6358f8a4b4296de8a9017aac94eef96f771b",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/rule-tests/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 5794,
+      "lines": 61,
+      "sha256": "354a7977ad817d36052dc91d3bcf48aad7525bb0937b9da4111262d3fa904575",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/self-reflection/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 9592,
+      "lines": 106,
+      "sha256": "d03048b2c27d86978473bef8d326cbe5917e37e20c9f60b883b7e5f51ea468c6",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/story/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 8524,
+      "lines": 122,
+      "sha256": "b341899ba35d08eabbccb340067c2308a0c255b0034cf60051d5f921732a62ec",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/template-audit/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 6767,
+      "lines": 127,
+      "sha256": "ed13565bac2d86efc819b39d2c90e0790aa627d05b0e5804966ed25d06228a81",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/tool-bootstrapping/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 10552,
+      "lines": 83,
+      "sha256": "1c6bd876d65ebf57afe2d631fef39e33b78b58efb6f45e132ba791c6c22252d5",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/tool-bootstrapping-consumer/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 11131,
+      "lines": 88,
+      "sha256": "8328777c02082423b1d1bc788dfacb5250cc482bd0d1003d34ebb9bd271ff03b",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/procedures/using-getff/SKILL.md",
+      "kind": "canonical-skill",
+      "bytes": 6107,
+      "lines": 65,
+      "sha256": "01b7f0f95d734a85e5195ebff9042124e0965cb3c427b8f125b813d084b07174",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/adapter-jig-reviewer.md",
+      "kind": "canonical-agent",
+      "bytes": 9379,
+      "lines": 140,
+      "sha256": "d3214bb0917558e73d9f9113bbef4aa3d846e8176de8b0d70063b57bdbb017ed",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/aif-init.md",
+      "kind": "canonical-agent",
+      "bytes": 12023,
+      "lines": 223,
+      "sha256": "23cfb21a319a1dc36d623547336dde22f3e6a5bd05b1e44f0b6fbb03aa1724da",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/backward-sweep-auditor.md",
+      "kind": "canonical-agent",
+      "bytes": 6992,
+      "lines": 112,
+      "sha256": "4142c00524308312ce683c49312e5ab41fa2a5037ac04d84db82496999a1586f",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/capability-reuse-auditor.md",
+      "kind": "canonical-agent",
+      "bytes": 7911,
+      "lines": 99,
+      "sha256": "7605ee4aefa31c20601230ece6ebf378961e4abd269db7bd7d8a4ee776dbe44b",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/claims-conformance-auditor.md",
+      "kind": "canonical-agent",
+      "bytes": 7296,
+      "lines": 109,
+      "sha256": "56516a50bd80fd0f434e9d5adf52adb27df014aac1adab2b678bafb2836c1bd5",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/compliance-verifier.md",
+      "kind": "canonical-agent",
+      "bytes": 11087,
+      "lines": 198,
+      "sha256": "94b05f318090a429aae05a12a83216ca3b408bcc687ffd0af1673f5f37204824",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/dispatch-input-checker.md",
+      "kind": "canonical-agent",
+      "bytes": 16633,
+      "lines": 249,
+      "sha256": "03ba8d3a784142635230b379aa0688230422853b9aabf9572d45e144781a7c65",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/docplan-auditor.md",
+      "kind": "canonical-agent",
+      "bytes": 7674,
+      "lines": 121,
+      "sha256": "9289d97cb2481e1f706513190cbb68b5610cd074b76d588aec96acc2fe5f4e6e",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/docs-form-auditor.md",
+      "kind": "canonical-agent",
+      "bytes": 15470,
+      "lines": 208,
+      "sha256": "9c8367396cf20b4b3705cb27fdcaa353fbde27a32f8059b7f63b688713fe81e8",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/dual-channel-drift-auditor.md",
+      "kind": "canonical-agent",
+      "bytes": 11692,
+      "lines": 168,
+      "sha256": "906f5c4693977cd709dfdae6fe5d44b1b3b186d3ec319ff691104ef8dad9fdfd",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/fidelity-auditor.md",
+      "kind": "canonical-agent",
+      "bytes": 12266,
+      "lines": 176,
+      "sha256": "861dd70156b9efde351125fd9c2d36c7526499140ddc052923ed2b635f1f5251",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/getff-cold-run-prober.md",
+      "kind": "canonical-agent",
+      "bytes": 22194,
+      "lines": 232,
+      "sha256": "ee67276bb959aa4f25fea044042c02ebb2724a2b47cbac989d116dd887416447",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/living-docs-auditor.md",
+      "kind": "canonical-agent",
+      "bytes": 8727,
+      "lines": 212,
+      "sha256": "2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/manual-rule-liveness-prober.md",
+      "kind": "canonical-agent",
+      "bytes": 17970,
+      "lines": 176,
+      "sha256": "ef1705e5f8d0878b16662fe1145d610a555d508cb63712fa6d252019f3e958f2",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/memory-codification-auditor.md",
+      "kind": "canonical-agent",
+      "bytes": 6806,
+      "lines": 75,
+      "sha256": "9038a0251517ac99e5e202976995072878742c9f4cd3dea75eaedae8d31af336",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/orchestrator-worker-discipline.md",
+      "kind": "canonical-agent",
+      "bytes": 14280,
+      "lines": 204,
+      "sha256": "e2467fc49e336f420ee7aefe4ae201b12097b41b0749517ee2af79b04a7b9d79",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/review-sidecar.md",
+      "kind": "canonical-agent",
+      "bytes": 11949,
+      "lines": 236,
+      "sha256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/reviewer-discipline.md",
+      "kind": "canonical-agent",
+      "bytes": 8664,
+      "lines": 128,
+      "sha256": "3d8899fb88e177c79283940d9cf876352ec1d4b6678e15b83c2230da1d3ef2eb",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/rule-researcher.md",
+      "kind": "canonical-agent",
+      "bytes": 35533,
+      "lines": 450,
+      "sha256": "1e7a2f1d88b2be0ec292c54ffb772cb3e0174d0ca4b01b3fe70c95a967bdc6b6",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/rule-test-author.md",
+      "kind": "canonical-agent",
+      "bytes": 16070,
+      "lines": 99,
+      "sha256": "c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/roles/shipped-agent-liveness-prober.md",
+      "kind": "canonical-agent",
+      "bytes": 24857,
+      "lines": 252,
+      "sha256": "65e1df36c2e39d4fc34630261a09eeaf3c8022e0e9b7f67e486d2f36db69d9a3",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/adapter-jig-reviewer/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 943,
+      "lines": 9,
+      "sha256": "8700c8329e3e456f305c5fd872fc27d03230bf0b8d4d28026d9c5bf102ebc0e9",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/ai-doc/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2121,
+      "lines": 21,
+      "sha256": "d3ba8bb784f7e38e80569ac3e57ae487685b9d123f01f75fbe1ffd38e79a34b6",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/aif-doctor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2619,
+      "lines": 35,
+      "sha256": "399a83737d29e0bc387d6b0c603440bbe2bdd187594b706eaac48ff1a34f32c9",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/aif-init/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 938,
+      "lines": 9,
+      "sha256": "d84ca2c68c9e6a4e1fccd92e0c1537d4b2d8ed9d77bb49aa075475e12a454d9f",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/arch/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2606,
+      "lines": 37,
+      "sha256": "ff18dc983f871df2c94544ab194df510ec9e0dbcdaf3cb96d60c286b138cec42",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/backward-sweep-auditor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 838,
+      "lines": 9,
+      "sha256": "9f358fdf1e9dea595b3085b4acbbaa3e98a8985ae5d68c9c2f6dd8947bf9353f",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/capability-reuse-auditor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 853,
+      "lines": 9,
+      "sha256": "3d925f9d437fc2fc90e588be9f3bbe95ae21f951cd32978bbad23848ba2ca50a",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/claims-conformance-auditor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 977,
+      "lines": 9,
+      "sha256": "e4b1b19de3c2df1e9fbcf65bcf0271315d04bceb4ccdc1c962d50a6ea3c9c426",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/claude-glm-executor-handoff/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2332,
+      "lines": 21,
+      "sha256": "efeeea413a087ee73897a6439df073c72825fcf5cb7f9f21e7abdd8d76f23693",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/compliance-verifier/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 716,
+      "lines": 9,
+      "sha256": "f9ca05a2bd1bc2f8d379044b9a3374a75a4a8ec8b993d42cbbcbf4e2d016de70",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/dispatch-input-checker/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 1201,
+      "lines": 9,
+      "sha256": "15e6deb01967f5be76d8f579ba439ca12aa0a940bf29d82ea888db2440b49414",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/dispatcher/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2350,
+      "lines": 34,
+      "sha256": "5d63836215931763b8310a648fb6836f37cae7f994a9a2b185419dd39f9db990",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/docplan-auditor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 1017,
+      "lines": 9,
+      "sha256": "e9d016bea929b2bc126eabd0c68d20efe2d851d3f81bdba7468e36d95a95b9df",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/docs-author/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2261,
+      "lines": 21,
+      "sha256": "c3cee7c4dacb00640a60bf3c38340c1fdfe210df6e0fe690ab1e17fb845d4011",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/docs-form-auditor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 1128,
+      "lines": 9,
+      "sha256": "afc5dd932b6b358f7e493496e9c34a360350d6551639111c1b49ad3b6ed6ee22",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/dual-channel-drift-auditor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 934,
+      "lines": 9,
+      "sha256": "34376f0bacb0992ebd00b3e8c91036f404fa1796d56bf348dea0904487009c41",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/fidelity-auditor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 1042,
+      "lines": 9,
+      "sha256": "f6afbefad664637b6b284373604d328aa75342b8c56a35f5f117289cb2ba4faa",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/getff/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2510,
+      "lines": 21,
+      "sha256": "93db855584c08a25b3174f71d7e345769107573301140afbd348f6ab5375ad38",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/getff-cold-run-prober/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 888,
+      "lines": 9,
+      "sha256": "829fc74c695200f6f993e85debcdccc279f0035af89f01de25e028eb493559fa",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/harvest/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2333,
+      "lines": 34,
+      "sha256": "f84df2612d9ee56c34a26cd3c93994c98803b5772822c183ead42c6bfd75b0aa",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/installing-enforcement/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2238,
+      "lines": 21,
+      "sha256": "d37b4fda4afe0f5ce9bf05c88be68cca25b3b012b575b418049db022b21b20f7",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/intent/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2558,
+      "lines": 36,
+      "sha256": "84e0ac237becbfd071cf0d60acac09b047de48fe3bf494521954d43d0d982d94",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/living-docs-auditor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 1345,
+      "lines": 9,
+      "sha256": "1f309c34fa21b3d63220ba8ea358a357fe2312409b2bdd78cb744e0c907a241f",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/manual-rule-liveness-prober/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 759,
+      "lines": 9,
+      "sha256": "f489424f48b6473c0287dee768298614d5939ffeacbfbaf4f70fc5add7b88ff4",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/memory-codification-auditor/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 773,
+      "lines": 9,
+      "sha256": "965dd32b07d5511abfef87bb2a08e154d7744aa0bce10ba0f8503c2c5089e71d",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/night-mode/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2180,
+      "lines": 21,
+      "sha256": "1306c438b9c0006487e8e13d602893a9fa23dc2763379170edffbfbb5b15f940",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/orchestrator/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2987,
+      "lines": 28,
+      "sha256": "319b0edb300e0e0d898538d35c6d77092f0e054438cf08673134c68d4bdf7bdc",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/orchestrator-worker-discipline/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 772,
+      "lines": 9,
+      "sha256": "cfd8c678a2e03e472066a23c2db34e4aa469f4e383e0c065965a8bbe9ca882c7",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/pipeline/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2487,
+      "lines": 35,
+      "sha256": "ab1ecd20ada3bd4c1421ac00db1ec35a8b829ab12c327d81850b957839865019",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/review-sidecar/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 836,
+      "lines": 9,
+      "sha256": "e132f14156ab1ed4f9822f5518aba632f2aa91f357bc93da39eb80baac724aed",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/reviewer/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2351,
+      "lines": 21,
+      "sha256": "955acf851c2bf31498486d7e30143c5ccedab0ca0b821951762cf734a62f9aba",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/reviewer-discipline/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 753,
+      "lines": 9,
+      "sha256": "46b124338d66141af28c201e67859b4ad1b569fd636b056a5520cf5b25320f6f",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/rule-research/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2195,
+      "lines": 21,
+      "sha256": "6aa0f72cb6ca6fad2221616d369da1081424c56a2a1358c7c39370b4ee4aab4d",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/rule-researcher/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 1277,
+      "lines": 9,
+      "sha256": "bf4694486dcfb09c8c83deb08316413ff8823c921003a088012bf71c0e406b33",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/rule-test-author/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 1282,
+      "lines": 9,
+      "sha256": "abae2ef153a74df8306fa5fc15f58335ab6142a6969dca7d3dbaa69618f247fd",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/rule-tests/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2258,
+      "lines": 21,
+      "sha256": "071aeb8b9b908fbd7b648e838d682f70941063b97043e186f91edf134e1d28b1",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/self-reflection/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2560,
+      "lines": 21,
+      "sha256": "1df1be9859008dbdca76b7b7f1b8041033c23b7136a0c0a6489531e0cbe1e33d",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/shipped-agent-liveness-prober/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 838,
+      "lines": 9,
+      "sha256": "c471af5e685b17dd4f060cb63caacd4edfdbd529af116cdffec92dd32b53d7cc",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/story/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 1950,
+      "lines": 21,
+      "sha256": "6ef6d26cfee85e2ed2687bfcfaea8d9b1e0b7dcccede49b93d0e9ec50d25d169",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/template-audit/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 1990,
+      "lines": 21,
+      "sha256": "f7c003e8aa3055d3df25369bf2fd679f22d6627c88ffccb8ef32310127126f3c",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/tool-bootstrapping/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2438,
+      "lines": 21,
+      "sha256": "0d9838682a519a38baa2b28e29736b5d07dffc9499a7076813348f3e27c1992d",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".agents/skills/using-getff/SKILL.md",
+      "kind": "codex-entry",
+      "bytes": 2255,
+      "lines": 21,
+      "sha256": "8248cdc0d3af5a5be72bccab401e7ff912966b0adfadab8f79b24ae0df66831e",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".claude/skills/ai-doc/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 5060,
+      "lines": 58,
+      "sha256": "7ebef5c724092112796085ce80fb9a7ca10926a0855f35bba2c2378c2abaff1f",
+      "symlinkTarget": "../../../.agents/procedures/ai-doc/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/aif-doctor/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 7238,
+      "lines": 95,
+      "sha256": "f8e9e6dc0199cdbdcf055ecb19ca234a8a48cfbb1d0bccc5fce5e62c5926ef01",
+      "symlinkTarget": "../../../.agents/procedures/aif-doctor/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/arch/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 8455,
+      "lines": 113,
+      "sha256": "8088ee559cce7c4ef2ce8572b53546a557260ecbc9a238b570cfae5ee7cfbb22",
+      "symlinkTarget": "../../../.agents/procedures/arch/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/claude-glm-executor-handoff/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 14839,
+      "lines": 134,
+      "sha256": "4afff085be261e5983c7298a1419ae91631f3b73235438f4635831993345684e",
+      "symlinkTarget": "../../../.agents/procedures/claude-glm-executor-handoff/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/dispatcher/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 7166,
+      "lines": 98,
+      "sha256": "b335bfee328e0978a08e7ddd5eb0ff17f386f18e0f22d2c4d43a3ac55b3de672",
+      "symlinkTarget": "../../../.agents/procedures/dispatcher/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/docs-author/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 10564,
+      "lines": 158,
+      "sha256": "61db7a693d057faa7f9a991f67a40abdc47f200caeb8d022c2a43e5c78bc6f19",
+      "symlinkTarget": "../../../.agents/procedures/docs-author/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/harvest/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 11772,
+      "lines": 117,
+      "sha256": "4bf4d6a319a5eca1aac96415045b52f91429dc168743d0881e7b816a74494bdf",
+      "symlinkTarget": "../../../.agents/procedures/harvest/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/intent/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 7512,
+      "lines": 66,
+      "sha256": "c6167f99b3212497231bc181d70c5563f8b6e3cc8ec7eaef263561a1ed024970",
+      "symlinkTarget": "../../../.agents/procedures/intent/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/night-mode/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 6619,
+      "lines": 91,
+      "sha256": "c0f0408f6bb8f33e502244af39d0a05f2b11b3a37bbe46dbe508fbb88ec93c44",
+      "symlinkTarget": "../../../.agents/procedures/night-mode/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/orchestrator/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 6849,
+      "lines": 80,
+      "sha256": "c9cf205ac8c19fdfeb2fe1ec16ab53b0e981d73afcd754922d12d255bff4e947",
+      "symlinkTarget": "../../../.agents/procedures/orchestrator/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/pipeline/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 10882,
+      "lines": 146,
+      "sha256": "ca71d8b50fcd496133f7e14c77944c7d2e9d5d5db051535f92d48e6c983e836f",
+      "symlinkTarget": "../../../.agents/procedures/pipeline/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/reviewer/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 9733,
+      "lines": 132,
+      "sha256": "9f724c0d4dfbcdee428479f1afcb24897becb40d3cffdb9c81d3396d369679de",
+      "symlinkTarget": "../../../.agents/procedures/reviewer/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/rule-research/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 5516,
+      "lines": 58,
+      "sha256": "205ef792dc22d188736fbad9680e6358f8a4b4296de8a9017aac94eef96f771b",
+      "symlinkTarget": "../../../.agents/procedures/rule-research/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/rule-tests/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 5794,
+      "lines": 61,
+      "sha256": "354a7977ad817d36052dc91d3bcf48aad7525bb0937b9da4111262d3fa904575",
+      "symlinkTarget": "../../../.agents/procedures/rule-tests/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/self-reflection/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 9592,
+      "lines": 106,
+      "sha256": "d03048b2c27d86978473bef8d326cbe5917e37e20c9f60b883b7e5f51ea468c6",
+      "symlinkTarget": "../../../.agents/procedures/self-reflection/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/story/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 8524,
+      "lines": 122,
+      "sha256": "b341899ba35d08eabbccb340067c2308a0c255b0034cf60051d5f921732a62ec",
+      "symlinkTarget": "../../../.agents/procedures/story/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/template-audit/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 6767,
+      "lines": 127,
+      "sha256": "ed13565bac2d86efc819b39d2c90e0790aa627d05b0e5804966ed25d06228a81",
+      "symlinkTarget": "../../../.agents/procedures/template-audit/SKILL.md"
+    },
+    {
+      "path": ".claude/skills/tool-bootstrapping/SKILL.md",
+      "kind": "claude-entry",
+      "bytes": 10552,
+      "lines": 83,
+      "sha256": "1c6bd876d65ebf57afe2d631fef39e33b78b58efb6f45e132ba791c6c22252d5",
+      "symlinkTarget": "../../../.agents/procedures/tool-bootstrapping/SKILL.md"
+    },
+    {
+      "path": "agents/adapter-jig-reviewer.md",
+      "kind": "delivery-agent",
+      "bytes": 930,
+      "lines": 10,
+      "sha256": "7282e929e266e0cdfeb003163c43c70cf8ebcb32d1b4ca24ded66d0ba9a69683",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/aif-init.md",
+      "kind": "delivery-agent",
+      "bytes": 920,
+      "lines": 10,
+      "sha256": "23d29dc0d0de4e49f511cdd66a4a670eb0a950f13bb1d22d2ecbd8ff114808d2",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/backward-sweep-auditor.md",
+      "kind": "delivery-agent",
+      "bytes": 825,
+      "lines": 10,
+      "sha256": "446216ac6ae4ee26c0b48b0938ac3b821d0f8069b194323a31e7c62bdaf3745f",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/capability-reuse-auditor.md",
+      "kind": "delivery-agent",
+      "bytes": 834,
+      "lines": 10,
+      "sha256": "7c480935f05bffc339fae8ff8e87cfde1ce68830d9c2a49fcb95b753dcac36a7",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/claims-conformance-auditor.md",
+      "kind": "delivery-agent",
+      "bytes": 964,
+      "lines": 10,
+      "sha256": "932cc7245435c95650738a7fa204ffbc7e02c0ec96953a94880c3e22ef8db076",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/compliance-verifier.md",
+      "kind": "delivery-agent",
+      "bytes": 697,
+      "lines": 10,
+      "sha256": "7143a552be78671635b45096cabfa370549fe2b731b939d956f8700db3007cc2",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/dispatch-input-checker.md",
+      "kind": "delivery-agent",
+      "bytes": 1188,
+      "lines": 10,
+      "sha256": "58c9e28c7f62cc48c521dc354f8c980899105a5df15fd58edf4cd5f09a9d0b6c",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/docplan-auditor.md",
+      "kind": "delivery-agent",
+      "bytes": 998,
+      "lines": 10,
+      "sha256": "fd3d81ef3ec14253cea66b7c6660888e3a69f73767c4126eff43763535dd8d55",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/docs-form-auditor.md",
+      "kind": "delivery-agent",
+      "bytes": 1113,
+      "lines": 10,
+      "sha256": "4e70204986e11b9f56956ea5d8207b39b52ed680409caf3db61bd9199cd65133",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/dual-channel-drift-auditor.md",
+      "kind": "delivery-agent",
+      "bytes": 921,
+      "lines": 10,
+      "sha256": "69d18064b01e884870566be4d95227a8ec10c00bce353ae247803f84b65bd586",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/fidelity-auditor.md",
+      "kind": "delivery-agent",
+      "bytes": 1029,
+      "lines": 10,
+      "sha256": "ed3b65487bfe540a066b9ff7a31c3ef66b5f6baea52013394268113ac5323b1c",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/getff-cold-run-prober.md",
+      "kind": "delivery-agent",
+      "bytes": 882,
+      "lines": 10,
+      "sha256": "d72bb92dcb77fed090433c49765ce0e5c0322d4d706456f0fb1471025f0bc0c4",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/living-docs-auditor.md",
+      "kind": "delivery-agent",
+      "bytes": 1329,
+      "lines": 11,
+      "sha256": "7f2af5b774f87fb18fd97c13fa1cf65175ba70e53b3e0cb7cae19670fd2d608f",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/manual-rule-liveness-prober.md",
+      "kind": "delivery-agent",
+      "bytes": 747,
+      "lines": 10,
+      "sha256": "41d5eff9910242297fb830e4418ab0f29e7e4a4669d9591f6499119971632be1",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/memory-codification-auditor.md",
+      "kind": "delivery-agent",
+      "bytes": 754,
+      "lines": 10,
+      "sha256": "50e81d324ed18ad8a300f3e06b64db1ba5b07e8bc9a79bcb135deea5fe15f9be",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/orchestrator-worker-discipline.md",
+      "kind": "delivery-agent",
+      "bytes": 741,
+      "lines": 10,
+      "sha256": "f766c9604057e98caba4ff185de46fcc0bf4cf373b337010507be6cd998c7496",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/review-sidecar.md",
+      "kind": "delivery-agent",
+      "bytes": 823,
+      "lines": 10,
+      "sha256": "73553036a311e5cab7cf55f454a3ec084554a9541bd9cd98b4ea2c63a318d38d",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/reviewer-discipline.md",
+      "kind": "delivery-agent",
+      "bytes": 734,
+      "lines": 10,
+      "sha256": "f282a4caf810f38694004d695945719a859ef6b7ca501a432f48c6c47539c6ae",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/rule-researcher.md",
+      "kind": "delivery-agent",
+      "bytes": 1306,
+      "lines": 18,
+      "sha256": "907f05e4f1599c46954b17607ada796824757720178e72b65ac2d9cc5195a1d7",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/rule-test-author.md",
+      "kind": "delivery-agent",
+      "bytes": 1295,
+      "lines": 18,
+      "sha256": "085e2e1a6f76c7227131cdac60e4c0749f9271642fc0a7e57f8032cffe736a0c",
+      "symlinkTarget": null
+    },
+    {
+      "path": "agents/shipped-agent-liveness-prober.md",
+      "kind": "delivery-agent",
+      "bytes": 826,
+      "lines": 10,
+      "sha256": "7cfa6659c8118f61462cfa6ed97ebe835f6c1f9318845a748f4fb789d1fbd7cd",
+      "symlinkTarget": null
+    },
+    {
+      "path": ".claude/agents/adapter-jig-reviewer.md",
+      "kind": "claude-agent",
+      "bytes": 9379,
+      "lines": 140,
+      "sha256": "d3214bb0917558e73d9f9113bbef4aa3d846e8176de8b0d70063b57bdbb017ed",
+      "symlinkTarget": "../../.agents/roles/adapter-jig-reviewer.md"
+    },
+    {
+      "path": ".claude/agents/aif-init.md",
+      "kind": "claude-agent",
+      "bytes": 12023,
+      "lines": 223,
+      "sha256": "23cfb21a319a1dc36d623547336dde22f3e6a5bd05b1e44f0b6fbb03aa1724da",
+      "symlinkTarget": "../../.agents/roles/aif-init.md"
+    },
+    {
+      "path": ".claude/agents/backward-sweep-auditor.md",
+      "kind": "claude-agent",
+      "bytes": 6992,
+      "lines": 112,
+      "sha256": "4142c00524308312ce683c49312e5ab41fa2a5037ac04d84db82496999a1586f",
+      "symlinkTarget": "../../.agents/roles/backward-sweep-auditor.md"
+    },
+    {
+      "path": ".claude/agents/capability-reuse-auditor.md",
+      "kind": "claude-agent",
+      "bytes": 7911,
+      "lines": 99,
+      "sha256": "7605ee4aefa31c20601230ece6ebf378961e4abd269db7bd7d8a4ee776dbe44b",
+      "symlinkTarget": "../../.agents/roles/capability-reuse-auditor.md"
+    },
+    {
+      "path": ".claude/agents/claims-conformance-auditor.md",
+      "kind": "claude-agent",
+      "bytes": 7296,
+      "lines": 109,
+      "sha256": "56516a50bd80fd0f434e9d5adf52adb27df014aac1adab2b678bafb2836c1bd5",
+      "symlinkTarget": "../../.agents/roles/claims-conformance-auditor.md"
+    },
+    {
+      "path": ".claude/agents/compliance-verifier.md",
+      "kind": "claude-agent",
+      "bytes": 11087,
+      "lines": 198,
+      "sha256": "94b05f318090a429aae05a12a83216ca3b408bcc687ffd0af1673f5f37204824",
+      "symlinkTarget": "../../.agents/roles/compliance-verifier.md"
+    },
+    {
+      "path": ".claude/agents/dispatch-input-checker.md",
+      "kind": "claude-agent",
+      "bytes": 16633,
+      "lines": 249,
+      "sha256": "03ba8d3a784142635230b379aa0688230422853b9aabf9572d45e144781a7c65",
+      "symlinkTarget": "../../.agents/roles/dispatch-input-checker.md"
+    },
+    {
+      "path": ".claude/agents/docplan-auditor.md",
+      "kind": "claude-agent",
+      "bytes": 7674,
+      "lines": 121,
+      "sha256": "9289d97cb2481e1f706513190cbb68b5610cd074b76d588aec96acc2fe5f4e6e",
+      "symlinkTarget": "../../.agents/roles/docplan-auditor.md"
+    },
+    {
+      "path": ".claude/agents/docs-form-auditor.md",
+      "kind": "claude-agent",
+      "bytes": 15470,
+      "lines": 208,
+      "sha256": "9c8367396cf20b4b3705cb27fdcaa353fbde27a32f8059b7f63b688713fe81e8",
+      "symlinkTarget": "../../.agents/roles/docs-form-auditor.md"
+    },
+    {
+      "path": ".claude/agents/dual-channel-drift-auditor.md",
+      "kind": "claude-agent",
+      "bytes": 11692,
+      "lines": 168,
+      "sha256": "906f5c4693977cd709dfdae6fe5d44b1b3b186d3ec319ff691104ef8dad9fdfd",
+      "symlinkTarget": "../../.agents/roles/dual-channel-drift-auditor.md"
+    },
+    {
+      "path": ".claude/agents/fidelity-auditor.md",
+      "kind": "claude-agent",
+      "bytes": 12266,
+      "lines": 176,
+      "sha256": "861dd70156b9efde351125fd9c2d36c7526499140ddc052923ed2b635f1f5251",
+      "symlinkTarget": "../../.agents/roles/fidelity-auditor.md"
+    },
+    {
+      "path": ".claude/agents/getff-cold-run-prober.md",
+      "kind": "claude-agent",
+      "bytes": 22194,
+      "lines": 232,
+      "sha256": "ee67276bb959aa4f25fea044042c02ebb2724a2b47cbac989d116dd887416447",
+      "symlinkTarget": "../../.agents/roles/getff-cold-run-prober.md"
+    },
+    {
+      "path": ".claude/agents/living-docs-auditor.md",
+      "kind": "claude-agent",
+      "bytes": 8727,
+      "lines": 212,
+      "sha256": "2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b",
+      "symlinkTarget": "../../.agents/roles/living-docs-auditor.md"
+    },
+    {
+      "path": ".claude/agents/manual-rule-liveness-prober.md",
+      "kind": "claude-agent",
+      "bytes": 17970,
+      "lines": 176,
+      "sha256": "ef1705e5f8d0878b16662fe1145d610a555d508cb63712fa6d252019f3e958f2",
+      "symlinkTarget": "../../.agents/roles/manual-rule-liveness-prober.md"
+    },
+    {
+      "path": ".claude/agents/memory-codification-auditor.md",
+      "kind": "claude-agent",
+      "bytes": 6806,
+      "lines": 75,
+      "sha256": "9038a0251517ac99e5e202976995072878742c9f4cd3dea75eaedae8d31af336",
+      "symlinkTarget": "../../.agents/roles/memory-codification-auditor.md"
+    },
+    {
+      "path": ".claude/agents/orchestrator-worker-discipline.md",
+      "kind": "claude-agent",
+      "bytes": 14280,
+      "lines": 204,
+      "sha256": "e2467fc49e336f420ee7aefe4ae201b12097b41b0749517ee2af79b04a7b9d79",
+      "symlinkTarget": "../../.agents/roles/orchestrator-worker-discipline.md"
+    },
+    {
+      "path": ".claude/agents/review-sidecar.md",
+      "kind": "claude-agent",
+      "bytes": 11949,
+      "lines": 236,
+      "sha256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+      "symlinkTarget": "../../.agents/roles/review-sidecar.md"
+    },
+    {
+      "path": ".claude/agents/reviewer-discipline.md",
+      "kind": "claude-agent",
+      "bytes": 8664,
+      "lines": 128,
+      "sha256": "3d8899fb88e177c79283940d9cf876352ec1d4b6678e15b83c2230da1d3ef2eb",
+      "symlinkTarget": "../../.agents/roles/reviewer-discipline.md"
+    },
+    {
+      "path": ".claude/agents/rule-researcher.md",
+      "kind": "claude-agent",
+      "bytes": 35533,
+      "lines": 450,
+      "sha256": "1e7a2f1d88b2be0ec292c54ffb772cb3e0174d0ca4b01b3fe70c95a967bdc6b6",
+      "symlinkTarget": "../../.agents/roles/rule-researcher.md"
+    },
+    {
+      "path": ".claude/agents/rule-test-author.md",
+      "kind": "claude-agent",
+      "bytes": 16070,
+      "lines": 99,
+      "sha256": "c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce",
+      "symlinkTarget": "../../.agents/roles/rule-test-author.md"
+    },
+    {
+      "path": ".claude/agents/shipped-agent-liveness-prober.md",
+      "kind": "claude-agent",
+      "bytes": 24857,
+      "lines": 252,
+      "sha256": "65e1df36c2e39d4fc34630261a09eeaf3c8022e0e9b7f67e486d2f36db69d9a3",
+      "symlinkTarget": "../../.agents/roles/shipped-agent-liveness-prober.md"
+    },
+    {
+      "path": "skills/getff/SKILL.md",
+      "kind": "consumer-entry",
+      "bytes": 1266,
+      "lines": 9,
+      "sha256": "8a5df277df2e008562692ed217ae59c21ebb48cbe4792e2f1cc17dd1913aa891",
+      "symlinkTarget": null
+    },
+    {
+      "path": "skills/tool-bootstrapping/SKILL.md",
+      "kind": "consumer-entry",
+      "bytes": 1147,
+      "lines": 9,
+      "sha256": "f958ff1e17e5e28c73c649b1d87ebdd4a49f0804c4be9b8e1447f387c53b1815",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/skills/ai-doc/SKILL.md",
+      "kind": "plugin-entry",
+      "bytes": 6608,
+      "lines": 89,
+      "sha256": "23470ef82256955a972e926f907a261bc5b4c29062671ae792986dbb1014abab",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/skills/getff/SKILL.md",
+      "kind": "plugin-entry",
+      "bytes": 12774,
+      "lines": 152,
+      "sha256": "7e6652d974975d148f3fdde7b63d9cf5da6f9f13acaa4be9bbf2d3434b284837",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/skills/installing-enforcement/SKILL.md",
+      "kind": "plugin-entry",
+      "bytes": 7748,
+      "lines": 130,
+      "sha256": "d9ef56f95b987ea74c77385b408aa40936b1cc09122d7938036616d1dbc29cc0",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/skills/rule-research/SKILL.md",
+      "kind": "plugin-entry",
+      "bytes": 6996,
+      "lines": 89,
+      "sha256": "38f4b25a31f8b3539376644174986bb478db9efb5324ba45122f3ed65633d760",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/skills/rule-tests/SKILL.md",
+      "kind": "plugin-entry",
+      "bytes": 7263,
+      "lines": 92,
+      "sha256": "7aad1c7103440abd6aae12b85a5ed6dc9586fcf7b1cd90b91dbe6fe1d75317c9",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/skills/template-audit/SKILL.md",
+      "kind": "plugin-entry",
+      "bytes": 9236,
+      "lines": 174,
+      "sha256": "9dae5d10a8bf82325485f9576f7b6bd728f4189725c07fec69d8e0fcd837ea32",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/skills/tool-bootstrapping/SKILL.md",
+      "kind": "plugin-entry",
+      "bytes": 12557,
+      "lines": 119,
+      "sha256": "df502d640fd864270ea9f3d354f868fb495161795f2450546ebb7267155af703",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/skills/using-getff/SKILL.md",
+      "kind": "plugin-entry",
+      "bytes": 6107,
+      "lines": 65,
+      "sha256": "01b7f0f95d734a85e5195ebff9042124e0965cb3c427b8f125b813d084b07174",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/agents/compliance-verifier.md",
+      "kind": "plugin-agent",
+      "bytes": 11087,
+      "lines": 198,
+      "sha256": "94b05f318090a429aae05a12a83216ca3b408bcc687ffd0af1673f5f37204824",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/agents/docs-form-auditor.md",
+      "kind": "plugin-agent",
+      "bytes": 15470,
+      "lines": 208,
+      "sha256": "9c8367396cf20b4b3705cb27fdcaa353fbde27a32f8059b7f63b688713fe81e8",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/agents/living-docs-auditor.md",
+      "kind": "plugin-agent",
+      "bytes": 8727,
+      "lines": 212,
+      "sha256": "2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b",
+      "symlinkTarget": null
+    },
+    {
+      "path": "plugin/agents/review-sidecar.md",
+      "kind": "plugin-agent",
+      "bytes": 11949,
+      "lines": 236,
+      "sha256": "5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb",
+      "symlinkTarget": null
+    }
+  ]
+}

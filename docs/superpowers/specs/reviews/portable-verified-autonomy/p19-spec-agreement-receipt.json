@@ -1,0 +1,14 @@
+{
+  "featureId": "portable-verified-autonomy",
+  "decision": "agreed",
+  "operatorEvidence": "Operator answered \u201c\u043e\u043a\u201d, then \u201c\u0433\u043e\u201d, after the plain-language walkthrough of the presented specification 2c1350d1 and the instruction for agreeing to that exact version.",
+  "specRef": {
+    "path": "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md",
+    "sha256": "2c1350d17f34ccf7e2a83d343e53b3d5e640e49ca96023a8ecb6cc4716156f04"
+  },
+  "agreementRecordRef": {
+    "path": "docs/superpowers/specs/reviews/portable-verified-autonomy/p19-spec-agreement.md",
+    "sha256": "edae530e31bd3ff9eb2ef00751ae902fc65da4c1fb797f1d306f7ea66f97de65"
+  },
+  "parentPrdSha256": "ec33fd3d88ae41fb623b31d4d465d96d2cbe3af63dfc7d815f72c8c684590721"
+}

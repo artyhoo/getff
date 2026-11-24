@@ -1,0 +1,9 @@
+// GOOD: the app root wraps its content in an error boundary — H8 (require-error-boundary) must NOT flag this.
+import { ErrorBoundary } from 'react-error-boundary';
+export function App() {
+  return (
+    <ErrorBoundary fallback={<div>Error</div>}>
+      <main>Content</main>
+    </ErrorBoundary>
+  );
+}

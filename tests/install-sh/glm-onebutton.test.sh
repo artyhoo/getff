@@ -505,7 +505,7 @@ else
 fi
 
 # §7c #3 / §7d.1 #3 — direct vendor ping must be gone (match non-comment lines only).
-if grep -vE '^\s*#' "$REPO_ROOT/scripts/getff-glm-onebutton.sh" | grep -qE 'GLM_BASE_URL.*v1/messages'; then
+if grep -qE 'GLM_BASE_URL.*v1/messages' <<<"$(grep -vE '^\s*#' "$REPO_ROOT/scripts/getff-glm-onebutton.sh")"; then
   bad "regression §7c #3: helper still pings \$GLM_BASE_URL/v1/messages directly (must use /runtime-profiles/validate)"
 else
   ok "regression §7c #3: no direct vendor ping (uses POST /runtime-profiles/validate)"

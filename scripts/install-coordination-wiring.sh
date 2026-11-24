@@ -15,6 +15,7 @@
 #   --self-test   run the three apply fns against throwaway temp copies, assert, report (no real writes)
 #
 # Idempotent: re-running is a no-op once a channel is wired. Safe to run repeatedly.
+# Exit 3: the cwd is not a checkout of this script's repository (REPO-IDENTITY GUARD) — nothing wired.
 # @dual-pair: cross-worktree-coordination-doc-sync   (SSOT #110)
 
 set -euo pipefail
@@ -161,8 +162,35 @@ self_test() {
 if [ "$MODE" = "self-test" ]; then self_test; exit $?; fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "FATAL: run inside the repo" >&2; exit 1; }
-HOOKS_DIR="$(git config --get core.hooksPath 2>/dev/null || true)"
+
+# ── REPO-IDENTITY GUARD ─────────────────────────────────────────────────────
+# Wire ONLY a checkout of the repository this script lives in: the cwd's toplevel must share
+# this script's git common dir (the primary clone and its linked worktrees do). A run from a
+# foreign repo — a scratch consumer project the shell cd'd into — is refused with exit 3
+# before any channel writes, instead of dropping a post-checkout hook into that repo's hooks
+# dir and a SessionStart entry into its settings.json. Same guard and exit code as
+# scripts/link-coordination.sh (the 2026-09-30 incident, getff#1967). The unsets mirror it:
+# CDPATH would make `cd .git` jump elsewhere; an exported GIT_DIR / GIT_COMMON_DIR /
+# GIT_WORK_TREE would make both sides resolve from the env, not from -C.
+unset CDPATH
+_git_at() { env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE git -C "$@"; }
+_common_dir() {
+  local d
+  d="$(_git_at "$1" rev-parse --git-common-dir 2>/dev/null)" || return 1
+  (cd "$1" && cd "$d" && pwd -P) 2>/dev/null
+}
+SELF_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SELF_COMMON="$(_common_dir "$SELF_REPO" || true)"
+if [ -z "$SELF_COMMON" ] || [ "$SELF_COMMON" != "$(_common_dir "$REPO_ROOT" || true)" ]; then
+  echo "install-coordination-wiring: refusing $REPO_ROOT — not a checkout of this script's repository ($SELF_REPO); nothing wired" >&2
+  exit 3
+fi
+# ── END REPO-IDENTITY GUARD ─────────────────────────────────────────────────
+
+HOOKS_DIR="$(git -C "$REPO_ROOT" config --get core.hooksPath 2>/dev/null || true)"
 [ -z "$HOOKS_DIR" ] && HOOKS_DIR="$REPO_ROOT/.husky"
+# git resolves a relative core.hooksPath against the checkout root, not the cwd.
+case "$HOOKS_DIR" in /*) ;; *) HOOKS_DIR="$REPO_ROOT/$HOOKS_DIR" ;; esac
 SETTINGS="$REPO_ROOT/.claude/settings.json"
 SUPERSET_PROJECTS="${HOME}/.superset/projects"
 

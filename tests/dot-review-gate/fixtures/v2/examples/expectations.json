@@ -1,0 +1,15 @@
+{
+  "positive-go.json": "valid",
+  "complete-revise.json": "valid",
+  "partial-revise.json": "valid",
+  "decision-required.json": "valid",
+  "historical.json": "valid",
+  "follow-up.json": "valid",
+  "superseded-occurrence.json": "valid",
+  "prepr-review-reuse.json": "valid",
+  "material-delta.json": "valid",
+  "fix-response.json": "valid",
+  "closure-receipt.json": "valid",
+  "closure-already-fixed.json": "valid",
+  "invalid-missing-dimension.json": "invalid"
+}

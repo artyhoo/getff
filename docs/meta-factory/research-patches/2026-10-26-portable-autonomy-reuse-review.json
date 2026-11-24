@@ -1,0 +1,24 @@
+{
+  "kind": "bounded-research-evidence-review",
+  "date": "2026-10-26",
+  "artifact": "2026-10-26-portable-autonomy-reuse-decision.md",
+  "artifactGitBlob": "363697fec1259330e27990e6a82beec98d84bd62",
+  "artifactSha256": "8f4ecc8ebfdc292b8cf85e99f6194f4a32120e307fd974ee4c7d59b556a42177",
+  "getffSourceRevision": "943e417c5a70d4589d5ee75fcf6ee273a9d46bfd",
+  "upstreamSourceRevision": "0d8eacc65cd3b783a0d28d019d39e6367780b911",
+  "reviewer": "/root/reuse_evidence_check",
+  "independence": "Fresh artifact-only agent; no authoring conversation; immutable input blob independently checked.",
+  "scope": "K1 source anchors, K2 asserted behavior, reuse boundaries and recommendation commitment level.",
+  "verdict": "GO",
+  "verifiedClaims": ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8"],
+  "actionableFindings": [],
+  "nonblockingNotes": [
+    "E1 can additionally cite server/index.ts:8842 for engine forwarding.",
+    "E4 can additionally cite server/runtime-coordinator.ts:116 and server/runtime/store.ts:109-153 for persistence."
+  ],
+  "limits": [
+    "GO applies to the bounded source-backed recommendation only, not runtime adoption, a complete solution design, implementation approval or deployment acceptance.",
+    "Live integration, reviewer isolation, consumer closure, interrupted-owner continuation, effect deduplication, cancellation and comparative operator effort were not exercised.",
+    "Operator premises and historical author actions were not independently reconstructed from private or chat state."
+  ]
+}

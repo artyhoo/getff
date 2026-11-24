@@ -316,4 +316,28 @@ describe('install — L5 v1 consumer disk write', () => {
     expect(existsSync(resolve(outDir, 'rules-lock.next.json'))).toBe(false);
     expect(existsSync(resolve(outDir, 'rules-lock.json'))).toBe(true);
   });
+
+  // critical-review S6-1: plan.framework comes from research input and was spliced raw into the
+  // lock filename — `../../package` resolved to <consumerRoot>/package.json and overwrote it.
+  it('refuses a framework that is not a stack slug, and writes nothing', () => {
+    const pkg = resolve(consumerRoot, 'package.json');
+    writeFileSync(pkg, '{ "name": "consumer" }\n');
+    const bad = synthesize(plan({ framework: '../../package', patterns: [entry('nextjs-app-router')] }));
+    const report = install(bad, { consumerRoot, force: true });
+    expect(report.ok).toBe(false);
+    expect(report.installed).toBe(false);
+    expect(report.failures[0]?.stage).toBe('pre-validate');
+    expect(report.failures[0]?.reason).toContain('../../package');
+    expect(readFileSync(pkg, 'utf8')).toBe('{ "name": "consumer" }\n');
+    expect(existsSync(resolve(consumerRoot, '.ai-factory', 'synthesizer-output'))).toBe(false);
+  });
+
+  // paired negative: every shipped stack slug form (dash, digits) still installs.
+  it('accepts stack slugs such as react-native and next16', () => {
+    for (const framework of ['react-native', 'next16']) {
+      const ok = install(synthesize(plan({ framework, patterns: [entry('nextjs-app-router')] })), { consumerRoot, force: true });
+      expect(ok.ok).toBe(true);
+      expect(existsSync(resolve(consumerRoot, '.ai-factory', 'synthesizer-output', `rules-lock.${framework}.json`))).toBe(true);
+    }
+  });
 });

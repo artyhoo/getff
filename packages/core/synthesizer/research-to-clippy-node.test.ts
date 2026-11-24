@@ -39,7 +39,7 @@ const MEM_FORGET_PRACTICE = JSON.parse(
 ) as ClippyResearchedPractice;
 
 /** AC3 — a practice that does NOT reduce to a single method/type/macro path-ban: a per-impl trait-method
- *  ban (kind outside the frozen-IR ceiling; render-clippy's known bound, render-clippy.ts:16-19). Its
+ *  ban (kind outside the frozen-IR ceiling; render-clippy's known bound, render-clippy.ts:18-21). Its
  *  provenance is VALID on purpose, so the ONLY reason it must drop is inexpressibility — not a provenance
  *  miss. Because the node it WOULD build passes the grammar gate (params.kind is schema-unconstrained),
  *  disabling the MAJOR-1 filter emits a real inert node → the `status==='research-only'` assertion goes
@@ -173,7 +173,7 @@ describe('AC1 — rust flagship practice → valid ConventionNode (renders, not 
     const result = researchedPracticeToClippyNode(MEM_FORGET_PRACTICE);
     if (result.status !== 'node') throw new Error(`expected a node, got ${result.status}`);
     const { outcomes } = renderCargoClippy([result.node]);
-    // warning severity ⇒ rendered (render-clippy.ts:119). NOT refused FF7001 (would be 'syntax'), NOT
+    // warning severity ⇒ rendered (render-clippy.ts:142). NOT refused FF7001 (would be 'syntax'), NOT
     // refused FF7002 (off-contract params), NOT degraded FF7003 (error/note severity).
     expect(outcomes.get('mem-forget')?.kind).toBe('rendered');
   });
@@ -188,7 +188,7 @@ describe('AC2 — node → renderCargoClippy yields the expected clippy.toml ent
     const { toml } = renderCargoClippy([result.node]);
     expect(toml).toContain('disallowed-methods = [');
     expect(toml).toContain('path = "std::mem::forget"');
-    // reason is ALWAYS node.claim (render-clippy.ts:112).
+    // reason is ALWAYS node.claim (render-clippy.ts:135).
     expect(toml).toContain('reason = "Do not use std::mem::forget()');
   });
 });
@@ -293,8 +293,8 @@ describe('gate-failed — expressible + trusted provenance, but the built node f
 // ── Ceiling constant honesty (drift-parity GAP is documented, not silent) ─────────
 
 describe('CLIPPY_EXPRESSIBLE_KINDS — the frozen-IR ceiling constant', () => {
-  it('is exactly {method, type, macro} (kept in lockstep with render-clippy.ts:40 VALID_KINDS by hand)', () => {
-    // render-clippy.ts:40 does NOT export VALID_KINDS (exporting it = a backends/cargo/** boundary
+  it('is exactly {method, type, macro} (kept in lockstep with render-clippy.ts:42 VALID_KINDS by hand)', () => {
+    // render-clippy.ts:42 does NOT export VALID_KINDS (exporting it = a backends/cargo/** boundary
     // violation, #977-owned), so set-equality cannot be asserted mechanically here — the drift-parity
     // test is a DOCUMENTED GAP (a cross-owner handoff request), not a silently-dropped honesty line.
     // This pin at least fails HERE if THIS constant drifts from the contract it mirrors.

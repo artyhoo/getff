@@ -78,23 +78,23 @@ EOF
 transform_internal_refs "$FIXTURE"
 OUT=$(cat "$FIXTURE")
 
-echo "$OUT" | grep -qF "https://example.test/blob/main/docs/meta-factory/foo.md" \
+grep -qF "https://example.test/blob/main/docs/meta-factory/foo.md" <<<"$OUT" \
   && ok "transform: 3-deep docs/ rewritten" \
   || bad "transform: 3-deep docs/ NOT rewritten; got: $(echo "$OUT" | grep 'foo.md')"
 
-echo "$OUT" | grep -qF "https://example.test/blob/main/docs/meta-factory/bar.md" \
+grep -qF "https://example.test/blob/main/docs/meta-factory/bar.md" <<<"$OUT" \
   && ok "transform: 4-deep docs/ rewritten" \
   || bad "transform: 4-deep docs/ NOT rewritten"
 
-echo "$OUT" | grep -qF "https://example.test/blob/main/packages/core/x.ts" \
+grep -qF "https://example.test/blob/main/packages/core/x.ts" <<<"$OUT" \
   && ok "transform: packages/ rewritten" \
   || bad "transform: packages/ NOT rewritten"
 
-echo "$OUT" | grep -qF "https://example.test/blob/main/README.md#anchor" \
+grep -qF "https://example.test/blob/main/README.md#anchor" <<<"$OUT" \
   && ok "transform: README.md#anchor preserved through rewrite" \
   || bad "transform: README.md#anchor NOT preserved"
 
-echo "$OUT" | grep -qF "https://example.test/blob/main/.claude/rules/no-paid-llm-in-ci.md" \
+grep -qF "https://example.test/blob/main/.claude/rules/no-paid-llm-in-ci.md" <<<"$OUT" \
   && ok "transform: rules/ rewritten to blob URL (.claude/rules/ not shipped to consumers)" \
   || bad "transform: rules/ NOT rewritten; got: $(echo "$OUT" | grep 'no-paid')"
 

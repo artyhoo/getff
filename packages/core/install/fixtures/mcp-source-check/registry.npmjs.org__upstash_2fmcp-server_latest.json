@@ -1,0 +1,10 @@
+{
+  "name": "@upstash/mcp-server",
+  "version": "0.3.0",
+  "homepage": "https://github.com/upstash/mcp-server#readme",
+  "repository": {
+    "url": "git+https://github.com/upstash/mcp-server.git",
+    "type": "git"
+  },
+  "mcpName": "io.github.upstash/mcp-server"
+}

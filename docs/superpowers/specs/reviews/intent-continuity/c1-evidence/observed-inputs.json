@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "resultId": "c1-result-continuity",
+  "sourceInputs": [
+    {
+      "path": ".agents/procedures/intent/helpers/check-result-review.mjs",
+      "sha256": "9962c464d126acfcef8d1b77c292d708d8b8a3b8f78f8d36197b50bd17d434d7"
+    },
+    {
+      "path": ".agents/procedures/intent/helpers/publish-result-review.mjs",
+      "sha256": "ea6243fc3c5fabb0ace3315961c34b7746a10f89c0caa42bb8f08006c9591f80"
+    },
+    {
+      "path": "packages/runtime-bridge/src/resultReview.ts",
+      "sha256": "c524dbe51dc0e9a30a076d2a8c6c9a419b305e180014b08658cfa5a051d558eb"
+    },
+    {
+      "path": "packages/runtime-bridge/src/AifHandoffBackend.ts",
+      "sha256": "06992963999c078101eb871306c5dbe8de58950ba305c8ed02d2b8c4858a1420"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/claim.ts",
+      "sha256": "6b1c4f62f6e2d0cf022e37e6dd9995d10a26a13af5484a4962a782712a4ada67"
+    },
+    {
+      "path": "packages/core/skills/intent-result-review.test.ts",
+      "sha256": "abb3d3aacaec08737e70d3e02aee032f22dbe9719312b8a58d4bf802c45d2219"
+    },
+    {
+      "path": "packages/runtime-bridge/test/result-review-effects.test.ts",
+      "sha256": "0e88f464b1dd508badef75eedd9992fa680393c9a46fad323fc7cefc7a65e285"
+    }
+  ],
+  "observation": {
+    "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/focused-vitest.log",
+    "sha256": "c3501a05aaabbca18afa8338da793d0c67dbe958acf3be22dd45f3d8508c166e"
+  },
+  "environment": {
+    "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/environment.md",
+    "sha256": "8ab315764f57008288b3bc0acc73d30ae6a962a04975e70e03e5ac6e27090322"
+  }
+}

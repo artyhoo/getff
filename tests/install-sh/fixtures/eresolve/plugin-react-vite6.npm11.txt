@@ -1,0 +1,21 @@
+npm error code ERESOLVE
+npm error ERESOLVE unable to resolve dependency tree
+npm error
+npm error While resolving: er1@0.0.0
+npm error Found: vite@6.4.3
+npm error node_modules/vite
+npm error   dev vite@"^6.0.0" from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer vite@"^8.0.0" from @vitejs/plugin-react@6.1.1
+npm error node_modules/@vitejs/plugin-react
+npm error   dev @vitejs/plugin-react@"6.1.1" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error ~/.npm/_logs/2026-09-29T08_28_00_360Z-eresolve-report.txt
+npm error A complete log of this run can be found in: ~/.npm/_logs/2026-09-29T08_28_00_360Z-debug-0.log

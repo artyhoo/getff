@@ -57,6 +57,7 @@ interface FakeWsControl {
   triggerMessage(data: unknown): void;
   triggerClose(): void;
   triggerError(): void;
+  setAuthoritativeStatus(status: string): void;
   closedCount: number;
 }
 
@@ -66,10 +67,23 @@ function makeFakeWebSocket(): { Ctor: WebSocketConstructor; ctrl: FakeWsControl 
   let onclose: (() => void) | null = null;
   let onerror: ((ev: unknown) => void) | null = null;
   let closedCount = 0;
+  let requestedTask = '';
+  let authoritativeStatus = 'implementing';
+  // Full authoritative task detail, independently of the status hint. These
+  // legacy routing cases update the fixture record before broadcasting it.
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+    requestedTask = decodeURIComponent(String(url).split('/tasks/')[1] ?? '');
+    return new Response(JSON.stringify({ id: requestedTask, title: 'T', status: authoritativeStatus }));
+  });
 
   const ctrl: FakeWsControl = {
+    setAuthoritativeStatus: (status) => { authoritativeStatus = status; },
     triggerOpen: () => onopen?.(),
-    triggerMessage: (data) => onmessage?.({ data: JSON.stringify(data) }),
+    triggerMessage: (data) => {
+      const frame = data as { type: string; payload: { id: string; status: string } };
+      if (['task:updated', 'task:moved'].includes(frame.type) && frame.payload.id === requestedTask) authoritativeStatus = frame.payload.status;
+      onmessage?.({ data: JSON.stringify(data) });
+    },
     triggerClose: () => onclose?.(),
     triggerError: () => onerror?.(new Event('error')),
     get closedCount() { return closedCount; },
@@ -164,6 +178,7 @@ describe('Test 1 — events for our taskId resolve with correct status + state-f
     });
 
     ctrl.triggerOpen();
+    await new Promise(r => setTimeout(r, 0));
     // Non-terminal event first — should not resolve
     ctrl.triggerMessage({ type: 'task:updated', payload: { id: taskId, title: 'T', status: 'implementing' } });
     // Terminal success event
@@ -224,12 +239,19 @@ describe('Test 2 — events for OTHER taskIds are ignored', () => {
     p.then(() => { resolved = true; }).catch(() => {});
 
     ctrl.triggerOpen();
+    // Complete the initial authoritative read while the task is still running.
+    await new Promise(r => setTimeout(r, 0));
+    const reads = vi.mocked(globalThis.fetch).mock.calls.length;
+    // Update the record independently of any broadcast. A foreign frame must not
+    // trigger another GET which could consume our already-completed task.
+    ctrl.setAuthoritativeStatus('done');
     // Event for OTHER task — must be ignored
     ctrl.triggerMessage({ type: 'task:updated', payload: { id: otherTaskId, title: 'T', status: 'done' } });
 
     // After 50ms, the promise must NOT have resolved (other task ignored)
     await new Promise(r => setTimeout(r, 50));
     expect(resolved).toBe(false);
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(reads);
 
     // NEGATIVE: state file must NOT contain otherTaskId's status
     if (existsSync(stateFile)) {
@@ -237,8 +259,10 @@ describe('Test 2 — events for OTHER taskIds are ignored', () => {
       expect(contents).not.toContain(`taskId=${otherTaskId}`);
     }
 
-    // Let the timeout fire to clean up
-    await p.catch(() => {});
+    // Restored positive control: only our frame triggers the next reconciliation.
+    ctrl.triggerMessage({ type: 'task:updated', payload: { id: ourTaskId, title: 'T', status: 'done' } });
+    expect(await p).toMatchObject({ success: true, finalStatus: 'done' });
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(reads + 1);
   });
 
   it('non-task event types (e.g. chat:done) are ignored entirely', async () => {
@@ -363,13 +387,17 @@ describe('Test 3 — WS disconnect mid-task → BackendError unavailable (bridge
 
     const p = backend.awaitDone(handle);
 
-    ctrl.triggerOpen();
-    ctrl.triggerClose(); // exhaust 3 retries (each reconnect triggers close immediately)
-    // maxReconnectAttempts defaults to 3; need to trigger close 4 times total
-    // (1 initial + 3 reconnects, each one closes immediately)
-    ctrl.triggerClose();
-    ctrl.triggerClose();
-    ctrl.triggerClose();
+    // Only the current socket's first close counts; obsolete callbacks are ignored.
+    // Allow each of the three actual reconnects before closing its new socket.
+    const failure = expect(p).rejects.toSatisfy((err: unknown) =>
+      err instanceof BackendError && err.code === 'unavailable',
+    );
+    for (let i = 0; i < 4; i++) {
+      ctrl.triggerOpen();
+      ctrl.triggerClose();
+      if (i < 3) await new Promise(r => setTimeout(r, 120));
+    }
+    await failure;
 
     await expect(p).rejects.toSatisfy((err: unknown) => {
       return err instanceof BackendError &&

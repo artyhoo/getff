@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "featureId": "dsh-native-q0-qualification",
+  "status": "PLAN_PREP_OK_PUBLICATION_PENDING",
+  "revision": 4,
+  "prdSha256": "ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8",
+  "specSha256": "5b7acf5db05c9d1140e08cb25f09c9c2fa03b67ed7e4e92845dd94c5bec1aad4",
+  "semanticAttempt": "30bad1738849cba16c7c2fe01c2f6bf1ef9eac28d7486379736872b45b8b0bd4",
+  "agreementSha256": "9f4a7abd378e19587972987ce20d31e406c4f610500798242d1e95e282a172fa",
+  "orchHome": "/Users/art/.claude-coordination/rules-as-tests-aif",
+  "currentPlanPrep": {
+    "ok": true,
+    "check": "plan-prep"
+  },
+  "mechanism": "Canonical advance-prd expect2 -> revision3; fresh semantic publication; check-presentation captures3; truthful scoped agreement; advance-spec expect3 -> revision4; check-plan-prep PASS. No manual selector/pre-mechanism edit.",
+  "correctedPremise": "Retain OpenMaus bots; investigate DSH coordination; AIF fate undecided.",
+  "historicalR1Standing": "Old positive judgments bind withdrawn replacement premise only. Unchanged source/build facts may be reused; no inherited R2 release.",
+  "parentFeature": "portable-verified-autonomy",
+  "parentRevision": 2,
+  "parentOwnerUnchanged": true,
+  "runtimeStarted": false,
+  "runtimeRelease": "Requires exact staged publication, current authority, destination/inflight custody and ADMITTED_Q0 binding to same retained GLM session; this creation-time preparation receipt is historical after actual release."
+}

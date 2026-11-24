@@ -1,0 +1,14 @@
+{
+  "featureId": "dsh-native-q0-qualification",
+  "decision": "agreed",
+  "operatorEvidence": "Actual autonomous local Q0 instruction plus later direct cloud clarification: \u00ab\u042f \u0445\u043e\u0442\u0435\u043b Open Maus \u0438\u043d\u0442\u0435\u0433\u0440\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432\u043e\u0442 \u044d\u0442\u043e\u0442 \u0432\u043e\u0442 DSH \u043a\u0430\u043a \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u043e\u0440\u00bb. This binding covers bounded source/build/fake investigation with retained OpenMaus; no production integration mechanism, AIF removal or whole-feature architecture is approved. Exact source identities and applicability limits are in the agreement record.",
+  "specRef": {
+    "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md",
+    "sha256": "5b7acf5db05c9d1140e08cb25f09c9c2fa03b67ed7e4e92845dd94c5bec1aad4"
+  },
+  "agreementRecordRef": {
+    "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement-r2.md",
+    "sha256": "9f4a7abd378e19587972987ce20d31e406c4f610500798242d1e95e282a172fa"
+  },
+  "parentPrdSha256": "ff05b862fe5335e2617f903df58a8bfc8f598adae1356bd2c50218bdb23d41d8"
+}

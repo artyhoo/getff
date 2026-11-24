@@ -1,0 +1,43 @@
+{
+  "schema": "getff-hero-copy/1",
+  "_note": "Copy for the landing hero delta (face-pages spec §5.9). Props only: the component, its layout, and the FS8 guard are landing-side. No stack maturity label appears here; the limits line renders from face-facts.json.",
+  "cta": {
+    "primary": { "label": "Get started", "href": "/docs/quick-start/" },
+    "secondary": { "label": "Read the docs", "href": "/docs/" }
+  },
+  "agentLine": {
+    "text": "Using an AI agent? Point it at getff.ai/llms.txt",
+    "copyValue": "https://getff.ai/llms.txt"
+  },
+  "howItWorksLink": {
+    "section": "03",
+    "step": 3,
+    "label": "How it works in detail",
+    "href": "/docs/how-it-works/"
+  },
+  "install": {
+    "section": "05",
+    "oneCommand": {
+      "heading": "One command",
+      "body": "Run it from your project root. It copies the rules, wires the git hooks and CI, and asks before it touches your dependencies. Once they are installed, it proves that a rule fires.",
+      "command": "git clone https://github.com/artyhoo/getff /tmp/rt && bash /tmp/rt/setup ts-server"
+    },
+    "plugin": {
+      "heading": "Or start with the Claude Code plugin",
+      "body": "The plugin gives your agent skills, helper agents, and session hooks. It never touches your git hooks or CI. Run the installer when you want rules that fail the build.",
+      "commands": ["/plugin marketplace add artyhoo/getff", "/plugin install getff@getff"]
+    },
+    "more": { "label": "Every install path", "href": "/docs/installation/" }
+  },
+  "feelIt": {
+    "section": "04",
+    "agentsMdLink": { "label": "Open the framework's own AGENTS.md" }
+  },
+  "limits": {
+    "section": "06",
+    "handWritten": [
+      "The executable AGENTS.md you can open today is this repository's own. Generating one for your project is on the roadmap, not shipped.",
+      "The source is public under the Functional Source License (FSL-1.1-ALv2). Each release becomes Apache 2.0 on its second anniversary."
+    ]
+  }
+}

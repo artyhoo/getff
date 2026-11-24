@@ -1,0 +1,14 @@
+{
+  "featureId": "dsh-native-q0-qualification",
+  "decision": "agreed",
+  "operatorEvidence": "The operator said «го» after the original Q0 kickoff review and now explicitly instructed: «Прочитай обновления исходного облачного чата, самостоятельно восстанови материалы из истории и источников, разберись с допуском штатными средствами и выполни разрешённый Q0. Продолжай автономно в согласованных границах.» This binds the unchanged complete Q0 task slice in the separately reviewed qualification specification, without claiming agreement to unrecovered full-design bytes or architecture adoption.",
+  "specRef": {
+    "path": "docs/superpowers/specs/2026-11-01-dsh-native-q0-qualification-design.md",
+    "sha256": "1adc905b57e1d78dc2ed2c54b2cc3edd7b39fe361e3ad5d4afb8e88f683fb03b"
+  },
+  "agreementRecordRef": {
+    "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/spec-agreement.md",
+    "sha256": "d24b353e34b555ebeee5ab0e572f747a5c6b19c81cb1a1d33758e0c740bb0e28"
+  },
+  "parentPrdSha256": "bf56e472321469b9da0667ecd43a8a5d04d3f4a086c9e2e7814ef85c83a389da"
+}

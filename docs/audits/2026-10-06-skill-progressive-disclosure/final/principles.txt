@@ -1,0 +1,8 @@
+
+ RUN  v4.1.8 /Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif/packages/core
+
+
+ Test Files  4 passed (4)
+      Tests  38 passed (38)
+   Start at  14:50:00
+   Duration  3.76s (transform 127ms, setup 62ms, import 140ms, tests 3.61s, environment 0ms)

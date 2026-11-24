@@ -46,7 +46,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { renderCargoClippy } from '../backends/cargo/render-clippy.ts';
 import type { ResolveCtx } from '../research/allowlist-resolver.ts';
 import { runRenderCli } from './render-researched-astgrep.ts';
@@ -55,6 +55,7 @@ import {
   type ClippyResearchedPractice,
   type ResearchOnlyReason,
 } from './research-to-clippy-node.ts';
+import { isDirectRun } from '../install/is-direct-run.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -139,7 +140,7 @@ export function planResearchedClippy(
 
   // Loud dup guard: two practices sharing an entryId would render two disallowed-table entries the
   // caller cannot tell apart, and (more importantly) signal a duplicated researched convention. Fail
-  // LOUD, mirroring the sibling astgrep driver's guard (render-researched-astgrep.ts:137-148).
+  // LOUD, mirroring the sibling astgrep driver's guard (render-researched-astgrep.ts:150-161).
   const seenIds = new Set<string>();
   for (const node of nodes) {
     if (seenIds.has(node.id)) {
@@ -162,7 +163,7 @@ export function planResearchedClippy(
       // A node the bridge accepted but the backend refused/degraded is a real driver/backend
       // inconsistency — fail LOUD rather than ship a half-rendered artifact. The bridge only ever
       // builds selectorClass:'type-aware' + {kind∈method/type/macro, path} + severity 'warning' nodes
-      // (research-to-clippy-node.ts:167-188), which renderCargoClippy renders (not degrades), so this
+      // (research-to-clippy-node.ts:194-215), which renderCargoClippy renders (not degrades), so this
       // branch is unreachable in practice — it guards a future bridge/backend drift.
       throw new Error(
         `planResearchedClippy(): ${node.id} passed the clippy bridge but renderCargoClippy ` +
@@ -257,7 +258,4 @@ function main(): void {
 
 // Run only when invoked directly (`tsx render-researched-clippy.ts`), never on import — the drift
 // gate imports the pure planners and must not trigger fs writes.
-const isMain =
-  Boolean(process.argv[1]) &&
-  import.meta.url === pathToFileURL(process.argv[1] as string).href;
-if (isMain) main();
+if (isDirectRun(process.argv[1], import.meta.url)) main();

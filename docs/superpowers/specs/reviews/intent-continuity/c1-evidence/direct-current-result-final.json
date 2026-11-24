@@ -1,0 +1,32 @@
+{
+  "revision": "daf10e6ae769fbd54b03d7db7a7698b92c780062d00c7884af23ceb68b8443c5",
+  "manifestSourceCount": 8,
+  "before": {
+    "old": "eea98df16faa9f7d900b70ea076176034df7293bb6e0dd1f1e002ad8aae94eb1",
+    "current": "285993bdc247a690b7856dd7e6375994df952cf8da68eed5f7ad3b34ff6552a5"
+  },
+  "after": {
+    "old": "eea98df16faa9f7d900b70ea076176034df7293bb6e0dd1f1e002ad8aae94eb1",
+    "current": "285993bdc247a690b7856dd7e6375994df952cf8da68eed5f7ad3b34ff6552a5"
+  },
+  "checks": [
+    {
+      "name": "old-at-current-revision",
+      "exit": 2,
+      "stdout": "{\"ok\":false,\"code\":\"ref_digest_mismatch\",\"reason\":\"bytes at packages/runtime-bridge/src/resultReview.ts do not match the bound digest\"}",
+      "stderr": ""
+    },
+    {
+      "name": "new-at-current-revision",
+      "exit": 2,
+      "stdout": "{\"ok\":false,\"code\":\"review_not_matching\",\"reason\":\"review outcome needs-evidence does not authorize continuation\"}",
+      "stderr": ""
+    },
+    {
+      "name": "new-after-relevant-change",
+      "exit": 2,
+      "stdout": "{\"ok\":false,\"code\":\"stale_review\",\"reason\":\"review observedRevision daf10e6ae769fbd54b03d7db7a7698b92c780062d00c7884af23ceb68b8443c5 is behind the current binding 0000000000000000000000000000000000000000000000000000000000000000\"}",
+      "stderr": ""
+    }
+  ]
+}

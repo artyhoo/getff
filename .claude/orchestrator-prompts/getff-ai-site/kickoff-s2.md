@@ -26,8 +26,7 @@ gate needs the token live. The trigger-only landing PR of R4 has **already merge
 
 **Then ONE landing PR from the S1 branch to `main`**
 ([`roll.md:108`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md)):
-it removes `content/docs/**`, the 195 hand-written `.md` route twins and the old
-`llms.txt`/`llms-full.txt` routes; repoints `source.config.ts` at the fetched `docs/site/` tree;
+it removes obsolete `content/docs/**` only after unique residue is preserved in accepted framework docs or the single auxiliary source `content/auxiliary/beta.md`, under [the bounded source amendment](s2-source-amendment.md). That source survives outside the deletion glob; `/docs/reference` is generated from accepted pinned nav/families, with no retained manual catalog. It removes obsolete handwritten `.md` route twins only after dynamic projections/mapped destinations pass the old-URL census, and replaces the old `llms.txt`/`llms-full.txt` routes with shared-source projections. It repoints `source.config.ts` at the fetched `docs/site/` tree and composes both retained auxiliary pages into the same normalized `lib/source.ts` source used by HTML/Markdown/LLM/search/sitemap;
 and adds the renderer, `redirects.json`, the enumerated `old-urls.txt`, `framework.pin`, the
 `markdownUrl` page actions, and the hero component (D28 §5.9) with its FS8 grep guard, rendering
 the S0b-written `docs/site/hero-copy.json` from the pin (R23; D51 (3)). Rehearsal: the **revert
@@ -78,7 +77,7 @@ written:**
    enumeration command, not by this sentence.
 3. Preserve anything in `content/docs/**` or the 195 twins that carries future value and is not
    reproduced by the new tree. Preservation is the **orchestrator's** job before the prompt is
-   written; the executor follows scope strictly and will not save it for you.
+   written; the executor follows scope strictly and will not save it for you. The source amendment names the ONE retained programme-prose source and the generated Reference index; preserve/regenerate these before legacy deletion. Its bounded D35 exception must be reviewed and staged before S2 admission.
 4. Prove the revert builds (R15) **before** the merge, not after.
 
 ## §3 The eleven non-negotiables — verbatim

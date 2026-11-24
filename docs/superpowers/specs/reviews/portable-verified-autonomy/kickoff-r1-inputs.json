@@ -1,0 +1,12 @@
+{
+  "inputsRef": "10a567a402295758f53172a4eb1e37ff70793257",
+  "kind": "review-only Git snapshot; branch unchanged",
+  "snapshots": {
+    ".claude/orchestrator-prompts/portable-verified-autonomy/kickoff.md": "/Users/art/.codex/worktrees/10c1/rules-as-tests-aif/docs/superpowers/specs/reviews/portable-verified-autonomy/kickoff-r1-inputs/.claude__orchestrator-prompts__portable-verified-autonomy__kickoff@10a567a40229.md",
+    "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-design.md": "/Users/art/.codex/worktrees/10c1/rules-as-tests-aif/docs/superpowers/specs/reviews/portable-verified-autonomy/kickoff-r1-inputs/docs__superpowers__specs__2026-10-26-portable-verified-autonomy-design@10a567a40229.md",
+    "docs/superpowers/specs/2026-10-26-portable-verified-autonomy-prd.md": "/Users/art/.codex/worktrees/10c1/rules-as-tests-aif/docs/superpowers/specs/reviews/portable-verified-autonomy/kickoff-r1-inputs/docs__superpowers__specs__2026-10-26-portable-verified-autonomy-prd@10a567a40229.md",
+    "docs/superpowers/specs/reviews/portable-verified-autonomy/spec-agreement.md": "/Users/art/.codex/worktrees/10c1/rules-as-tests-aif/docs/superpowers/specs/reviews/portable-verified-autonomy/kickoff-r1-inputs/docs__superpowers__specs__reviews__portable-verified-autonomy__spec-agreement@10a567a40229.md",
+    "docs/superpowers/research/portable-verified-autonomy/2026-10-26/field-notes-comparison.md": "/Users/art/.codex/worktrees/10c1/rules-as-tests-aif/docs/superpowers/specs/reviews/portable-verified-autonomy/kickoff-r1-inputs/docs__superpowers__research__portable-verified-autonomy__2026-10-26__field-notes-comparison@10a567a40229.md",
+    "docs/superpowers/specs/reviews/portable-verified-autonomy/arch-decisions.md": "/Users/art/.codex/worktrees/10c1/rules-as-tests-aif/docs/superpowers/specs/reviews/portable-verified-autonomy/kickoff-r1-inputs/docs__superpowers__specs__reviews__portable-verified-autonomy__arch-decisions@10a567a40229.md"
+  }
+}

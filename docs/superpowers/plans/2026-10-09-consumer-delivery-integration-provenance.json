@@ -1,0 +1,844 @@
+{
+  "base": "502940bddd36d4fbe7035ad305c6add0de33bb35",
+  "inherited_baseline_sha256": "a16982eae6fd97a24b1d1242c94ef33b50099cb341fefe444c17dceea77c0eb9",
+  "baseline_tree": "7391fefd6f3ef524c0c58a5a673bc098f97bbc59",
+  "integration_preimage": "58ef40e3d5285d996fd9d6d4207fb65fb70ea097",
+  "selected": [
+    {
+      "entry": "arch",
+      "source": "566c9847219e810d99f4a83c246d625f5ab0eb63",
+      "path": ".agents/procedures/arch/SKILL.md",
+      "baseline_sha256": "a9cb8a5dd767e99a61dccc100207ed98002990a43f3661111d75067191d40ad6",
+      "selected_sha256": "aba018a03a167ccca0a3d48a695758ad3edab411a3f6a0fa47e260168c87bb79"
+    },
+    {
+      "entry": "arch",
+      "source": "566c9847219e810d99f4a83c246d625f5ab0eb63",
+      "path": ".agents/procedures/arch/references/ideation.md",
+      "baseline_sha256": "3be0e525c15eb90bbb9e5ff27aafc6b13bf7e66be902aa52bfc7a4b2837bf21e",
+      "selected_sha256": "38911af0ee1ceabc41c76b572fef4090d0a0c66281b0c830feb579877b168e5c"
+    },
+    {
+      "entry": "claude-glm-executor-handoff",
+      "source": "5d9bbabfda36471d1e1c1e49240fc9bd78b6fd1c",
+      "path": ".agents/procedures/claude-glm-executor-handoff/SKILL.md",
+      "baseline_sha256": "daa1e7fc986037f9fe3bd008e0b7f255500378345f739b92aa2db6db91daaef3",
+      "selected_sha256": "c6df62f53f3d273d9bfaa4d2181716cb6f6c8a3d3b0a9a46dbbf5747c24b452a"
+    },
+    {
+      "entry": "claude-glm-executor-handoff",
+      "source": "5d9bbabfda36471d1e1c1e49240fc9bd78b6fd1c",
+      "path": "scripts/claude-glm-handoff-runtime-check.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "b941d795de5a50a985d13fe5962b925628a06dcc798bd6d69f4f2f6375883150"
+    },
+    {
+      "entry": "getff-cold-run-prober",
+      "source": "bc6b8b5d671994330624a6b490b725de451963b0",
+      "path": ".agents/roles/getff-cold-run-prober.md",
+      "baseline_sha256": "a6e00ad276d5682083771d6a02b7ec03d6af3b1ee8c988573fe74d56e8269131",
+      "selected_sha256": "ee67276bb959aa4f25fea044042c02ebb2724a2b47cbac989d116dd887416447"
+    },
+    {
+      "entry": "getff-cold-run-prober",
+      "source": "bc6b8b5d671994330624a6b490b725de451963b0",
+      "path": ".agents/roles/resources/getff-cold-run-prober/preflight.py",
+      "baseline_sha256": null,
+      "selected_sha256": "97f7e66b197ea24af3788ee59c5de8dbed023b967ae0151bff106f02b005eb52"
+    },
+    {
+      "entry": "getff-cold-run-prober",
+      "source": "bc6b8b5d671994330624a6b490b725de451963b0",
+      "path": "tests/roles/getff-cold-run-prober.test.py",
+      "baseline_sha256": null,
+      "selected_sha256": "636a9ad25da291daf3c3d03484883d6d7ee9f52ae96372ac412640539ffff58f"
+    },
+    {
+      "entry": "memory-codification-auditor",
+      "source": "81c46b04372afc5763eba6f5836f335672daeff2",
+      "path": ".agents/roles/memory-codification-auditor.md",
+      "baseline_sha256": "95847385889b1f06c0f02cd7784c2e34d0f2b37d7dbd2aceba00e382ce67af32",
+      "selected_sha256": "9038a0251517ac99e5e202976995072878742c9f4cd3dea75eaedae8d31af336"
+    },
+    {
+      "entry": "using-getff",
+      "source": "1d754c5f88538ede25750915b4160150af290f54",
+      "path": ".agents/procedures/using-getff/SKILL.md",
+      "baseline_sha256": "dbb21c859848dc7dace568748ce6b4322104b9c0bf3f72725c4c5aab358f17c3",
+      "selected_sha256": "01b7f0f95d734a85e5195ebff9042124e0965cb3c427b8f125b813d084b07174"
+    },
+    {
+      "entry": "getff",
+      "source": "82b22b6a67bb6188185c133638d51f2ddc219e0d",
+      "path": ".agents/procedures/getff/references/template-catalog.md",
+      "baseline_sha256": "157778ef3277d32a1d1a6e24ebfbe8bde9c3301fb654f08d65cec0aa7c7d5431",
+      "selected_sha256": "36515e8af0802fbda15a7ef1617a4e21ea6a2819c0d9e76cfc380abd7c79a0c1"
+    },
+    {
+      "entry": "getff",
+      "source": "82b22b6a67bb6188185c133638d51f2ddc219e0d",
+      "path": "scripts/getff-runtime-entry.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "356c4cbd8e8516c991c102beaa3ee5c3d1da1bda1e363f3efc9ac171588a9891"
+    },
+    {
+      "entry": "story",
+      "source": "c30b99a7fff7a76a23d57b7b09707197448a491b",
+      "path": ".agents/procedures/story/SKILL.md",
+      "baseline_sha256": "b957d64fc1d2c0122abbe6c6883e06150ef3568522636313aa68d4a6a65b1327",
+      "selected_sha256": "bcd77951b994284e71087c5f9e078fbbf15e21b22bf5f4a0de3b171519f2a055"
+    },
+    {
+      "entry": "story",
+      "source": "c30b99a7fff7a76a23d57b7b09707197448a491b",
+      "path": ".agents/procedures/story/helpers/emit-story-prompt.sh",
+      "baseline_sha256": "b6d8f83e2cf5db6e582347f665cd2129d90ce8157bb26540c21f5981261b617c",
+      "selected_sha256": "dd691bd1d907eea605e72678a334ebb02c3270823b4ce6c0d21c746ecdbdf57a"
+    },
+    {
+      "entry": "story",
+      "source": "c30b99a7fff7a76a23d57b7b09707197448a491b",
+      "path": "scripts/story-runtime.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "9f6d44f6ed20f226a542ff6c4cac01eb1c4ff630610d36b40f3b82d6024286cf"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": ".agents/roles/claims-conformance-auditor.md",
+      "baseline_sha256": "1582ac0b6de800099104435a82c3a4f5afe8175ebaa9f0d6e445e5cc8e00004e",
+      "selected_sha256": "56516a50bd80fd0f434e9d5adf52adb27df014aac1adab2b678bafb2836c1bd5"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/check-receipt.py",
+      "baseline_sha256": null,
+      "selected_sha256": "a414eb7e53bc03a7f5e528d354f00f7e9004aae1add4c2d738c506aec1364776"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/data.txt",
+      "baseline_sha256": null,
+      "selected_sha256": "e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/empty.md",
+      "baseline_sha256": null,
+      "selected_sha256": "af95edea84a7155f66371446fcd284c2ddc79dbfb5bd717af2f0dca6915c6bd3"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/failing-probe.py",
+      "baseline_sha256": null,
+      "selected_sha256": "0d3638f3671276a555a43d18a99c7908bd326511a552daff4d570651b6dc5a0a"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/gap.md",
+      "baseline_sha256": null,
+      "selected_sha256": "7d99c3140091dadacfeeeb76ddd6ca62731b51e1ef882b958c4df474e51828a4"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/probe-failure.md",
+      "baseline_sha256": null,
+      "selected_sha256": "0e8e6ce1ff123f1389ff8ec4e9fbc35608b28e7d912490fc936810f211b7dad7"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/probe.py",
+      "baseline_sha256": null,
+      "selected_sha256": "84ccae689022591779b516f9b1a5bd890536beb2bcb711713f53eaada65e27ac"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/small.md",
+      "baseline_sha256": null,
+      "selected_sha256": "09ebd4d80c3dd0ab9c19e0ca4676b67faf7a06e889f1ba0673b663cb3acd3b10"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/unknown.md",
+      "baseline_sha256": null,
+      "selected_sha256": "0b09a3c05f764a44a7fff226e59f3f592117bfe57f6b5e92c2768ccd41c07935"
+    },
+    {
+      "entry": "claims-conformance-auditor",
+      "source": "2983b508d2255cc290f4e98263cf54b05ea4c53c",
+      "path": "tests/claims-conformance-runtime/valid.md",
+      "baseline_sha256": null,
+      "selected_sha256": "939359842e10e711b3390e371984af021412e76bfbf8671372b1ea605575fa45"
+    },
+    {
+      "entry": "manual-rule-liveness-prober",
+      "source": "4e4891b04821f4cb98ffdde36dddebc750f41262",
+      "path": ".agents/roles/manual-rule-liveness-prober.md",
+      "baseline_sha256": "c0d9c361562311dc0b5301a32560b5fb373698f46916a436c462c036143bafbb",
+      "selected_sha256": "ef1705e5f8d0878b16662fe1145d610a555d508cb63712fa6d252019f3e958f2"
+    },
+    {
+      "entry": "manual-rule-liveness-prober",
+      "source": "4e4891b04821f4cb98ffdde36dddebc750f41262",
+      "path": "scripts/manual-rule-liveness-prober.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "ee7847faa851e7b3e3db7702e182a2705847d5f0d31483c5bf0bb552ef45674f"
+    },
+    {
+      "entry": "dispatch-input-checker",
+      "source": "b411970e1c63378d0848560f51d835578e4f955e",
+      "path": ".agents/roles/dispatch-input-checker.md",
+      "baseline_sha256": "6f24587e2468dd3b95073360f16f8c5a3d01c4318ad947462d0ad350b89304f1",
+      "selected_sha256": "03ba8d3a784142635230b379aa0688230422853b9aabf9572d45e144781a7c65"
+    },
+    {
+      "entry": "rule-tests",
+      "source": "5c9ccfb1261e4e8e028a22d5939a234d3afa98f9",
+      "path": "scripts/rule-tests-runtime-audit.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "eb115ac1cb2c62628e8ffb818bad0447cd7e10e3467d8c6f84d3b21438dc3262"
+    },
+    {
+      "entry": "living-docs-auditor",
+      "source": "52464b57da38cc68a71e37fa1ae388118c971752",
+      "path": ".agents/roles/living-docs-auditor.md",
+      "baseline_sha256": "0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d",
+      "selected_sha256": "2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b"
+    },
+    {
+      "entry": "living-docs-auditor",
+      "source": "52464b57da38cc68a71e37fa1ae388118c971752",
+      "path": "tests/living-docs-auditor/runtime.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "fce6a198825bc1a0b70a9c9290887c9eb9d8e75b86bbcb8dcea3ff9e7906d0f3"
+    },
+    {
+      "entry": "rule-test-author",
+      "source": "50a585bc5976b650c942e2cf6a1aaca141bc812e",
+      "path": "tests/native-entry/rule-test-author-runtime.test.py",
+      "baseline_sha256": null,
+      "selected_sha256": "897ec361afdbcf765cbbfdaa646edd6ee9a45f8e22f06a50c47619a47abf5653"
+    },
+    {
+      "entry": "backward-sweep-auditor",
+      "source": "c40d443390522b9b8d425799d687a2ace2fee48e",
+      "path": ".agents/roles/backward-sweep-auditor.md",
+      "baseline_sha256": "803bab58bcbc869bc2359cdf285f9e68370332fbf039567bc06d568f139bf092",
+      "selected_sha256": "4142c00524308312ce683c49312e5ab41fa2a5037ac04d84db82496999a1586f"
+    },
+    {
+      "entry": "aif-init",
+      "source": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+      "path": ".agents/roles/aif-init.md",
+      "baseline_sha256": "c3a869dc9a8b11d7409b6194da25746c35faa9e56338d36a0c807d4885eef296",
+      "selected_sha256": "23cfb21a319a1dc36d623547336dde22f3e6a5bd05b1e44f0b6fbb03aa1724da"
+    },
+    {
+      "entry": "aif-init",
+      "source": "b52b9048848c50dde8f05cbd4bf1656b0cba7451",
+      "path": "tests/aif-init/runtime-output.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "b7d8ad1d3bb75d53c8e1fbf3831d5aa04a28b65746e29186dfce7db074a422bd"
+    },
+    {
+      "entry": "template-audit",
+      "source": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+      "path": ".agents/procedures/template-audit/SKILL.md",
+      "baseline_sha256": "620536d73bffc4c966eddf9c279774de7df7c6905829198eb29ee4768be4629c",
+      "selected_sha256": "d1efe518e116e0ec6e5e25de58df8175a292afb28bb54e66c27ddde421b3116b"
+    },
+    {
+      "entry": "template-audit",
+      "source": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+      "path": "scripts/template-audit-runtime-receipts.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "c757b333608457d84d292e366a790e8b5e01a74eb9cd4d48e7891c28c47123f1"
+    },
+    {
+      "entry": "shipped-agent-liveness-prober",
+      "source": "7118ca7b1cdbda23062e3667264faed3f5bfd667",
+      "path": ".agents/roles/resources/shipped-agent-liveness-prober/summarize-native-trace.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "02d2ddbc5de9d320683fb89da78102b9a0086de713c66a5c492ee30dffcee025"
+    },
+    {
+      "entry": "shipped-agent-liveness-prober",
+      "source": "7118ca7b1cdbda23062e3667264faed3f5bfd667",
+      "path": ".agents/roles/shipped-agent-liveness-prober.md",
+      "baseline_sha256": "50173bddff6588f9f507cac8d6e9647e35db196f2a5820c1b5af344102efbfe3",
+      "selected_sha256": "5e8249cd0b81aa7060aa6701969537623bdcd34dd1fd5e91cc2d560b274a45f4"
+    },
+    {
+      "entry": "shipped-agent-liveness-prober",
+      "source": "7118ca7b1cdbda23062e3667264faed3f5bfd667",
+      "path": "tests/runtime/shipped-agent-liveness-prober.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "3be23de7bef5d7abce6bde85a8283baf8bbfdb6d568ff2ee2107787c17f111c6"
+    },
+    {
+      "entry": "shipped-agent-liveness-prober",
+      "source": "7118ca7b1cdbda23062e3667264faed3f5bfd667",
+      "path": "tests/runtime/shipped-agent-liveness-trace.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "0880da330ec2f799bf8f9134d40aa8f1458cab0a9fac54b50ca21a9b4d89c889"
+    },
+    {
+      "entry": "docplan-auditor",
+      "source": "cdd1571f4c75e1e20580135cad40e32e94ea9d4d",
+      "path": ".agents/roles/docplan-auditor.md",
+      "baseline_sha256": "f3a40e081ec332558dc257ac8a1de0ed21264732896a98310531bd3143933098",
+      "selected_sha256": "9289d97cb2481e1f706513190cbb68b5610cd074b76d588aec96acc2fe5f4e6e"
+    },
+    {
+      "entry": "docplan-auditor",
+      "source": "cdd1571f4c75e1e20580135cad40e32e94ea9d4d",
+      "path": "scripts/docplan-auditor-runtime-audit.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "34a99b82b073ea3e07f70f1be15363b567548139786e7dd84ffa84c03cdca43e"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": ".agents/roles/compliance-verifier.md",
+      "baseline_sha256": "502587155df217983aa36e9fa2abf0e0cf1d23ada82cff33ae2a9364ac580622",
+      "selected_sha256": "94b05f318090a429aae05a12a83216ca3b408bcc687ffd0af1673f5f37204824"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/check-finding-counts.py",
+      "baseline_sha256": null,
+      "selected_sha256": "928d32717d68802ca82be0ee785b3cd0a77cdfab2a88e271d16c2806060fe2e8"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/check-input-binding.py",
+      "baseline_sha256": null,
+      "selected_sha256": "47a17f4eead7737d7ed3b7ee9818ab048946adefc75c7fb148b972ab456d0169"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/fixtures/adverse.md",
+      "baseline_sha256": null,
+      "selected_sha256": "499b399f4b05d6240ad99e3ef66c8f1644c7b3fbb2873e1abe969a86e6b70956"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/fixtures/another.md",
+      "baseline_sha256": null,
+      "selected_sha256": "e66fc6c19855a72e42ce6ef4973e58a129bc91041b3972a06c4df201c2023428"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/fixtures/binding-sentinel.md",
+      "baseline_sha256": null,
+      "selected_sha256": "35b22ae31e1319924a4d890f823ec3e63b1e7f440dab1177da173b7632e567db"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/fixtures/convention.md",
+      "baseline_sha256": null,
+      "selected_sha256": "dfa38e9b0cba9ef02f91ade9428eaefb5bf60bf8267e5ae5194f616c89922613"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/fixtures/diff.txt",
+      "baseline_sha256": null,
+      "selected_sha256": "ff439164a52cae2977352d79ca33110e5e49fabf411a5262e33c6345e657538f"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/fixtures/inputs.json",
+      "baseline_sha256": null,
+      "selected_sha256": "9179b4430d9c53d9b20605a681dfbb65571817c22280cc184b9f975eddb902d2"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/fixtures/positive.md",
+      "baseline_sha256": null,
+      "selected_sha256": "f035240bf48e80b400451760630019d7d79a72a46861086c934be1ebd4c1a8c4"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/fixtures/unreadable.md",
+      "baseline_sha256": null,
+      "selected_sha256": "0a204093da1d017f16b3f97aa2ac644852e09a591ce9fe242c6f5f52c8a60d23"
+    },
+    {
+      "entry": "compliance-verifier",
+      "source": "b894b062e1691fa363c4412d137a3baa97c3fade",
+      "path": "tests/compliance-verifier-runtime/verify-receipts.py",
+      "baseline_sha256": null,
+      "selected_sha256": "e2ad6c0e613e3a10440b93f2fe77ff5e38c5757126239c99c03071ca8324ab4c"
+    },
+    {
+      "entry": "review-sidecar",
+      "source": "e1d0f2f525d03779dea1233e1b45eaa5ead89ac7",
+      "path": ".agents/roles/review-sidecar.md",
+      "baseline_sha256": "2c1cd796cc57ed791b5ebd9415f764ca684e8bd2301906d70bc990b08383806f",
+      "selected_sha256": "70995519d8f5832385ae69b73302e57ed33eeb2693809398b025627d5756b408"
+    },
+    {
+      "entry": "review-sidecar",
+      "source": "e1d0f2f525d03779dea1233e1b45eaa5ead89ac7",
+      "path": "scripts/review-sidecar-contract.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "564184a363b2499221d9c13ee58994a073ec16a3880a154431327eae0d19effb"
+    },
+    {
+      "entry": "dispatcher",
+      "source": "24a435c892b315f338f2d09c7537b6dcf3906e7a",
+      "path": ".agents/procedures/dispatcher/helpers/advance-frontier.sh",
+      "baseline_sha256": "c12fd8d7b8a4af335822c600904719c147c5ea859fb27cb7ab843f125e9d5a28",
+      "selected_sha256": "c7028a1c3273f6fbadf6639b06c1494e0e125632bdaab3d603968c7fc0f503ca"
+    },
+    {
+      "entry": "dispatcher",
+      "source": "24a435c892b315f338f2d09c7537b6dcf3906e7a",
+      "path": ".agents/procedures/dispatcher/helpers/monitor-classify.sh",
+      "baseline_sha256": "f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66",
+      "selected_sha256": "639fe1d8e3494c9996634655cd5139689a417c746f3b8a9092fdf2ad2b7cf4d5"
+    },
+    {
+      "entry": "dispatcher",
+      "source": "24a435c892b315f338f2d09c7537b6dcf3906e7a",
+      "path": ".agents/procedures/dispatcher/helpers/probe-inflight.sh",
+      "baseline_sha256": "f3d92976449c4579c64243d31f5357ad597a05e7e1c1be2e9adc767c241b1621",
+      "selected_sha256": "f997646a6ae3435ef9813f588882a0bfa6236bc7465c234e97594a4ea16b0257"
+    },
+    {
+      "entry": "adapter-jig-reviewer",
+      "source": "0739ab9a6f94ff967598b0e462b0f37b4e8e1131",
+      "path": ".agents/roles/adapter-jig-reviewer.md",
+      "baseline_sha256": "d0d25d05699117837ed2b95c3d2bfe2a58f5c25386786d3eb601c20490426366",
+      "selected_sha256": "d3214bb0917558e73d9f9113bbef4aa3d846e8176de8b0d70063b57bdbb017ed"
+    },
+    {
+      "entry": "adapter-jig-reviewer",
+      "source": "0739ab9a6f94ff967598b0e462b0f37b4e8e1131",
+      "path": "tests/roles/adapter-jig-reviewer.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "4187ac311eb510e476375fcbdf5f6688738262c3d93e91f4ce10c451c6b8d11a"
+    },
+    {
+      "entry": "self-reflection",
+      "source": "6d4d18b6d09bf87e6653883a84a74bcb66d2de60",
+      "path": ".agents/procedures/self-reflection/references/forward-checklist.md",
+      "baseline_sha256": "9b6ec160879352fd05dd64504b516af7e4d0fdcc1da897b0c02cc2d332f15526",
+      "selected_sha256": "99875eaa131cb5b29a840acebefef53ca7cd9a6cf34f6ae737c207795f07682d"
+    },
+    {
+      "entry": "self-reflection",
+      "source": "6d4d18b6d09bf87e6653883a84a74bcb66d2de60",
+      "path": "scripts/self-reflection-runtime.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "452b58bdcb5693e51609927615d6bf7e997b4ee3ff1b82a5c5e20cd0470e5ab4"
+    },
+    {
+      "entry": "docs-author",
+      "source": "3ed6afb795518fc58bffe6036940dc0a9f16e7a3",
+      "path": ".agents/procedures/docs-author/SKILL.md",
+      "baseline_sha256": "278f3c14d7b2eee951e4b325399604c29bc1615136fea3b3fca7f80a761a038a",
+      "selected_sha256": "35142493805eb53f808fa5cd8103d229ca4b22836eecb4fc4fbab5c60cea316e"
+    },
+    {
+      "entry": "docs-author",
+      "source": "3ed6afb795518fc58bffe6036940dc0a9f16e7a3",
+      "path": ".agents/procedures/docs-author/references/craft.md",
+      "baseline_sha256": "6658d2123b8fcd47a6cda7f590e1f0e7d69c9c5aa82a84f23945888e01de539d",
+      "selected_sha256": "22695a765dce00c7224bb7dfc1b92783c5c03d8f3719c5d398cd7d0275e23fc5"
+    },
+    {
+      "entry": "docs-author",
+      "source": "3ed6afb795518fc58bffe6036940dc0a9f16e7a3",
+      "path": "scripts/docs-author-runtime.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "7472634b736f6f0ad5858f4423eba7de65760eb27a60f81076f20953b8f13f79"
+    },
+    {
+      "entry": "orchestrator-worker-discipline",
+      "source": "67af9682e32f27a6f29fdd41c3f7ebaad975cb1d",
+      "path": ".agents/roles/orchestrator-worker-discipline.md",
+      "baseline_sha256": "82bd36506d2508d18c4b5ac4780cdfb745e1529e05889429010bbec38fa2e4b6",
+      "selected_sha256": "e2467fc49e336f420ee7aefe4ae201b12097b41b0749517ee2af79b04a7b9d79"
+    },
+    {
+      "entry": "orchestrator-worker-discipline",
+      "source": "67af9682e32f27a6f29fdd41c3f7ebaad975cb1d",
+      "path": "tests/roles/orchestrator-worker-discipline.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "4719bd9b25f7b897847318e70300db1554e1ca8aa1b91743d0afd1ca71a8ea0d"
+    },
+    {
+      "entry": "harvest",
+      "source": "ada27ed39161cb9161240871654122307a36f93a",
+      "path": ".agents/procedures/harvest/SKILL.md",
+      "baseline_sha256": "818adcec92b90dd717cce6232e2db844ae3f618246167921230a472bfab6525e",
+      "selected_sha256": "185f7dbcbc9cf940b9e270218e093aac1ffabf18364daae24c3937bc936b485e"
+    },
+    {
+      "entry": "harvest",
+      "source": "ada27ed39161cb9161240871654122307a36f93a",
+      "path": ".agents/procedures/harvest/references/egress.md",
+      "baseline_sha256": "53fb0aa0447bf1a579195877d958c7aa53e32806bd3993e4bd0c617fd9c8fbb2",
+      "selected_sha256": "b502f84335c8d724bd57542600279b2176bcf4f577ee7d83a93ef8a7a3362f71"
+    },
+    {
+      "entry": "harvest",
+      "source": "ada27ed39161cb9161240871654122307a36f93a",
+      "path": ".agents/procedures/harvest/tests/health-preflight.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "4b3dbe685b80fc8d8ad94e3a91bae05a9cbb1166622a6be518480bd91adf1be8"
+    },
+    {
+      "entry": "aif-doctor",
+      "source": "047fbdf3f2386545dc2c54e4ec2fa35fa99f1b85",
+      "path": ".agents/procedures/aif-doctor/helpers/aif-agent-target.sh",
+      "baseline_sha256": "a3d726938d1b04adc7cbfc085e43dc40ba37d74cfdd6e3b02a267b14ce0c3016",
+      "selected_sha256": "d8a51cf777d58d1ee67a97e3ab5cc0b88a89e853a2d460c7bdf225b784670443"
+    },
+    {
+      "entry": "aif-doctor",
+      "source": "047fbdf3f2386545dc2c54e4ec2fa35fa99f1b85",
+      "path": "tests/aif-doctor/aif-agent-target.test.sh",
+      "baseline_sha256": "55689b6570576eaf7949a0692ed34ac27d5aefbe3483d2d1e7d4bdab8b11a581",
+      "selected_sha256": "291584f6d1b7e0d58b2b8e923c1f340fb2dde90fc97f5aebc07e7721c80707ec"
+    },
+    {
+      "entry": "aif-doctor",
+      "source": "047fbdf3f2386545dc2c54e4ec2fa35fa99f1b85",
+      "path": "tests/aif-doctor/heal-status.test.sh",
+      "baseline_sha256": null,
+      "selected_sha256": "000ed6b70a2c0db9118497c19d2aa8cd6db7f2ac0ef0011ba4022e9b5a97c19b"
+    },
+    {
+      "entry": "aif-doctor",
+      "source": "047fbdf3f2386545dc2c54e4ec2fa35fa99f1b85",
+      "path": "tests/aif-doctor/heal.test.sh",
+      "baseline_sha256": "f6a78df350cf68b420c33db3e33826cbc93f5ba53583c608f8dd49e62bed3650",
+      "selected_sha256": "5cfb73e82c644278f59cad95ae6eb411c950b6f25bf18ca5b47860d939221aad"
+    },
+    {
+      "entry": "installing-enforcement",
+      "source": "live:/Users/art/.codex/worktrees/audit-installing-enforcement-recovery/rules-as-tests-aif",
+      "path": ".agents/procedures/installing-enforcement/SKILL.md",
+      "baseline_sha256": "a589bc8b504d994fc0d09a910529658859ece98b452ea5999d3e394bbd1041f5",
+      "selected_sha256": "2f6ce58aa74a39c807ccfff66066e8a4a8f8d6d7309483321a5fd19b560b1530"
+    },
+    {
+      "entry": "installing-enforcement",
+      "source": "live:/Users/art/.codex/worktrees/audit-installing-enforcement-recovery/rules-as-tests-aif",
+      "path": "tests/skills/installing-enforcement-runtime.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "d1618e5e230758a8a4025983a95051ab1af2225309a2bc800cbabb5729e83e91"
+    },
+    {
+      "entry": "pipeline",
+      "source": "live:/Users/art/.codex/worktrees/skill-pipeline-runtime-audit/rules-as-tests-aif",
+      "path": ".agents/procedures/pipeline/evals/runtime-audit.test.py",
+      "baseline_sha256": null,
+      "selected_sha256": "7cb07ee88ad67a8a625d25348147a5a813801ab7027bb69c30f38d8088d3e3d1"
+    },
+    {
+      "entry": "pipeline",
+      "source": "live:/Users/art/.codex/worktrees/skill-pipeline-runtime-audit/rules-as-tests-aif",
+      "path": ".agents/procedures/pipeline/helpers/integer-name-guard.sh",
+      "baseline_sha256": "9c948c28312c11fd97ebaff63d2bcde8bb84de999ee2f0d6d68b812eb5be82bc",
+      "selected_sha256": "67750a80f43135ab5785dde4f4aabb0beee46d947f35b111cf68268c6600b442"
+    },
+    {
+      "entry": "pipeline",
+      "source": "live:/Users/art/.codex/worktrees/skill-pipeline-runtime-audit/rules-as-tests-aif",
+      "path": ".agents/procedures/pipeline/helpers/list-presets.sh",
+      "baseline_sha256": "e8ad50501df8bf3a778c0c5faa979cf58a7cd75803848f115b3075d1ef3bd03c",
+      "selected_sha256": "b9309845727ccd1c20d2222aa1f9c74c74755b0ab759791c0e535ed22e71ec88"
+    },
+    {
+      "entry": "pipeline",
+      "source": "live:/Users/art/.codex/worktrees/skill-pipeline-runtime-audit/rules-as-tests-aif",
+      "path": ".agents/procedures/pipeline/helpers/render-status.sh",
+      "baseline_sha256": "c8903e91ca539f5ec2a38170de2762d6527eb9398f5b4b9756487cda65f116be",
+      "selected_sha256": "137c2e92f2d8e5cf58fc5a80e5f812028f7c5dfd0ac34bc082b1dbfbb0d48806"
+    },
+    {
+      "entry": "pipeline",
+      "source": "live:/Users/art/.codex/worktrees/skill-pipeline-runtime-audit/rules-as-tests-aif",
+      "path": ".agents/procedures/pipeline/references/invocation.md",
+      "baseline_sha256": "740248cf7e0e751f2ab8ece004ba7c119628ebfd55b42a19f1d1e6f39b8708c2",
+      "selected_sha256": "96b8a8649b0d2e5ceb7fd5f1b07c22f2acabe64eeb1273497a5d2ff011afbad9"
+    },
+    {
+      "entry": "pipeline",
+      "source": "live:/Users/art/.codex/worktrees/skill-pipeline-runtime-audit/rules-as-tests-aif",
+      "path": ".agents/procedures/pipeline/references/status.md",
+      "baseline_sha256": "1cb70c1746d1adc7c036770c9912ac116759912d3a20762e9804a89c9c72a47d",
+      "selected_sha256": "c6c8b9c1b9d3714f76b1b2f088a162c368e82ada62a2dbeda1ad30a40db16d7f"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": ".agents/procedures/reviewer/SKILL.md",
+      "baseline_sha256": "9c67a285009e1b2dc482149aa887f61a875083e7c3db85b8074cfc569b4b1b0a",
+      "selected_sha256": "8635c88cafb1f5e48336a0d3f6f8305370d531476eae85d2af143f79c74e4261"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": "tests/reviewer-runtime-audit/assert-scope.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "bcc9b34baaeb0f53dc6bec0997368ba89b34ccec04121d551d38ab9dc9770049"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": "tests/reviewer-runtime-audit/fixtures/check.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "56b08ceff56e534059be54ca8ad6db4086c11a613535c4f937fa8885772eab86"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": "tests/reviewer-runtime-audit/fixtures/csv-check.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "183b8b57ade328860a04f3e0b2e63f366ce68e476e4f13029d870cfee2e1478c"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": "tests/reviewer-runtime-audit/fixtures/csv-spec.md",
+      "baseline_sha256": null,
+      "selected_sha256": "66d382bc37785eb499fcb6a01e32c862eed24815ebe3e81897734c4328513746"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": "tests/reviewer-runtime-audit/fixtures/csv.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "4a9c94b25b57795b40a0ecfd4c44735b3a332d6f710d70aaeeeee50a44e6d399"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": "tests/reviewer-runtime-audit/fixtures/fail.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "00aca1c2c18aff3276ae88536ee1590d446e8cbb9ea00091ba7f323d5890f105"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": "tests/reviewer-runtime-audit/fixtures/failed.md",
+      "baseline_sha256": null,
+      "selected_sha256": "31d9c4000e8bb4b51891e1d0eff73d631e5ebef203859f872695f6a029c7955c"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": "tests/reviewer-runtime-audit/fixtures/spec.md",
+      "baseline_sha256": null,
+      "selected_sha256": "7335aec8e950ce15c159ede293e138a74bb61a03d1dbf0ced1404d88a854da4d"
+    },
+    {
+      "entry": "reviewer",
+      "source": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "path": "tests/reviewer-runtime-audit/receipts.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "bc7ea38050145c6cd90931bd01792ce6c85c431dc85b529428dd607865882e83"
+    },
+    {
+      "entry": "docs-form-auditor",
+      "source": "live:/Users/art/.codex/worktrees/docs-form-auditor-runtime-audit/rules-as-tests-aif",
+      "path": ".agents/roles/docs-form-auditor.md",
+      "baseline_sha256": "3653bde5a915700b461b7bbc2a2b9b567835f8de5ad10673ac0e4e6e634fc453",
+      "selected_sha256": "a7d9f8b2af3694ffb16b75c0532bc49b443915b02d81237b85260fdf2dc9403a"
+    },
+    {
+      "entry": "dual-channel-drift-auditor",
+      "source": "live:/Users/art/.codex/worktrees/audit-dual-channel-drift/rules-as-tests-aif",
+      "path": ".agents/roles/dual-channel-drift-auditor.md",
+      "baseline_sha256": "9e9052c42ac0197f9d25ecfeedc709f68a5713c680604076005b89607d600449",
+      "selected_sha256": "906f5c4693977cd709dfdae6fe5d44b1b3b186d3ec319ff691104ef8dad9fdfd"
+    },
+    {
+      "entry": "dual-channel-drift-auditor",
+      "source": "live:/Users/art/.codex/worktrees/audit-dual-channel-drift/rules-as-tests-aif",
+      "path": ".agents/roles/dual-channel-drift-auditor/enumerate.py",
+      "baseline_sha256": null,
+      "selected_sha256": "1ea3bd798e875e5df44abfadbca7d1c2f4b4e01d452cf877e3d3594dcd93f6fc"
+    },
+    {
+      "entry": "dual-channel-drift-auditor",
+      "source": "live:/Users/art/.codex/worktrees/audit-dual-channel-drift/rules-as-tests-aif",
+      "path": ".agents/roles/dual-channel-drift-auditor/overlap.py",
+      "baseline_sha256": null,
+      "selected_sha256": "935b324d070c8b57d04d64848483db92ea1529e12a6c37809aa2e259063e9d4c"
+    },
+    {
+      "entry": "dual-channel-drift-auditor",
+      "source": "live:/Users/art/.codex/worktrees/audit-dual-channel-drift/rules-as-tests-aif",
+      "path": ".agents/roles/dual-channel-drift-auditor/test_enumerate.py",
+      "baseline_sha256": null,
+      "selected_sha256": "fb5bae69f9fa165339fd0b12436fcb1bb7d38744197b8178f1abcc464e7752aa"
+    },
+    {
+      "entry": "dual-channel-drift-auditor",
+      "source": "live:/Users/art/.codex/worktrees/audit-dual-channel-drift/rules-as-tests-aif",
+      "path": ".agents/roles/dual-channel-drift-auditor/test_overlap.py",
+      "baseline_sha256": null,
+      "selected_sha256": "055a8ae8c1eed9222a452841117ae3b587c76d510aa610a905de5cbce7cfcf8f"
+    },
+    {
+      "entry": "fidelity-auditor",
+      "source": "live:/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif",
+      "path": ".agents/roles/fidelity-auditor.md",
+      "baseline_sha256": "28cad8ecb43d2417d328e004374ba42d6c32e57d5028efc84d062da3d4d8d885",
+      "selected_sha256": "861dd70156b9efde351125fd9c2d36c7526499140ddc052923ed2b635f1f5251"
+    },
+    {
+      "entry": "fidelity-auditor",
+      "source": "live:/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif",
+      "path": "tests/runtime/fidelity-auditor-receipt.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "e8df57b0533de09cb996829d8d220f432c5d43621f2ff165c0613dc8ddfd9864"
+    },
+    {
+      "entry": "fidelity-auditor",
+      "source": "live:/Users/art/.codex/worktrees/fidelity-auditor-runtime-audit/rules-as-tests-aif",
+      "path": "tests/runtime/fidelity-auditor-receipt.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "ee01f161a2768b92a11375a8217a1a682aba927bc394a40ce31ffc8173018a21"
+    },
+    {
+      "entry": "reviewer-discipline",
+      "source": "9ed3e45194402c93f13225724bb4701b280d145c",
+      "path": ".agents/roles/reviewer-discipline.md",
+      "baseline_sha256": "0c4ba348c516c6fc2cb36e6328f51d99b255ffc978781b7799681803ea387d90",
+      "selected_sha256": "2b02bff57dc123d9622dd0c2c3d41ad4c675b4f2d24d35cb66995bcf0f86f27f"
+    },
+    {
+      "entry": "reviewer-discipline",
+      "source": "9ed3e45194402c93f13225724bb4701b280d145c",
+      "path": "scripts/reviewer-discipline-runtime.test.mjs",
+      "baseline_sha256": null,
+      "selected_sha256": "568eda917cc9f106d71d1eeb301b824628c0540133dda5af45d3f52784a505e8"
+    }
+  ],
+  "status": "bounded integration prepared; native acceptance is per-cell and contains retained failures",
+  "subsequent_integration_revisions": [
+    {
+      "path": ".agents/procedures/arch/SKILL.md",
+      "source_owner": "566c9847219e810d99f4a83c246d625f5ab0eb63",
+      "selected_sha256": "aba018a03a167ccca0a3d48a695758ad3edab411a3f6a0fa47e260168c87bb79",
+      "integrated_sha256": "b672a03af13e8df5969904c5a679f8d0e13b5ce4f0bcecb6024074f298ca9bc2",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/arch/references/ideation.md",
+      "source_owner": "566c9847219e810d99f4a83c246d625f5ab0eb63",
+      "selected_sha256": "38911af0ee1ceabc41c76b572fef4090d0a0c66281b0c830feb579877b168e5c",
+      "integrated_sha256": "269b4efbfe5f7a60d822b936dfab352853cbe8833653b1d9e521ccc0b28a9269",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/claude-glm-executor-handoff/SKILL.md",
+      "source_owner": "5d9bbabfda36471d1e1c1e49240fc9bd78b6fd1c",
+      "selected_sha256": "c6df62f53f3d273d9bfaa4d2181716cb6f6c8a3d3b0a9a46dbbf5747c24b452a",
+      "integrated_sha256": "6eda39b39c12c05ee452534f471801af70f6f75ad6e75ab23e52376f8ea61cca",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/story/SKILL.md",
+      "source_owner": "c30b99a7fff7a76a23d57b7b09707197448a491b",
+      "selected_sha256": "bcd77951b994284e71087c5f9e078fbbf15e21b22bf5f4a0de3b171519f2a055",
+      "integrated_sha256": "8fae4c395d660d8ff4a6857b86b9aa394329d50b76f38dc7503fe9bdf87cd7a6",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/story/helpers/emit-story-prompt.sh",
+      "source_owner": "c30b99a7fff7a76a23d57b7b09707197448a491b",
+      "selected_sha256": "dd691bd1d907eea605e72678a334ebb02c3270823b4ce6c0d21c746ecdbdf57a",
+      "integrated_sha256": "b5923fe903377c78e5197e0265ba1363eb454e8db31b0ea54e9b119d4a6bbd97",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": "scripts/story-runtime.test.mjs",
+      "source_owner": "c30b99a7fff7a76a23d57b7b09707197448a491b",
+      "selected_sha256": "9f6d44f6ed20f226a542ff6c4cac01eb1c4ff630610d36b40f3b82d6024286cf",
+      "integrated_sha256": "86b35dcc27206e72922fc9d5904dc329dd018e0c93db102742f44d233b6789fc",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/template-audit/SKILL.md",
+      "source_owner": "1aa8e0831295323ea89ac9d3e8d738c8714d68e7",
+      "selected_sha256": "d1efe518e116e0ec6e5e25de58df8175a292afb28bb54e66c27ddde421b3116b",
+      "integrated_sha256": "dc34c189353d04ef64e7a00cf32496ed3019b85a43b533cb2da5cc7bc92a5a92",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/docs-author/SKILL.md",
+      "source_owner": "3ed6afb795518fc58bffe6036940dc0a9f16e7a3",
+      "selected_sha256": "35142493805eb53f808fa5cd8103d229ca4b22836eecb4fc4fbab5c60cea316e",
+      "integrated_sha256": "2a633ea9aaf7c975abcac1c4862185cd80c05d7407955c785c64dbe086adb38a",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/harvest/SKILL.md",
+      "source_owner": "ada27ed39161cb9161240871654122307a36f93a",
+      "selected_sha256": "185f7dbcbc9cf940b9e270218e093aac1ffabf18364daae24c3937bc936b485e",
+      "integrated_sha256": "2169b1783d94ee9b9515300407d9f57d9fab45213bf25582537326f60f65116d",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/installing-enforcement/SKILL.md",
+      "source_owner": "live:/Users/art/.codex/worktrees/audit-installing-enforcement-recovery/rules-as-tests-aif",
+      "selected_sha256": "2f6ce58aa74a39c807ccfff66066e8a4a8f8d6d7309483321a5fd19b560b1530",
+      "integrated_sha256": "d9ef56f95b987ea74c77385b408aa40936b1cc09122d7938036616d1dbc29cc0",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/pipeline/helpers/render-status.sh",
+      "source_owner": "live:/Users/art/.codex/worktrees/skill-pipeline-runtime-audit/rules-as-tests-aif",
+      "selected_sha256": "137c2e92f2d8e5cf58fc5a80e5f812028f7c5dfd0ac34bc082b1dbfbb0d48806",
+      "integrated_sha256": "3258fa56fe27f27e52e27ea3690a21b47b97dd7ccfd35a04012bc4b54966b0cc",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/procedures/reviewer/SKILL.md",
+      "source_owner": "live:/Users/art/.codex/worktrees/reviewer-runtime-audit/rules-as-tests-aif",
+      "selected_sha256": "8635c88cafb1f5e48336a0d3f6f8305370d531476eae85d2af143f79c74e4261",
+      "integrated_sha256": "72f01f6525b39fa5b84071956949fa68d3031af4b97ac75ae12a7ac39a3abc60",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/roles/docs-form-auditor.md",
+      "source_owner": "live:/Users/art/.codex/worktrees/docs-form-auditor-runtime-audit/rules-as-tests-aif",
+      "selected_sha256": "a7d9f8b2af3694ffb16b75c0532bc49b443915b02d81237b85260fdf2dc9403a",
+      "integrated_sha256": "9bec9d79cd021dd40987871d4bbb53e5f25f0e45bad7ded3ba8a4441d59ff463",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    },
+    {
+      "path": ".agents/roles/reviewer-discipline.md",
+      "source_owner": "9ed3e45194402c93f13225724bb4701b280d145c",
+      "selected_sha256": "2b02bff57dc123d9622dd0c2c3d41ad4c675b4f2d24d35cb66995bcf0f86f27f",
+      "integrated_sha256": "3d8899fb88e177c79283940d9cf876352ec1d4b6678e15b83c2230da1d3ef2eb",
+      "responsibility": "subsequent integration repair; selection provenance remains unchanged"
+    }
+  ]
+}

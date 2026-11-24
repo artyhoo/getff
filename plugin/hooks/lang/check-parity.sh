@@ -6,8 +6,9 @@
 #   asserted the opposite about delivery, which both sites falsify (#1597 review ledger E-5).
 # @dual-pair: hook-lang-i18n
 #
-# Asserts en.sh and ru.sh expose the SAME set of aif_msg_* functions (+ the
-# AIF_RECAP_MARKER variable). A new message added to one pack but not the other
+# Asserts en.sh and ru.sh expose the SAME set of aif_msg_* functions + the same
+# scalar keys (AIF_RECAP_MARKER, AIF_STORY_MARKER, and the AIF_EOT_* / AIF_GLOSSARY_*
+# families). A new message or key added to one pack but not the other
 # = drift; this is the deterministic, no-LLM guard against #two-prompts-drift
 # at the leaf-string level. Run locally / at review; not a blocking pre-push gate
 # Exit 0 = parity, 1 = drift. Wired into CI via packages/core/hooks/lang-parity.test.ts, which
@@ -30,6 +31,7 @@ keys() {
     grep -qE '^AIF_RECAP_MARKER=' "$1" && echo 'AIF_RECAP_MARKER' || true
     grep -qE '^AIF_STORY_MARKER=' "$1" && echo 'AIF_STORY_MARKER' || true
     grep -oE '^AIF_EOT_[A-Z_]+=' "$1" | sed 's/=$//' || true
+    grep -oE '^AIF_GLOSSARY_[A-Z_]+=' "$1" | sed 's/=$//' || true
   } | sort -u
 }
 

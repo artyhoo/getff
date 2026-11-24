@@ -1,0 +1,122 @@
+{
+  "date": "2026-10-15",
+  "sourceSnapshot": "cd9c57bbb0a2a0523a71d3fc86704f5381b8c228",
+  "originalRoot": "/Users/art/.codex/worktrees/e220/rules-as-tests-aif",
+  "restoredRoot": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif",
+  "method": "git show of exact archived blobs; verified before design edits",
+  "files": [
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit.md",
+      "archivedSha256": "fbaa9170c40c19289e6e346900350263381d207ba9baef7bc0b774eed409422f"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/HANDOFF.md",
+      "archivedSha256": "de0345c2b2a137c3bff2aa7970a79c5fd5665585bd257d2885b2bb17c397c242"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/agents.json",
+      "archivedSha256": "07168a291e4dd02176eb2fd3f37a09f78bf2e815c4365143a999a91818b7422e"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/base-core-index.json",
+      "archivedSha256": "0f69fdf8731bb61890b2009d7cadec24df6bac9a3ced85a4f8e0ada6ed38ebe2"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/external-comparison.md",
+      "archivedSha256": "24a463e99de7562af72bc6fc854a93ddf49744c87e3b33f2ac5237116a4c7e76"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/external-evidence.json",
+      "archivedSha256": "9759fbd791255ccae8d19dc8caa21650f9ef85b38b4853fb55f82b68516c5991"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/external-inventory.json",
+      "archivedSha256": "feaced33704f43ef5c887dbbe2333987ab08f88ef022ebf78dae67ad450fb796"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/intent-discussion.md",
+      "archivedSha256": "8c0e6a7f34815d1d7690f7e11e325214afc4e0de54c6729cd5f21f1c31b5ccdd"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/inventory.json",
+      "archivedSha256": "1ed39eb8392ccd57ac507a4c800d1ffedcd0426e89045b845decea37a6110b22"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/local-evidence.json",
+      "archivedSha256": "1602bf654501fe5f111b021a8e1acf68117590d7abab3d849335710a454a2ef7"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/osmani-complete.json",
+      "archivedSha256": "4196ca6d38fcbdac5d68a566eca7ce3bde7091768a84d6bede3faf2f97259605"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/osmani-complete.md",
+      "archivedSha256": "aacb4051f5f19f48e40be4818d48b37a90c0c38006e60f6dda7334b02bfe53be"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326.md",
+      "archivedSha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-approval.json",
+      "archivedSha256": "7de1d887212aabbef1a2a7f05511157de94f99a18e780866ad7cd643d260e7b4"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-receipt.json",
+      "archivedSha256": "b7348d0504a45aed9d187d38c4e9edd6c78c9c68b158fea1a493ffa51d766a86"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief.md",
+      "archivedSha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-intent-source.md",
+      "archivedSha256": "d8208866c44ae7af5cf071735253151d12fa0eec9ae55fa6fa1557cc15be7762"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pstack-complete.json",
+      "archivedSha256": "4b3600242ebda804d840c01a2794ea9898a85eef96dee9607187859af74dbac5"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pstack-complete.md",
+      "archivedSha256": "5a29daa6c1f76b200853a7148760511cdcd88312701001bb719e887091c7aecf"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pstack-surface-matrix.md",
+      "archivedSha256": "429190ad03ba77fe04bc2275260c412f9e770ff324292e19b0e243d03eb41103"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/research-overview.md",
+      "archivedSha256": "481c1228922d5cad495c93ab95691e58a40e4e393c09edf1544e1b79fa95d7aa"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/simplicity-research.md",
+      "archivedSha256": "7ba4ed3732b936dfd6c1129152d6ecac1d1f864c070c3d13b642ebc79aab7115"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/skills.json",
+      "archivedSha256": "973bfbca084179427fb196dbf77219cf6b046c335676c2f766d2e19781953240"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/source-transcript.txt",
+      "archivedSha256": "b8f29d94f8c7581d9b71f237a3a10293eb2f2ad531421841df432b47140a637c"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/video-coverage.json",
+      "archivedSha256": "eee3556caf600356b62dea46e223d2e9e9582c0b465256fc429b6ed70080ad90"
+    },
+    {
+      "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/video-notes.md",
+      "archivedSha256": "17c018694b14ef21b7fdbc564b34e91b822ef91da67e2ea7f7e69a440589d271"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-14-deterministic-core-coverage.md",
+      "archivedSha256": "1edfa1775cfead235c2850f311f649be60964cf4c0a384c1cbc60e7a571eab09"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-14-deterministic-core-design.md",
+      "archivedSha256": "69938d4e61109777c5f731ed8f3b9caeaecf7f2d0c47a1ff3db7592495916c34"
+    }
+  ],
+  "approval": "Original approved PRD, approval JSON and receipt bytes preserved. This recovery receipt is not a new approval or a replacement current-decision record."
+}

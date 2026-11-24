@@ -20,12 +20,17 @@ echo ""
 # The scope trap is about FIXTURE/DATA files (JSON with "version": null), not .ts source.
 SCOPE_TRAP_PATTERNS=(
   "packages/core/research/fixtures/"
-  "packages/core/research/expected-self-research.json"
   "packages/core/research/research-plan.schema.json"
   "packages/core/research/multi-tenant-hosts.json"
   "packages/core/synthesizer/fixtures/"
   "packages/core/detector/expected-self-detect.json"
 )
+# expected-self-research.json stays watched, but NOT blanket-trapped: its drift-sources array
+# re-points whenever a payload migration moves the files it watches (agents-canonical 2026-10-05
+# moved skills/getff/ under .agents/procedures/getff/ — commit 86b2057b8d7), and that edit is a
+# legitimate fixture update, not the S1 lock-writer sweep. The S1 trap signature is a rewritten
+# `"version": null` entry, so THIS file is flagged only when its diff touches a "version" line.
+VERSION_TRAP_FILE="packages/core/research/expected-self-research.json"
 
 # Get the branch diff against the merge-base with staging.
 BASE=$(git merge-base HEAD origin/staging 2>/dev/null || echo "")
@@ -36,7 +41,12 @@ if [ -z "$BASE" ]; then
   exit 0
 fi
 
-CHANGED=$(git diff --name-only "$BASE...HEAD")
+# A file the branch ADDS is authored, not swept: the trap guards the existing `"version": null`
+# fixtures against a lock writer's sweep, which edits or deletes them. So additions are not counted
+# (--diff-filter=a). A new fixture under these paths is then itself guarded by the trap on the next
+# branch — moving it elsewhere would take it out of the trap's watch. (P6 run 2: the create-vite and
+# react-next-complete-example research pairs.)
+CHANGED=$(git diff --name-only --diff-filter=a "$BASE...HEAD")
 N_CHANGED=$(printf '%s\n' "$CHANGED" | grep -c . || true)
 
 echo "  ── Checking $N_CHANGED changed file(s) against scope-trap paths ──"
@@ -52,6 +62,19 @@ for pattern in "${SCOPE_TRAP_PATTERNS[@]}"; do
     echo "    If intentional, justify in the commit message and update this test."
   fi
 done
+
+# Version-trap file: watched for the S1 signature (a rewritten `"version"` entry), re-points of
+# other keys (drift sources) allowed — see the comment at the pattern list.
+if grep -qxF "$VERSION_TRAP_FILE" <<<"$CHANGED"; then
+  if git diff "$BASE...HEAD" -- "$VERSION_TRAP_FILE" | grep -E '^[+-].*"version"' >/dev/null; then
+    bad "S1 scope-trap signature in $VERSION_TRAP_FILE: diff touches a \"version\" line"
+    echo "    Lock writers must not rewrite the fixture's \"version\": null entries (S1 §1)."
+  else
+    ok "$VERSION_TRAP_FILE touched — no \"version\" line changed (re-point, not a lock sweep)"
+  fi
+else
+  ok "$VERSION_TRAP_FILE untouched"
+fi
 
 echo ""
 echo "── rules-lock-scope-trap: $PASS passed, $FAIL failed ──"

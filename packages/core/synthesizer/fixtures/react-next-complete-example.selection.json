@@ -1,0 +1,37 @@
+{
+  "rules": [
+    {
+      "entryId": "next-no-head-element",
+      "ruleId": "no-head-element",
+      "title": "Use the Metadata API or next/head <Head> instead of a raw <head> element",
+      "stack": [
+        "react-next"
+      ],
+      "presence": "forbid",
+      "selector": "JSXOpeningElement[name.name='head']",
+      "message": "Use the Next.js Metadata API or next/head <Head> instead of a raw <head> element.",
+      "examples": {
+        "bad": "export default function Page() {\n  return (\n    <head>\n      <title>Orders</title>\n    </head>\n  );\n}\n",
+        "good": "import Head from 'next/head';\n\nexport default function Page() {\n  return (\n    <Head>\n      <title>Orders</title>\n    </Head>\n  );\n}\n"
+      },
+      "negativeTest": {
+        "input": [
+          "export default function Page() {\n  return (\n    <head>\n      <title>Orders</title>\n    </head>\n  );\n}\n"
+        ],
+        "expect-violation": "no-restricted-syntax"
+      }
+    },
+    {
+      "entryId": "next-server-only-boundary",
+      "ruleId": "no-server-only-in-client",
+      "title": "Do not import server-only modules into Client Components",
+      "stack": [
+        "react-next"
+      ],
+      "examples": {
+        "bad": "'use client';\n\nimport { db } from '@/lib/server-db';\n\nexport function Orders() {\n  return <p>{db.name}</p>;\n}\n",
+        "good": "import { db } from '@/lib/server-db';\n\nexport default function Orders() {\n  return <p>{db.name}</p>;\n}\n"
+      }
+    }
+  ]
+}

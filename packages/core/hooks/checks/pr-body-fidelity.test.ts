@@ -13,7 +13,7 @@ const goSection = (o: { verdict?: string; sha?: string; basis?: string; round?: 
     `Basis: ${o.basis ?? '.claude/orchestrator-prompts/u/kickoff.md'}`,
     `Round: ${o.round ?? '1'}`,
     `Audited-SHA: ${o.sha ?? HEAD}`,
-    ...(o.evidence === undefined ? ['Evidence: packages/core/hooks/pre-push.ts:42'] : o.evidence ? [o.evidence] : []),
+    ...(o.evidence === undefined ? ['Evidence: packages/core/hooks/pre-push.ts:42'] : o.evidence ? [o.evidence] : []), // cite:historical fixture data, not a live pointer
   ].join('\n');
 
 const wrap = (section: string) => `## Summary\nx\n\n## Fidelity verdict\n\n${section}\n\n## Parked questions\nnone\n`;
@@ -147,7 +147,7 @@ describe('two-file contract: the shipped PR template matches the checker', () =>
 
 describe('checkPrBodyFidelity — section boundary (any heading closes it)', () => {
   it('does not borrow file:line evidence from a neighbouring §1.7 block', () => {
-    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n### §1.7 Forward-check applied\ncomplies with foo per packages/core/hooks/pre-push.ts:42\n`;
+    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n### §1.7 Forward-check applied\ncomplies with foo per packages/core/hooks/pre-push.ts:42\n`; // cite:historical fixture data, not a live pointer
     const r = checkPrBodyFidelity({ body, headSha: HEAD });
     expect(r.ok).toBe(false);
     expect(r.errors.join()).toMatch(/file:line evidence/);
@@ -199,11 +199,11 @@ describe('checkPrBodyFidelity — stage detector cannot be decoyed', () => {
 
 describe('checkPrBodyFidelity — fenced blocks do not truncate the section', () => {
   it('reads Evidence that follows a fenced block containing a # comment', () => {
-    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# regenerate baselines\nbash tests/install-sh/snapshot.sh\n\`\`\`\n\nEvidence: packages/core/hooks/pre-push.ts:42\n`;
+    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# regenerate baselines\nbash tests/install-sh/snapshot.sh\n\`\`\`\n\nEvidence: packages/core/hooks/pre-push.ts:42\n`; // cite:historical fixture data, not a live pointer
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
   });
   it('still closes the section on a real heading after a fenced block', () => {
-    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# noise\n\`\`\`\n\n### §1.7 Forward-check applied\nper packages/core/hooks/pre-push.ts:42\n`;
+    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# noise\n\`\`\`\n\n### §1.7 Forward-check applied\nper packages/core/hooks/pre-push.ts:42\n`; // cite:historical fixture data, not a live pointer
     const r = checkPrBodyFidelity({ body, headSha: HEAD });
     expect(r.ok).toBe(false);
     expect(r.errors.join()).toMatch(/file:line evidence/);
@@ -329,7 +329,7 @@ describe('checkPrBodyFidelity — ONE shared FILE_LINE_RE (R-8 contract pin)', (
     ['README.MD:3', false],     // same direction
     ['docs/x.markdown:3', true],// lowercase ext >6 chars: fidelity-rejected before R-8
     ['pkg@1/x.ts:2', true],     // scoped-package path tail (both agreed pre-R-8)
-    ['packages/core/hooks/pre-push.ts:42', true],
+    ['packages/core/hooks/pre-push.ts:50', true],
   ];
 
   it('the shared s17.ts regex judges each citation as declared', () => {
@@ -390,4 +390,57 @@ describe('checkPrBodyFidelity — comment stripping is markdown-aware', () => {
       /missing `## Fidelity verdict` section/,
     );
   });
+});
+
+// F1: only sectionEndAt changes these results. SHA, provenance and evidence
+// grammar are pinned so neighbouring channels cannot supply the failure.
+describe('checkPrBodyFidelity — CommonMark section boundaries', () => {
+  it.each(['    ```', '     ~~~', '\t```', '- example\n\n    ```'])('does not borrow evidence after literal or list-contained %s', (opener) => {
+    const body = `## Fidelity verdict\n${goSection({ evidence: '' })}\n\n${opener}\n\n## Neighbour\nEvidence: src/foreign.ts:42\n`;
+    const result = checkPrBodyFidelity({ body, headSha: HEAD });
+    expect(result.ok).toBe(false);
+    expect(result.errors.join()).toMatch(/file:line evidence/);
+  });
+
+  it.each(['', ' ', '  ', '   '])('accepts a real fence with %s indentation', (indent) => {
+    const body = wrap(`${goSection({ evidence: '' })}\n\n${indent}\`\`\`bash\n# quoted heading\n${indent}\`\`\`\nEvidence: src/own.ts:42`);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+
+  it('accepts evidence after a closed list-nested fence', () => {
+    const body = wrap(`${goSection({ evidence: '' })}\n\n- example\n\n    \`\`\`bash\n    # quoted heading\n    \`\`\`\n\nEvidence: src/own.ts:42`);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+
+  it.each(['~~~', '```', '```` trailing text'])('does not close a four-backtick fence with %s', (falseCloser) => {
+    const body = wrap(`${goSection({ evidence: '' })}\n\n\`\`\`\`md\n${falseCloser}\n# quoted heading\n\`\`\`\`\nEvidence: src/own.ts:42`);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+});
+
+describe('checkPrBodyFidelity — quoted section headings', () => {
+  it('does not accept an entire quoted verdict as a real section', () => {
+    const body = `\`\`\`md\n## Fidelity verdict\n${goSection()}\n\`\`\`\n`;
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
+  });
+  it('does not count a quoted verdict as a duplicate', () => {
+    const body = wrap(`${goSection()}\n\n\`\`\`md\n## Fidelity verdict\nexample\n\`\`\``);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it.each(['## Provenance\nSubstrate: quoted example', '## Review findings\n- MAJOR: quoted example'])('ignores quoted sibling section %s', (quoted) => {
+    const body = `\`\`\`md\n${quoted}\n\`\`\`\n` + wrap('FIDELITY: skipped — bug fix, no new capability');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+});
+
+// Complete indented-fence population of first-parent staging history at the
+// pinned corpus HEAD. Historical bodies are data, never live path citations.
+describe('checkPrBodyFidelity — merged indented-fence compatibility corpus', () => {
+  const corpus = JSON.parse(readFileSync(fileURLToPath(new URL('./fixtures/fidelity-indented-fence-history.json', import.meta.url)), 'utf8'));
+  for (const row of corpus.rows) {
+    it(`preserves merged PR #${row.pr.join(',')} (${row.sha.slice(0, 12)})`, () => {
+      const headSha = row.body.match(/^Audited-SHA:\s*(\S+)/m)?.[1] ?? row.sha;
+      expect(checkPrBodyFidelity({ body: row.body, headSha }).ok).toBe(true);
+    });
+  }
 });

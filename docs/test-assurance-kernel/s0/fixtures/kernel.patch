@@ -1,0 +1,12 @@
+diff --git a/packages/core/hooks/checks/prior-art.ts b/packages/core/hooks/checks/prior-art.ts
+index 2aa76d253d9..253e527e2b1 100644
+--- a/packages/core/hooks/checks/prior-art.ts
++++ b/packages/core/hooks/checks/prior-art.ts
+@@ -1,6 +1,6 @@
+ /**
+  * prior-art.ts — §7 Prior-art trailer check (Phase 8.8 T8), ported from bash in
+- * Wave 10.2. Faithful TS port of `pa_*` from the former legacy-trailer-checks.sh:
++ * Wave 10.2. Faithful TypeScript port of `pa_*` from the former legacy-trailer-checks.sh:
+  * capability-commit detection + `Prior-art:` trailer validation (length,
+  * placeholder rejection, escape-hatch substance arm).
+  *

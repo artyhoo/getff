@@ -1,0 +1,11 @@
+{
+  "mode": "in-session",
+  "reviewer_tier": "session-bound",
+  "marker": null,
+  "description": "Interactive single-feature SDD",
+  "predicates": {
+    "bundle_opt_in": false,
+    "review_required": true,
+    "parallel_safe": false
+  }
+}

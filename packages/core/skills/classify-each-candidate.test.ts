@@ -15,7 +15,7 @@
  *   MO_PRIORITY_INPUT — fixture file with pre-captured priority-score output
  */
 import { describe, it, expect } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -25,7 +25,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/classify-each-candidate.sh',
+  '.agents/procedures/pipeline/helpers/classify-each-candidate.sh',
 );
 
 /** Run the helper with a fixture and return stdout. */
@@ -34,11 +34,13 @@ function run(fixtureContent: string): string {
   const fixturePath = join(tmp, 'priority-output.txt');
   writeFileSync(fixturePath, fixtureContent, 'utf8');
   try {
-    return execFileSync('bash', [SCRIPT], {
+    const result = spawnSync('bash', [SCRIPT], {
       env: { ...process.env, MO_PRIORITY_INPUT: fixturePath },
       encoding: 'utf8',
       cwd: REPO_ROOT,
     });
+    expect(result.status).toBe(fixtureContent.includes('nonexistent-umbrella') ? 1 : 0);
+    return result.stdout + result.stderr;
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

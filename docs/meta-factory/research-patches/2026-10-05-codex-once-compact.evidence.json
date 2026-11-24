@@ -1,0 +1,44 @@
+{
+  "scope": "Bounded native parent-session once-cache and actual manual compact. Child cache and automatic compact are not proved.",
+  "root": "/Users/art/.codex/worktrees/0479/rules-as-tests-aif",
+  "summary": {
+    "residue": "/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/codex-native-compact-residue-xVz9dr",
+    "steps": [
+      {
+        "phase": "first-repeat",
+        "turnId": "01a10ac3-448c-70b2-9ec3-18e37400cefa",
+        "complete": true
+      },
+      {
+        "phase": "compact",
+        "complete": true
+      },
+      {
+        "phase": "after-compact",
+        "turnId": "01a10ac3-ffda-7532-9cb1-7a7f7e5d7250",
+        "complete": true
+      }
+    ],
+    "complete": true,
+    "threadId": "01a10ac3-4403-71e1-a717-789de596362c",
+    "compactAccepted": true,
+    "probeRemoved": true
+  },
+  "firstRepeatPathContexts": [
+    1,
+    0
+  ],
+  "afterCompactPathContexts": [
+    1
+  ],
+  "nativeCompactionCompleted": true,
+  "bootstrapReinjected": true,
+  "residueProduced": {
+    "file": "_residue-01a10ac3-4403-71e1-a717-789de596362c.md",
+    "sha256": "5f304f171915b271e9d85d2d8ea90de08bfdae4dfec7ddb7b2d0425128b557af"
+  },
+  "canonicalInputsPreserved": true,
+  "childCacheAcceptance": "NOT VERIFIED",
+  "automaticCompactAcceptance": "NOT VERIFIED",
+  "fullParity": false
+}

@@ -84,6 +84,66 @@ PIG="$TG/.prettierignore"
   && ok "F15 greenfield: no pre-existing file → .prettierignore copied WITH .ai-factory/RULES.md" \
   || bad "F15 greenfield: greenfield consumer did not receive a complete .prettierignore"
 
+# ── GH #2142 R9 (CODE-REPAIR): NON-GENERIC routes never attempt getff-rules.yml delivery, so a
+# ts-server consumer's OWN .github/workflows/getff-rules.yml must NOT land in the managed ignore
+# block. No delivery on this route → no SKIPPED entry → the old exists/not-SKIPPED admission read
+# the consumer's file as freshly-shipped and silently dropped it from the formatting check. The
+# other workflow candidates (ci.yml, workflow-integrity.yml) ARE delivered on ts-server and stay
+# covered — proving the repair gates the one candidate, not the whole block.
+TR9=$(mktemp -d)
+printf '{ "name":"r9ts","version":"0.0.0" }\n' > "$TR9/package.json"
+printf 'dist/\n' > "$TR9/.prettierignore"
+mkdir -p "$TR9/.github/workflows"
+# deliberately NOT prettier-conformant (deep indent + padded colons — flagged under ANY config,
+# the gh-531 arm-6 dirt-shape): if the file is ever ignored, the planted violation goes unreported
+printf '%s\n' 'name: consumer-own' 'on:' '  push:' '      branches: [ main ]' 'jobs:' '  build:' '      runs-on:   ubuntu-latest' '      steps:' '          - uses:   actions/checkout@v4' \
+  > "$TR9/.github/workflows/getff-rules.yml"
+cp "$TR9/.github/workflows/getff-rules.yml" "$TR9/.r9-wf-orig"
+r9_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null; }
+r9_mode "$TR9/.github/workflows/getff-rules.yml" > "$TR9/.r9-wf-mode"
+( cd "$TR9" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >/dev/null 2>&1; r9rc_install=$?
+[ "$r9rc_install" -eq 0 ] \
+  && ok "R9 ts-server: brownfield install with a consumer-owned getff-rules.yml exits 0" \
+  || bad "R9 ts-server: install exited $r9rc_install"
+r9_inblock() {
+  awk '/^# >>> rules-as-tests-aif shipped-configs \(managed\) >>>$/{f=1;next}
+    /^# <<< rules-as-tests-aif shipped-configs \(managed\) <<<$/{f=0;next}
+    f && $0==".github/workflows/getff-rules.yml"{n++} END{print n+0}' "$1"
+}
+[ "$(r9_inblock "$TR9/.prettierignore")" = "0" ] \
+  && ok "R9 ts-server: consumer-owned wf NOT in the managed block (delivery never attempted)" \
+  || bad "R9 ts-server: consumer-owned wf IGNORED on a route that never delivered it (GH #2142 R9)"
+grep -qx '.github/workflows/ci.yml' "$TR9/.prettierignore" \
+  && ok "R9 ts-server: delivered ci.yml still covered (the gate is per-candidate, not the block)" \
+  || bad "R9 ts-server: delivered ci.yml lost from the managed block — repair over-blocks"
+grep -qx '.github/workflows/workflow-integrity.yml' "$TR9/.prettierignore" \
+  && ok "R9 ts-server: delivered workflow-integrity.yml still covered" \
+  || bad "R9 ts-server: delivered workflow-integrity.yml lost from the managed block"
+cmp -s "$TR9/.r9-wf-orig" "$TR9/.github/workflows/getff-rules.yml" \
+  && ok "R9 ts-server: consumer wf bytes untouched" \
+  || bad "R9 ts-server: consumer wf bytes rewritten"
+[ "$(r9_mode "$TR9/.github/workflows/getff-rules.yml")" = "$(cat "$TR9/.r9-wf-mode")" ] \
+  && ok "R9 ts-server: consumer wf mode unchanged ($(cat "$TR9/.r9-wf-mode"))" \
+  || bad "R9 ts-server: consumer wf mode changed"
+[ ! -L "$TR9/.github/workflows/getff-rules.yml" ] \
+  && ok "R9 ts-server: consumer wf is not a link" || bad "R9 ts-server: consumer wf became a link"
+grep -qx 'dist/' "$TR9/.prettierignore" \
+  && ok "R9 ts-server: consumer 'dist/' line survives" \
+  || bad "R9 ts-server: consumer 'dist/' line lost"
+# EXECUTED (gh-531 arm-6 method): the framework's own .prettierrc is delivered here, the tree is
+# clean apart from the planted workflow — so `prettier --check .` failing WITH a getff-rules.yml
+# citation is the consumer's original formatting check still working; under the defect the file
+# was ignored and the SAME check silently passed.
+if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
+  ( cd "$TR9" && npx --yes prettier@3.8.3 --check . ) > "$TR9/.r9-check.log" 2>&1; r9prc=$?
+  r9cited=$(grep -c 'getff-rules\.yml' "$TR9/.r9-check.log")
+  [ "$r9prc" -ne 0 ] && [ "$r9cited" -ge 1 ] \
+    && ok "R9 ts-server executed: planted wf violation CAUGHT (prettier rc=$r9prc, citations=$r9cited)" \
+    || bad "R9 ts-server executed: violation not caught (rc=$r9prc, citations=$r9cited) — formatting coverage silently weakened"
+else
+  echo "  · R9 executed prettier arm skipped (npx prettier@3.8.3 unreachable)"
+fi
+
 # ── #807 multi-stack: per-workspace configs the multi-stack branch ships must be in .prettierignore ──
 # The #793/#796 multi-stack branch writes per-workspace eslint.config.mjs files; ignore_shipped_configs
 # only knew root basenames, so prettier --check . reflowed them and format:check went RED. The fix
@@ -323,5 +383,66 @@ if grep -q 'my-own-skill' "$PIC"; then
 else
   ok "claude-md guard-neg: consumer's custom skill slug not enumerated (only shipped slugs ignored)"
 fi
+
+# ── eslint-suppressions.json (P2 cold review M1) ──────────────────────────────────────────────
+# The install's lint baseline: ESLint writes it 2-space with no final newline, which `prettier
+# --check` flags — a prettier-clean project would read red on a file getff made, and format:check
+# would record not-armed with nothing to ever format it again.
+PRETTIER="$REPO_ROOT/node_modules/.bin/prettier"
+if [ -x "$PRETTIER" ]; then
+  printf '{\n  "src/a.ts": {\n    "prefer-const": {\n      "count": 1\n    }\n  }\n}' > "$T/eslint-suppressions.json"
+  ( cd "$T" && "$PRETTIER" --check --ignore-path "$PI" eslint-suppressions.json ) >/dev/null 2>&1 \
+    && ok "M1 pos: ESLint's eslint-suppressions.json passes prettier --check under the shipped .prettierignore" \
+    || bad "M1 pos: eslint-suppressions.json fails prettier --check under the shipped .prettierignore"
+  printf '' > "$T/empty.ignore"
+  ( cd "$T" && "$PRETTIER" --check --ignore-path empty.ignore eslint-suppressions.json ) >/dev/null 2>&1 \
+    && bad "M1 neg: the ESLint-format file passes prettier with no ignore — the pos arm proves nothing" \
+    || ok "M1 neg: without the entry prettier flags the file (non-vacuous)"
+else
+  bad "M1: prettier not installed at $PRETTIER — cannot run the arm (RED never SKIP)"
+fi
+
+# Exact portable delivery population: a shipped helper is ignored, whereas a
+# consumer same-name file and a parent override stay checked in both tools.
+_resource_result=$(
+  export PROJECT_ROOT="$T/portable-owned-fixture" PKG_ROOT="$REPO_ROOT" DRY_RUN="" FORCE=""
+  mkdir -p "$PROJECT_ROOT/.agents/roles/resources/demo" "$PROJECT_ROOT/.agents/roles/resources/override"
+  INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+  printf 'export const value={x:1};\n' > "$PROJECT_ROOT/incoming.mjs"
+  printf 'consumer-owned\n' > "$PROJECT_ROOT/.agents/roles/resources/demo/custom.mjs"
+  printf 'keep\n' > "$PROJECT_ROOT/.agents/roles/resources/override.override.md"
+  _portable_copy "$PROJECT_ROOT/incoming.mjs" "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" >/dev/null
+  _portable_copy "$PROJECT_ROOT/incoming.mjs" "$PROJECT_ROOT/.agents/roles/resources/demo/custom.mjs" >/dev/null
+  _portable_copy "$PROJECT_ROOT/incoming.mjs" "$PROJECT_ROOT/.agents/roles/resources/override/helper.mjs" >/dev/null
+  mkdir -p "$PROJECT_ROOT/.claude/skills/demo/helpers" "$PROJECT_ROOT/.zcode/skills/override"
+  printf 'native-consumer-owned\n' > "$PROJECT_ROOT/.claude/skills/demo/helpers/custom.mjs"
+  printf 'keep-native\n' > "$PROJECT_ROOT/.zcode/skills/override.override.md"
+  _portable_alias "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/.claude/skills/demo/helpers/shipped.mjs" >/dev/null
+  _portable_alias "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/.zcode/skills/demo/helpers/shipped.mjs" >/dev/null
+  _portable_alias "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/.claude/skills/demo/helpers/custom.mjs" >/dev/null
+  _portable_alias "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/.zcode/skills/override/helper.mjs" >/dev/null
+  expected=$(printf '%s\n' '.agents/roles/resources/demo/shipped.mjs' '.claude/skills/demo/helpers/shipped.mjs' '.zcode/skills/demo/helpers/shipped.mjs')
+  paths=$(getff_portable_owned_paths)
+  [ "$paths" = "$expected" ] || { echo BAD-population; exit; }
+  : > "$PROJECT_ROOT/.prettierignore"
+  ignore_shipped_configs >/dev/null
+  ignore_shipped_configs >/dev/null
+  while IFS= read -r rel; do
+    [ "$(grep -cxF "$rel" "$PROJECT_ROOT/.prettierignore")" = 1 ] || { echo BAD-prettier; exit; }
+  done <<<"$expected"
+  eval "$(sed -n '/^_own_eslint_ignores() {/,/^}/p' "$REPO_ROOT/setup.d/eslint-wire.sh")"
+  [ "$(_own_eslint_ignores)" = "$expected" ] || { echo BAD-eslint; exit; }
+  grep -qx 'consumer-owned' "$PROJECT_ROOT/.agents/roles/resources/demo/custom.mjs" || { echo BAD-customization; exit; }
+  grep -qx 'native-consumer-owned' "$PROJECT_ROOT/.claude/skills/demo/helpers/custom.mjs" || { echo BAD-native-customization; exit; }
+  [ ! -e "$PROJECT_ROOT/.zcode/skills/override/helper.mjs" ] || { echo BAD-native-override; exit; }
+  for rel in '.claude/skills/demo/helpers/shipped.mjs' '.zcode/skills/demo/helpers/shipped.mjs'; do
+    [ ! -L "$PROJECT_ROOT/$rel" ] && cmp -s "$PROJECT_ROOT/.agents/roles/resources/demo/shipped.mjs" "$PROJECT_ROOT/$rel" || { echo BAD-native-materialization; exit; }
+  done
+  [ ! -e "$PROJECT_ROOT/.agents/roles/resources/override/helper.mjs" ] || { echo BAD-override; exit; }
+  echo OK-portable-owned
+)
+[ "$_resource_result" = OK-portable-owned ] \
+  && ok "portable resources: exact shared formatter/ESLint paths, consumer ownership, override and repeat preserved" \
+  || bad "portable resource ownership failed: $_resource_result"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

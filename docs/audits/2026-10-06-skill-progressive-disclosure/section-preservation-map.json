@@ -1,0 +1,492 @@
+[
+  {
+    "skill": "harvest",
+    "source_section": "Preamble / authority / posture",
+    "preserved_owners": [
+      ".agents/procedures/harvest/SKILL.md"
+    ],
+    "source_text": "\n\n<!-- @harness-posture: portable \u2014 bash/git/docker egress runbook over aif endpoints; helpers are plain bash; no CC-only primitive in the egress path -->\n\n> **Class:** C \u2014 prose-only wiring skill; the executable artefact it gates is [`scripts/run-local-ci-sweep.sh`](../../../scripts/run-local-ci-sweep.sh) (paired-negative test wired in CI). Promotion criterion: a harvest reddens CI **after** this skill ships (skill skipped or a gate missing) \u2192 promote the sweep to a pre-push gate (spec \u00a7Promotion).\n> **Authoritative for:** the standalone post-aif-acceptance harvest procedure \u2014 \u00a71 egress (incl. the codified egress gotchas), \u00a72 cross-stage integration, \u00a73 the sweep gate, \u00a74 cold-review + fidelity + PR.\n> **NOT authoritative for:** project goal \u2014 see [README.md#why-this-exists](../../../README.md#why-this-exists). The egress primitives themselves (`harvest.ts`, `harvest-via-api.sh`) \u2014 owned by `packages/runtime-bridge` + [/dispatcher](../dispatcher/SKILL.md). The local gate set \u2014 owned by [`scripts/run-local-ci-sweep.sh`](../../../scripts/run-local-ci-sweep.sh) (this skill calls it, does not redefine it). The full dispatch loop \u2014 see [/dispatcher](../dispatcher/SKILL.md).\n\n> Build-vs-reuse: **ADAPT** \u2014 reuses `harvest.ts` / `harvest-via-api.sh` egress (SSOT #111) + `scripts/run-local-ci-sweep.sh` (SSOT #176, change-scoped sweep, ADAPT of #114) + `superpowers:requesting-code-review` (verify posture). No new dependency, no new code beyond the sweep.\n\n# /harvest \u2014 post-aif-acceptance harvest\n\n"
+  },
+  {
+    "skill": "harvest",
+    "source_section": "## \u00a70 Invocation",
+    "source_lines": [
+      29,
+      41
+    ],
+    "preserved_owners": [
+      ".agents/procedures/harvest/SKILL.md",
+      ".agents/procedures/harvest/references/history.md"
+    ],
+    "rewritten_paragraphs": [
+      "> **\u26a1 aif environment rule:** on ANY aif environment symptom (container on wrong branch, push rejected, capacity full, missing tool, proxy/tunnel block), **first action = invoke [`/aif-doctor`](../aif-doctor/SKILL.md)** \u2014 do NOT `docker exec` fix-by-fix."
+    ],
+    "manual_preservation_review": "Hot \u00a70: same symptom set, /aif-doctor first, no fix-by-fix docker exec; origin in history reference."
+  },
+  {
+    "skill": "harvest",
+    "source_section": "## \u00a71 \u2014 Egress (push the committed work, never the dirty tree) {#egress}",
+    "source_lines": [
+      42,
+      67
+    ],
+    "preserved_owners": [
+      ".agents/procedures/harvest/references/egress.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "harvest",
+    "source_section": "## \u00a72 \u2014 Cross-stage integration (parallel branches touching shared files)",
+    "source_lines": [
+      68,
+      71
+    ],
+    "preserved_owners": [],
+    "rewritten_paragraphs": [
+      "When two parallel aif branches edited the same file: blob-compare each side's fork-base vs the live remote base; resolve deterministically (live-base content + each side's pure-addition delta); **then run \u00a73 \u2014 the sweep is the falsifier** (run it AFTER the merge, never before)."
+    ],
+    "manual_preservation_review": "Hot \u00a72: same fork-base/live-base comparison, pure-addition deltas, sweep AFTER integration."
+  },
+  {
+    "skill": "harvest",
+    "source_section": "## \u00a73 \u2014 Sweep gate (before push)",
+    "source_lines": [
+      72,
+      84
+    ],
+    "preserved_owners": [
+      ".agents/procedures/harvest/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "harvest",
+    "source_section": "## \u00a74 \u2014 Cold-review + fidelity + PR",
+    "source_lines": [
+      85,
+      143
+    ],
+    "preserved_owners": [
+      ".agents/procedures/harvest/references/fidelity.md",
+      ".agents/procedures/harvest/references/publication-and-closure.md"
+    ],
+    "rewritten_paragraphs": [
+      "**Unattended runs:** the standing authorization for dispatching the cold subagents in steps 1-2 and for opening/squash-merging the PR in step 3 without a confirmation round is stated once in [`night-mode/SKILL.md` delta item 8](../night-mode/SKILL.md), with its escalation set and its honest Class-C classification. Not restated here (`#two-prompts-drift`)."
+    ],
+    "manual_preservation_review": "Hot \u00a74: standing unattended authority remains with night-mode; pointer repaired to actual overnight-policy owner, item 8/Class C/escalation set preserved."
+  },
+  {
+    "skill": "harvest",
+    "source_section": "## Without this skill",
+    "source_lines": [
+      144,
+      147
+    ],
+    "preserved_owners": [
+      ".agents/procedures/harvest/references/history.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "harvest",
+    "source_section": "## With this skill",
+    "source_lines": [
+      148,
+      150
+    ],
+    "preserved_owners": [
+      ".agents/procedures/harvest/references/history.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "Preamble / authority / posture",
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/SKILL.md",
+      ".agents/procedures/claude-glm-executor-handoff/references/acceptance-gaps.md"
+    ],
+    "source_text": "\n\n<!-- @harness-posture: cc-only \u2014 factory-depth thin adapter: requires an in-aif CC coordinator + aif runtime-bridge + GLM worker; without the bridge/worker it cannot run (the \u00a75 honest-gaps marker is a separate claim) -->\n\n> **Authoritative for:** the **input-prompt contract** for an in-aif Claude coordinator (Opus/Sonnet) \u2192 GLM worker dispatch edge (executor tier: **glm-5.3** since 2026-09-11, operator), and the **GLM behavioural deltas** (verified facts only \u2014 text-only I/O, `reasoning_effort` value-collapse, Anthropic-compat endpoint mechanics) that distinguish such a handoff from an intra-Claude worker dispatch.\n> **NOT authoritative for:** the executor + dual-reviewer dispatch **loop** \u2014 that is `superpowers:subagent-driven-development` (SSOT #64). The **relative-tier model posture** (Opus/Sonnet/GLM as an instantiation of \"top/mid/cheaper\" tier roles) \u2014 that is [`night-mode/SKILL.md`](../night-mode/SKILL.md) (\u00abOvernight model posture\u00bb paragraph); this skill assumes the instantiation without restating it. The **REPORT output schema** (`Status: DONE|BLOCKED|PARTIAL`, `Deliverable`, `Evidence`, `BLOCKER`, `MINOR`) \u2014 that is [`agents/orchestrator-worker-discipline.md`](../../../.agents/roles/orchestrator-worker-discipline.md). **Dispatch mechanics** (REST, worktrees, agent-definition loading) \u2014 that is `dispatcher` + `runtime-bridge`. Project goal \u2014 see [README.md#why-this-exists](../../../README.md#why-this-exists).\n\n# Claude \u2192 GLM executor handoff (in-aif, cross-model edge)\n\nA **thin adapter** for the narrow case where an in-aif Claude coordinator dispatches to a GLM worker (executor tier glm-5.3). aif-handoff supports per-agent `model:` frontmatter natively (`implement-coordinator` \u2192 Opus, `implement-worker` \u2192 glm-5.3 \u2014 verified per `docs/superpowers/specs/2026-06-02-aif-parallel-dispatch-design.md:64` live `model=sonnet, transport=cli` and `settingSources:[\"project\"]` per `agent-collision-resolution/kickoff.md:21`). This skill tells the coordinator **how to write the prompt** for that GLM worker; aif's agent definition tells aif **which model to spawn**. Both are needed; this owns only the prompt side.\n\n"
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "## \u00a70 When this fires (and when it does NOT)",
+    "source_lines": [
+      15,
+      30
+    ],
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "## \u00a71 GLM facts (verified against the GLM-5.2 spec card, source-grounded)",
+    "source_lines": [
+      31,
+      50
+    ],
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/references/model-facts.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "## \u00a72 Input contract for the GLM edge",
+    "source_lines": [
+      51,
+      75
+    ],
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_paragraphs": [
+      "```text\n<task>         one atomic objective, single verb, single deliverable\n<context>      only what THIS step needs \u2014 summarized, not raw-forwarded\n<constraints>  hard boundaries + iteration cap (cost control; see \u00a71 D5)\n<tools>        every available tool named explicitly (see \u00a71 D4)\n<output>       require the REPORT Status field (DONE|BLOCKED|PARTIAL)\n               per orchestrator-worker-discipline.md\n<verify>       checkable pass/fail criteria the worker can self-run before returning\n```"
+    ],
+    "manual_preservation_review": "Hot \u00a72: all six fields and mandatory Status values unchanged; only D4/D5 pointer text follows the relocated model-facts owner."
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "## \u00a73 Status translation (GLM reply \u2192 orchestrator REPORT)",
+    "source_lines": [
+      76,
+      88
+    ],
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "## \u00a74 Recovery protocol",
+    "source_lines": [
+      89,
+      111
+    ],
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "## \u00a75 Honest gaps \u2014 designed-not-proven",
+    "source_lines": [
+      112,
+      123
+    ],
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/references/acceptance-gaps.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "## Without this skill",
+    "source_lines": [
+      124,
+      127
+    ],
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "## With this skill",
+    "source_lines": [
+      128,
+      131
+    ],
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "claude-glm-executor-handoff",
+    "source_section": "## See also",
+    "source_lines": [
+      132,
+      139
+    ],
+    "preserved_owners": [
+      ".agents/procedures/claude-glm-executor-handoff/references/acceptance-gaps.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "Preamble / authority / posture",
+    "preserved_owners": [
+      ".agents/procedures/getff/SKILL.md"
+    ],
+    "source_text": "\n\n<!-- @harness-posture: portable \u2014 pure prose skill; every reference is markdown readable on any harness, no hook or harness-specific primitive required -->\n\n# Rules as Tests\n\nA unified framework for treating **every codebase rule as an executable test**. Documents lie; tests don't. This becomes critical when AI agents write the code, because LLMs reliably violate undocumented conventions and generate plausible-but-vacuous tests.\n\n> **Authoritative for:** skill activation conditions (frontmatter `description`); 5-layer framework summary; reference index (when to read which `references/*.md`); enforcement-extension surfaces (shift-left to AIF, shift-right to production, sideways via Pact).\n> **NOT authoritative for:** project-host goal \u2014 see consumer's own `README.md` (this skill is shipped to consumer projects via [`install.sh`](https://github.com/artyhoo/getff/blob/main/install.sh)). For the framework's authoring repo: see [README.md#why-this-exists](https://github.com/artyhoo/getff/blob/main/README.md#why-this-exists). Per-layer technical detail is in [references/overview.md](references/overview.md).\n\n"
+  },
+  {
+    "skill": "getff",
+    "source_section": "## When this skill is relevant",
+    "source_lines": [
+      15,
+      29
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## The five layers",
+    "source_lines": [
+      30,
+      50
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## Where to dig in",
+    "source_lines": [
+      51,
+      63
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## Templates ready to copy",
+    "source_lines": [
+      64,
+      83
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/references/template-catalog.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## Workflow when applying this skill",
+    "source_lines": [
+      84,
+      92
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## Verification protocol \u2014 apply before publishing any config",
+    "source_lines": [
+      93,
+      104
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## Without this skill",
+    "source_lines": [
+      105,
+      108
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## With this skill",
+    "source_lines": [
+      109,
+      112
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## Universal AI angle",
+    "source_lines": [
+      113,
+      127
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/references/framework-context.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## Glossary of key terms",
+    "source_lines": [
+      128,
+      140
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/references/framework-context.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "getff",
+    "source_section": "## Connecting to broader practice",
+    "source_lines": [
+      141,
+      151
+    ],
+    "preserved_owners": [
+      ".agents/procedures/getff/references/framework-context.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "Preamble / authority / posture",
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/SKILL.md"
+    ],
+    "source_text": "\n\n<!-- @harness-posture: portable \u2014 prose self-application checklist over repo artefacts; no harness primitives -->\n\n# Self-reflection \u2014 recommendation discipline gate\n\n> **Authoritative for:** skill activation conditions (frontmatter `description`); \u00a71.7 forward+backward checklist summary; output contract for discipline-introducing recommendations; pointers to cold references.\n> **NOT authoritative for:** the \u00a71.7 rule itself \u2014 see [`.claude/rules/phase-research-coverage.md \u00a71.7`](../../rules/phase-research-coverage.md). Project goal \u2014 see [README.md#why-this-exists](../../../README.md#why-this-exists).\n\n"
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## Why this skill exists",
+    "source_lines": [
+      13,
+      24
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/references/origin-and-enforcement.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## When this skill is relevant",
+    "source_lines": [
+      25,
+      42
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## Output contract",
+    "source_lines": [
+      43,
+      64
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/SKILL.md",
+      ".agents/procedures/self-reflection/references/origin-and-enforcement.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## \u00a71.7 forward checklist (summary)",
+    "source_lines": [
+      65,
+      75
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## \u00a71.7 backward checklist (summary)",
+    "source_lines": [
+      76,
+      84
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## Self-reflection prompts (post-close, retro time)",
+    "source_lines": [
+      85,
+      94
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/references/retro-prompts.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## Anti-patterns",
+    "source_lines": [
+      95,
+      105
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/references/retro-prompts.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## \u00a71.7 enforcement layers",
+    "source_lines": [
+      106,
+      120
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/references/origin-and-enforcement.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## How this skill itself complies with \u00a71.7",
+    "source_lines": [
+      121,
+      126
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/references/origin-and-enforcement.md"
+    ],
+    "rewritten_paragraphs": []
+  },
+  {
+    "skill": "self-reflection",
+    "source_section": "## See also",
+    "source_lines": [
+      127,
+      131
+    ],
+    "preserved_owners": [
+      ".agents/procedures/self-reflection/SKILL.md"
+    ],
+    "rewritten_paragraphs": []
+  }
+]

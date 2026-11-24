@@ -46,7 +46,7 @@ else
 fi
 
 # ── pos-B (non-vacuous): the real activation (core.hooksPath) is communicated ──
-printf '%s' "$out" | grep -qiE 'core\.hooksPath' \
+grep -qiE 'core\.hooksPath' <<<"$out" \
   && ok "pos-B: output names the real activation (core.hooksPath) — advice replaced, not dropped" \
   || bad "pos-B: output never mentions core.hooksPath — activation guidance missing"
 

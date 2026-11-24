@@ -1,0 +1,21 @@
+{
+  "sourceSha": "6bd07187e57635d02f8aed5e3560a346ad2748db",
+  "lockfile": "package-lock.json",
+  "lockSha256": "b0322aee4c6cb0f4c8f4a72ae7c6db94346f856250a5acd6e63eb77535aa3659",
+  "toolVersions": {
+    "node": "v24.3.0",
+    "npm": "11.4.2",
+    "git": "2.53.0",
+    "rustc": "1.98.1",
+    "vitest": "4.1.8"
+  },
+  "environment": {
+    "os": "Darwin",
+    "osVersion": "26.6.2",
+    "arch": "arm64",
+    "shell": "/bin/zsh (invocations via /usr/bin/env)",
+    "cwd": "repo root (host-verify replays from repo root)",
+    "CI": false,
+    "note": "All frozen argv embed `env -u CLAUDE_CODE_ENTRYPOINT` — the SDK-entrypoint leak class (standalone canonical suite fails in 20.12s without the scrub when run from a Claude-Code-hosted session). Local rustc 1.98.1 drifts from checked-in cargo evidence 1.96.1: test:backends is environment-RED locally (see kernel-baseline.md §5)."
+  }
+}

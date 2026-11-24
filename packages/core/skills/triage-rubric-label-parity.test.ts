@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 
-const RULE = '.claude/rules/reviewer-discipline.md';
+const RULE = '.agents/rules/reviewer-discipline.md';
 
 /** The per-axis provenance labels §6.1 deploys. Changing §6.1 MUST change this list. */
 const CANONICAL_LABELS = [
@@ -48,7 +48,7 @@ const read = (rel: string) => norm(readFileSync(join(REPO_ROOT, rel), 'utf8'));
 function trackedSeatDocs(): string[] {
   const out = execFileSync(
     'git',
-    ['ls-files', '-z', '--', '.claude/skills/**/*.md', 'agents/*.md'],
+    ['ls-files', '-z', '--', '.agents/procedures/**/*.md', '.agents/roles/*.md'],
     { cwd: REPO_ROOT, encoding: 'utf8' },
   );
   return out.split('\0').filter(Boolean);

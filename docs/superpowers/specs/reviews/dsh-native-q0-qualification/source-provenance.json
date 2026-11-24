@@ -1,0 +1,42 @@
+{
+  "purpose": "Complete bounded Q0 contract restored from observed history, with new qualification bindings and explicit limits on full-document recovery.",
+  "sourceChat": {"id": "01a196c9-e5a7-72ed-9e7f-66b0577370b6", "host": "durable"},
+  "authorizedContract": {
+    "sourceTurn": "01a197fa-a2dc-74a0-a3d7-b3d19edf62b5",
+    "sourceItem": "exec-2920330c-c937-4537-93aa-b94b8364733c",
+    "observedPrefixSha256": "10a7009e60a737f5f28ec27221d7f3e6d01f95a5b52fbdb83f95a7b7e450dd24",
+    "scope": "Original kickoff sections1-5, including complete Q0 Tasks A-D, output contract, acceptance and later-stage boundaries",
+    "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/authorized-q0-contract.txt",
+    "sha256": "a8a2f79e9768463dc1a34d52bf22b537891bcd401cdb34c6dde9e3f38c0e02b1",
+    "transformation": "Clause text unchanged; only final blank section separators normalized to one final LF."
+  },
+  "requirementDefinitions": {
+    "sourceTurn": "01a196d2-a750-73ed-b32e-8860d6f3bdc3",
+    "sourceItem": "exec-f0ec666b-5fb7-4223-a56f-736aedc64816",
+    "sourceComplete": true,
+    "path": "docs/superpowers/specs/reviews/dsh-native-q0-qualification/source-baseline.md",
+    "sha256": "cbe189f1541b595e5d712a1dedb9aa599f2d50363e12d8b7c9192c0ec3599719",
+    "scope": "Research requirement definitions; PC1-PC7 remain later operator/comparison IDs, not newly approved PRD promise numbers."
+  },
+  "historicalFullDocumentBindings": {
+    "designSha256": "cb971d0995e6f53efba312ee44cd8370312b53b46779ce16555c5a44cd79ebee",
+    "designMissingLines": ["148-175", "217-236"],
+    "kickoffSha256": "c98e43cf2c70992847269dbe203e43e4e13ec2237d23682669a942828b90f7ae",
+    "kickoffMissingLines": ["144 remainder", "145-210"],
+    "status": "Reported historical digests; exact full bytes are not locally verified and missing-line drafts are not operational specifications."
+  },
+  "upstreamTrial": {
+    "repository": "https://github.com/deepseek-ai/dsh-superagent-prototype",
+    "commit": "6337fc823ce20251c8de8085948165c81aaa701e",
+    "archiveSha256": "09a0de081f43a0b3347fa0ea116ae9e0c2437d02866b000e41a1e6d4a1a9cb65",
+    "archiveBytes": 703562,
+    "harnessSourceCommit": "d743267388641bc76f17c45ce8b4c231aed1d32c",
+    "status": "DSH source archive fetched as data and matched the prior recorded digest; no installation/runtime acceptance follows. Actual Harness/build dependency evidence belongs to Q0 Task A."
+  },
+  "legacyContinuationArchive": {
+    "sha256": "0e1acb371e2b5eeaa99015184a81c979482e2322a1797f9bc2184a164cb2321c",
+    "bytes": 7171952,
+    "entries": 486,
+    "status": "Historical archive receipt; archive bytes/manifest not observed locally. The new complete Q0 input closure does not claim to be that archive."
+  }
+}

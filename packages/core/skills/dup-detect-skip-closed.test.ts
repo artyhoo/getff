@@ -21,14 +21,14 @@
  *   ✅ NAMED   : MO_SKIP_CLOSED=1 + a single closed umbrella name → still checked (the flag
  *                 only guards the mass glob, never single-name mode).
  *
- * gh is mocked to return `[]` (no merged PRs) and GIT_DIR is nulled, so every SCANNED
+ * gh is mocked to return `[]` and a real empty Git baseline tree is queried, so every SCANNED
  * umbrella resolves to a single `OK: <name> ...` line and a SKIPPED umbrella is absent.
  *
  * Reference pattern: packages/core/skills/dup-detect.test.ts +
  * packages/core/hooks/dup-detect-empty-arg.test.ts.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, chmodSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -36,7 +36,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HELPER = resolve(REPO_ROOT, '.claude/skills/pipeline/helpers/dup-detect.sh');
+const HELPER = resolve(REPO_ROOT, '.agents/procedures/pipeline/helpers/dup-detect.sh');
 
 // Every test here spawns the real dup-detect.sh, which walks a sandbox umbrella
 // tree and shells out per umbrella — multi-second runtimes are inherent, so the
@@ -56,6 +56,8 @@ afterEach(() => {
 function makeSandbox(): string {
   const d = mkdtempSync(join(tmpdir(), 'dup-detect-skip-closed-test-'));
   sandboxes.push(d);
+  execFileSync('git', ['init', '-q'], { cwd: d });
+  execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', '-c', 'core.hooksPath=/dev/null', 'commit', '--allow-empty', '-qm', 'complete empty deliverable tree'], { cwd: d });
   return d;
 }
 
@@ -95,7 +97,7 @@ function runHelper(
 ): { status: number; stdout: string } {
   const r = spawnSync('bash', [HELPER, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, REPO_ROOT: sandboxRoot, MO_GH_BIN: fakeGh, GIT_DIR: '', ...extraEnv },
+    env: { ...process.env, REPO_ROOT: sandboxRoot, MO_GH_BIN: fakeGh, MO_DELIVERABLE_REF: 'HEAD', ...extraEnv },
   });
   return { status: r.status ?? -1, stdout: r.stdout };
 }

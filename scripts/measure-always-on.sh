@@ -4,7 +4,7 @@
 # Always-on sources = files CC loads at session start (no path-scope trigger required).
 #   manifest = CLAUDE.md + .claude/rules/*.md files LACKING ^paths: frontmatter
 # Files WITH paths: frontmatter are read-time-scoped (load only on matching-file events)
-#   and therefore NOT in the always-on resident set. This is the scripts/probe-channels.sh:20
+#   and therefore NOT in the always-on resident set. This is the scripts/probe-channels.sh:21
 #   predicate (`grep -qE '^paths:' "$rule"`), reused here so two consumers share one idiom.
 # Semantic ownership of the channel predicate lives in
 #   packages/core/principles/rule-channel-glob.ts (S-G-owned; not edited here).
@@ -30,7 +30,7 @@ files=( "CLAUDE.md" )
 while IFS= read -r r; do files+=( "$r" ); done < <(
   for rule in .claude/rules/*.md; do
     [[ -f "$rule" ]] || continue
-    # probe-channels.sh:20 twin idiom — grep -qE '^paths:' "$rule"
+    # probe-channels.sh:21 twin idiom — grep -qE '^paths:' "$rule"
     if grep -qE '^paths:' "$rule"; then
       continue  # path-scoped rule, not resident
     fi

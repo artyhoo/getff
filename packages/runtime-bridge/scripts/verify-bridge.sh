@@ -66,7 +66,7 @@ pass "AIF_MCP_URL = $AIF_MCP_URL   (reserved — REST dispatch ignores it)"
 
 # ── 2. aif-handoff reachability ───────────────────────────────────────────────
 hdr "2. aif-handoff reachability"
-if curl -sS -m 2 -o /dev/null -w '%{http_code}' "$AIF_URL/health" 2>/dev/null | grep -q '^2'; then
+if grep -q '^2' <<<"$(curl -sS -m 2 -o /dev/null -w '%{http_code}' "$AIF_URL/health" 2>/dev/null)"; then
   pass "$AIF_URL/health → 2xx (REST up)"
 else
   fail "$AIF_URL/health unreachable — start aif-handoff (docker compose up -d)"
@@ -114,18 +114,18 @@ else
   # dispatch.ts prints additionalContext JSON on success; taskId is in the message.
   TASK_ID="$(printf '%s' "$DISPATCH_OUT" | grep -oE 'taskId=[0-9a-fA-F-]{36}' | head -1 | sed 's/taskId=//')"
 
-  if printf '%s' "$DISPATCH_OUT" | grep -q 'Dispatched to aif-handoff'; then
+  if grep -q 'Dispatched to aif-handoff' <<<"$DISPATCH_OUT"; then
     pass "dispatched to aif-handoff (taskId=$TASK_ID) — full chain reached plan_ready"
     if [[ -n "$TASK_ID" ]]; then
       STATUS_OUT="$(runner "$AWAIT_TS" "$TASK_ID" --once 2>/dev/null || true)"
       pass "status read-back: $STATUS_OUT"
     fi
-  elif printf '%s' "$DISPATCH_ERR" | grep -qi 'dirty_worktree\|Branch isolation'; then
+  elif grep -qi 'dirty_worktree\|Branch isolation' <<<"$DISPATCH_ERR"; then
     # REST mechanics reached the server (create+plan+events) and rolled back, but
     # the autonomous path did NOT complete — that is a real "not ready" result,
     # not a pass. Actionable: clean the target worktree.
     fail "blocked by aif-handoff's clean-worktree guard — autonomous path did NOT complete (REST mechanics reached the server; half-created task was rolled back; dispatch fell back to Manual). FIX: clean the target worktree (commit/stash/gitignore), then re-run."
-  elif printf '%s' "$DISPATCH_OUT" | grep -q 'ManualBackend'; then
+  elif grep -q 'ManualBackend' <<<"$DISPATCH_OUT"; then
     fail "dispatch fell back to ManualBackend (aif-handoff unreachable or PROJECT_ID wrong). stderr:"
     printf '%s\n' "$DISPATCH_ERR" | sed 's/^/      /'
   else

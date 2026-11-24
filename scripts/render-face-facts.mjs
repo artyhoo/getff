@@ -171,7 +171,7 @@ function deriveFirstSteps(root) {
   const rel = 'packages/core/templates/shared/first-steps.source.json';
   const raw = JSON.parse(readSource(root, rel, 'the first-steps SSOT'));
   log('firstSteps: sequences + renders copied verbatim from', rel);
-  return { source: rel, renders: raw.renders, sequences: raw.sequences };
+  return { source: rel, renders: raw.renders, sequences: raw.sequences, toolchainLanes: raw.toolchainLanes };
 }
 
 // ── rosters: the D29 family JSON, READ, never re-derived (§7) ───────────────────────────────
@@ -280,8 +280,8 @@ function deriveEnforcementOutcomes() {
   log(`enforcementOutcomes: ${nodes.length} demo nodes × ${outcomesByBackend.size} backends (live facts)`);
   return {
     source: [
-      'AGENTS.md:78',
-      'AGENTS.md:98',
+      'AGENTS.md:79',
+      'AGENTS.md:99',
       'packages/core/composition/demo/root-agents-demo.ts:133',
     ],
     nodes: out,

@@ -275,7 +275,7 @@ describe('resolveCtxForRoot — adapter is invoked on validateResearchPlan (W2 i
 // (`main().catch(... process.exit(1))`) — so the FF2011 throw below IS the spec's
 // "refused exit 1 with the provenance error", without spawning a process.
 //
-// Retrofit gap this closes: FF2011 (allowlist-resolver.ts:313) had ZERO
+// Retrofit gap this closes: FF2011 (allowlist-resolver.ts:330) had ZERO
 // behavioural coverage in the entire research suite — the exact "dep authorized
 // but URL poisoned" attack (attacker-substituted provenance URL against a
 // legitimately-derived Tier-1 host set) was caught by no test.

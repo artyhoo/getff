@@ -1,0 +1,26 @@
+{
+  "description": "Verdict vector of principle 29's matcher (lineIsViolation) over the tracked BROAD kickoff corpus — .claude/orchestrator-prompts/**/kickoff*.md, basename ^kickoff.*\\.md$, any depth (430 files at capture, vs the 352 the narrow */kickoff.md sweep reaches). Captured with the D6-NARROWED matcher (plain-words-recap-v2 S5 commit B) — the narrowed predicate fires on kickoffs that PRESCRIBE auto-launch of a stage's execution; reading/review tasks and third-person teaching prose pass. Every later flip is a red test whose fix is a reviewed diff of this file — never a silent pass, never a PR-body listing. Values are 1-based violating line numbers per file; files with zero violations are absent. Flip record vs the pre-narrowing snapshot (committed 599aad09bd, vector {kickoff-s5.md:[205]}): exactly ONE flip — kickoff-s5.md:205 FIRE→PASS, adjudicated FALSE POSITIVE of the pre-narrowing spelling (third-person teaching prose stating the gate's own contract in that kickoff's §5, not a directive to any executing agent; the imperative write-worker prescription class still fires per the paired-positive suite). The pre-narrowing RED run's flip list — every entry with its per-entry verdict — ships COMMITTED in the preNarrowingRedRun block below, so the kickoff-s5 §9 check («checkable, and check it») is runnable at review time, BEFORE the PR exists: the `pre-narrowing RED run record is re-derivable` arm in 29-worker-dispatch-channel.test.ts re-derives the flip list mechanically — the committed preNarrowingVector replayed through the recorded flips must equal the pinned post-adjudication commit's vector; the S5 PR body «Kickoff §9 falsifiers» §2 reproduces it verbatim at egress.",
+  "captured": "2026-10-04",
+  "capturedAtCommit": "post-narrowing (S5 commit B; pre-narrowing capture at 599aad09bddcbea7eca9734547e0926c280f8abc; pins re-pointed at harvest 2026-10-04 — the branch was rebuilt by cherry-pick onto the staging tip and the original authoring SHAs are unreachable from any fresh clone; re-point finished 2026-10-05 — the pre-narrowing vector ships committed inline below and the post-adjudication pin moved to the S5 squash commit, because squash-merge + branch deletion made BOTH original capture SHAs unreachable from every fresh clone, reding the re-derivation arm on every open PR)",
+  "glob": ".claude/orchestrator-prompts/**/kickoff*.md (tracked only)",
+  "corpusSize": 430,
+  "regenerate": "SNAPSHOT_MODE=capture npx vitest run packages/core/principles/29-worker-dispatch-channel.test.ts",
+  "preNarrowingRedRun": {
+    "preNarrowingVector": {
+      ".claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s5.md": [205]
+    },
+    "postAdjudicationCommit": "1b390629d4806e9378989533c7a1501dd4c08b08",
+    "corpusSize": 430,
+    "flips": [
+      {
+        "file": ".claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s5.md",
+        "snapshotLines": [205],
+        "flip": "FIRE→PASS",
+        "verdict": "false positive — kickoff-s5.md:205 is that kickoff's own §5 teaching text stating the gate's contract in third person («…a kickoff prescribing Agent-tool dispatch of a WRITE worker without the words…»), not a directive to any executing agent; the pre-narrowing spelling lacked a prescription clause. The imperative write-prescription class still fires — proven by the §8 paired positive.",
+        "adjudicatedInCommit": "1b390629d4806e9378989533c7a1501dd4c08b08"
+      }
+    ],
+    "carriedIn": "this committed block (review-time checkable pre-PR — review_gate 44efbc21bc61) + the S5 PR body «Kickoff §9 falsifiers» §2 at egress; mechanically re-derived — the committed preNarrowingVector + the recorded flips must replay to the pinned post-adjudication commit's vector — by the re-derivation arm in 29-worker-dispatch-channel.test.ts"
+  },
+  "vector": {}
+}

@@ -1,0 +1,81 @@
+Аудит завершён. Отчёт (артефакт — на английском, по языковой дисциплине):
+
+---
+
+## Preflight receipts
+
+- **Resolved repo root:** `/Users/art/.codex/worktrees/docs-form-auditor-runtime-audit/rules-as-tests-aif` (`git rev-parse --show-toplevel`, exit 0)
+- **Native entry:** `.agents/roles/docs-form-auditor.md` (loaded in full)
+- **Canonical role:** `.agents/roles/docs-form-auditor.md`
+- **Criteria card (as supplied, read in full):** `.agents/procedures/docs-author/references/criteria-card.md`
+- **Supporting registries read:** `.agents/procedures/docs-author/references/page-kinds.md`, `docs/site-quality/calibration.md`, `docs/site/nav.json`
+
+## Population
+
+1 dispatched page, kind `guide`: `docs/site/guides/runtime-audit-adverse.md`. Gold-page review point → every gold page read, no sampling. Note: `docs/site/guides/` physically holds 3 `.md` pages; the other 2 were not dispatched and were not audited.
+
+## Sample
+
+Full population (1 of 1), no stratification needed. Coverage statement: findings below hold for 1 of 1 dispatched pages — not a clean bill for the `guide` kind.
+
+## Numbers
+
+Command (cwd = resolved root, run separately from discovery):
+`node scripts/docs-check.mjs --strict docs/site/guides/runtime-audit-adverse.md`
+**Exit 1**, stderr empty. Output verbatim:
+
+```
+docs-check: severity strict — pages 1, prose 0, skipped 0
+  ✗ docs/site/guides/runtime-audit-adverse.md:1 [docs-check.skeleton] missing required section `## Verify` for kind `guide` (C12)
+  ✗ (vale) [docs-check.tool] vale failed (rc=?) — a crashed gate is never read as clean:
+docs-check: FAIL — 2 error(s), 0 suggestion(s)
+```
+
+Classification: **1 page error** (`docs-check.skeleton`) + **1 tool error** (`docs-check.tool` — the Vale run crashed inside the gate, rc not captured). `skipped 0` → lychee (C2 gate half) and the C13 frontmatter gate ran clean within this invocation. Because Vale crashed, the **`Vale.Spelling` (C4 gate half) and `getff.Names` (C10 gate half) results are unavailable** — unassessed, not clean.
+
+Readability receipt (separate prescribed metric): `vale ls-metrics docs/site/guides/runtime-audit-adverse.md`, **exit 0** → FRE **95.15**, FK **1.17** (19 words, 4 sentences). Band (calibrated, gold record 2026-09-21 in `docs/site-quality/calibration.md:51,72`): FRE 84.1–91.3, FK ≤ 4.7. FRE **above band max** → **MINOR note only**, never a gate. FK in band.
+
+## Cards
+
+**`docs/site/guides/runtime-audit-adverse.md` (kind: guide)**
+
+| # | Verdict | Evidence |
+|---|---|---|
+| C1 | PASS | Title states a goal-form action `runtime-audit-adverse.md:9` (`# Check the sample`); page sits in the `guides/` dir its kind occupies. Weakness (referent «the sample» never defined) is judged under C3. |
+| C2 | FAIL | Gate half: lychee ran clean (page contains zero links). JUDGE half: `docs/site/nav.json:40-42` — the Guides tab links only `guides/add-design-and-review-skills.md`; this page is absent from the fixed nav place. **Failure-scenario:** a reader browsing the site's Guides tab never discovers this page — the procedure is reachable only by a bare URL. |
+| C3 | FAIL | `runtime-audit-adverse.md:11` — «You can check the sample to see a clear result.» names no artifact and no problem; «the sample» is undefined at this point and never defined later. **Failure-scenario:** the reader cannot decide whether the page applies to them, because neither the title nor the first paragraph says what is being checked or what a «clear result» would demonstrate. |
+| C4 | SPLIT | JUDGE half PASS: second person (`:11`), short sentences, no unexplained acronym. GATE half (`Vale.Spelling`) **unassessed** — Vale crashed (`docs-check.tool`, see Numbers). Metric: FRE 95.15 out of band (MINOR), FK 1.17 in band. |
+| C5 | PASS | Common path first (`## Steps` `:17`), departures after (`## Variations` `:21`); no callouts, so none are misused. |
+| C6 | FAIL | `runtime-audit-adverse.md:19` — step «Run `echo sample`» is copy-ready but shows no output (form half; truth-at-pin left to the claims auditor). **Failure-scenario:** the reader runs the command and has no pasted output to compare against, so a wrong or empty result is indistinguishable from success. |
+| C7 | PASS | The example appears exactly once (`:19`); no other page's example is pasted here. |
+| C8 | N/A | Truth-at-pin half is the claims auditor's (fact ban). Anchor half: the page carries no anchors, so none can dangle. |
+| C9 | FAIL | No limit or non-goal anywhere on the page (`:9-23`). **Failure-scenario:** the reader assumes «check the sample» verifies something about their installation, when nothing on the page states what the check does and does not prove. |
+| C10 | SPLIT | JUDGE half PASS: no glossary term is used, so no first-mention link or forbidden synonym arises. GATE half (`getff.Names`) **unassessed** — same Vale crash. |
+| C11 | PASS (per gate silence) | The `--strict` invocation reported no twin/llms error for this page (2 errors, both classified above). Caveat: the page is untracked (below), so the twin contract's state at a pin is not attestable beyond this run. |
+| C12 | FAIL | Gate: `docs-check.skeleton` at `:1` — `## Verify` missing for kind `guide` (required order in `page-kinds.md:41-46`: Prerequisites, Steps, Verify, Variations). JUDGE order half of present sections is correct. **Failure-scenario:** the page ends at Variations with no verification step — a reader who completed Steps has no way to confirm the procedure did anything. |
+| C13 | PASS | `runtime-audit-adverse.md:2-6` — `title`, `description`, `kind: guide` (registered value, `page-kinds.md:40`), `sources:` present; gate `docs-check.frontmatter` clean. |
+
+Unassessed rows are C4-gate and C10-gate (Vale crash) — recorded here, not as ordinary `N/A`.
+
+## Trailer diff
+
+Not possible. `git log --format=%B -- docs/site/guides/runtime-audit-adverse.md` returns **empty**: the file is **untracked** (`git status --porcelain` → `??`). No commit → no `Docs-card:` trailer → the writer's self-filled card does not exist as a repo artifact. Recorded as a process defect; no diff rows.
+
+## Patterns
+
+No SYSTEMIC classification is available from this run (1 page — the ≥2-pages-of-one-kind bar is unreachable for the audited population). One **SYSTEMIC-suspect observation outside the population**: `docs/site/guides/check-your-installed-hooks.md` is likewise absent from the nav Guides tab (`nav.json:40-42` lists 1 of 3 physical guides) — the «page exists in the directory, missing from the fixed nav place» shape already spans 2 pages of kind `guide`. All audited FAILs (C2 judge-half, C3, C6, C9, C12) are **LOCAL** to this page.
+
+## Card gaps
+
+- No criterion names the shape «title/first paragraph uses an undefined referent («the sample»)» — C3 catches it here only because the benefit is also vacuous; a page with a defined artifact but an unexplained *why* could slip C1+C3 both.
+- Route to claims auditor (one line, no verdict): the page asserts «You can check the sample to see a clear result» (`:11`) and prescribes `echo sample` (`:19`) — whether that constitutes any real verification is a truth question outside this role.
+
+## Overall
+
+**STOP.**
+
+Precedence per output grammar: a required gate (Vale) **crashed** mid-run (`docs-check.tool`), leaving applicable FORM checks (C4 spelling gate, C10 name-class gate) unassessed — a STOP condition regardless of page findings. Independently proven page failures are retained above in Cards: **C2, C3, C6, C9, C12, each with a Failure-scenario** (would have forced REVISE on their own). Additional STOP-context facts: the page is untracked (no `Docs-card:` trailer possible), and FRE 95.15 sits above the calibrated band (MINOR note only). No helper diagnosis or repair was attempted, per the runtime preflight contract; the Vale crash belongs to the helper's owner. Budget note: this is round 0 of the 2-REVISE budget — unused, since STOP preempts REVISE.
+
+---
+
+Кратко по-русски: вердикт **STOP** — обязательный гейт Vale упал внутри `docs-check` (это инфраструктурный отказ, не чистый результат), поэтому половины гейтов C4/C10 остались непроверенными. Пять доказанных page-FAIL'ов (C2 nav, C3 пустое «why», C6 вывод не показан, C9 нет limits, C12 нет `## Verify`) зафиксированы в Cards со scenario. Плюс: файл неотслеживаемый git'ом — `Docs-card:` трейлера не существует в принципе. Ничего не правил, агентов не порождал.
